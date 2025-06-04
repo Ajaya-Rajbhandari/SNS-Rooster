@@ -13,20 +13,6 @@ class EmployeeDashboardScreen extends StatefulWidget {
 }
 
 class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
-  // int _selectedIndex = 0; // New: To manage the selected tab
-  // static final List<Widget> _widgetOptions = <Widget>[
-  //   const TimesheetScreen(), // Index 0: Timesheet
-  //   const AttendanceScreen(), // Index 1: Attendance
-  //   const NotificationScreen(), // Index 2: Notification
-  //   const ProfileScreen(), // Index 3: Profile
-  // ];
-
-  // void _onItemTapped(int index) {
-  //   setState(() {
-  //     _selectedIndex = index;
-  //   });
-  // }
-
   String _currentStatus = 'Clocked Out'; // Initial status
   bool _isClockedIn = false;
   bool _isOnBreak = false;
@@ -176,7 +162,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
               title: const Text('Dashboard'),
               onTap: () {
                 Navigator.pop(context); // Close the drawer
-                // _onItemTapped(0); // Navigate to dashboard
                 Navigator.pushNamed(context, '/employee_dashboard');
               },
             ),
@@ -185,7 +170,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
               title: const Text('Timesheet'),
               onTap: () {
                 Navigator.pop(context); // Close the drawer first
-                // _onItemTapped(1); // Navigate to Timesheet
                 Navigator.pushNamed(context, '/timesheet');
               },
             ),
@@ -205,7 +189,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
               title: const Text('Attendance'),
               onTap: () {
                 Navigator.pop(context); // Close the drawer first
-                // _onItemTapped(2); // Navigate to Attendance
                 Navigator.pushNamed(context, '/attendance');
               },
             ),
@@ -214,7 +197,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
               title: const Text('Notifications'),
               onTap: () {
                 Navigator.pop(context); // Close the drawer first
-                // _onItemTapped(3); // Navigate to Notifications
                 Navigator.pushNamed(context, '/notification');
               },
             ),
@@ -223,7 +205,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
               title: const Text('Profile'),
               onTap: () {
                 Navigator.pop(context); // Close the drawer first
-                // _onItemTapped(4); // Navigate to Profile
                 Navigator.pushNamed(context, '/profile');
               },
             ),
@@ -252,8 +233,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // _widgetOptions.elementAt(_selectedIndex), // Display selected screen
-            // const SizedBox(height: 20),
             Text(
               'Welcome Back,',
               style: Theme.of(context).textTheme.headlineSmall,
@@ -367,7 +346,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                 _buildPerformanceMetric(
                   context,
                   'Attendance',
-                  '97%',
+                  '98%',
                   Icons.check_circle_outline,
                 ),
                 _buildPerformanceMetric(
@@ -426,7 +405,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                     context,
                     'Timesheet',
                     Icons.access_time,
-                    () {},
+                    () => Navigator.pushNamed(context, '/timesheet'),
                   ),
                 ),
                 Card(
@@ -457,201 +436,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.access_time),
-            label: 'Timesheet',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.check_circle_outline),
-            label: 'Attendance',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications_none),
-            label: 'Notification',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Theme.of(context).primaryColor,
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed, // Ensures all labels are visible
-      ),
-    );
-  }
-
-  Widget _buildDashboardBody(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Welcome, John Doe!',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 20),
-          // Current Status Card
-          Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Current Status:',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        _currentStatus,
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(
-                              color: _currentStatus == 'On Duty'
-                                  ? Colors.green
-                                  : _currentStatus == 'On Break'
-                                  ? Colors.orange
-                                  : Colors.red,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                    ],
-                  ),
-                  Column(
-                    children: [
-                      _buildQuickActionButton(
-                        icon: _isClockedIn ? Icons.logout : Icons.login,
-                        label: _isClockedIn ? 'Clock Out' : 'Clock In',
-                        onPressed: _toggleClockIn,
-                      ),
-                      if (_isClockedIn) ...[
-                        const SizedBox(height: 10),
-                        _buildQuickActionButton(
-                          icon: _isOnBreak ? Icons.play_arrow : Icons.pause,
-                          label: _isOnBreak ? 'End Break' : 'Take Break',
-                          onPressed: _toggleBreak,
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          // Quick Actions Section
-          Text(
-            'Quick Actions',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildBottomActionButton(
-                context,
-                'Timesheet',
-                Icons.access_time,
-                () => _onItemTapped(1), // Use _onItemTapped for Timesheet
-              ),
-              _buildBottomActionButton(
-                context,
-                'Leave Request',
-                Icons.calendar_today,
-                () => Navigator.pushNamed(context, '/leave_request'),
-              ),
-              _buildBottomActionButton(
-                context,
-                'Attendance',
-                Icons.check_circle_outline,
-                () => _onItemTapped(2), // Use _onItemTapped for Attendance
-              ),
-              _buildBottomActionButton(
-                context,
-                'Notification',
-                Icons.notifications_none,
-                () => _onItemTapped(3), // Use _onItemTapped for Notification
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          // Performance Metrics Section
-          Text(
-            'Your Performance',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildPerformanceMetric(
-                context,
-                'Hours Worked',
-                '160h',
-                Icons.hourglass_full,
-              ),
-              _buildPerformanceMetric(
-                context,
-                'Leaves Taken',
-                '5',
-                Icons.event_busy,
-              ),
-              _buildPerformanceMetric(
-                context,
-                'Attendance Rate',
-                '95%',
-                Icons.check_circle,
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          // Recent Activity Section
-          Text(
-            'Recent Activity',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 10),
-          Card(
-            elevation: 2,
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.info_outline),
-                  title: const Text('Clocked In: 09:00 AM'),
-                  subtitle: Text(
-                    'Today, ${DateTime.now().month}/${DateTime.now().day}',
-                  ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.info_outline),
-                  title: const Text('Clocked Out: 06:00 PM'),
-                  subtitle: Text(
-                    'Yesterday, ${DateTime.now().month}/${DateTime.now().day - 1}',
-                  ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.info_outline),
-                  title: const Text('Leave Approved: Annual Leave'),
-                  subtitle: Text('2 days ago'),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
