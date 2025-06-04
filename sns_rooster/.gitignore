@@ -1,0 +1,44 @@
+# Miscellaneous
+# Flutter/Dart specific
+.dart_tool/
+.flutter-plugins/
+.flutter-plugins-dependencies/
+.packages
+.vscode/
+build/
+*.iml
+*.lock
+*.log
+
+# IDEs and other tools
+.idea/
+.DS_Store
+Thumbs.db
+
+# Android specific
+android/local.properties
+android/.gradle/
+android/build/
+android/**/*.iml
+
+# iOS specific
+ios/.symlinks/
+ios/Flutter/.last_build_id
+ios/Flutter/.ios_symbols_cache
+ios/Pods/
+
+# macOS specific
+macos/Flutter/ephemeral/
+
+# Windows specific
+windows/flutter/ephemeral/
+
+# Linux specific
+linux/flutter/ephemeral/
+
+# Web specific
+web/flutter_bootstrap.js
+web/index.html.old
+
+# Generated files
+lib/generated_plugin_registrant.dart
