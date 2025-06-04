@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -19,6 +20,7 @@ class ProfileScreen extends StatelessWidget {
             );
           },
         ),
+
         title: Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
@@ -29,86 +31,104 @@ class ProfileScreen extends StatelessWidget {
           ],
         ),
       ),
+
       drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: <Widget>[
-            DrawerHeader(
-              decoration: BoxDecoration(color: Theme.of(context).primaryColor),
-              child: const Text(
-                'SNS HR', // Or your app name
-                style: TextStyle(color: Colors.white, fontSize: 24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: <Widget>[
+              DrawerHeader(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor,
+                ),
+                child: const Text(
+                  'SNS HR', // Or your app name
+                  style: TextStyle(color: Colors.white, fontSize: 24),
+                ),
               ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.dashboard),
-              title: const Text('Dashboard'),
-              onTap: () {
-                Navigator.pop(context); // Close the drawer
-                Navigator.pushNamed(context, '/employee_dashboard');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.access_time),
-              title: const Text('Timesheet'),
-              onTap: () {
-                Navigator.pop(context); // Close the drawer first
-                Navigator.pushNamed(context, '/timesheet');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.calendar_today),
-              title: const Text('Leave'),
-              onTap: () {
-                Navigator.pop(context); // Close the drawer first
-                Navigator.pushNamed(
-                  context,
-                  '/leave_request',
-                ); // Leave Request is not in bottom nav
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.check_circle_outline),
-              title: const Text('Attendance'),
-              onTap: () {
-                Navigator.pop(context); // Close the drawer first
-                Navigator.pushNamed(context, '/attendance');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.notifications_none),
-              title: const Text('Notifications'),
-              onTap: () {
-                Navigator.pop(context); // Close the drawer first
-                Navigator.pushNamed(context, '/notification');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: const Text('Profile'),
-              onTap: () {
-                Navigator.pop(context); // Close the drawer first
-                Navigator.pushNamed(context, '/profile');
-              },
-            ),
-            const Divider(), // Add a divider before logout
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.redAccent),
-              title: const Text(
-                'Logout',
-                style: TextStyle(color: Colors.redAccent),
+
+              ListTile(
+                leading: const Icon(Icons.dashboard),
+                title: const Text('Dashboard'),
+                onTap: () {
+                  Navigator.pop(context); // Close the drawer
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/dashboard',
+                    (route) => false,
+                  );
+                },
               ),
-              onTap: () {
-                Navigator.pop(context); // Close the drawer
-                // Implement logout logic here
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  '/',
-                  (route) => false,
-                );
-              },
-            ),
-          ],
+
+              ListTile(
+                leading: const Icon(Icons.access_time),
+                title: const Text('Timesheet'),
+                onTap: () {
+                  Navigator.pop(context); // Close the drawer first
+                  Navigator.pushNamed(context, '/timesheet');
+                },
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.calendar_today),
+                title: const Text('Leave'),
+                onTap: () {
+                  Navigator.pop(context); // Close the drawer first
+                  Navigator.pushNamed(
+                    context,
+                    '/leave_request',
+                  ); // Leave Request is not in bottom nav
+                },
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.check_circle_outline),
+                title: const Text('Attendance'),
+                onTap: () {
+                  Navigator.pop(context); // Close the drawer first
+                  Navigator.pushNamed(context, '/attendance');
+                },
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.notifications_none),
+                title: const Text('Notifications'),
+                onTap: () {
+                  Navigator.pop(context); // Close the drawer first
+                  Navigator.pushNamed(context, '/notification');
+                },
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: const Text('Profile'),
+                onTap: () {
+                  Navigator.pop(context); // Close the drawer first
+                  Navigator.pushNamed(context, '/profile');
+                },
+              ),
+
+              const Divider(), // Add a divider before logout
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.redAccent),
+                title: const Text(
+                  'Logout',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
+
+                onTap: () {
+                  Navigator.pop(context); // Close the drawer
+                  // Implement logout logic here
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/',
+                    (route) => false,
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
       body: SingleChildScrollView(
@@ -116,12 +136,14 @@ class ProfileScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               radius: 60,
               backgroundImage: AssetImage(
                 'assets/images/profile_placeholder.png',
-              ), // Placeholder image
+              ),
+              // Placeholder image
             ),
+
             const SizedBox(height: 16.0),
             Text('John Doe', style: Theme.of(context).textTheme.headlineSmall),
             const Text('Software Engineer'),
@@ -137,11 +159,13 @@ class ProfileScreen extends StatelessWidget {
                       title: Text('Email'),
                       subtitle: Text('john.doe@example.com'),
                     ),
+
                     ListTile(
                       leading: Icon(Icons.phone),
                       title: Text('Phone'),
                       subtitle: Text('+1 123-456-7890'),
                     ),
+
                     ListTile(
                       leading: Icon(Icons.location_on),
                       title: Text('Address'),
@@ -151,6 +175,7 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ),
             ),
+
             const SizedBox(height: 24.0),
             ElevatedButton(
               onPressed: () {
@@ -160,6 +185,20 @@ class ProfileScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.blueAccent),
+          const SizedBox(width: 10),
+          Text(text, style: TextStyle(fontSize: 16)),
+        ],
       ),
     );
   }

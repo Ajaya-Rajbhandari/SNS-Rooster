@@ -52,7 +52,7 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
               title: const Text('Dashboard'),
               onTap: () {
                 Navigator.pop(context); // Close the drawer
-                Navigator.pushNamed(context, '/employee_dashboard');
+                Navigator.pushNamed(context, '/dashboard');
               },
             ),
             ListTile(
