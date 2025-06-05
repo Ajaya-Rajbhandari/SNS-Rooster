@@ -38,7 +38,7 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
         backgroundColor: theme.primaryColor,
       ),
       drawer: const AppNavigationDrawer(),
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.surface,
       body: Column(
         children: [
           Container(
@@ -63,7 +63,7 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
                       'View By:',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onBackground,
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
                     DropdownButton<CalendarFormat>(
@@ -248,6 +248,8 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
 }
 
 class TimesheetSummary extends StatelessWidget {
+  const TimesheetSummary({super.key});
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -290,7 +292,7 @@ class _SummaryTile extends StatelessWidget {
 
 class TimesheetRow extends StatelessWidget {
   final Map<String, dynamic> entry;
-  const TimesheetRow({required this.entry});
+  const TimesheetRow({super.key, required this.entry});
 
   @override
   Widget build(BuildContext context) {

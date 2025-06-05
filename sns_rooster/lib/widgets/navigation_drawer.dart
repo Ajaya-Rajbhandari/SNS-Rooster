@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 class AppNavigationDrawer extends StatelessWidget {
-  const AppNavigationDrawer({Key? key}) : super(key: key);
+  const AppNavigationDrawer({super.key});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    Widget _buildNavTile(BuildContext context, {
+    Widget buildNavTile(BuildContext context, {
       required IconData icon,
       required String label,
       required String route,
@@ -59,7 +59,7 @@ class AppNavigationDrawer extends StatelessWidget {
 
     return Drawer(
       child: Container(
-        color: theme.colorScheme.background,
+        color: theme.colorScheme.surface,
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
@@ -113,14 +113,14 @@ class AppNavigationDrawer extends StatelessWidget {
                 ],
               ),
             ),
-            _buildNavTile(context, icon: Icons.dashboard, label: 'Dashboard', route: '/'),
-            _buildNavTile(context, icon: Icons.access_time, label: 'Timesheet', route: '/timesheet'),
-            _buildNavTile(context, icon: Icons.calendar_today, label: 'Leave', route: '/leave_request'),
-            _buildNavTile(context, icon: Icons.check_circle_outline, label: 'Attendance', route: '/attendance'),
-            _buildNavTile(context, icon: Icons.notifications_none, label: 'Notifications', route: '/notification'),
-            _buildNavTile(context, icon: Icons.person_outline, label: 'Profile', route: '/profile'),
+            buildNavTile(context, icon: Icons.dashboard, label: 'Dashboard', route: '/'),
+            buildNavTile(context, icon: Icons.access_time, label: 'Timesheet', route: '/timesheet'),
+            buildNavTile(context, icon: Icons.calendar_today, label: 'Leave', route: '/leave_request'),
+            buildNavTile(context, icon: Icons.check_circle_outline, label: 'Attendance', route: '/attendance'),
+            buildNavTile(context, icon: Icons.notifications_none, label: 'Notifications', route: '/notification'),
+            buildNavTile(context, icon: Icons.person_outline, label: 'Profile', route: '/profile'),
             const Divider(),
-            _buildNavTile(context, icon: Icons.support_agent, label: 'Support', route: '/support'),
+            buildNavTile(context, icon: Icons.support_agent, label: 'Support', route: '/support'),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.redAccent),
               title: const Text(

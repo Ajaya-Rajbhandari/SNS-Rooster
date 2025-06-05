@@ -7,12 +7,12 @@ class UserInfoHeader extends StatelessWidget {
   final VoidCallback onNotificationTap;
 
   const UserInfoHeader({
-    Key? key,
+    super.key,
     required this.userName,
     required this.userRole,
     required this.userAvatar,
     required this.onNotificationTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
