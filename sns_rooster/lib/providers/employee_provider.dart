@@ -1,4 +1,5 @@
 /// Provider for employee dashboard state (for future use with Provider/Riverpod)
+library;
 import 'package:flutter/material.dart';
 import '../models/employee.dart';
 

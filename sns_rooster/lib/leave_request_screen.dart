@@ -148,7 +148,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                 showCancel: leave.status == 'Pending',
                 showView: leave.status != 'Pending',
               );
-            }).toList(),
+            }),
           ],
         ),
       ),

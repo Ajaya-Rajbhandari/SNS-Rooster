@@ -9,8 +9,8 @@ class LeaveRequestTile extends StatelessWidget {
     required this.type,
     required this.date,
     required this.status,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

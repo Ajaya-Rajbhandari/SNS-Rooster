@@ -7,12 +7,12 @@ class QuickActions extends StatelessWidget {
   final void Function(String) onActionTap;
 
   const QuickActions({
-    Key? key,
+    super.key,
     required this.actions,
     required this.searchQuery,
     required this.onSearchChanged,
     required this.onActionTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

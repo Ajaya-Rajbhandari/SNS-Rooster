@@ -25,12 +25,10 @@ class MyApp extends StatelessWidget {
           primary: Color(0xFF007BFF), // A shade of blue
           secondary: Color(0xFFFFD700), // A shade of yellow
           surface: Colors.white,
-          background: Colors.white,
           error: Colors.red,
           onPrimary: Colors.white,
           onSecondary: Colors.black,
           onSurface: Colors.black,
-          onBackground: Colors.black,
           onError: Colors.white,
         ),
         fontFamily: 'Product Sans', // Using Product Sans as the primary font

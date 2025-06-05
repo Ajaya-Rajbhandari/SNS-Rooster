@@ -14,7 +14,7 @@ import '../../widgets/dashboard/leave_request_tile.dart';
 import '../../widgets/dashboard/dashboard_action_button.dart';
 
 class EmployeeDashboardScreen extends StatefulWidget {
-  const EmployeeDashboardScreen({Key? key}) : super(key: key);
+  const EmployeeDashboardScreen({super.key});
 
   @override
   State<EmployeeDashboardScreen> createState() => _EmployeeDashboardScreenState();
@@ -158,7 +158,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
       ),
       drawer: Drawer(
         child: Container(
-          color: theme.colorScheme.background,
+          color: theme.colorScheme.surface,
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
@@ -221,7 +221,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
           ),
         ),
       ),
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.surface,
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 18.0), // More vertical padding
