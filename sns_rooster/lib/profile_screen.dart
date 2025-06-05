@@ -189,17 +189,4 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: Colors.blueAccent),
-          const SizedBox(width: 10),
-          Text(text, style: TextStyle(fontSize: 16)),
-        ],
-      ),
-    );
-  }
 }
