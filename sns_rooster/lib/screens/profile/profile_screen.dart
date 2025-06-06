@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'widgets/recent_activity_section.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -21,6 +22,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String employeeId = 'EMP123456';
   String dateOfJoining = '01 Jan 2022';
   String department = 'Development';
+
+  List<String> _recentActivities = [
+    'Logged in',
+    'Updated profile picture',
+    'Submitted leave request',
+    'Checked notifications',
+  ];
+
 
   Future<void> _pickProfileImage() async {
     final picker = ImagePicker();
@@ -88,12 +97,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
         employeeId = updatedProfile['employeeId'] ?? employeeId;
         dateOfJoining = updatedProfile['dateOfJoining'] ?? dateOfJoining;
         department = updatedProfile['department'] ?? department;
+
+        _recentActivities.insert(0, 'Profile updated on \${DateTime.now()}');
+        if (_recentActivities.length > 10) {
+          _recentActivities.removeLast();
+        }
       });
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Profile updated!')));
     }
   }
+
+  List<String> getRecentActivities() {
+    return _recentActivities;
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -194,6 +214,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       label: 'Department',
                       value: department,
                     ),
+            RecentActivitySection(
+              activities: _recentActivities,
+            ),
+
                   ],
                 ),
               ),
