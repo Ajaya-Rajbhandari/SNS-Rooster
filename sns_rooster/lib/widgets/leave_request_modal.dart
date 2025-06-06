@@ -6,18 +6,24 @@ class LeaveRequestModal extends StatefulWidget {
   final DateTime? initialToDate;
   final String? initialLeaveType;
   final TextEditingController reasonController;
-  final Function(DateTime fromDate, DateTime toDate, String leaveType, String reason) onSubmit;
+  final Function(
+    DateTime fromDate,
+    DateTime toDate,
+    String leaveType,
+    String reason,
+  )
+  onSubmit;
   final bool disablePastDates; // Added parameter to disable past dates
 
   const LeaveRequestModal({
-    Key? key,
+    super.key,
     this.initialFromDate,
     this.initialToDate,
     this.initialLeaveType,
     required this.reasonController,
     required this.onSubmit,
     this.disablePastDates = false, // Default value
-  }) : super(key: key);
+  });
 
   @override
   State<LeaveRequestModal> createState() => _LeaveRequestModalState();
@@ -76,13 +82,17 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
           children: [
             Text(
               'New Leave Request',
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 16),
             TextField(
               readOnly: true,
               controller: TextEditingController(
-                text: fromDate != null ? DateFormat('yyyy-MM-dd').format(fromDate!) : '',
+                text: fromDate != null
+                    ? DateFormat('yyyy-MM-dd').format(fromDate!)
+                    : '',
               ),
               decoration: InputDecoration(
                 labelText: 'From Date',
@@ -101,7 +111,9 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
             TextField(
               readOnly: true,
               controller: TextEditingController(
-                text: toDate != null ? DateFormat('yyyy-MM-dd').format(toDate!) : '',
+                text: toDate != null
+                    ? DateFormat('yyyy-MM-dd').format(toDate!)
+                    : '',
               ),
               decoration: InputDecoration(
                 labelText: 'To Date',
@@ -137,9 +149,18 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
                 ),
               ),
               items: [
-                DropdownMenuItem(value: 'Sick Leave', child: Text('Sick Leave')),
-                DropdownMenuItem(value: 'Casual Leave', child: Text('Casual Leave')),
-                DropdownMenuItem(value: 'Paid Leave', child: Text('Paid Leave')),
+                DropdownMenuItem(
+                  value: 'Sick Leave',
+                  child: Text('Sick Leave'),
+                ),
+                DropdownMenuItem(
+                  value: 'Casual Leave',
+                  child: Text('Casual Leave'),
+                ),
+                DropdownMenuItem(
+                  value: 'Paid Leave',
+                  child: Text('Paid Leave'),
+                ),
               ],
               onChanged: (value) {
                 setState(() {
@@ -191,10 +212,15 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
                   isReasonError = widget.reasonController.text.isEmpty;
                 });
 
-                if (isFromDateError || isToDateError || isLeaveTypeError || isReasonError) {
+                if (isFromDateError ||
+                    isToDateError ||
+                    isLeaveTypeError ||
+                    isReasonError) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Please fill all required fields before submitting.'),
+                      content: Text(
+                        'Please fill all required fields before submitting.',
+                      ),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -204,14 +230,21 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
                 if (toDate!.isBefore(fromDate!)) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('To Date cannot be earlier than From Date.'),
+                      content: Text(
+                        'To Date cannot be earlier than From Date.',
+                      ),
                       backgroundColor: Colors.red,
                     ),
                   );
                   return;
                 }
 
-                widget.onSubmit(fromDate!, toDate!, leaveType!, widget.reasonController.text);
+                widget.onSubmit(
+                  fromDate!,
+                  toDate!,
+                  leaveType!,
+                  widget.reasonController.text,
+                );
               },
               style: ElevatedButton.styleFrom(
                 minimumSize: Size(double.infinity, 50),
@@ -220,7 +253,10 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
               ),
               child: const Text(
                 'Submit',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 16),

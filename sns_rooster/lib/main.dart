@@ -5,7 +5,6 @@ import 'package:sns_rooster/screens/attendance/attendance_screen.dart';
 import 'package:sns_rooster/screens/notification/notification_screen.dart';
 import 'package:sns_rooster/screens/profile/profile_screen.dart';
 import 'package:sns_rooster/screens/employee/employee_dashboard_screen.dart';
-import 'package:sns_rooster/screens/admin/admin_dashboard_screen.dart';
 import 'package:sns_rooster/screens/leave/leave_request_screen.dart';
 // Make sure that LeaveRequestScreen is defined as a class in leave_request_screen.dart and exported properly.
 
@@ -85,8 +84,6 @@ class MyApp extends StatelessWidget {
       home: const SplashScreen(),
       routes: {
         '/dashboard': (context) => const EmployeeDashboardScreen(),
-        '/leave_request': (context) => const LeaveRequestScreen(),
-        // If you still get the error, check the leave_request_screen.dart file for the correct class name and update it here if needed.
         '/leave_request': (context) => const LeaveRequestScreen(),
         '/timesheet': (context) => const TimesheetScreen(),
         '/attendance': (context) => const AttendanceScreen(),
