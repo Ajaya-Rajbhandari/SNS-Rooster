@@ -1,13 +1,17 @@
 class LeaveRequest {
-  final DateTime fromDate;
-  final DateTime toDate;
+  final String id;
+  final String employeeName;
+  final DateTime startDate;
+  final DateTime endDate;
   final String leaveType;
   final String reason;
-  final String status;
+  String status;
 
   LeaveRequest({
-    required this.fromDate,
-    required this.toDate,
+    required this.id,
+    required this.employeeName,
+    required this.startDate,
+    required this.endDate,
     required this.leaveType,
     required this.reason,
     this.status = 'Pending',
@@ -15,8 +19,10 @@ class LeaveRequest {
 
   Map<String, dynamic> toJson() {
     return {
-      'fromDate': fromDate.toIso8601String(),
-      'toDate': toDate.toIso8601String(),
+      'id': id,
+      'employeeName': employeeName,
+      'startDate': startDate.toIso8601String(),
+      'endDate': endDate.toIso8601String(),
       'leaveType': leaveType,
       'reason': reason,
       'status': status,
@@ -25,8 +31,10 @@ class LeaveRequest {
 
   static LeaveRequest fromJson(Map<String, dynamic> json) {
     return LeaveRequest(
-      fromDate: DateTime.parse(json['fromDate']),
-      toDate: DateTime.parse(json['toDate']),
+      id: json['id'],
+      employeeName: json['employeeName'],
+      startDate: DateTime.parse(json['startDate']),
+      endDate: DateTime.parse(json['endDate']),
       leaveType: json['leaveType'],
       reason: json['reason'],
       status: json['status'],

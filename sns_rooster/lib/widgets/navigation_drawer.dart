@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
+import 'package:sns_rooster/providers/auth_provider.dart';
+import 'package:sns_rooster/screens/splash/splash_screen.dart';
 
 class AppNavigationDrawer extends StatelessWidget {
   const AppNavigationDrawer({super.key});
@@ -7,7 +11,8 @@ class AppNavigationDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    Widget buildNavTile(BuildContext context, {
+    Widget buildNavTile(
+      BuildContext context, {
       required IconData icon,
       required String label,
       required String route,
@@ -22,20 +27,28 @@ class AppNavigationDrawer extends StatelessWidget {
             onExit: (_) => setState(() => isHovered = false),
             child: Container(
               decoration: BoxDecoration(
-                color: isHovered ? theme.colorScheme.primary.withOpacity(0.1) : null,
+                color: isHovered
+                    ? theme.colorScheme.primary.withOpacity(0.1)
+                    : null,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: ListTile(
                 leading: Icon(
                   icon,
-                  color: isSelected || isHovered ? theme.colorScheme.primary : Colors.blueGrey,
+                  color: isSelected || isHovered
+                      ? theme.colorScheme.primary
+                      : Colors.blueGrey,
                   size: 26,
                 ),
                 title: Text(
                   label,
                   style: TextStyle(
-                    color: isSelected || isHovered ? theme.colorScheme.primary : Colors.blueGrey[900],
-                    fontWeight: isSelected || isHovered ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected || isHovered
+                        ? theme.colorScheme.primary
+                        : Colors.blueGrey[900],
+                    fontWeight: isSelected || isHovered
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                     fontSize: 16,
                   ),
                 ),
@@ -47,7 +60,8 @@ class AppNavigationDrawer extends StatelessWidget {
                     Navigator.pushNamed(context, route);
                   }
                 },
-                contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
                 horizontalTitleGap: 12,
                 minLeadingWidth: 0,
               ),
@@ -79,8 +93,12 @@ class AppNavigationDrawer extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 32,
-                    backgroundImage: AssetImage('assets/images/profile_placeholder.png'),
                     backgroundColor: Colors.white,
+                    child: SvgPicture.asset(
+                      'assets/images/profile_placeholder.png',
+                      width: 64,
+                      height: 64,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -113,14 +131,33 @@ class AppNavigationDrawer extends StatelessWidget {
                 ],
               ),
             ),
-            buildNavTile(context, icon: Icons.dashboard, label: 'Dashboard', route: '/'),
-            buildNavTile(context, icon: Icons.access_time, label: 'Timesheet', route: '/timesheet'),
-            buildNavTile(context, icon: Icons.calendar_today, label: 'Leave', route: '/leave_request'),
-            buildNavTile(context, icon: Icons.check_circle_outline, label: 'Attendance', route: '/attendance'),
-            buildNavTile(context, icon: Icons.notifications_none, label: 'Notifications', route: '/notification'),
-            buildNavTile(context, icon: Icons.person_outline, label: 'Profile', route: '/profile'),
+            buildNavTile(context,
+                icon: Icons.dashboard,
+                label: 'Dashboard',
+                route: '/employee_dashboard'),
+            buildNavTile(context,
+                icon: Icons.access_time,
+                label: 'Timesheet',
+                route: '/timesheet'),
+            buildNavTile(context,
+                icon: Icons.calendar_today,
+                label: 'Leave',
+                route: '/leave_request'),
+            buildNavTile(context,
+                icon: Icons.check_circle_outline,
+                label: 'Attendance',
+                route: '/attendance'),
+            buildNavTile(context,
+                icon: Icons.notifications_none,
+                label: 'Notifications',
+                route: '/notifications'),
+            buildNavTile(context,
+                icon: Icons.person_outline,
+                label: 'Profile',
+                route: '/profile'),
             const Divider(),
-            buildNavTile(context, icon: Icons.support_agent, label: 'Support', route: '/support'),
+            buildNavTile(context,
+                icon: Icons.support_agent, label: 'Support', route: '/support'),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.redAccent),
               title: const Text(
@@ -130,9 +167,20 @@ class AppNavigationDrawer extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+                // Use the auth provider to handle logout properly
+                final authProvider =
+                    Provider.of<AuthProvider>(context, listen: false);
+                await authProvider.logout();
+                if (context.mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const SplashScreen()),
+                    (Route<dynamic> route) => false,
+                  );
+                }
               },
             ),
           ],

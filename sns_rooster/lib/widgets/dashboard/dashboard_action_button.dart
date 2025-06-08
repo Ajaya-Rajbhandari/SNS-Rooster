@@ -3,14 +3,18 @@ import 'package:flutter/material.dart';
 class DashboardActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
-  final Color color;
-  final VoidCallback onTap;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final VoidCallback onPressed;
+  final bool loading;
 
   const DashboardActionButton({
     required this.icon,
     required this.label,
-    required this.color,
-    required this.onTap,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.onPressed,
+    this.loading = false,
     super.key,
   });
 
@@ -18,20 +22,32 @@ class DashboardActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
+      onTap: loading ? null : onPressed,
       child: Container(
-        width: 70,
-        height: 70,
+        width: 90,
+        height: 90,
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: backgroundColor,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 32),
+            if (loading)
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  color: foregroundColor,
+                  strokeWidth: 2,
+                ),
+              )
+            else
+              Icon(icon, color: foregroundColor, size: 32),
             const SizedBox(height: 8),
-            Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+            Text(label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.bold, color: foregroundColor)),
           ],
         ),
       ),

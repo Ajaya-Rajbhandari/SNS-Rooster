@@ -17,11 +17,13 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final String currentDate = DateFormat('EEEE, MMM d, yyyy').format(_selectedDate);
+    final String currentDate =
+        DateFormat('EEEE, MMM d, yyyy').format(_selectedDate);
 
     // Mock timesheet data for the selected week
     final List<Map<String, dynamic>> timesheetData = List.generate(7, (index) {
-      final date = _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1 - index));
+      final date = _selectedDate
+          .subtract(Duration(days: _selectedDate.weekday - 1 - index));
       return {
         'date': date,
         'clockIn': index == 2 ? '--' : '09:${index % 2 == 0 ? '00' : '15'} AM',
@@ -117,13 +119,15 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
               headerStyle: HeaderStyle(
                 formatButtonVisible: false,
                 titleCentered: true,
-                titleTextStyle: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold) ??
+                titleTextStyle: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold) ??
                     const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: TimesheetSummary(),
           ),
           Padding(
@@ -136,10 +140,12 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
           const SizedBox(height: 6),
           Expanded(
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               itemCount: timesheetData.length,
               separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, index) => TimesheetRow(entry: timesheetData[index]),
+              itemBuilder: (context, index) =>
+                  TimesheetRow(entry: timesheetData[index]),
             ),
           ),
         ],
@@ -168,14 +174,16 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
                       children: [
                         Text(
                           'Add Timesheet Entry',
-                          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                          style: theme.textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 16),
                         TextField(
                           decoration: InputDecoration(
                             labelText: 'Clock In Time',
                             prefixIcon: Icon(Icons.login),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -183,7 +191,8 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
                           decoration: InputDecoration(
                             labelText: 'Clock Out Time',
                             prefixIcon: Icon(Icons.logout),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -191,7 +200,8 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
                           decoration: InputDecoration(
                             labelText: 'Break Duration',
                             prefixIcon: Icon(Icons.free_breakfast),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -220,16 +230,24 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
     );
   }
 
-  Widget _buildNavTile(BuildContext context, {required IconData icon, required String label, required String route, Widget? trailing}) {
+  Widget _buildNavTile(BuildContext context,
+      {required IconData icon,
+      required String label,
+      required String route,
+      Widget? trailing}) {
     final theme = Theme.of(context);
     final isSelected = ModalRoute.of(context)?.settings.name == route;
     return ListTile(
-      leading: Icon(icon, color: isSelected ? theme.colorScheme.primary : Colors.blueGrey, size: 26),
-      title: Text(label, style: TextStyle(
-        color: isSelected ? theme.colorScheme.primary : Colors.blueGrey[900],
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        fontSize: 16,
-      )),
+      leading: Icon(icon,
+          color: isSelected ? theme.colorScheme.primary : Colors.blueGrey,
+          size: 26),
+      title: Text(label,
+          style: TextStyle(
+            color:
+                isSelected ? theme.colorScheme.primary : Colors.blueGrey[900],
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 16,
+          )),
       trailing: trailing,
       selected: isSelected,
       selectedTileColor: theme.colorScheme.primary.withOpacity(0.08),
@@ -282,9 +300,17 @@ class _SummaryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        Text(value,
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
-        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[700])),
+        Text(label,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: Colors.grey[700])),
       ],
     );
   }
@@ -314,11 +340,13 @@ class TimesheetRow extends StatelessWidget {
               children: [
                 Text(
                   '${entry['date'].day}/${entry['date'].month}',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 Text(
                   _weekday(entry['date'].weekday),
-                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: Colors.grey[600]),
                 ),
               ],
             ),
@@ -331,23 +359,32 @@ class TimesheetRow extends StatelessWidget {
                     children: [
                       Icon(Icons.login, size: 18, color: Colors.blueGrey),
                       const SizedBox(width: 4),
-                      Text('In: ${entry['clockIn']}', style: theme.textTheme.bodyMedium),
+                      Expanded(
+                          child: Text('In: ${entry['clockIn']}',
+                              style: theme.textTheme.bodyMedium)),
                       const SizedBox(width: 12),
                       Icon(Icons.logout, size: 18, color: Colors.blueGrey),
                       const SizedBox(width: 4),
-                      Text('Out: ${entry['clockOut']}', style: theme.textTheme.bodyMedium),
+                      Expanded(
+                          child: Text('Out: ${entry['clockOut']}',
+                              style: theme.textTheme.bodyMedium)),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.free_breakfast, size: 16, color: Colors.orange),
+                      Icon(Icons.free_breakfast,
+                          size: 16, color: Colors.orange),
                       const SizedBox(width: 4),
-                      Text('Break: ${entry['break']}', style: theme.textTheme.bodySmall),
+                      Expanded(
+                          child: Text('Break: ${entry['break']}',
+                              style: theme.textTheme.bodySmall)),
                       const SizedBox(width: 12),
                       Icon(Icons.timer, size: 16, color: Colors.blue),
                       const SizedBox(width: 4),
-                      Text('Total: ${entry['total']}', style: theme.textTheme.bodySmall),
+                      Expanded(
+                          child: Text('Total: ${entry['total']}',
+                              style: theme.textTheme.bodySmall)),
                     ],
                   ),
                 ],
@@ -358,7 +395,9 @@ class TimesheetRow extends StatelessWidget {
               children: [
                 Icon(Icons.circle, color: statusColor, size: 16),
                 const SizedBox(height: 2),
-                Text(entry['status'], style: theme.textTheme.bodySmall?.copyWith(color: statusColor, fontWeight: FontWeight.bold)),
+                Text(entry['status'],
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        color: statusColor, fontWeight: FontWeight.bold)),
               ],
             ),
           ],

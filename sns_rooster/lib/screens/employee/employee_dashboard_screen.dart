@@ -8,26 +8,36 @@
 // To connect to backend, use AttendanceService and Employee model.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
 import '../../models/employee.dart';
 import '../../widgets/dashboard/leave_balance_tile.dart';
 import '../../widgets/dashboard/leave_request_tile.dart';
 import '../../widgets/dashboard/dashboard_action_button.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/attendance_provider.dart';
+import '../../providers/leave_request_provider.dart'; // Import LeaveRequestProvider
+import '../../screens/splash/splash_screen.dart'; // Import SplashScreen
+import '../../widgets/dashboard/dashboard_overview_tile.dart'; // Import the new overview tile
+import 'analytics_screen.dart'; // Import AnalyticsScreen from the same directory
+import 'dart:io';
 
 class EmployeeDashboardScreen extends StatefulWidget {
   const EmployeeDashboardScreen({super.key});
 
   @override
-  State<EmployeeDashboardScreen> createState() => _EmployeeDashboardScreenState();
+  State<EmployeeDashboardScreen> createState() =>
+      _EmployeeDashboardScreenState();
 }
 
 class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
-  // Simulated employee (replace with provider or API in production)
-  final Employee employee = Employee(
-    id: '1',
-    name: 'John Doe',
-    role: 'Software Engineer',
-    avatar: 'assets/images/profile_placeholder.png',
-  );
+  // Remove simulated employee
+  // final Employee employee = Employee(
+  //   id: '1',
+  //   name: 'John Doe',
+  //   role: 'Software Engineer',
+  //   avatar: 'assets/images/profile_placeholder.png',
+  // );
 
   bool isClockedIn = false;
   bool isOnBreak = false;
@@ -45,21 +55,136 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     // Update clock every second
     Future.doWhile(() async {
       await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return false; // Stop the loop if widget is unmounted
       _now.value = DateTime.now();
-      return mounted;
+      return true;
     });
+    // Schedule the initial fetch for after the first build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _fetchInitialAttendance();
+        _fetchLeaveData(); // Fetch leave data on init
+      }
+    });
+  }
+
+  Future<void> _fetchInitialAttendance() async {
+    if (!mounted) return;
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final attendanceProvider =
+          Provider.of<AttendanceProvider>(context, listen: false);
+      final userId = authProvider.user?['_id'];
+
+      if (userId == null) {
+        print('User ID not found, cannot fetch initial attendance.');
+        return;
+      }
+
+      setState(() {
+        isLoadingClock = true;
+      });
+
+      print('Fetching initial attendance for user: $userId');
+      await attendanceProvider.fetchUserAttendance(userId);
+      print('AttendanceProvider error: ${attendanceProvider.error}');
+      print(
+          'Current attendance fetched: ${attendanceProvider.currentAttendance}');
+
+      if (!mounted) return;
+
+      final currentAttendance = attendanceProvider.currentAttendance;
+
+      if (currentAttendance != null && currentAttendance.isNotEmpty) {
+        setState(() {
+          isClockedIn = currentAttendance['checkIn'] != null &&
+              currentAttendance['checkOut'] == null;
+          if (isClockedIn) {
+            lastClockIn = DateTime.parse(currentAttendance['checkIn']);
+
+            // Check for ongoing break
+            if (currentAttendance['breaks'] != null &&
+                currentAttendance['breaks'].isNotEmpty) {
+              final lastBreak = currentAttendance['breaks'].last;
+              if (lastBreak['startTime'] != null &&
+                  lastBreak['endTime'] == null) {
+                isOnBreak = true;
+                breakStart = DateTime.parse(lastBreak['startTime']);
+              } else {
+                isOnBreak = false; // No ongoing break
+                breakStart = null;
+              }
+            } else {
+              isOnBreak = false; // No breaks recorded
+              breakStart = null;
+            }
+            // Sum total break duration from all completed breaks
+            totalBreakDuration = Duration(
+                milliseconds: currentAttendance['totalBreakDuration'] ?? 0);
+          }
+          isLoadingClock = false;
+          print(
+              'isClockedIn: $isClockedIn, lastClockIn: $lastClockIn, isOnBreak: $isOnBreak, breakStart: $breakStart, totalBreakDuration: $totalBreakDuration');
+        });
+      } else {
+        // No active attendance record found or currentAttendance is null
+        setState(() {
+          isClockedIn = false;
+          lastClockIn = null;
+          isOnBreak = false;
+          breakStart = null;
+          totalBreakDuration = Duration.zero;
+          isLoadingClock = false;
+          print(
+              'No active attendance record found or currentAttendance is null. Resetting state.');
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      print('Error fetching initial attendance: $e');
+      setState(() {
+        isLoadingClock = false;
+      });
+    }
+  }
+
+  Future<void> _fetchLeaveData() async {
+    if (!mounted) return;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final leaveProvider =
+        Provider.of<LeaveRequestProvider>(context, listen: false);
+    final userId = authProvider.user?['_id'];
+
+    if (userId == null) {
+      print('User ID not found, cannot fetch leave data.');
+      return;
+    }
+
+    try {
+      await leaveProvider.getUserLeaveRequests(userId);
+      if (!mounted) return;
+      // Data will be updated via Consumer in the build method
+    } catch (e) {
+      if (!mounted) return;
+      print('Error fetching leave data: $e');
+    }
   }
 
   @override
   void dispose() {
     _now.dispose();
+    // Cancel any active timers or subscriptions here
     super.dispose();
   }
 
   void _toggleClockInOut() async {
     if (isLoadingClock) return;
+    final attendanceProvider =
+        Provider.of<AttendanceProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
     if (isClockedIn && !isOnBreak) {
-      // Show confirmation dialog before clocking out
       final confirm = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -79,11 +204,11 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
       );
       if (confirm != true) return;
     }
+
     setState(() => isLoadingClock = true);
-    await Future.delayed(const Duration(milliseconds: 600)); // Simulate processing
-    setState(() {
+
+    try {
       if (isClockedIn) {
-        // Prevent clock out if on break
         if (isOnBreak) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -94,42 +219,195 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
           isLoadingClock = false;
           return;
         }
-        isClockedIn = false;
+        await attendanceProvider.checkOut();
+        if (attendanceProvider.error == null) {
+          setState(() {
+            isClockedIn = false;
+            lastClockIn = null;
+            isOnBreak = false; // Ensure break state is reset on clock out
+            breakStart = null;
+            totalBreakDuration = Duration.zero;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Clocked out successfully!')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    'Error clocking out: ${attendanceProvider.error.toString()}')),
+          );
+        }
       } else {
-        isClockedIn = true;
-        lastClockIn = DateTime.now();
-        isOnBreak = false;
+        await attendanceProvider.checkIn();
+        if (attendanceProvider.error == null) {
+          setState(() {
+            isClockedIn = true;
+            lastClockIn = DateTime.now(); // Set based on successful check-in
+            isOnBreak = false;
+            breakStart = null;
+            totalBreakDuration = Duration.zero;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Clocked in successfully!')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    'Error clocking in: ${attendanceProvider.error.toString()}')),
+          );
+        }
       }
-      isLoadingClock = false;
-    });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Network error: ${e.toString()}')),
+      );
+    } finally {
+      setState(() {
+        isLoadingClock = false;
+      });
+    }
   }
 
   void _toggleBreak() async {
-    if (!isClockedIn || isLoadingBreak) return;
+    if (isLoadingBreak) return;
+    final attendanceProvider =
+        Provider.of<AttendanceProvider>(context, listen: false);
+
+    print(
+        'Debug: _toggleBreak called. Current isOnBreak: $isOnBreak, breakStart: $breakStart');
+
+    if (!isClockedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please clock in before starting/ending a break.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     setState(() => isLoadingBreak = true);
-    await Future.delayed(const Duration(milliseconds: 600)); // Simulate processing
-    setState(() {
-      if (!isOnBreak) {
-        // Start break
-        breakStart = DateTime.now();
-      } else {
-        // End break and record duration
-        if (breakStart != null) {
-          totalBreakDuration += DateTime.now().difference(breakStart!);
+
+    try {
+      if (isOnBreak) {
+        print('Debug: Attempting to end break.');
+        await attendanceProvider.endBreak();
+        print(
+            'Debug: endBreak completed. Provider error: ${attendanceProvider.error}');
+        if (attendanceProvider.error == null) {
+          setState(() {
+            isOnBreak = false;
+            breakStart = null;
+            // Update totalBreakDuration from provider after successful endBreak
+            totalBreakDuration = Duration(
+                milliseconds: attendanceProvider
+                        .currentAttendance?['totalBreakDuration'] ??
+                    0);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Break ended successfully!')),
+          );
+          print(
+              'Debug: Break ended. Updated totalBreakDuration: $totalBreakDuration');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    'Error ending break: ${attendanceProvider.error.toString()}')),
+          );
+          print('Debug: Error ending break: ${attendanceProvider.error}');
         }
-        breakStart = null;
+      } else {
+        print('Debug: Attempting to start break.');
+        await attendanceProvider.startBreak();
+        print(
+            'Debug: startBreak completed. Provider error: ${attendanceProvider.error}');
+
+        if (attendanceProvider.error == null) {
+          setState(() {
+            isOnBreak = true;
+            breakStart = DateTime.now(); // Set based on successful startBreak
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Break started successfully!')),
+          );
+          print('Debug: Break started.');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    'Error starting break: ${attendanceProvider.error.toString()}')),
+          );
+          print('Debug: Error starting break: ${attendanceProvider.error}');
+        }
       }
-      isOnBreak = !isOnBreak;
-      isLoadingBreak = false;
-    });
+    } catch (e) {
+      if (!mounted) return;
+      print('Debug: Exception in _toggleBreak: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('An unexpected error occurred: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoadingBreak = false;
+        });
+      }
+    }
   }
 
-  String get breakTimeDisplay {
-    if (isOnBreak && breakStart != null) {
-      final current = DateTime.now().difference(breakStart!) + totalBreakDuration;
-      return _formatDuration(current);
+  String _getStatusDisplay() {
+    if (isOnBreak) {
+      return 'On Break';
+    } else if (isClockedIn) {
+      return 'Clocked In';
+    } else if (lastClockIn != null) {
+      return 'Clocked Out'; // Or 'Completed for today'
     } else {
-      return _formatDuration(totalBreakDuration);
+      return 'Not Clocked In';
+    }
+  }
+
+  String _getTimeDisplay() {
+    final attendanceProvider = Provider.of<AttendanceProvider>(context);
+    final currentAttendance = attendanceProvider.currentAttendance;
+
+    if (currentAttendance != null &&
+        currentAttendance['checkIn'] != null &&
+        currentAttendance['checkOut'] == null) {
+      final checkInTime = DateTime.parse(currentAttendance['checkIn']);
+      final currentTime = _now.value;
+      final duration = currentTime.difference(checkInTime);
+      final h = duration.inHours.toString().padLeft(2, '0');
+      final m = (duration.inMinutes % 60).toString().padLeft(2, '0');
+      final s = (duration.inSeconds % 60).toString().padLeft(2, '0');
+      return '$h:$m:$s';
+    } else {
+      return '00:00:00';
+    }
+  }
+
+  String _getBreakTimeDisplay() {
+    final attendanceProvider = Provider.of<AttendanceProvider>(context);
+    final currentAttendance = attendanceProvider.currentAttendance;
+
+    if (currentAttendance != null &&
+        currentAttendance['checkIn'] != null &&
+        currentAttendance['checkOut'] == null) {
+      final totalBreakMs = currentAttendance['totalBreakDuration'] ?? 0;
+      Duration calculatedTotalBreakDuration =
+          Duration(milliseconds: totalBreakMs);
+
+      // If currently on break, add the current break duration to the total
+      if (isOnBreak && breakStart != null) {
+        final currentBreakDuration = DateTime.now().difference(breakStart!);
+        calculatedTotalBreakDuration += currentBreakDuration;
+      }
+      return _formatDuration(calculatedTotalBreakDuration);
+    } else {
+      return _formatDuration(Duration.zero);
     }
   }
 
@@ -140,9 +418,53 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     return '$h:$m:$s';
   }
 
+  String _getCheckoutTimeDisplay(AttendanceProvider attendanceProvider) {
+    final currentAttendance = attendanceProvider.currentAttendance;
+
+    if (currentAttendance != null && currentAttendance['checkOut'] != null) {
+      final checkOutDateTime = DateTime.parse(currentAttendance['checkOut']);
+      return '${checkOutDateTime.hour.toString().padLeft(2, '0')}:${checkOutDateTime.minute.toString().padLeft(2, '0')}';
+    } else {
+      return 'N/A';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final authProvider = Provider.of<AuthProvider>(context);
+    final attendanceProvider = Provider.of<AttendanceProvider>(context);
+    final leaveProvider = Provider.of<LeaveRequestProvider>(
+        context); // Listen to LeaveRequestProvider
+
+    // Calculate total annual leave days remaining (mock logic)
+    // This should ideally come from backend with specific leave types
+    final int totalAnnualLeaveDays = 20; // Example total
+    final int usedAnnualLeaveDays = leaveProvider.leaveRequests
+        .where((request) =>
+            request['leaveType'] == 'annual' && request['status'] == 'approved')
+        .map((request) => (DateTime.parse(request['endDate'])
+                .difference(DateTime.parse(request['startDate']))
+                .inDays +
+            1))
+        .fold(0,
+            (sum, days) => sum + days as int); // Ensure sum + days returns int
+
+    final int remainingAnnualLeaveDays =
+        totalAnnualLeaveDays - usedAnnualLeaveDays;
+
+    // Find the latest pending leave request for display
+    final latestPendingLeaveRequest = leaveProvider.leaveRequests
+            .where((request) => request['status'] == 'pending')
+            .isNotEmpty
+        ? leaveProvider.leaveRequests
+            .where((request) => request['status'] == 'pending')
+            .reduce((a, b) => DateTime.parse(a['startDate'])
+                    .isAfter(DateTime.parse(b['startDate']))
+                ? a
+                : b) // Get the latest one
+        : null;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Employee Dashboard'),
@@ -165,7 +487,10 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
               DrawerHeader(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [theme.colorScheme.primary, theme.colorScheme.secondary],
+                    colors: [
+                      theme.colorScheme.primary,
+                      theme.colorScheme.secondary
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -177,8 +502,62 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                       onTap: () => Navigator.pushNamed(context, '/profile'),
                       child: CircleAvatar(
                         radius: 32,
-                        backgroundImage: AssetImage(employee.avatar),
                         backgroundColor: Colors.white,
+                        child: Builder(
+                          builder: (context) {
+                            final avatarPath = authProvider.user?['avatar'];
+                            if (avatarPath != null) {
+                              // Check if it's a local file path (e.g., from image_picker)
+                              if (avatarPath.startsWith('/') ||
+                                  avatarPath.startsWith('file://')) {
+                                final file = File(
+                                    avatarPath.replaceFirst('file://', ''));
+                                if (file.existsSync()) {
+                                  return ClipOval(
+                                    child: Image.file(
+                                      file,
+                                      width: 64, // Match radius * 2
+                                      height: 64, // Match radius * 2
+                                      fit: BoxFit.cover,
+                                    ),
+                                  );
+                                } else {
+                                  // File not found, fallback to placeholder
+                                  print(
+                                      'Debug: Dashboard avatar file not found: $avatarPath. Falling back to placeholder.');
+                                  return SvgPicture.asset(
+                                    'assets/images/profile_placeholder.png',
+                                    width: 64,
+                                    height: 64,
+                                  );
+                                }
+                              } else if (avatarPath.startsWith('assets/')) {
+                                // It's an SVG asset (e.g., default placeholder)
+                                return SvgPicture.asset(
+                                  avatarPath,
+                                  width: 64,
+                                  height: 64,
+                                );
+                              } else {
+                                // Potentially a network image or other unsupported format, fall back.
+                                print(
+                                    'Debug: Dashboard unsupported avatar path format: $avatarPath. Falling back to placeholder.');
+                                return SvgPicture.asset(
+                                  'assets/images/profile_placeholder.png',
+                                  width: 64,
+                                  height: 64,
+                                );
+                              }
+                            } else {
+                              // No avatar path, use placeholder
+                              return SvgPicture.asset(
+                                'assets/images/profile_placeholder.png',
+                                width: 64,
+                                height: 64,
+                              );
+                            }
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -187,9 +566,14 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(employee.name, style: theme.textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+                          Text(authProvider.user?['name'] ?? 'Employee Name',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
-                          Text(employee.role, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70)),
+                          Text(authProvider.user?['role'] ?? 'Employee Role',
+                              style: theme.textTheme.bodyMedium
+                                  ?.copyWith(color: Colors.white70)),
                         ],
                       ),
                     ),
@@ -201,336 +585,421 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                   ],
                 ),
               ),
-              _buildNavTile(context, icon: Icons.dashboard, label: 'Dashboard', route: '/'),
-              _buildNavTile(context, icon: Icons.access_time, label: 'Timesheet', route: '/timesheet'),
-              _buildNavTile(context, icon: Icons.calendar_today, label: 'Leave', route: '/leave_request'),
-              _buildNavTile(context, icon: Icons.check_circle_outline, label: 'Attendance', route: '/attendance'),
-              _buildNavTile(context, icon: Icons.notifications_none, label: 'Notifications', route: '/notification', trailing: _buildNotificationDot()),
-              _buildNavTile(context, icon: Icons.person_outline, label: 'Profile', route: '/profile'),
+              _buildNavTile(context,
+                  icon: Icons.dashboard, label: 'Dashboard', route: '/'),
+              _buildNavTile(context,
+                  icon: Icons.access_time,
+                  label: 'Timesheet',
+                  route: '/timesheet'),
+              _buildNavTile(context,
+                  icon: Icons.calendar_today,
+                  label: 'Leave',
+                  route: '/leave_request'),
+              _buildNavTile(context,
+                  icon: Icons.check_circle_outline,
+                  label: 'Attendance',
+                  route: '/attendance'),
+              _buildNavTile(context,
+                  icon: Icons.notifications_none,
+                  label: 'Notifications',
+                  route: '/notification',
+                  trailing: _buildNotificationDot()),
+              _buildNavTile(context,
+                  icon: Icons.person_outline,
+                  label: 'Profile',
+                  route: '/profile'),
               const Divider(),
-              _buildNavTile(context, icon: Icons.support_agent, label: 'Support', route: '/support'),
+              _buildNavTile(context,
+                  icon: Icons.support_agent,
+                  label: 'Support',
+                  route: '/support'),
               ListTile(
-                leading: const Icon(Icons.logout, color: Colors.redAccent),
-                title: const Text('Logout', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+                leading: Icon(Icons.logout, color: theme.colorScheme.onSurface),
+                title: Text(
+                  'Logout',
+                  style: theme.textTheme.bodyLarge,
+                ),
+                onTap: () async {
+                  await authProvider.logout();
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const SplashScreen()),
+                    (Route<dynamic> route) => false,
+                  );
                 },
               ),
             ],
           ),
         ),
       ),
-      backgroundColor: theme.colorScheme.surface,
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 18.0), // More vertical padding
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // User Info Header
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pushNamed(context, '/profile'),
-                    child: Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 36, // Slightly larger for easier tap
-                          backgroundImage: AssetImage(employee.avatar),
-                          backgroundColor: theme.colorScheme.primary.withOpacity(0.08),
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: CircleAvatar(
-                            radius: 14,
-                            backgroundColor: Colors.white,
-                            child: Icon(Icons.verified_user, color: theme.colorScheme.primary, size: 20),
-                          ),
-                        ),
-                      ],
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with current time and status
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Good ${(_now.value.hour < 12) ? 'Morning' : (_now.value.hour < 17) ? 'Afternoon' : 'Evening'}, ${authProvider.user?['name']?.split(' ')[0] ?? 'Employee'}!',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.bold),
                     ),
-                  ),
-                  const SizedBox(width: 18),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(employee.name, style: theme.textTheme.titleLarge),
-                      Text(employee.role, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[700])),
-                    ],
-                  ),
-                  const Spacer(),
-                  ValueListenableBuilder<DateTime>(
-                    valueListenable: _now,
-                    builder: (context, now, _) {
-                      return Row(
-                        children: [
-                          Icon(Icons.access_time, color: theme.colorScheme.primary, size: 20),
-                          const SizedBox(width: 4),
-                          Text(
-                            TimeOfDay.fromDateTime(now).format(context),
-                            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 22),
-              // Status, Clock In/Out, Break
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Status:', style: theme.textTheme.titleMedium),
-                  Row(
-                    children: [
-                      Icon(
-                        isClockedIn ? (isOnBreak ? Icons.free_breakfast : Icons.circle) : Icons.circle,
-                        color: isClockedIn ? (isOnBreak ? Colors.orange : Colors.green) : Colors.red,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        isClockedIn ? (isOnBreak ? 'On Break' : 'On Duty') : 'Clocked Out',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: isClockedIn ? (isOnBreak ? Colors.orange : Colors.green) : Colors.red,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  // Add a divider for clarity
-                  const SizedBox(height: 10),
-                  Divider(height: 1, thickness: 1, color: Colors.black12),
-                  const SizedBox(height: 10),
-                  // Clock in/out and break buttons, side by side for visibility
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Semantics(
-                          button: true,
-                          label: isClockedIn ? 'Clock Out Button' : 'Clock In Button',
-                          enabled: !isLoadingClock,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isClockedIn ? const Color(0xFFD32F2F) : const Color(0xFF388E3C), // Improved contrast
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              textStyle: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            icon: isLoadingClock
-                                ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                : Icon(isClockedIn ? Icons.logout : Icons.login),
-                            label: Text(isClockedIn ? 'Clock Out' : 'Clock In'),
-                            onPressed: isLoadingClock ? null : _toggleClockInOut,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Semantics(
-                          button: true,
-                          label: isOnBreak ? 'End Break Button' : 'Start Break Button',
-                          enabled: !isLoadingBreak && isClockedIn,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isOnBreak ? const Color(0xFFF57C00) : const Color(0xFF455A64), // Improved contrast
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              textStyle: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            icon: isLoadingBreak
-                                ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                : const Icon(Icons.free_breakfast),
-                            label: Text(isOnBreak ? 'End Break' : 'Start Break'),
-                            onPressed: (!isClockedIn || isLoadingBreak) ? null : _toggleBreak,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  // Attendance summary with more spacing and icons
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Semantics(
-                        label: 'Present Days',
-                        child: Icon(Icons.check_circle, color: Colors.green, size: 20),
-                      ),
-                      const SizedBox(width: 6),
-                      Text('Present: 20', style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500)),
-                      const SizedBox(width: 20),
-                      Semantics(
-                        label: 'Absent Days',
-                        child: Icon(Icons.cancel, color: Colors.red, size: 20),
-                      ),
-                      const SizedBox(width: 6),
-                      Text('Absent: 2', style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                  // Last clock in and break time
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Icon(Icons.access_time, size: 18, color: Colors.blueGrey),
-                      const SizedBox(width: 4),
-                      Text('Last Clock In:', style: theme.textTheme.bodySmall),
-                      const SizedBox(width: 6),
-                      Text(
-                        lastClockIn != null
-                            ? TimeOfDay.fromDateTime(lastClockIn!).format(context)
-                            : '--:--',
-                        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  if (isClockedIn) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(Icons.timer, size: 18, color: Colors.orange),
-                        const SizedBox(width: 4),
-                        Text('Break Time:', style: theme.textTheme.bodySmall),
-                        const SizedBox(width: 6),
-                        AnimatedBuilder(
-                          animation: _now,
-                          builder: (context, _) => Text(
-                            breakTimeDisplay,
-                            style: theme.textTheme.bodyMedium?.copyWith(color: Colors.orange, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
+                    ValueListenableBuilder<DateTime>(
+                      valueListenable: _now,
+                      builder: (context, value, child) {
+                        return Text(
+                          '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}:${value.second.toString().padLeft(2, '0')}',
+                          style: theme.textTheme.displaySmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.bold),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Status: ${_getStatusDisplay()}',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.8)),
                     ),
                   ],
-                ],
-              ),
-              const SizedBox(height: 18),
-              // Quick Actions
-              Text('Quick Actions', style: theme.textTheme.titleMedium),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                ),
+                CircleAvatar(
+                  radius: 40,
+                  backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                  child: Builder(
+                    builder: (context) {
+                      final avatarPath = authProvider.user?['avatar'];
+                      if (avatarPath != null) {
+                        // Check if it's a local file path (e.g., from image_picker)
+                        if (avatarPath.startsWith('/') ||
+                            avatarPath.startsWith('file://')) {
+                          final file =
+                              File(avatarPath.replaceFirst('file://', ''));
+                          if (file.existsSync()) {
+                            return ClipOval(
+                              child: Image.file(
+                                file,
+                                width: 80, // Match radius * 2 (40 * 2)
+                                height: 80, // Match radius * 2
+                                fit: BoxFit.cover,
+                              ),
+                            );
+                          } else {
+                            // File not found, fallback to placeholder
+                            print(
+                                'Debug: Dashboard main avatar file not found: $avatarPath. Falling back to placeholder.');
+                            return SvgPicture.asset(
+                              'assets/images/profile_placeholder.png',
+                              width: 64,
+                              height: 64,
+                            );
+                          }
+                        } else if (avatarPath.startsWith('assets/')) {
+                          // It's an SVG asset (e.g., default placeholder)
+                          return SvgPicture.asset(
+                            avatarPath,
+                            width: 64,
+                            height: 64,
+                          );
+                        } else {
+                          // Potentially a network image or other unsupported format, fall back.
+                          print(
+                              'Debug: Dashboard main unsupported avatar path format: $avatarPath. Falling back to placeholder.');
+                          return SvgPicture.asset(
+                            'assets/images/profile_placeholder.png',
+                            width: 64,
+                            height: 64,
+                          );
+                        }
+                      } else {
+                        // No avatar path, use placeholder
+                        return SvgPicture.asset(
+                          'assets/images/profile_placeholder.png',
+                          width: 64,
+                          height: 64,
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            // Quick Actions
+            Text(
+              'Quick Actions',
+              style: theme.textTheme.titleLarge?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 600),
+              child: Row(
+                key: ValueKey(isClockedIn.toString() + isOnBreak.toString()),
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  DashboardActionButton(
-                    icon: Icons.access_time,
-                    label: 'Timesheet',
-                    color: theme.colorScheme.primary.withOpacity(0.7),
-                    onTap: () => Navigator.pushNamed(context, '/timesheet'),
-                  ),
-                  DashboardActionButton(
-                    icon: Icons.calendar_today,
-                    label: 'Leave',
-                    color: theme.colorScheme.secondary.withOpacity(0.7),
-                    onTap: () => Navigator.pushNamed(context, '/leave_request'),
-                  ),
-                  DashboardActionButton(
-                    icon: Icons.check_circle_outline,
-                    label: 'Attendance',
-                    color: Colors.green.withOpacity(0.7),
-                    onTap: () => Navigator.pushNamed(context, '/attendance'),
-                  ),
-                  DashboardActionButton(
-                    icon: Icons.notifications,
-                    label: 'Notices',
-                    color: Colors.orange.withOpacity(0.7),
-                    onTap: () => Navigator.pushNamed(context, '/notification'),
-                  ),
+                  if (!isClockedIn)
+                    Expanded(
+                      child: DashboardActionButton(
+                        icon: Icons.login,
+                        label: 'Clock In',
+                        onPressed: _toggleClockInOut,
+                        backgroundColor:
+                            theme.colorScheme.primary.withOpacity(0.9),
+                        foregroundColor: theme.colorScheme.onPrimary,
+                        loading: isLoadingClock,
+                      ),
+                    ),
+                  if (isClockedIn && !isOnBreak)
+                    Expanded(
+                      child: DashboardActionButton(
+                        icon: Icons.logout,
+                        label: 'Clock Out',
+                        onPressed: _toggleClockInOut,
+                        backgroundColor:
+                            theme.colorScheme.tertiary.withOpacity(0.9),
+                        foregroundColor: theme.colorScheme.onTertiary,
+                        loading: isLoadingClock,
+                      ),
+                    ),
+                  if (isClockedIn && !isOnBreak) const SizedBox(width: 16),
+                  if (isClockedIn && !isOnBreak)
+                    Expanded(
+                      child: DashboardActionButton(
+                        icon: Icons.pause,
+                        label: 'Start Break',
+                        onPressed: _toggleBreak,
+                        backgroundColor:
+                            theme.colorScheme.secondary.withOpacity(0.9),
+                        foregroundColor: theme.colorScheme.onSecondary,
+                        loading: isLoadingBreak,
+                      ),
+                    ),
+                  if (isOnBreak)
+                    Expanded(
+                      child: DashboardActionButton(
+                        icon: Icons.play_arrow,
+                        label: 'End Break',
+                        onPressed: _toggleBreak,
+                        backgroundColor: theme.colorScheme.secondaryContainer
+                            .withOpacity(0.9),
+                        foregroundColor: theme.colorScheme.onSecondaryContainer,
+                        loading: isLoadingBreak,
+                      ),
+                    ),
                 ],
               ),
-              const SizedBox(height: 24),
-              // Leave Balance & Recent Requests
-              Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Leave Balance', style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          LeaveBalanceTile(type: 'Annual', days: 8, color: Colors.blue),
-                          LeaveBalanceTile(type: 'Sick', days: 4, color: Colors.green),
-                          LeaveBalanceTile(type: 'Casual', days: 2, color: Colors.orange),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      Text('Recent Leave Requests', style: theme.textTheme.titleSmall),
-                      const SizedBox(height: 8),
-                      Column(
-                        children: [
-                          LeaveRequestTile(type: 'Annual', date: '2025-06-01', status: 'Approved'),
-                          LeaveRequestTile(type: 'Sick', date: '2025-05-20', status: 'Pending'),
-                        ],
-                      ),
-                    ],
+            ),
+            const SizedBox(height: 24),
+            // Today's Attendance Summary
+            Text(
+              "Today's Attendance Summary",
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  children: [
+                    _buildSummaryRow('Total Time', _getTimeDisplay(), theme),
+                    const Divider(height: 20),
+                    _buildSummaryRow(
+                        'Break Time', _getBreakTimeDisplay(), theme),
+                    const Divider(height: 20),
+                    _buildSummaryRow(
+                      'Check-in',
+                      lastClockIn != null
+                          ? '${lastClockIn!.hour.toString().padLeft(2, '0')}:${lastClockIn!.minute.toString().padLeft(2, '0')}'
+                          : 'N/A',
+                      theme,
+                    ),
+                    const Divider(height: 20),
+                    _buildSummaryRow(
+                      'Check-out',
+                      _getCheckoutTimeDisplay(attendanceProvider),
+                      theme,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Add the new Dashboard Overview Tile here
+            AnimatedOpacity(
+              opacity: 1.0,
+              duration: const Duration(milliseconds: 700),
+              child: DashboardOverviewTile(
+                onStatTileTap: (label) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Tapped $label tile!')),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AnalyticsScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.analytics_outlined),
+                label: const Text('View Analytics'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: theme.colorScheme.onPrimary,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              // Support Button
-              Center(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueGrey,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            const SizedBox(height: 24),
+            // Leave Balance and Request
+            Text(
+              'Leave Overview',
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: LeaveBalanceTile(
+                    type: 'Annual',
+                    days: remainingAnnualLeaveDays, // Dynamic leave days
+                    color: theme.colorScheme.primary,
                   ),
-                  icon: const Icon(Icons.support_agent),
-                  label: const Text('Support'),
-                  onPressed: () => Navigator.pushNamed(context, '/support'), // You can change this route as needed
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: LeaveRequestTile(
+                    // Display latest pending leave request, or a default message
+                    type: latestPendingLeaveRequest?['leaveType'] ??
+                        'No Pending Leave',
+                    date: latestPendingLeaveRequest?['startDate'] != null
+                        ? '${DateTime.parse(latestPendingLeaveRequest!['startDate']).year}-${DateTime.parse(latestPendingLeaveRequest!['startDate']).month.toString().padLeft(2, '0')}-${DateTime.parse(latestPendingLeaveRequest!['startDate']).day.toString().padLeft(2, '0')}'
+                        : 'N/A',
+                    status: latestPendingLeaveRequest?['status'] ?? '',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Apply for Leave button
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/leave_request');
+                },
+                icon: const Icon(Icons.add_task), // Changed icon to add_task
+                label: const Text('Apply for Leave'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme
+                      .colorScheme.secondary, // Use secondary color for action
+                  foregroundColor: theme.colorScheme.onSecondary,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildNavTile(BuildContext context, {required IconData icon, required String label, required String route, Widget? trailing}) {
-    final theme = Theme.of(context);
-    final isSelected = ModalRoute.of(context)?.settings.name == route;
-    return ListTile(
-      leading: Icon(icon, color: isSelected ? theme.colorScheme.primary : Colors.blueGrey, size: 26),
-      title: Text(label, style: TextStyle(
-        color: isSelected ? theme.colorScheme.primary : Colors.blueGrey[900],
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        fontSize: 16,
-      )),
-      trailing: trailing,
-      selected: isSelected,
-      selectedTileColor: theme.colorScheme.primary.withOpacity(0.08),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      onTap: () {
-        Navigator.pop(context);
-        if (ModalRoute.of(context)?.settings.name != route) {
-          Navigator.pushNamed(context, route);
-        }
-      },
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
-      horizontalTitleGap: 12,
-      minLeadingWidth: 0,
-    );
-  }
-
   Widget _buildNotificationDot() {
+    // Implement logic to show/hide notification dot based on unread notifications
     return Container(
       width: 10,
       height: 10,
       decoration: BoxDecoration(
-        color: Colors.redAccent,
+        color: Colors.red,
         shape: BoxShape.circle,
       ),
+    );
+  }
+
+  Widget _buildNavTile(BuildContext context,
+      {required IconData icon,
+      required String label,
+      required String route,
+      Widget? trailing}) {
+    final theme = Theme.of(context);
+    final currentRoute = ModalRoute.of(context)?.settings.name;
+    final isSelected = currentRoute == route;
+
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isSelected
+            ? theme.colorScheme.primary
+            : theme.colorScheme.onSurface,
+      ),
+      title: Text(
+        label,
+        style: theme.textTheme.bodyLarge?.copyWith(
+          color: isSelected
+              ? theme.colorScheme.primary
+              : theme.colorScheme.onSurface,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      trailing: trailing,
+      selected: isSelected,
+      onTap: () {
+        Navigator.pop(context); // Close the drawer
+        if (currentRoute != route) {
+          // For dashboard, use employee_dashboard route instead of '/'
+          final targetRoute = route == '/' ? '/employee_dashboard' : route;
+          Navigator.pushReplacementNamed(context, targetRoute);
+        }
+      },
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value, ThemeData theme) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.titleMedium
+              ?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.8)),
+        ),
+        Text(
+          value,
+          style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.primary, fontWeight: FontWeight.bold),
+        ),
+      ],
     );
   }
 }

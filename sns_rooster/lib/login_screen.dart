@@ -9,10 +9,113 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isPasswordVisible = false;
+  bool _isLoading = false;
+
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   @override
   void dispose() {
     _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _resetPassword() async {
+    if (_emailController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your email to reset password.')),
+      );
+      return;
+    }
+    try {
+      await _auth.sendPasswordResetEmail(email: _emailController.text.trim());
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password reset link sent to your email.')),
+      );
+    } on FirebaseAuthException catch (e) {
+      String message;
+      if (e.code == 'user-not-found') {
+        message = 'No user found for that email.';
+      } else if (e.code == 'invalid-email') {
+        message = 'The email address is not valid.';
+      } else {
+        message = 'Error sending password reset email: ${e.message}';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('An unexpected error occurred: $e')),
+      );
+    }
+  }
+
+  Future<void> _signInWithEmailAndPassword() async {
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final userCredential = await _auth.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      if (userCredential.user != null) {
+        final userDoc = await _firestore
+            .collection('users')
+            .doc(userCredential.user!.uid)
+            .get();
+
+        if (userDoc.exists) {
+          final role = userDoc.data()?['role'];
+          print('User UID: ${userCredential.user!.uid}');
+          print('User Doc Exists: ${userDoc.exists}');
+          print('User Doc Data: ${userDoc.data()}');
+          print('Retrieved Role: $role');
+          if (role == 'admin') {
+            Navigator.pushReplacementNamed(context, '/admin_dashboard');
+          } else if (role == 'employee') {
+            Navigator.pushReplacementNamed(context, '/dashboard');
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('User role not recognized.')),
+            );
+            await _auth.signOut(); // Sign out if role is not recognized
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User data not found.')),
+          );
+          await _auth.signOut(); // Sign out if user data not found
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      String message;
+      if (e.code == 'user-not-found') {
+        message = 'No user found for that email.';
+      } else if (e.code == 'wrong-password') {
+        message = 'Wrong password provided for that user.';
+      } else if (e.code == 'invalid-email') {
+        message = 'The email address is not valid.';
+      } else {
+        message = 'Login failed: ${e.message}';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('An unexpected error occurred: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -67,49 +170,29 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 16),
               TextFormField(
-                obscureText: true,
+                controller: _passwordController,
+                obscureText: !_isPasswordVisible,
                 decoration: InputDecoration(
                   labelText: 'Password',
                   hintText: '********',
                   prefixIcon: const Icon(Icons.lock),
                   suffixIcon: IconButton(
-                    icon: const Icon(Icons.visibility_off),
+                    icon: Icon(
+                      _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                    ),
                     onPressed: () {
-                      if (_emailController.text == 'employee@sns.com') {
-                        Navigator.pushReplacementNamed(context, '/dashboard');
-                      } else if (_emailController.text == 'admin@sns.com') {
-                        Navigator.pushReplacementNamed(
-                          context,
-                          '/admin_dashboard',
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Invalid credentials.')),
-                        );
-                      }
+                      setState(() {
+                        _isPasswordVisible = !_isPasswordVisible;
+                      });
                     },
                   ),
-                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {
-                    if (_emailController.text == 'employee@sns.com') {
-                      Navigator.pushReplacementNamed(context, '/dashboard');
-                    } else if (_emailController.text == 'admin@sns.com') {
-                      Navigator.pushReplacementNamed(
-                        context,
-                        '/admin_dashboard',
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Invalid credentials.')),
-                      );
-                    }
-                  },
+                  onPressed: _resetPassword,
                   child: const Text('Forgot Password?'),
                 ),
               ),
@@ -117,20 +200,7 @@ class _LoginScreenState extends State<LoginScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    if (_emailController.text == 'employee@sns.com') {
-                      Navigator.pushReplacementNamed(context, '/dashboard');
-                    } else if (_emailController.text == 'admin@sns.com') {
-                      Navigator.pushReplacementNamed(
-                        context,
-                        '/admin_dashboard',
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Invalid credentials.')),
-                      );
-                    }
-                  },
+                  onPressed: _isLoading ? null : _signInWithEmailAndPassword,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -148,47 +218,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              Center(
-                child: Text(
-                  'Or continue with social account',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
               const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    if (_emailController.text == 'employee@sns.com') {
-                      Navigator.pushReplacementNamed(context, '/dashboard');
-                    } else if (_emailController.text == 'admin@sns.com') {
-                      Navigator.pushReplacementNamed(
-                        context,
-                        '/admin_dashboard',
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Invalid credentials.')),
-                      );
-                    }
-                  },
-                  icon: Image.asset(
-                    'assets/images/google_logo.png', // Placeholder for Google logo
-                    height: 24,
-                  ),
-                  label: const Text('Google'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    side: BorderSide(
-                      color: Theme.of(context).primaryColor,
-                    ), // Border color
-                  ),
-                ),
-              ),
+
+
             ],
           ),
         ),

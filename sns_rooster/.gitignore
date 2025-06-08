@@ -42,3 +42,4 @@ web/index.html.old
 
 # Generated files
 lib/generated_plugin_registrant.dart
+.qodo
