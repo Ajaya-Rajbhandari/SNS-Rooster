@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.8.1
+  sdk: '>=3.2.3 <4.0.0'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -30,18 +30,25 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  table_calendar: ^3.0.9
+  provider: ^6.1.1
+  http: ^1.1.2
+  shared_preferences: ^2.2.2
+  jwt_decoder: ^2.0.1
+  flutter_svg: ^2.0.9
+  intl: ^0.20.2
+  fl_chart: ^1.0.0
+  image_picker: ^1.0.7
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
-  intl: ^0.20.2
-  csv: ^6.0.0
-  path_provider: ^2.1.5
-  shared_preferences: ^2.5.3
-  image_picker: ^1.1.2
+  cupertino_icons: ^1.0.2
+  path_provider: ^2.1.2
+  flutter_secure_storage: ^9.0.0
   flutter_localizations:
     sdk: flutter
+  timezone: ^0.9.2
+  csv: ^6.0.0
+  table_calendar: ^3.0.9
 
 dev_dependencies:
   flutter_test:
@@ -52,7 +59,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+  flutter_lints: ^2.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -68,6 +75,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/
+    - assets/images/logo.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

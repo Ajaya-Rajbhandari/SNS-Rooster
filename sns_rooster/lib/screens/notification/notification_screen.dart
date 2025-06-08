@@ -1,5 +1,6 @@
 // Placeholder for notification screen
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -197,7 +198,14 @@ class _NotificationCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(backgroundImage: AssetImage(avatar), radius: 22),
+              CircleAvatar(
+                radius: 22,
+                child: SvgPicture.asset(
+                  avatar,
+                  width: 44,
+                  height: 44,
+                ),
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -309,8 +317,9 @@ class _MessagesTabState extends State<_MessagesTab> {
                       )
                       .toList(),
                   onChanged: (value) {
-                    if (value != null)
+                    if (value != null) {
                       setState(() => _selectedRecipient = value);
+                    }
                   },
                   decoration: const InputDecoration(
                     labelText: 'Send to',
@@ -455,7 +464,6 @@ class _MessageBubble extends StatelessWidget {
     required this.isMe,
     required this.time,
     required this.recipient,
-    this.avatar = 'assets/images/profile_placeholder.png',
   });
 
   @override

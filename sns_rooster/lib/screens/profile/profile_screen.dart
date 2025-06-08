@@ -1,7 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'widgets/recent_activity_section.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/profile_provider.dart';
+import '../../widgets/navigation_drawer.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -11,417 +16,518 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  File? _profileImage;
-
-  // Profile data state
-  String name = 'John Doe';
-  String role = 'Software Engineer';
-  String email = 'john.doe@example.com';
-  String phone = '+1 234 567 890';
-  String address = '123 Main Street, City, Country';
-  String employeeId = 'EMP123456';
-  String dateOfJoining = '01 Jan 2022';
-  String department = 'Development';
-
-  List<String> _recentActivities = [
-    'Logged in',
-    'Updated profile picture',
-    'Submitted leave request',
-    'Checked notifications',
-  ];
-
-
-  Future<void> _pickProfileImage() async {
-    final picker = ImagePicker();
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Take a photo'),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Choose from gallery'),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (source != null) {
-      final picked = await picker.pickImage(source: source, imageQuality: 80);
-      if (picked != null) {
-        setState(() {
-          _profileImage = File(picked.path);
-        });
-      }
-    }
-  }
-
-  void _openEditProfileSheet() async {
-    final updatedProfile = await showModalBottomSheet<Map<String, String>>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => _EditProfileSheet(
-        name: name,
-        role: role,
-        email: email,
-        phone: phone,
-        address: address,
-        employeeId: employeeId,
-        dateOfJoining: dateOfJoining,
-        department: department,
-      ),
-    );
-
-    if (updatedProfile != null) {
-      setState(() {
-        name = updatedProfile['name'] ?? name;
-        role = updatedProfile['role'] ?? role;
-        email = updatedProfile['email'] ?? email;
-        phone = updatedProfile['phone'] ?? phone;
-        address = updatedProfile['address'] ?? address;
-        employeeId = updatedProfile['employeeId'] ?? employeeId;
-        dateOfJoining = updatedProfile['dateOfJoining'] ?? dateOfJoining;
-        department = updatedProfile['department'] ?? department;
-
-        _recentActivities.insert(0, 'Profile updated on \${DateTime.now()}');
-        if (_recentActivities.length > 10) {
-          _recentActivities.removeLast();
-        }
-      });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Profile updated!')));
-    }
-  }
-
-  List<String> getRecentActivities() {
-    return _recentActivities;
-  }
-
-
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Profile'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
-        elevation: 1,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            tooltip: 'Edit Profile',
-            onPressed: _openEditProfileSheet,
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Center(
-              child: Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 54,
-                    backgroundColor: Colors.white,
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundImage: _profileImage != null
-                          ? FileImage(_profileImage!)
-                          : const AssetImage(
-                                  'assets/images/profile_placeholder.png',
-                                )
-                                as ImageProvider,
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: InkWell(
-                      onTap: _pickProfileImage,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          shape: BoxShape.circle,
-                        ),
-                        padding: const EdgeInsets.all(8),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(name, style: Theme.of(context).textTheme.headlineSmall),
-            Text(role, style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 24),
-            Card(
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    _ProfileInfoRow(
-                      icon: Icons.email,
-                      label: 'Email',
-                      value: email,
-                    ),
-                    _ProfileInfoRow(
-                      icon: Icons.phone,
-                      label: 'Phone',
-                      value: phone,
-                    ),
-                    _ProfileInfoRow(
-                      icon: Icons.location_on,
-                      label: 'Address',
-                      value: address,
-                    ),
-                    _ProfileInfoRow(
-                      icon: Icons.badge,
-                      label: 'Employee ID',
-                      value: employeeId,
-                    ),
-                    _ProfileInfoRow(
-                      icon: Icons.calendar_today,
-                      label: 'Date of Joining',
-                      value: dateOfJoining,
-                    ),
-                    _ProfileInfoRow(
-                      icon: Icons.business,
-                      label: 'Department',
-                      value: department,
-                    ),
-            RecentActivitySection(
-              activities: _recentActivities,
-            ),
-
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileInfoRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _ProfileInfoRow({
-    Key? key,
-    required this.icon,
-    required this.label,
-    required this.value,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Row(
-        children: [
-          Icon(icon, size: 20),
-          const SizedBox(width: 12),
-          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold)),
-          Expanded(child: Text(value)),
-        ],
-      ),
-    );
-  }
-}
-
-class _EditProfileSheet extends StatefulWidget {
-  final String name;
-  final String role;
-  final String email;
-  final String phone;
-  final String address;
-  final String employeeId;
-  final String dateOfJoining;
-  final String department;
-
-  const _EditProfileSheet({
-    Key? key,
-    required this.name,
-    required this.role,
-    required this.email,
-    required this.phone,
-    required this.address,
-    required this.employeeId,
-    required this.dateOfJoining,
-    required this.department,
-  }) : super(key: key);
-
-  @override
-  State<_EditProfileSheet> createState() => _EditProfileSheetState();
-}
-
-class _EditProfileSheetState extends State<_EditProfileSheet> {
   final _formKey = GlobalKey<FormState>();
-  late String name;
-  late String role;
-  late String email;
-  late String phone;
-  late String address;
-  late String employeeId;
-  late String dateOfJoining;
-  late String department;
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emergencyContactController = TextEditingController();
+  bool _isEditing = false;
+  final ImagePicker _picker = ImagePicker();
+  bool _isInitialized = false;
+  // Track if we are in a mandatory setup flow
+  bool _isMandatorySetup = false;
 
   @override
   void initState() {
     super.initState();
-    name = widget.name;
-    role = widget.role;
-    email = widget.email;
-    phone = widget.phone;
-    address = widget.address;
-    employeeId = widget.employeeId;
-    dateOfJoining = widget.dateOfJoining;
-    department = widget.department;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadProfile();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _emergencyContactController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadProfile() async {
+    print("Loading profile...");
+    if (!mounted) return;
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
+    await profileProvider.fetchProfile();
+    print("Profile loaded: ${profileProvider.profile}");
+
+    if (!mounted) return;
+
+    if (profileProvider.profile != null) {
+      setState(() {
+        _nameController.text = profileProvider.profile!['name'] ?? '';
+        _emailController.text = profileProvider.profile!['email'] ?? '';
+        _phoneController.text = profileProvider.profile!['phone'] ?? '';
+        _emergencyContactController.text =
+            profileProvider.profile!['emergencyContact'] ?? '';
+        _isInitialized = true;
+
+        // Determine if it's a mandatory setup
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        if (authProvider.isAuthenticated &&
+            (authProvider.user?['isProfileComplete'] == false ||
+                profileProvider.profile!['isProfileComplete'] == false)) {
+          _isEditing = true; // Force edit mode
+          _isMandatorySetup = true;
+        }
+      });
+    } else {
+      print("Profile is null, _isInitialized not set.");
+      // If profile is null, it means no data, so it's an incomplete profile
+      setState(() {
+        _isMandatorySetup = true;
+        _isEditing = true;
+        _isInitialized = true; // Still initialize to show the form
+      });
+    }
+  }
+
+  Future<void> _updateProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (!mounted) return;
+
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    // Check if essential fields are complete for setting isProfileComplete to true
+    bool complete = _nameController.text.isNotEmpty &&
+        _emailController.text.isNotEmpty &&
+        _phoneController.text.isNotEmpty &&
+        _emergencyContactController
+            .text.isNotEmpty; // Add any other required fields
+
+    final updates = {
+      'name': _nameController.text,
+      'phone': _phoneController.text,
+      'emergencyContact': _emergencyContactController.text,
+      'isProfileComplete': complete, // Update the flag based on completion
+    };
+
+    final success = await profileProvider.updateProfile(updates);
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully')),
+      );
+      // If profile was incomplete and now complete, navigate to dashboard
+      if (_isMandatorySetup && complete) {
+        // Update auth provider's user data for consistency
+        authProvider.user?['isProfileComplete'] = true;
+        final route = authProvider.user?['role'] == 'admin'
+            ? '/admin_dashboard'
+            : '/employee_dashboard';
+        Navigator.pushReplacementNamed(context, route);
+      } else {
+        setState(() => _isEditing = false);
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(profileProvider.error ?? 'Failed to update profile')),
+      );
+    }
+  }
+
+  Future<void> _updateProfilePicture() async {
+    if (!mounted) return;
+
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      if (image == null || !mounted) return;
+
+      print('Debug: Selected image path: ${image.path}');
+
+      final profileProvider =
+          Provider.of<ProfileProvider>(context, listen: false);
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final success = await profileProvider.updateProfilePicture(image.path);
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile picture updated successfully')),
+        );
+        print(
+            'Debug: Profile picture updated. Current avatar path: ${profileProvider.profile?['avatar']}');
+        // Update AuthProvider's user data for consistency with dashboard
+        authProvider.updateUser(profileProvider.profile!);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  profileProvider.error ?? 'Failed to update profile picture')),
+        );
+        print(
+            'Debug: Failed to update profile picture. Error: ${profileProvider.error}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error picking image: $e')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-      ),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Edit Profile',
-                style: Theme.of(context).textTheme.titleLarge,
+    final theme = Theme.of(context);
+    final authProvider = Provider.of<AuthProvider>(context);
+    final profileProvider = Provider.of<ProfileProvider>(context);
+
+    if (profileProvider.error != null) {
+      return Scaffold(
+          body: Center(child: Text("Error: ${profileProvider.error}")));
+    }
+    if (!_isInitialized || profileProvider.isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return WillPopScope(
+      onWillPop: () async {
+        if (_isMandatorySetup) {
+          // Prevent going back if profile setup is mandatory
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Please complete your profile first.')),
+          );
+          return false;
+        }
+        return true;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Profile'),
+          leading:
+              _isMandatorySetup // Only show back button if not mandatory setup
+                  ? IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => Navigator.of(context).pop(),
+                    )
+                  : Builder(
+                      builder: (context) => IconButton(
+                        icon: const Icon(Icons.menu),
+                        onPressed: () => Scaffold.of(context).openDrawer(),
+                      ),
+                    ),
+          actions: [
+            if (!_isMandatorySetup && !_isEditing)
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: () => setState(() => _isEditing = true),
+              )
+            else if (!_isMandatorySetup)
+              IconButton(
+                icon: const Icon(Icons.save),
+                onPressed: _updateProfile,
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                initialValue: name,
-                decoration: const InputDecoration(labelText: 'Name'),
-                onChanged: (v) => name = v,
-                validator: (v) =>
-                    v == null || v.isEmpty ? 'Enter your name' : null,
+            if (_isEditing && !_isMandatorySetup)
+              IconButton(
+                icon: const Icon(Icons.cancel),
+                onPressed: () {
+                  setState(() => _isEditing = false);
+                  _loadProfile(); // Reset form fields
+                },
               ),
-              const SizedBox(height: 8),
-              TextFormField(
-                initialValue: role,
-                decoration: const InputDecoration(labelText: 'Role'),
-                onChanged: (v) => role = v,
-                validator: (v) =>
-                    v == null || v.isEmpty ? 'Enter your role' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                initialValue: email,
-                decoration: const InputDecoration(labelText: 'Email'),
-                onChanged: (v) => email = v,
-                validator: (v) =>
-                    v == null || v.isEmpty ? 'Enter your email' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                initialValue: phone,
-                decoration: const InputDecoration(labelText: 'Phone'),
-                onChanged: (v) => phone = v,
-                validator: (v) =>
-                    v == null || v.isEmpty ? 'Enter your phone' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                initialValue: address,
-                decoration: const InputDecoration(labelText: 'Address'),
-                onChanged: (v) => address = v,
-                validator: (v) =>
-                    v == null || v.isEmpty ? 'Enter your address' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                initialValue: employeeId,
-                decoration: const InputDecoration(labelText: 'Employee ID'),
-                onChanged: (v) => employeeId = v,
-                validator: (v) =>
-                    v == null || v.isEmpty ? 'Enter your employee ID' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                initialValue: dateOfJoining,
-                decoration: const InputDecoration(labelText: 'Date of Joining'),
-                onChanged: (v) => dateOfJoining = v,
-                validator: (v) => v == null || v.isEmpty
-                    ? 'Enter your date of joining'
-                    : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                initialValue: department,
-                decoration: const InputDecoration(labelText: 'Department'),
-                onChanged: (v) => department = v,
-                validator: (v) =>
-                    v == null || v.isEmpty ? 'Enter your department' : null,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
+          ],
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Profile Header with Avatar and Name/Role
+                Container(
+                  padding: const EdgeInsets.all(16.0),
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceVariant,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.colorScheme.shadow.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        Navigator.pop(context, {
-                          'name': name,
-                          'role': role,
-                          'email': email,
-                          'phone': phone,
-                          'address': address,
-                          'employeeId': employeeId,
-                          'dateOfJoining': dateOfJoining,
-                          'department': department,
-                        });
-                      }
-                    },
-                    child: const Text('Save'),
+                  child: Column(
+                    children: [
+                      Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 60,
+                            backgroundColor: theme.colorScheme.primaryContainer,
+                            child: Builder(
+                              builder: (context) {
+                                final avatarPath =
+                                    profileProvider.profile?['avatar'];
+                                print(
+                                    'Debug ProfileScreen: Avatar path in Builder: $avatarPath');
+                                if (avatarPath != null) {
+                                  if (avatarPath.startsWith('/') ||
+                                      avatarPath.startsWith('file://')) {
+                                    final file = File(
+                                        avatarPath.replaceFirst('file://', ''));
+                                    if (file.existsSync()) {
+                                      return ClipOval(
+                                        child: Image.file(
+                                          file,
+                                          width: 120, // Match radius * 2
+                                          height: 120, // Match radius * 2
+                                          fit: BoxFit.cover,
+                                        ),
+                                      );
+                                    } else {
+                                      print(
+                                          'Debug: Avatar file not found: $avatarPath. Falling back to placeholder.');
+                                      return SvgPicture.asset(
+                                        'assets/images/profile_placeholder.png',
+                                        width: 100,
+                                        height: 100,
+                                        colorFilter: ColorFilter.mode(
+                                            theme
+                                                .colorScheme.onPrimaryContainer,
+                                            BlendMode.srcIn),
+                                      );
+                                    }
+                                  } else if (avatarPath.startsWith('assets/')) {
+                                    return SvgPicture.asset(
+                                      avatarPath,
+                                      width: 100,
+                                      height: 100,
+                                      colorFilter: ColorFilter.mode(
+                                          theme.colorScheme.onPrimaryContainer,
+                                          BlendMode.srcIn),
+                                    );
+                                  } else {
+                                    print(
+                                        'Debug: Unsupported avatar path format: $avatarPath. Falling back to placeholder.');
+                                    return SvgPicture.asset(
+                                      'assets/images/profile_placeholder.png',
+                                      width: 100,
+                                      height: 100,
+                                      colorFilter: ColorFilter.mode(
+                                          theme.colorScheme.onPrimaryContainer,
+                                          BlendMode.srcIn),
+                                    );
+                                  }
+                                } else {
+                                  return SvgPicture.asset(
+                                    'assets/images/profile_placeholder.png',
+                                    width: 100,
+                                    height: 100,
+                                    colorFilter: ColorFilter.mode(
+                                        theme.colorScheme.onPrimaryContainer,
+                                        BlendMode.srcIn),
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                          if (_isEditing)
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: GestureDetector(
+                                onTap: _updateProfilePicture,
+                                child: CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: theme.colorScheme.secondary,
+                                  child: Icon(Icons.camera_alt,
+                                      color: theme.colorScheme.onSecondary,
+                                      size: 20),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(authProvider.user?['name'] ?? 'Employee Name',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text(authProvider.user?['role'] ?? 'Employee Role',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                              color: theme.colorScheme.onSurface
+                                  .withOpacity(0.7))),
+                    ],
                   ),
-                ],
-              ),
-            ],
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: 'Name',
+                    prefixIcon:
+                        Icon(Icons.person, color: theme.colorScheme.primary),
+                    filled: true,
+                    fillColor: theme.colorScheme.surfaceVariant,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                          color: theme.colorScheme.primary, width: 2),
+                    ),
+                  ),
+                  enabled: _isEditing,
+                  validator: (value) =>
+                      value?.isEmpty ?? true ? 'Please enter your name' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _emailController,
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    prefixIcon:
+                        Icon(Icons.email, color: theme.colorScheme.primary),
+                    filled: true,
+                    fillColor: theme.colorScheme.surfaceVariant,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                          color: theme.colorScheme.primary, width: 2),
+                    ),
+                  ),
+                  enabled: false, // Email cannot be changed
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _phoneController,
+                  decoration: InputDecoration(
+                    labelText: 'Phone Number',
+                    prefixIcon:
+                        Icon(Icons.phone, color: theme.colorScheme.primary),
+                    filled: true,
+                    fillColor: theme.colorScheme.surfaceVariant,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                          color: theme.colorScheme.primary, width: 2),
+                    ),
+                  ),
+                  enabled: _isEditing,
+                  keyboardType: TextInputType.phone,
+                  validator: (value) => value?.isEmpty ?? true
+                      ? 'Please enter your phone number'
+                      : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _emergencyContactController,
+                  decoration: InputDecoration(
+                    labelText: 'Emergency Contact',
+                    prefixIcon: Icon(Icons.emergency_share,
+                        color: theme.colorScheme.primary),
+                    filled: true,
+                    fillColor: theme.colorScheme.surfaceVariant,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                          color: theme.colorScheme.primary, width: 2),
+                    ),
+                  ),
+                  enabled: _isEditing,
+                  keyboardType: TextInputType.phone,
+                  validator: (value) => value?.isEmpty ?? true
+                      ? 'Please enter emergency contact'
+                      : null,
+                ),
+                const SizedBox(height: 24),
+                // Work Information Section
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Work Information',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildInfoRow(context, 'Department',
+                            profileProvider.profile?['department'] ?? 'N/A'),
+                        _buildInfoRow(context, 'Position',
+                            profileProvider.profile?['position'] ?? 'N/A'),
+                        _buildInfoRow(context, 'Role',
+                            profileProvider.profile?['role'] ?? 'N/A'),
+                        _buildInfoRow(context, 'Employee ID',
+                            profileProvider.profile?['employeeId'] ?? 'N/A'),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
+        drawer: const AppNavigationDrawer(),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(BuildContext context, String label, String value) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withOpacity(0.7))),
+          Text(value,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w500)),
+        ],
       ),
     );
   }
