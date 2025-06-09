@@ -18,12 +18,13 @@ class RecentActivitySection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Recent Activity', style: Theme.of(context).textTheme.titleMedium),
+            Text('Recent Activity',
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
-            ...activities.map((activity) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4.0),
-              child: Text('• \$activity'),
-            )),
+            ...activities.map((activity) => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4.0),
+                  child: Text('• \$activity'),
+                )),
           ],
         ),
       ),

@@ -1,8 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
-import 'widgets/recent_activity_section.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
@@ -18,135 +16,51 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _picker = ImagePicker();
+  bool _isEditing = false;
+  bool _isLoading = false;
+
+  // Controllers for editable fields
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
   final _emergencyContactController = TextEditingController();
-  bool _isEditing = false;
-  final ImagePicker _picker = ImagePicker();
-  bool _isInitialized = false;
-  // Track if we are in a mandatory setup flow
-  bool _isMandatorySetup = false;
+  final _emergencyPhoneController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _loadProfile();
-      }
-    });
+    _loadUserData();
   }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
-    _emergencyContactController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadProfile() async {
-    print("Loading profile...");
-    if (!mounted) return;
-    final profileProvider =
-        Provider.of<ProfileProvider>(context, listen: false);
-    await profileProvider.fetchProfile();
-    print("Profile loaded: ${profileProvider.profile}");
-
-    if (!mounted) return;
-
-    if (profileProvider.profile != null) {
-      setState(() {
-        _nameController.text = profileProvider.profile!['name'] ?? '';
-        _emailController.text = profileProvider.profile!['email'] ?? '';
-        _phoneController.text = profileProvider.profile!['phone'] ?? '';
-        _emergencyContactController.text =
-            profileProvider.profile!['emergencyContact'] ?? '';
-        _isInitialized = true;
-
-        // Determine if it's a mandatory setup
-        final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        if (authProvider.isAuthenticated &&
-            (authProvider.user?['isProfileComplete'] == false ||
-                profileProvider.profile!['isProfileComplete'] == false)) {
-          _isEditing = true; // Force edit mode
-          _isMandatorySetup = true;
-        }
-      });
-    } else {
-      print("Profile is null, _isInitialized not set.");
-      // If profile is null, it means no data, so it's an incomplete profile
-      setState(() {
-        _isMandatorySetup = true;
-        _isEditing = true;
-        _isInitialized = true; // Still initialize to show the form
-      });
+  void _loadUserData() {
+    final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+    final profile = profileProvider.profile;
+    if (profile != null) {
+      _nameController.text = profile['name'] ?? '';
+      _emailController.text = profile['email'] ?? '';
+      _phoneController.text = profile['phone'] ?? '';
+      _addressController.text = profile['address'] ?? '';
+      _emergencyContactController.text = profile['emergencyContact'] ?? '';
+      _emergencyPhoneController.text = profile['emergencyPhone'] ?? '';
     }
   }
 
-  Future<void> _updateProfile() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (!mounted) return;
-
-    final profileProvider =
-        Provider.of<ProfileProvider>(context, listen: false);
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
-    // Check if essential fields are complete for setting isProfileComplete to true
-    bool complete = _nameController.text.isNotEmpty &&
-        _emailController.text.isNotEmpty &&
-        _phoneController.text.isNotEmpty &&
-        _emergencyContactController
-            .text.isNotEmpty; // Add any other required fields
-
-    final updates = {
-      'name': _nameController.text,
-      'phone': _phoneController.text,
-      'emergencyContact': _emergencyContactController.text,
-      'isProfileComplete': complete, // Update the flag based on completion
-    };
-
-    final success = await profileProvider.updateProfile(updates);
-
-    if (!mounted) return;
-
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile updated successfully')),
-      );
-      // If profile was incomplete and now complete, navigate to dashboard
-      if (_isMandatorySetup && complete) {
-        // Update auth provider's user data for consistency
-        authProvider.user?['isProfileComplete'] = true;
-        final route = authProvider.user?['role'] == 'admin'
-            ? '/admin_dashboard'
-            : '/employee_dashboard';
-        Navigator.pushReplacementNamed(context, route);
-      } else {
-        setState(() => _isEditing = false);
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(profileProvider.error ?? 'Failed to update profile')),
-      );
-    }
-  }
-
-  Future<void> _updateProfilePicture() async {
-    if (!mounted) return;
-
+  Future<void> _pickAndUploadImage() async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
       if (image == null || !mounted) return;
 
-      print('Debug: Selected image path: ${image.path}');
+      setState(() => _isLoading = true);
 
-      final profileProvider =
-          Provider.of<ProfileProvider>(context, listen: false);
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
       final success = await profileProvider.updateProfilePicture(image.path);
 
       if (!mounted) return;
@@ -155,285 +69,479 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile picture updated successfully')),
         );
-        print(
-            'Debug: Profile picture updated. Current avatar path: ${profileProvider.profile?['avatar']}');
-        // Update AuthProvider's user data for consistency with dashboard
-        authProvider.updateUser(profileProvider.profile!);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  profileProvider.error ?? 'Failed to update profile picture')),
+          SnackBar(content: Text(profileProvider.error ?? 'Failed to update profile picture')),
         );
-        print(
-            'Debug: Failed to update profile picture. Error: ${profileProvider.error}');
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error picking image: $e')),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
+  }
+
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      
+      // Update user data
+      final updatedUser = {
+        'name': _nameController.text,
+        'email': _emailController.text,
+        'phone': _phoneController.text,
+        'address': _addressController.text,
+        'emergencyContact': _emergencyContactController.text,
+        'emergencyPhone': _emergencyPhoneController.text,
+      };
+
+      final success = await profileProvider.updateProfile(updatedUser);
+
+      if (!mounted) return;
+
+      if (success) {
+        // Update AuthProvider's user data for consistency
+        await authProvider.updateUser(profileProvider.profile!);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully')),
+        );
+        setState(() => _isEditing = false);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(profileProvider.error ?? 'Failed to update profile')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    _emergencyContactController.dispose();
+    _emergencyPhoneController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final authProvider = Provider.of<AuthProvider>(context);
     final profileProvider = Provider.of<ProfileProvider>(context);
+    final profile = profileProvider.profile;
 
     if (profileProvider.error != null) {
       return Scaffold(
-          body: Center(child: Text("Error: ${profileProvider.error}")));
-    }
-    if (!_isInitialized || profileProvider.isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        drawer: const AppNavigationDrawer(),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "Error: ${profileProvider.error}",
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => profileProvider.refreshProfile(),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
-    return WillPopScope(
-      onWillPop: () async {
-        if (_isMandatorySetup) {
-          // Prevent going back if profile setup is mandatory
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Please complete your profile first.')),
-          );
-          return false;
-        }
-        return true;
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Profile'),
-          leading:
-              _isMandatorySetup // Only show back button if not mandatory setup
-                  ? IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.of(context).pop(),
-                    )
-                  : Builder(
-                      builder: (context) => IconButton(
-                        icon: const Icon(Icons.menu),
-                        onPressed: () => Scaffold.of(context).openDrawer(),
-                      ),
-                    ),
-          actions: [
-            if (!_isMandatorySetup && !_isEditing)
-              IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () => setState(() => _isEditing = true),
-              )
-            else if (!_isMandatorySetup)
-              IconButton(
-                icon: const Icon(Icons.save),
-                onPressed: _updateProfile,
+    // Show loading indicator only if we don't have any cached data
+    if (!profileProvider.isInitialized && profileProvider.isLoading) {
+      return const Scaffold(
+        drawer: AppNavigationDrawer(),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Show empty state only if we have no data and are not loading
+    if (profile == null && !profileProvider.isLoading) {
+      return Scaffold(
+        drawer: const AppNavigationDrawer(),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Profile not found',
+                style: theme.textTheme.titleMedium,
               ),
-            if (_isEditing && !_isMandatorySetup)
-              IconButton(
-                icon: const Icon(Icons.cancel),
-                onPressed: () {
-                  setState(() => _isEditing = false);
-                  _loadProfile(); // Reset form fields
-                },
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => profileProvider.refreshProfile(),
+                child: const Text('Refresh'),
               ),
-          ],
+            ],
+          ),
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profile'),
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: Colors.white,
+        actions: [
+          if (!_isEditing)
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () => setState(() => _isEditing = true),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                setState(() {
+                  _isEditing = false;
+                  _loadUserData(); // Reset form data
+                });
+              },
+            ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => profileProvider.refreshProfile(),
+          ),
+        ],
+      ),
+      drawer: const AppNavigationDrawer(),
+      body: Stack(
+        children: [
+          SingleChildScrollView(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Profile Header with Avatar and Name/Role
+                // Profile Header with Gradient Background
                 Container(
-                  padding: const EdgeInsets.all(16.0),
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceVariant,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.colorScheme.shadow.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                    gradient: LinearGradient(
+                      colors: [
+                        theme.colorScheme.primary,
+                        theme.colorScheme.primary.withOpacity(0.8),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                   ),
+                  padding: const EdgeInsets.all(24.0),
                   child: Column(
                     children: [
                       Stack(
                         children: [
-                          UserAvatar(
-                              avatarUrl: profileProvider.profile?['avatar'],
-                              radius: 60),
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 4,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 10,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: UserAvatar(
+                              avatarUrl: profile?['avatar'],
+                              radius: 60,
+                            ),
+                          ),
                           if (_isEditing)
                             Positioned(
-                              bottom: 0,
                               right: 0,
-                              child: GestureDetector(
-                                onTap: _updateProfilePicture,
-                                child: CircleAvatar(
-                                  radius: 20,
-                                  backgroundColor: theme.colorScheme.secondary,
-                                  child: Icon(Icons.camera_alt,
-                                      color: theme.colorScheme.onSecondary,
-                                      size: 20),
+                              bottom: 0,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(
+                                    Icons.camera_alt,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: _isLoading ? null : _pickAndUploadImage,
                                 ),
                               ),
                             ),
                         ],
                       ),
                       const SizedBox(height: 16),
-                      Text(authProvider.user?['name'] ?? 'Employee Name',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text(authProvider.user?['role'] ?? 'Employee Role',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                              color: theme.colorScheme.onSurface
-                                  .withOpacity(0.7))),
+                      Text(
+                        profile?['name'] ?? 'Loading...',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          profile?['role'] ?? 'Employee',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    labelText: 'Name',
-                    prefixIcon:
-                        Icon(Icons.person, color: theme.colorScheme.primary),
-                    filled: true,
-                    fillColor: theme.colorScheme.surfaceVariant,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                          color: theme.colorScheme.primary, width: 2),
-                    ),
-                  ),
-                  enabled: _isEditing,
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? 'Please enter your name' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon:
-                        Icon(Icons.email, color: theme.colorScheme.primary),
-                    filled: true,
-                    fillColor: theme.colorScheme.surfaceVariant,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                          color: theme.colorScheme.primary, width: 2),
-                    ),
-                  ),
-                  enabled: false, // Email cannot be changed
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _phoneController,
-                  decoration: InputDecoration(
-                    labelText: 'Phone Number',
-                    prefixIcon:
-                        Icon(Icons.phone, color: theme.colorScheme.primary),
-                    filled: true,
-                    fillColor: theme.colorScheme.surfaceVariant,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                          color: theme.colorScheme.primary, width: 2),
-                    ),
-                  ),
-                  enabled: _isEditing,
-                  keyboardType: TextInputType.phone,
-                  validator: (value) => value?.isEmpty ?? true
-                      ? 'Please enter your phone number'
-                      : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _emergencyContactController,
-                  decoration: InputDecoration(
-                    labelText: 'Emergency Contact',
-                    prefixIcon: Icon(Icons.emergency_share,
-                        color: theme.colorScheme.primary),
-                    filled: true,
-                    fillColor: theme.colorScheme.surfaceVariant,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                          color: theme.colorScheme.primary, width: 2),
-                    ),
-                  ),
-                  enabled: _isEditing,
-                  keyboardType: TextInputType.phone,
-                  validator: (value) => value?.isEmpty ?? true
-                      ? 'Please enter emergency contact'
-                      : null,
-                ),
-                const SizedBox(height: 24),
-                // Work Information Section
-                Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+
+                // Profile Form
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Form(
+                    key: _formKey,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Work Information',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.bold),
+                        // Personal Information Section
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                spreadRadius: 0,
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.person_outline,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Personal Information',
+                                    style: theme.textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _nameController,
+                                decoration: InputDecoration(
+                                  labelText: 'Full Name',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  prefixIcon: const Icon(Icons.person),
+                                ),
+                                enabled: _isEditing,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter your name';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _emailController,
+                                decoration: InputDecoration(
+                                  labelText: 'Email',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  prefixIcon: const Icon(Icons.email),
+                                ),
+                                enabled: _isEditing,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter your email';
+                                  }
+                                  if (!value.contains('@')) {
+                                    return 'Please enter a valid email';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _phoneController,
+                                decoration: InputDecoration(
+                                  labelText: 'Phone Number',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  prefixIcon: const Icon(Icons.phone),
+                                ),
+                                enabled: _isEditing,
+                                keyboardType: TextInputType.phone,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter your phone number';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _addressController,
+                                decoration: InputDecoration(
+                                  labelText: 'Address',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  prefixIcon: const Icon(Icons.home),
+                                ),
+                                enabled: _isEditing,
+                                maxLines: 2,
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 16),
-                        _buildInfoRow(context, 'Department',
-                            profileProvider.profile?['department'] ?? 'N/A'),
-                        _buildInfoRow(context, 'Position',
-                            profileProvider.profile?['position'] ?? 'N/A'),
-                        _buildInfoRow(context, 'Role',
-                            profileProvider.profile?['role'] ?? 'N/A'),
-                        _buildInfoRow(context, 'Employee ID',
-                            profileProvider.profile?['employeeId'] ?? 'N/A'),
+                        const SizedBox(height: 24),
+
+                        // Emergency Contact Section
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                spreadRadius: 0,
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.emergency_outlined,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Emergency Contact',
+                                    style: theme.textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _emergencyContactController,
+                                decoration: InputDecoration(
+                                  labelText: 'Contact Name',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  prefixIcon: const Icon(Icons.emergency),
+                                ),
+                                enabled: _isEditing,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter emergency contact name';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _emergencyPhoneController,
+                                decoration: InputDecoration(
+                                  labelText: 'Contact Phone',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  prefixIcon: const Icon(Icons.phone),
+                                ),
+                                enabled: _isEditing,
+                                keyboardType: TextInputType.phone,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter emergency contact phone';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Save Button
+                        if (_isEditing)
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _saveProfile,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: theme.colorScheme.primary,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 2,
+                              ),
+                              child: _isLoading
+                                  ? const CircularProgressIndicator()
+                                  : const Text('Save Changes'),
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -441,26 +549,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
-        ),
-        drawer: const AppNavigationDrawer(),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(BuildContext context, String label, String value) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.7))),
-          Text(value,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurface,
-                  fontWeight: FontWeight.w500)),
+          if (profileProvider.isLoading)
+            Container(
+              color: Colors.black.withOpacity(0.1),
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
         ],
       ),
     );

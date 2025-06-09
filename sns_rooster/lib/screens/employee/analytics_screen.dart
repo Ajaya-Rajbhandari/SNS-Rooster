@@ -210,10 +210,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           height: 200,
                           child: LineChart(
                             LineChartData(
-                              gridData: FlGridData(
+                              gridData: const FlGridData(
                                   show: true, drawVerticalLine: false),
                               titlesData: FlTitlesData(
-                                leftTitles: AxisTitles(
+                                leftTitles: const AxisTitles(
                                   sideTitles: SideTitles(
                                       showTitles: true, reservedSize: 32),
                                 ),
@@ -235,9 +235,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                     interval: 1,
                                   ),
                                 ),
-                                rightTitles: AxisTitles(
+                                rightTitles: const AxisTitles(
                                     sideTitles: SideTitles(showTitles: false)),
-                                topTitles: AxisTitles(
+                                topTitles: const AxisTitles(
                                     sideTitles: SideTitles(showTitles: false)),
                               ),
                               borderData: FlBorderData(show: false),
@@ -254,7 +254,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   isCurved: true,
                                   color: theme.colorScheme.primary,
                                   barWidth: 4,
-                                  dotData: FlDotData(show: true),
+                                  dotData: const FlDotData(show: true),
                                   belowBarData: BarAreaData(
                                     show: true,
                                     color: theme.colorScheme.primary
@@ -413,8 +413,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           children: [
             CircleAvatar(
               backgroundColor: color.withOpacity(0.15),
-              child: Icon(icon, color: color, size: 28),
               radius: 22,
+              child: Icon(icon, color: color, size: 28),
             ),
             const SizedBox(height: 10),
             Text(value,

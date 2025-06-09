@@ -2,6 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../login/login_screen.dart';
+import '../employee/employee_dashboard_screen.dart';
+import '../admin/admin_dashboard_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -10,131 +13,123 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
-
+class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
-      ),
-    );
-
-    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
-      ),
-    );
-
-    _controller.forward();
-
-    // Check authentication status after animation
-    Future.delayed(const Duration(seconds: 3), () {
-      _checkAuthStatus();
-    });
+    _checkAuth();
   }
 
-  Future<void> _checkAuthStatus() async {
+  Future<void> _checkAuth() async {
+    await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
-    print('SPLASH: ===== STARTING AUTH CHECK =====');
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
-    print(
-        'SPLASH: Initial state - isAuthenticated: ${authProvider.isAuthenticated}');
-    print(
-        'SPLASH: Initial state - token exists: ${authProvider.token != null}');
-    print('SPLASH: Initial state - user exists: ${authProvider.user != null}');
-
-    await authProvider.initAuth();
-
-    if (!mounted) {
-      print('SPLASH: Widget no longer mounted, aborting navigation');
-      return;
-    }
-
-    print(
-        'SPLASH: After initAuth - isAuthenticated: ${authProvider.isAuthenticated}');
-    print(
-        'SPLASH: After initAuth - token exists: ${authProvider.token != null}');
-    print('SPLASH: After initAuth - user exists: ${authProvider.user != null}');
-    print('SPLASH: After initAuth - user role: ${authProvider.user?['role']}');
-
     if (authProvider.isAuthenticated) {
-      print('SPLASH: User is authenticated, determining route...');
-      // Check if profile is complete
-      if (authProvider.user?['isProfileComplete'] == false) {
-        print('SPLASH: Profile is incomplete, navigating to /profile');
-        Navigator.pushReplacementNamed(context, '/profile');
+      if (authProvider.user?['role'] == 'admin') {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+        );
       } else {
-        final route = authProvider.user?['role'] == 'admin'
-            ? '/admin_dashboard'
-            : '/employee_dashboard';
-        print('SPLASH: Profile complete, navigating to $route');
-        Navigator.pushReplacementNamed(context, route);
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const EmployeeDashboardScreen()),
+        );
       }
     } else {
-      print('SPLASH: User is not authenticated, navigating to login');
-      Navigator.pushReplacementNamed(context, '/login');
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
     }
-    print('SPLASH: ===== AUTH CHECK COMPLETED =====');
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: colorScheme.primary,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            FadeTransition(
-              opacity: _fadeAnimation,
-              child: ScaleTransition(
-                scale: _scaleAnimation,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              theme.colorScheme.primary,
+              theme.colorScheme.primary.withOpacity(0.8),
+            ],
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // App Logo with shadow
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 20,
+                      spreadRadius: 5,
+                    ),
+                  ],
+                ),
                 child: Image.asset(
-                  'assets/images/logo.png',
+                  'assets/images/app_logo.png',
                   width: 150,
                   height: 150,
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            FadeTransition(
-              opacity: _fadeAnimation,
-              child: Text(
-                'SNS Rooster',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: colorScheme.onPrimary,
-                      fontWeight: FontWeight.bold,
-                    ),
+              const SizedBox(height: 30),
+              // App Name with gradient
+              ShaderMask(
+                shaderCallback: (bounds) => LinearGradient(
+                  colors: [Colors.white, Colors.white.withOpacity(0.9)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ).createShader(bounds),
+                child: const Text(
+                  'SNS ROOSTER',
+                  style: TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                    color: Colors.white,
+                    fontFamily: 'ProductSans',
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 40),
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(colorScheme.secondary),
-            ),
-          ],
+              const SizedBox(height: 12),
+              // Tagline with stylish font
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'HR Management System',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.white,
+                    letterSpacing: 1,
+                    fontFamily: 'ProductSans',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 50),
+              // Loading indicator with custom color
+              SizedBox(
+                width: 40,
+                height: 40,
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Colors.white.withOpacity(0.8),
+                  ),
+                  strokeWidth: 3,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

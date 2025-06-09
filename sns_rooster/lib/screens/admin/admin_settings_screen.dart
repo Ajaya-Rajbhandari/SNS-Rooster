@@ -5,17 +5,26 @@ class AdminSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: ListView(
         children: [
           Text(
             'Admin Settings',
-            style: Theme.of(context).textTheme.headlineMedium,
+            style: theme.textTheme.headlineMedium?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 20),
           Card(
             elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -23,25 +32,70 @@ class AdminSettingsScreen extends StatelessWidget {
                 children: [
                   Text(
                     'General Settings',
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
+                  const SizedBox(height: 16),
                   SwitchListTile(
-                    title: const Text('Enable Notifications'),
-                    value: true, // Replace with actual setting value
+                    title: Text(
+                      'Enable Notifications',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Receive notifications for important updates',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                    value: true,
+                    activeColor: colorScheme.secondary,
                     onChanged: (bool value) {
                       // Handle setting change
                     },
                   ),
+                  const Divider(),
                   SwitchListTile(
-                    title: const Text('Dark Mode'),
-                    value: false, // Replace with actual setting value
+                    title: Text(
+                      'Dark Mode',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Switch between light and dark theme',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                    value: false,
+                    activeColor: colorScheme.secondary,
                     onChanged: (bool value) {
                       // Handle setting change
                     },
                   ),
+                  const Divider(),
                   ListTile(
-                    title: const Text('Change Password'),
-                    trailing: const Icon(Icons.arrow_forward_ios),
+                    title: Text(
+                      'Change Password',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Update your account password',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                    trailing: Icon(
+                      Icons.arrow_forward_ios,
+                      color: colorScheme.onSurface.withOpacity(0.7),
+                      size: 16,
+                    ),
                     onTap: () {
                       // Handle change password tap
                     },
@@ -53,6 +107,9 @@ class AdminSettingsScreen extends StatelessWidget {
           const SizedBox(height: 20),
           Card(
             elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -60,27 +117,53 @@ class AdminSettingsScreen extends StatelessWidget {
                 children: [
                   Text(
                     'System Settings',
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
+                  const SizedBox(height: 16),
                   ListTile(
-                    title: const Text('Backup Data'),
-                    trailing: const Icon(Icons.cloud_upload),
+                    title: Text(
+                      'Backup Data',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Create a backup of all system data',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                    trailing: Icon(
+                      Icons.backup,
+                      color: colorScheme.onSurface.withOpacity(0.7),
+                    ),
                     onTap: () {
-                      // Handle backup data tap
+                      // Handle backup tap
                     },
                   ),
+                  const Divider(),
                   ListTile(
-                    title: const Text('Restore Data'),
-                    trailing: const Icon(Icons.cloud_download),
+                    title: Text(
+                      'Clear Cache',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Remove temporary files and data',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                    trailing: Icon(
+                      Icons.cleaning_services,
+                      color: colorScheme.onSurface.withOpacity(0.7),
+                    ),
                     onTap: () {
-                      // Handle restore data tap
-                    },
-                  ),
-                  ListTile(
-                    title: const Text('View System Logs'),
-                    trailing: const Icon(Icons.description),
-                    onTap: () {
-                      // Handle view system logs tap
+                      // Handle clear cache tap
                     },
                   ),
                 ],

@@ -82,7 +82,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         decoration: BoxDecoration(
           color: isSelected ? color.withOpacity(0.9) : color.withOpacity(0.7),
           borderRadius: BorderRadius.circular(12.0),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
               color: Colors.black26,
               blurRadius: 4.0,
@@ -107,7 +107,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             const SizedBox(height: 8),
             Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: Colors.white),
@@ -115,7 +115,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             const SizedBox(height: 4),
             Text(
               count.toString(),
-              style: TextStyle(
+              style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: Colors.white),
@@ -303,10 +303,10 @@ class AttendanceDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Mock data for demonstration
-    final checkInTime = '9:00 AM';
-    final checkOutTime = '5:00 PM';
-    final totalHoursWorked = '8 hours';
-    final breakDetails = '1 hour';
+    const checkInTime = '9:00 AM';
+    const checkOutTime = '5:00 PM';
+    const totalHoursWorked = '8 hours';
+    const breakDetails = '1 hour';
 
     return Scaffold(
       appBar: AppBar(

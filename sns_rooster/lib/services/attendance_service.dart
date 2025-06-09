@@ -1,6 +1,3 @@
-/// AttendanceService: Handles attendance logic and (future) API integration
-import 'package:sns_rooster/models/attendance.dart';
-import 'package:flutter/material.dart';
 import 'mock_service.dart';
 
 class AttendanceService {

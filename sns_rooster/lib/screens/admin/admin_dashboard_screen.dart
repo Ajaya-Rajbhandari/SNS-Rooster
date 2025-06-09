@@ -49,7 +49,7 @@ class AdminDashboardScreen extends StatelessWidget {
         ),
         drawer: Drawer(
           child: Container(
-            color: colorScheme.background,
+            color: colorScheme.surface,
             child: ListView(
               padding: EdgeInsets.zero,
               children: <Widget>[
@@ -115,14 +115,42 @@ class AdminDashboardScreen extends StatelessWidget {
                   context,
                   icon: Icons.logout,
                   title: 'Logout',
-                  onTap: () {
-                    Provider.of<AuthProvider>(context, listen: false).logout();
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const LoginScreen()),
-                      (Route<dynamic> route) => false,
+                  onTap: () async {
+                    // Close the drawer first
+                    Navigator.pop(context);
+                    
+                    // Show confirmation dialog
+                    final shouldLogout = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Logout'),
+                        content: const Text('Are you sure you want to logout?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Logout'),
+                          ),
+                        ],
+                      ),
                     );
+
+                    if (shouldLogout == true && context.mounted) {
+                      // Show loading indicator
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+
+                      // Perform logout
+                      await Provider.of<AuthProvider>(context, listen: false).logout();
+                    }
                   },
                   colorScheme: colorScheme,
                 ),
@@ -149,8 +177,11 @@ class AdminDashboardScreen extends StatelessWidget {
     required ColorScheme colorScheme,
   }) {
     return ListTile(
-      leading: Icon(icon, color: colorScheme.onBackground),
-      title: Text(title, style: TextStyle(color: colorScheme.onBackground)),
+      leading: Icon(icon, color: colorScheme.onSurface),
+      title: Text(
+        title,
+        style: TextStyle(color: colorScheme.onSurface),
+      ),
       onTap: onTap,
       selectedTileColor: colorScheme.primary.withOpacity(0.1),
     );

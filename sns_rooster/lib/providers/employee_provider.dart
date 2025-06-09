@@ -56,7 +56,7 @@ class EmployeeProvider with ChangeNotifier {
             await _mockEmployeeService.updateUser(employeeId, updates);
         // In a real app, you might refresh the list (or update the local state) after an update.
         // For now, we just print (or log) the response.
-        print("Update employee (mock) response: ${response}");
+        print("Update employee (mock) response: $response");
         return true;
       } else {
         // TODO: Replace with real API call (e.g., PATCH /api/users/:employeeId) (with Authorization header).
@@ -84,7 +84,7 @@ class EmployeeProvider with ChangeNotifier {
         final response = await _mockEmployeeService.deleteUser(employeeId);
         // In a real app, you might refresh the list (or remove the employee from local state) after deletion.
         // For now, we just print (or log) the response.
-        print("Delete employee (mock) response: ${response}");
+        print("Delete employee (mock) response: $response");
         return true;
       } else {
         // TODO: Replace with real API call (e.g., DELETE /api/users/:employeeId) (with Authorization header).
@@ -136,7 +136,7 @@ class EmployeeProvider with ChangeNotifier {
         final response = await _mockEmployeeService.updateProfile(updates);
         // In a real app, you might update the local profile (or refresh) after an update.
         // For now, we just print (or log) the response.
-        print("Update profile (mock) response: ${response}");
+        print("Update profile (mock) response: $response");
         _profile = response["user"];
         return true;
       } else {

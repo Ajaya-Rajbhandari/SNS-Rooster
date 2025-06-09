@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
 
 // Mock data (simulating API responses) for SNS Rooster frontend.
 // Use this mock service (with useMock = true) to build and test your UI without a backend.
@@ -200,10 +199,12 @@ class MockAuthService {
     }
   }
 
-  Future<Map<String, dynamic>> logout() async {
+  Future<void> logout() async {
     if (useMock) {
-      await Future.delayed(const Duration(seconds: 1));
-      return {"message": "Logged out successfully"};
+      // Simulate a delay to mimic a network call
+      await Future.delayed(const Duration(milliseconds: 500));
+      // Clear any mock session data if needed
+      return;
     } else {
       // TODO: Replace with real API call (e.g., POST /api/auth/logout).
       throw UnimplementedError("Real API call not implemented.");

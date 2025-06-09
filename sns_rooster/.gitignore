@@ -1,45 +1,61 @@
 # Miscellaneous
-# Flutter/Dart specific
-.dart_tool/
-.flutter-plugins/
-.flutter-plugins-dependencies/
-.packages
-.vscode/
-build/
-*.iml
-*.lock
+*.class
 *.log
-
-# IDEs and other tools
-.idea/
+*.pyc
+*.swp
 .DS_Store
-Thumbs.db
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
 
-# Android specific
-android/local.properties
-android/.gradle/
-android/build/
-android/**/*.iml
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
 
-# iOS specific
-ios/.symlinks/
-ios/Flutter/.last_build_id
-ios/Flutter/.ios_symbols_cache
-ios/Pods/
+# VS Code related
+.vscode/
 
-# macOS specific
-macos/Flutter/ephemeral/
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+pubspec.lock
 
-# Windows specific
-windows/flutter/ephemeral/
+# Web related
+lib/generated_plugin_registrant.dart
 
-# Linux specific
-linux/flutter/ephemeral/
+# Symbolication related
+app.*.symbols
 
-# Web specific
-web/flutter_bootstrap.js
-web/index.html.old
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Node modules
+node_modules/
 
 # Generated files
-lib/generated_plugin_registrant.dart
-.qodo
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
