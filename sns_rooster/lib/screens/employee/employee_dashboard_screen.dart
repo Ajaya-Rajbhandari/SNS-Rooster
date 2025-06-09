@@ -10,7 +10,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import '../../models/employee.dart';
+import '../../../../models/employee.dart';
 import '../../widgets/dashboard/leave_balance_tile.dart';
 import '../../widgets/dashboard/leave_request_tile.dart';
 import '../../widgets/dashboard/dashboard_action_button.dart';
@@ -347,7 +347,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
 
     // Calculate total annual leave days remaining (mock logic)
     // This should ideally come from backend with specific leave types
-    final int totalAnnualLeaveDays = 20; // Example total
+    const int totalAnnualLeaveDays = 20; // Example total
     final int usedAnnualLeaveDays = leaveProvider.leaveRequests
         .where((request) =>
             (request['leaveType']?.toString().toLowerCase() == 'annual') &&
@@ -355,15 +355,16 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         .map((request) {
       final startDateStr = request['startDate']?.toString();
       final endDateStr = request['endDate']?.toString();
-      if (startDateStr == null || endDateStr == null)
+      if (startDateStr == null || endDateStr == null) {
         return 0; // Handle null dates
+      }
       final startDate = DateTime.tryParse(startDateStr);
       final endDate = DateTime.tryParse(endDateStr);
-      if (startDate == null || endDate == null)
+      if (startDate == null || endDate == null) {
         return 0; // Handle invalid date strings
+      }
       return (endDate.difference(startDate).inDays + 1);
-    }).fold(0,
-            (sum, days) => sum + days as int); // Ensure sum + days returns int
+    }).fold(0, (sum, days) => sum + days); // Ensure sum + days returns int
 
     final int remainingAnnualLeaveDays =
         totalAnnualLeaveDays - usedAnnualLeaveDays;
@@ -435,158 +436,96 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         ),
       ),
       drawer: Drawer(
-        child: Container(
-          color: theme.colorScheme.surface,
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              DrawerHeader(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      theme.colorScheme.primary,
-                      theme.colorScheme.secondary
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pushNamed(context, '/profile'),
-                      child: CircleAvatar(
-                        radius: 32,
-                        backgroundColor: Colors.white,
-                        child: Builder(
-                          builder: (context) {
-                            final avatarPath = authProvider.user?['avatar'];
-                            if (avatarPath != null) {
-                              // Check if it's a local file path (e.g., from image_picker)
-                              if (avatarPath.startsWith('/') ||
-                                  avatarPath.startsWith('file://')) {
-                                final file = File(
-                                    avatarPath.replaceFirst('file://', ''));
-                                if (file.existsSync()) {
-                                  return ClipOval(
-                                    child: Image.file(
-                                      file,
-                                      width: 64, // Match radius * 2
-                                      height: 64, // Match radius * 2
-                                      fit: BoxFit.cover,
-                                    ),
-                                  );
-                                } else {
-                                  // File not found, fallback to placeholder
-                                  print(
-                                      'Debug: Dashboard avatar file not found: $avatarPath. Falling back to placeholder.');
-                                  return SvgPicture.asset(
-                                    'assets/images/profile_placeholder.png',
-                                    width: 64,
-                                    height: 64,
-                                  );
-                                }
-                              } else if (avatarPath.startsWith('assets/')) {
-                                // It's an SVG asset (e.g., default placeholder)
-                                return SvgPicture.asset(
-                                  avatarPath,
-                                  width: 64,
-                                  height: 64,
-                                );
-                              } else {
-                                // Potentially a network image or other unsupported format, fall back.
-                                print(
-                                    'Debug: Dashboard unsupported avatar path format: $avatarPath. Falling back to placeholder.');
-                                return SvgPicture.asset(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundColor: Colors.white,
+                    child: ClipOval(
+                      child: authProvider.user?['avatar'] != null
+                          ? Image.network(
+                              authProvider.user!['avatar'],
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Image.asset(
                                   'assets/images/profile_placeholder.png',
-                                  width: 64,
-                                  height: 64,
+                                  width: 60,
+                                  height: 60,
+                                  fit: BoxFit.cover,
                                 );
-                              }
-                            } else {
-                              // No avatar path, use placeholder
-                              return SvgPicture.asset(
-                                'assets/images/profile_placeholder.png',
-                                width: 64,
-                                height: 64,
-                              );
-                            }
-                          },
-                        ),
-                      ),
+                              },
+                            )
+                          : Image.asset(
+                              'assets/images/profile_placeholder.png',
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                            ),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(authProvider.user?['name'] ?? 'Employee Name',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 4),
-                          Text(authProvider.user?['role'] ?? 'Employee Role',
-                              style: theme.textTheme.bodyMedium
-                                  ?.copyWith(color: Colors.white70)),
-                        ],
-                      ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    authProvider.user?['name'] ?? 'User',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                      tooltip: 'Close',
+                  ),
+                  Text(
+                    authProvider.user?['role'] ?? 'Employee',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              _buildNavTile(context,
-                  icon: Icons.dashboard, label: 'Dashboard', route: '/'),
-              _buildNavTile(context,
-                  icon: Icons.access_time,
-                  label: 'Timesheet',
-                  route: '/timesheet'),
-              _buildNavTile(context,
-                  icon: Icons.calendar_today,
-                  label: 'Leave',
-                  route: '/leave_request'),
-              _buildNavTile(context,
-                  icon: Icons.check_circle_outline,
-                  label: 'Attendance',
-                  route: '/attendance'),
-              _buildNavTile(context,
-                  icon: Icons.notifications_none,
-                  label: 'Notifications',
-                  route: '/notification',
-                  trailing: _buildNotificationDot()),
-              _buildNavTile(context,
-                  icon: Icons.person_outline,
-                  label: 'Profile',
-                  route: '/profile'),
-              const Divider(),
-              _buildNavTile(context,
-                  icon: Icons.support_agent,
-                  label: 'Support',
-                  route: '/support'),
-              ListTile(
-                leading: Icon(Icons.logout, color: theme.colorScheme.onSurface),
-                title: Text(
-                  'Logout',
-                  style: theme.textTheme.bodyLarge,
-                ),
-                onTap: () async {
-                  await authProvider.logout();
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const SplashScreen()),
-                    (Route<dynamic> route) => false,
-                  );
-                },
+            ),
+            _buildNavTile(context,
+                icon: Icons.dashboard, label: 'Dashboard', route: '/'),
+            _buildNavTile(context,
+                icon: Icons.access_time,
+                label: 'Timesheet',
+                route: '/timesheet'),
+            _buildNavTile(context,
+                icon: Icons.calendar_today,
+                label: 'Leave',
+                route: '/leave_request'),
+            _buildNavTile(context,
+                icon: Icons.check_circle_outline,
+                label: 'Attendance',
+                route: '/attendance'),
+            _buildNavTile(context,
+                icon: Icons.notifications_none,
+                label: 'Notifications',
+                route: '/notification',
+                trailing: _buildNotificationDot()),
+            _buildNavTile(context,
+                icon: Icons.person_outline,
+                label: 'Profile',
+                route: '/profile'),
+            const Divider(),
+
+            ListTile(
+              leading: Icon(Icons.logout, color: theme.colorScheme.onSurface),
+              title: Text(
+                'Logout',
+                style: theme.textTheme.bodyLarge,
               ),
-            ],
-          ),
+              onTap: () => authProvider.logout(),
+            ),
+          ],
         ),
       ),
       body: SingleChildScrollView(
@@ -636,9 +575,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const NotificationScreen(
-                                    initialTabIndex:
-                                        0), // Pass initialTabIndex for notifications
+                                builder: (context) =>
+                                    const NotificationScreen(),
                               ),
                             );
                           },
@@ -684,9 +622,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const NotificationScreen(
-                                    initialTabIndex:
-                                        1), // Pass initialTabIndex for messages
+                                builder: (context) =>
+                                    const NotificationScreen(),
                               ),
                             );
                           },
@@ -828,7 +765,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                           if (isClockedIn && clockInTime != null)
                             Row(
                               children: [
-                                Icon(Icons.login,
+                                const Icon(Icons.login,
                                     color: Colors.white70, size: 18),
                                 const SizedBox(width: 8),
                                 Text('Clocked in at: $clockInTime',
@@ -841,7 +778,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                               padding: const EdgeInsets.only(top: 4.0),
                               child: Row(
                                 children: [
-                                  Icon(Icons.pause_circle_outline,
+                                  const Icon(Icons.pause_circle_outline,
                                       color: Colors.yellowAccent, size: 18),
                                   const SizedBox(width: 8),
                                   Text('On break since: $breakStartTime',
@@ -856,7 +793,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                               padding: const EdgeInsets.only(top: 4.0),
                               child: Row(
                                 children: [
-                                  Icon(Icons.logout,
+                                  const Icon(Icons.logout,
                                       color: Colors.white70, size: 18),
                                   const SizedBox(width: 8),
                                   Text('Clocked out at: $clockOutTime',
@@ -1033,7 +970,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     return Container(
       width: 10,
       height: 10,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.red,
         shape: BoxShape.circle,
       ),

@@ -20,8 +20,8 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen>
     end: DateTime.now(),
   );
 
-  DateTime _selectedDate = DateTime.now();
-  CalendarFormat _calendarFormat = CalendarFormat.week;
+  final DateTime _selectedDate = DateTime.now();
+  final CalendarFormat _calendarFormat = CalendarFormat.week;
 
   String _selectedFilter = 'All';
   bool _isLoading = false;
@@ -401,7 +401,7 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen>
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: DataTable(
-                          headingRowColor: MaterialStateProperty.all(
+                          headingRowColor: WidgetStateProperty.all(
                             Colors.grey[50],
                           ),
                           columns: const [

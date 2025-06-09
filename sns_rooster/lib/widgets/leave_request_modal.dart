@@ -95,7 +95,7 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
               ),
               decoration: InputDecoration(
                 labelText: 'From Date',
-                prefixIcon: Icon(Icons.calendar_today),
+                prefixIcon: const Icon(Icons.calendar_today),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide(
@@ -116,7 +116,7 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
               ),
               decoration: InputDecoration(
                 labelText: 'To Date',
-                prefixIcon: Icon(Icons.calendar_today),
+                prefixIcon: const Icon(Icons.calendar_today),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide(
@@ -147,7 +147,7 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
                   ),
                 ),
               ),
-              items: [
+              items: const [
                 DropdownMenuItem(
                   value: 'Sick Leave',
                   child: Text('Sick Leave'),
@@ -173,7 +173,7 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
               controller: widget.reasonController,
               decoration: InputDecoration(
                 labelText: 'Reason',
-                prefixIcon: Icon(Icons.edit),
+                prefixIcon: const Icon(Icons.edit),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide(
@@ -193,7 +193,7 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
                   ),
                 ),
                 helperText: isReasonError ? 'Reason is required' : null,
-                helperStyle: TextStyle(color: Colors.red),
+                helperStyle: const TextStyle(color: Colors.red),
               ),
               onChanged: (value) {
                 setState(() {
@@ -216,7 +216,7 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
                     isLeaveTypeError ||
                     isReasonError) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
+                    const SnackBar(
                       content: Text(
                         'Please fill all required fields before submitting.',
                       ),
@@ -228,7 +228,7 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
 
                 if (toDate!.isBefore(fromDate!)) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
+                    const SnackBar(
                       content: Text(
                         'To Date cannot be earlier than From Date.',
                       ),
@@ -246,9 +246,10 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
                 );
               },
               style: ElevatedButton.styleFrom(
-                minimumSize: Size(double.infinity, 50),
+                minimumSize: const Size(double.infinity, 50),
                 backgroundColor: Theme.of(context).primaryColor,
-                textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                textStyle:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               child: const Text(
                 'Submit',

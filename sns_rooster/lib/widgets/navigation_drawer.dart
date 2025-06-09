@@ -1,195 +1,303 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import 'package:sns_rooster/providers/auth_provider.dart';
-import 'package:sns_rooster/screens/splash/splash_screen.dart';
-import 'package:sns_rooster/widgets/user_avatar.dart';
+import '../providers/auth_provider.dart';
+import 'user_avatar.dart';
 
 class AppNavigationDrawer extends StatelessWidget {
   const AppNavigationDrawer({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final isAdmin = authProvider.user?['role'] == 'admin';
     final theme = Theme.of(context);
 
-    Widget buildNavTile(
-      BuildContext context, {
-      required IconData icon,
-      required String label,
-      required String route,
-      Widget? trailing,
-    }) {
-      final isSelected = ModalRoute.of(context)?.settings.name == route;
-      return StatefulBuilder(
-        builder: (context, setState) {
-          bool isHovered = false;
-          return MouseRegion(
-            onEnter: (_) => setState(() => isHovered = true),
-            onExit: (_) => setState(() => isHovered = false),
-            child: Container(
-              decoration: BoxDecoration(
-                color: isHovered
-                    ? theme.colorScheme.primary.withOpacity(0.1)
-                    : null,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: ListTile(
-                leading: Icon(
-                  icon,
-                  color: isSelected || isHovered
-                      ? theme.colorScheme.primary
-                      : Colors.blueGrey,
-                  size: 26,
-                ),
-                title: Text(
-                  label,
-                  style: TextStyle(
-                    color: isSelected || isHovered
-                        ? theme.colorScheme.primary
-                        : Colors.blueGrey[900],
-                    fontWeight: isSelected || isHovered
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                    fontSize: 16,
-                  ),
-                ),
-                trailing: trailing,
-                selected: isSelected,
-                onTap: () {
-                  Navigator.pop(context);
-                  if (ModalRoute.of(context)?.settings.name != route) {
-                    Navigator.pushNamed(context, route);
-                  }
-                },
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 2),
-                horizontalTitleGap: 12,
-                minLeadingWidth: 0,
-              ),
-            ),
-          );
-        },
-      );
-    }
-
     return Drawer(
-      child: Container(
-        color: theme.colorScheme.surface,
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primary,
-                    theme.colorScheme.secondary,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Consumer<AuthProvider>(
-                    builder: (context, authProvider, child) {
-                      final user = authProvider.user;
-                      final avatarUrl = user?['avatar'];
-                      return UserAvatar(avatarUrl: avatarUrl, radius: 32);
-                    },
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'John Doe',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Software Engineer',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                    tooltip: 'Close',
-                  ),
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          Container(
+            height: 200,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  theme.colorScheme.primary,
+                  theme.colorScheme.primary.withOpacity(0.8),
                 ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
             ),
-            buildNavTile(context,
-                icon: Icons.dashboard,
-                label: 'Dashboard',
-                route: '/employee_dashboard'),
-            Consumer<AuthProvider>(
-              builder: (context, authProvider, child) {
-                final bool isAdmin = authProvider.user?['role'] == 'admin';
-                return buildNavTile(context,
-                    icon: Icons.access_time,
-                    label: 'Timesheet',
-                    route: isAdmin ? '/admin_timesheet' : '/timesheet');
+            child: Stack(
+              children: [
+                // Background pattern
+                Positioned(
+                  right: -20,
+                  top: -20,
+                  child: Icon(
+                    Icons.pattern,
+                    size: 150,
+                    color: Colors.white.withOpacity(0.1),
+                  ),
+                ),
+                // Profile content
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 3,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 10,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: UserAvatar(
+                              avatarUrl: authProvider.user?['avatar'],
+                              radius: 35,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  authProvider.user?['name'] ?? 'User',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    authProvider.user?['role'] ?? 'Employee',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      // Quick stats or info
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildStatItem(
+                            context,
+                            icon: Icons.calendar_today,
+                            value: 'Today',
+                            label: 'Attendance',
+                          ),
+                          _buildStatItem(
+                            context,
+                            icon: Icons.event_note,
+                            value: '2',
+                            label: 'Leaves',
+                          ),
+                          _buildStatItem(
+                            context,
+                            icon: Icons.notifications,
+                            value: '3',
+                            label: 'Alerts',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Navigation items
+          ListTile(
+            leading: const Icon(Icons.dashboard_outlined),
+            title: const Text('Dashboard'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushReplacementNamed(
+                context,
+                isAdmin ? '/admin_dashboard' : '/employee_dashboard',
+              );
+            },
+          ),
+          if (!isAdmin) ...[
+            ListTile(
+              leading: const Icon(Icons.access_time),
+              title: const Text('Timesheet'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/timesheet');
               },
             ),
-            buildNavTile(context,
-                icon: Icons.calendar_today,
-                label: 'Leave',
-                route: '/leave_request'),
-            buildNavTile(context,
-                icon: Icons.check_circle_outline,
-                label: 'Attendance',
-                route: '/attendance'),
-            buildNavTile(context,
-                icon: Icons.notifications_none,
-                label: 'Notification/Message',
-                route: '/notifications'),
-            buildNavTile(context,
-                icon: Icons.person_outline,
-                label: 'Profile',
-                route: '/profile'),
-            const Divider(),
-            buildNavTile(context,
-                icon: Icons.support_agent, label: 'Support', route: '/support'),
             ListTile(
-              leading: const Icon(Icons.logout, color: Colors.redAccent),
-              title: const Text(
-                'Logout',
-                style: TextStyle(
-                  color: Colors.redAccent,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              onTap: () async {
+              leading: const Icon(Icons.calendar_today),
+              title: const Text('Attendance'),
+              onTap: () {
                 Navigator.pop(context);
-                // Use the auth provider to handle logout properly
-                final authProvider =
-                    Provider.of<AuthProvider>(context, listen: false);
-                await authProvider.logout();
-                if (context.mounted) {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const SplashScreen()),
-                    (Route<dynamic> route) => false,
-                  );
-                }
+                Navigator.pushNamed(context, '/attendance');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.event_note),
+              title: const Text('Leave Requests'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/leave_request');
               },
             ),
           ],
-        ),
+          if (isAdmin) ...[
+            ListTile(
+              leading: const Icon(Icons.people),
+              title: const Text('User Management'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/user_management');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.access_time),
+              title: const Text('Timesheet Management'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/admin_timesheet');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.calendar_today),
+              title: const Text('Attendance Management'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/attendance_management');
+              },
+            ),
+          ],
+          ListTile(
+            leading: const Icon(Icons.notifications_none),
+            title: const Text('Notifications'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/notification');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: const Text('Profile'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/profile');
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: Icon(Icons.logout, color: theme.colorScheme.error),
+            title: Text(
+              'Logout',
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+            onTap: () async {
+              // Close the drawer first
+              Navigator.pop(context);
+              
+              // Show confirmation dialog
+              final shouldLogout = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Logout'),
+                  content: const Text('Are you sure you want to logout?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Logout'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (shouldLogout == true && context.mounted) {
+                // Show loading indicator
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+
+                // Perform logout
+                await authProvider.logout();
+              }
+            },
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildStatItem(
+    BuildContext context, {
+    required IconData icon,
+    required String value,
+    required String label,
+  }) {
+    return Column(
+      children: [
+        Icon(
+          icon,
+          color: Colors.white,
+          size: 20,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.8),
+            fontSize: 12,
+          ),
+        ),
+      ],
     );
   }
 }

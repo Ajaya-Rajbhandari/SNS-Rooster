@@ -1,11 +1,13 @@
 // Placeholder for notification screen
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
+import '../../providers/notification_provider.dart';
+import '../../models/notification.dart';
+import 'package:intl/intl.dart';
 
 class NotificationScreen extends StatefulWidget {
-  final int initialTabIndex;
-
-  const NotificationScreen({super.key, this.initialTabIndex = 0});
+  const NotificationScreen({super.key});
 
   @override
   State<NotificationScreen> createState() => _NotificationScreenState();
@@ -14,12 +16,16 @@ class NotificationScreen extends StatefulWidget {
 class _NotificationScreenState extends State<NotificationScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  NotificationType? _selectedType;
+  NotificationPriority? _selectedPriority;
+  bool? _showUnreadOnly;
+  DateTime? _startDate;
+  DateTime? _endDate;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(
-        length: 2, vsync: this, initialIndex: widget.initialTabIndex);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -28,185 +34,402 @@ class _NotificationScreenState extends State<NotificationScreen>
     super.dispose();
   }
 
+  void _showFilterDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Filter Notifications',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Type',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Wrap(
+                spacing: 8,
+                children: [
+                  FilterChip(
+                    label: const Text('All'),
+                    selected: _selectedType == null,
+                    onSelected: (selected) {
+                      setState(() => _selectedType = null);
+                    },
+                  ),
+                  ...NotificationType.values.map((type) => FilterChip(
+                    label: Text(type.toString().split('.').last),
+                    selected: _selectedType == type,
+                    onSelected: (selected) {
+                      setState(() => _selectedType = selected ? type : null);
+                    },
+                  )),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Priority',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Wrap(
+                spacing: 8,
+                children: [
+                  FilterChip(
+                    label: const Text('All'),
+                    selected: _selectedPriority == null,
+                    onSelected: (selected) {
+                      setState(() => _selectedPriority = null);
+                    },
+                  ),
+                  ...NotificationPriority.values.map((priority) => FilterChip(
+                    label: Text(priority.toString().split('.').last),
+                    selected: _selectedPriority == priority,
+                    onSelected: (selected) {
+                      setState(() => _selectedPriority = selected ? priority : null);
+                    },
+                  )),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Status',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Wrap(
+                spacing: 8,
+                children: [
+                  FilterChip(
+                    label: const Text('All'),
+                    selected: _showUnreadOnly == null,
+                    onSelected: (selected) {
+                      setState(() => _showUnreadOnly = null);
+                    },
+                  ),
+                  FilterChip(
+                    label: const Text('Unread'),
+                    selected: _showUnreadOnly == true,
+                    onSelected: (selected) {
+                      setState(() => _showUnreadOnly = selected ? true : null);
+                    },
+                  ),
+                  FilterChip(
+                    label: const Text('Read'),
+                    selected: _showUnreadOnly == false,
+                    onSelected: (selected) {
+                      setState(() => _showUnreadOnly = selected ? false : null);
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Date Range',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.calendar_today),
+                      label: Text(_startDate == null ? 'Start Date' : DateFormat('MMM d, y').format(_startDate!)),
+                      onPressed: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: _startDate ?? DateTime.now(),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                        );
+                        if (date != null) {
+                          setState(() => _startDate = date);
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.calendar_today),
+                      label: Text(_endDate == null ? 'End Date' : DateFormat('MMM d, y').format(_endDate!)),
+                      onPressed: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: _endDate ?? DateTime.now(),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                        );
+                        if (date != null) {
+                          setState(() => _endDate = date);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        setState(() {
+                          _selectedType = null;
+                          _selectedPriority = null;
+                          _showUnreadOnly = null;
+                          _startDate = null;
+                          _endDate = null;
+                        });
+                      },
+                      child: const Text('Reset'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        this.setState(() {});
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Apply'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notification/Message'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
-        elevation: 1,
+        title: const Text('Notifications'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterDialog,
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
           tabs: const [
-            Tab(
-              icon: Icon(Icons.notifications, color: Colors.white),
-              text: 'Notifications',
-            ),
-            Tab(
-              icon: Icon(Icons.message, color: Colors.white),
-              text: 'Messages',
-            ),
+            Tab(text: 'Notifications'),
+            Tab(text: 'Messages'),
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          // Notifications Tab
-          _NotificationsTab(),
-          // Messages Tab
-          _MessagesTab(),
-        ],
+      body: Consumer<NotificationProvider>(
+        builder: (context, provider, child) {
+          if (provider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          return TabBarView(
+            controller: _tabController,
+            children: [
+              // Notifications Tab
+              RefreshIndicator(
+                onRefresh: provider.refreshNotifications,
+                child: provider.notifications.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.notifications_off, size: 64, color: Colors.grey[400]),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No notifications yet',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: provider.getGroupedNotifications(
+                          type: _selectedType,
+                          priority: _selectedPriority,
+                          isRead: _showUnreadOnly,
+                          startDate: _startDate,
+                          endDate: _endDate,
+                        ).length,
+                        itemBuilder: (context, index) {
+                          final groupedNotifications = provider.getGroupedNotifications(
+                            type: _selectedType,
+                            priority: _selectedPriority,
+                            isRead: _showUnreadOnly,
+                            startDate: _startDate,
+                            endDate: _endDate,
+                          );
+                          final date = groupedNotifications.keys.elementAt(index);
+                          final notifications = groupedNotifications[date]!;
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Text(
+                                  date,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ),
+                              ...notifications.map((notification) => Dismissible(
+                                    key: Key(notification.id),
+                                    direction: DismissDirection.endToStart,
+                                    background: Container(
+                                      alignment: Alignment.centerRight,
+                                      padding: const EdgeInsets.only(right: 16),
+                                      color: Colors.red,
+                                      child: const Icon(Icons.delete, color: Colors.white),
+                                    ),
+                                    onDismissed: (direction) {
+                                      provider.deleteNotification(notification.id);
+                                    },
+                                    child: NotificationCard(
+                                      notification: notification,
+                                      onTap: () {
+                                        provider.markNotificationAsRead(notification.id);
+                                      },
+                                    ),
+                                  )),
+                            ],
+                          );
+                        },
+                      ),
+              ),
+              // Messages Tab
+              RefreshIndicator(
+                onRefresh: provider.refreshNotifications,
+                child: provider.messages.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No messages yet',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: provider.messages.length,
+                        itemBuilder: (context, index) {
+                          final message = provider.messages[index];
+                          return Dismissible(
+                            key: Key(message.id),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 16),
+                              color: Colors.red,
+                              child: const Icon(Icons.delete, color: Colors.white),
+                            ),
+                            onDismissed: (direction) {
+                              provider.deleteMessage(message.id);
+                            },
+                            child: MessageCard(
+                              message: message,
+                              onTap: () {
+                                provider.markMessageAsRead(message.id);
+                              },
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-class _NotificationsTab extends StatefulWidget {
-  @override
-  State<_NotificationsTab> createState() => _NotificationsTabState();
-}
+class NotificationCard extends StatelessWidget {
+  final AppNotification notification;
+  final VoidCallback onTap;
 
-class _NotificationsTabState extends State<_NotificationsTab> {
-  bool _loading = true;
-  List<_NotificationData> notifications = [];
-
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(const Duration(seconds: 1), () {
-      setState(() {
-        _loading = false;
-        notifications = [
-          _NotificationData(
-            title: 'New Leave Request Approved',
-            message:
-                'Your leave request for October 26, 2023 has been approved.',
-            time: '2 hours ago',
-            avatar: 'assets/images/profile_placeholder.png',
-          ),
-          _NotificationData(
-            title: 'Timesheet Reminder',
-            message: 'Don\'t forget to submit your timesheet for this week.',
-            time: 'Yesterday',
-            avatar: 'assets/images/profile_placeholder.png',
-          ),
-          _NotificationData(
-            title: 'Company Announcement: Holiday Schedule',
-            message:
-                'Please review the updated holiday schedule for the upcoming year.',
-            time: '3 days ago',
-            avatar: 'assets/images/profile_placeholder.png',
-          ),
-        ];
-      });
-    });
-  }
-
-  void _removeNotification(int index) {
-    setState(() {
-      notifications.removeAt(index);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (notifications.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.notifications_off, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              'No notifications',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(color: Colors.grey),
-            ),
-          ],
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: notifications.length,
-      itemBuilder: (context, index) {
-        final notif = notifications[index];
-        return Dismissible(
-          key: ValueKey(notif.title + notif.time),
-          direction: DismissDirection.endToStart,
-          background: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            color: Colors.redAccent,
-            child: const Icon(Icons.delete, color: Colors.white),
-          ),
-          onDismissed: (_) => _removeNotification(index),
-          child: _NotificationCard(
-            title: notif.title,
-            message: notif.message,
-            time: notif.time,
-            avatar: notif.avatar,
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _NotificationData {
-  final String title;
-  final String message;
-  final String time;
-  final String avatar;
-  _NotificationData({
-    required this.title,
-    required this.message,
-    required this.time,
-    required this.avatar,
-  });
-}
-
-class _NotificationCard extends StatelessWidget {
-  final String title;
-  final String message;
-  final String time;
-  final String avatar;
-
-  const _NotificationCard({
-    required this.title,
-    required this.message,
-    required this.time,
-    required this.avatar,
+  const NotificationCard({
+    required this.notification,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 16.0),
+      margin: const EdgeInsets.only(bottom: 8.0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 2,
-      child: Semantics(
-        label: 'Notification: $title',
+      elevation: notification.isRead ? 0 : 2,
+      color: notification.isRead 
+          ? Theme.of(context).cardColor 
+          : Theme.of(context).colorScheme.primary.withOpacity(0.05),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 22,
-                child: SvgPicture.asset(
-                  avatar,
-                  width: 44,
-                  height: 44,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: notification.color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  notification.icon,
+                  color: notification.color,
+                  size: 24,
                 ),
               ),
               const SizedBox(width: 16),
@@ -214,24 +437,52 @@ class _NotificationCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            notification.title,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: notification.isRead ? FontWeight.normal : FontWeight.bold,
+                            ),
                           ),
+                        ),
+                        Text(
+                          notification.formattedTime,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8.0),
+                    const SizedBox(height: 4),
                     Text(
-                      message,
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      notification.message,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey[700],
+                      ),
                     ),
-                    const SizedBox(height: 8.0),
-                    Text(
-                      time,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelSmall?.copyWith(color: Colors.grey[700]),
-                    ),
+                    if (notification.priority == NotificationPriority.high)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'High Priority',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -243,310 +494,80 @@ class _NotificationCard extends StatelessWidget {
   }
 }
 
-class _MessagesTab extends StatefulWidget {
-  @override
-  State<_MessagesTab> createState() => _MessagesTabState();
-}
+class MessageCard extends StatelessWidget {
+  final AppNotification message;
+  final VoidCallback onTap;
 
-class _MessagesTabState extends State<_MessagesTab> {
-  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
-  final List<_MessageBubble> _messages = [
-    _MessageBubble(
-      text: 'Hi, I have a question about my leave.',
-      isMe: true,
-      time: '09:00',
-      recipient: 'Manager',
-    ),
-    _MessageBubble(
-      text: 'Sure, please go ahead.',
-      isMe: false,
-      time: '09:01',
-      recipient: 'Manager',
-    ),
-  ];
-  final TextEditingController _controller = TextEditingController();
-  bool _sending = false;
-  String _selectedRecipient = 'Manager';
-  final List<String> _recipients = ['Manager', 'HR', 'Team Lead'];
-
-  void _sendMessage() async {
-    if (_controller.text.trim().isEmpty) return;
-    setState(() => _sending = true);
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (DateTime.now().millisecondsSinceEpoch % 10 == 0) {
-        throw Exception('Network error');
-      }
-      final newMsg = _MessageBubble(
-        text: _controller.text.trim(),
-        isMe: true,
-        time: TimeOfDay.now().format(context),
-        recipient: _selectedRecipient,
-      );
-      setState(() {
-        _messages.add(newMsg);
-        _sending = false;
-        _controller.clear();
-      });
-      _listKey.currentState?.insertItem(_messages.length - 1);
-    } catch (e) {
-      setState(() => _sending = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to send message: ${e.toString()}')),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          color: Colors.grey[100],
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              const Icon(Icons.person, color: Colors.black87),
-              const SizedBox(width: 8),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: _selectedRecipient,
-                  items: _recipients
-                      .map(
-                        (recipient) => DropdownMenuItem(
-                          value: recipient,
-                          child: Text(recipient),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _selectedRecipient = value);
-                    }
-                  },
-                  decoration: const InputDecoration(
-                    labelText: 'Send to',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                  ),
-                  dropdownColor: Colors.white,
-                  focusColor: Colors.blueAccent,
-                  style: TextStyle(
-                    color: Colors.black87,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  selectedItemBuilder: (context) => _recipients
-                      .map(
-                        (recipient) => Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: Colors.blue.withOpacity(0.08),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          child: Text(
-                            recipient,
-                            style: const TextStyle(
-                              color: Colors.blue,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: _messages.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.chat_bubble_outline,
-                        size: 64,
-                        color: Colors.grey[400],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No messages yet',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.titleMedium?.copyWith(color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                )
-              : AnimatedList(
-                  key: _listKey,
-                  padding: const EdgeInsets.all(16.0),
-                  initialItemCount: _messages.length,
-                  itemBuilder: (context, index, animation) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: _messages[index],
-                    );
-                  },
-                ),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: Colors.grey[300]!)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.05),
-                blurRadius: 8,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _controller,
-                  decoration: InputDecoration(
-                    hintText: 'Type your message...'
-                        ' (to $_selectedRecipient)',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                  ),
-                  minLines: 1,
-                  maxLines: 3,
-                ),
-              ),
-              const SizedBox(width: 8),
-              _sending
-                  ? const SizedBox(
-                      width: 32,
-                      height: 32,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Material(
-                      color: Theme.of(context).colorScheme.primary,
-                      shape: const CircleBorder(),
-                      child: IconButton(
-                        icon: const Icon(Icons.send, color: Colors.white),
-                        onPressed: _sendMessage,
-                      ),
-                    ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MessageBubble extends StatelessWidget {
-  final String text;
-  final bool isMe;
-  final String time;
-  final String recipient;
-  final String? avatar;
-  const _MessageBubble({
-    required this.text,
-    required this.isMe,
-    required this.time,
-    required this.recipient,
-    this.avatar,
+  const MessageCard({
+    required this.message,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      label: isMe ? 'Your message: $text' : 'Message from $recipient: $text',
-      child: Row(
-        mainAxisAlignment:
-            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!isMe)
-            Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: CircleAvatar(
-                radius: 16,
-                backgroundImage: AssetImage(
-                  avatar ?? 'assets/images/profile_placeholder.png',
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: message.isRead ? 0 : 2,
+      color: message.isRead 
+          ? Theme.of(context).cardColor 
+          : Theme.of(context).colorScheme.primary.withOpacity(0.05),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: message.color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  message.icon,
+                  color: message.color,
+                  size: 24,
                 ),
               ),
-            ),
-          Flexible(
-            child: Align(
-              alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: isMe
-                      ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
-                      : Colors.grey[100],
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(16),
-                    topRight: const Radius.circular(16),
-                    bottomLeft: Radius.circular(isMe ? 16 : 0),
-                    bottomRight: Radius.circular(isMe ? 0 : 16),
-                  ),
-                  border: Border.all(
-                    color: isMe
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.grey.shade400,
-                  ),
-                ),
+              const SizedBox(width: 16),
+              Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (!isMe)
-                      Text(
-                        recipient,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Colors.blueGrey,
-                              fontWeight: FontWeight.bold,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            message.title,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: message.isRead ? FontWeight.normal : FontWeight.bold,
                             ),
-                      ),
-                    Text(
-                      text,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: isMe
-                                ? Theme.of(context).colorScheme.primary
-                                : Colors.black87,
                           ),
+                        ),
+                        Text(
+                          message.formattedTime,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      time,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelSmall?.copyWith(color: Colors.grey[700]),
+                      message.message,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey[700],
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
+            ],
           ),
-          if (isMe) const SizedBox(width: 24), // for alignment
-        ],
+        ),
       ),
     );
   }

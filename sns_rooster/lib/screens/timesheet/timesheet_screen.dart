@@ -25,8 +25,8 @@ class _TimesheetScreenState extends State<TimesheetScreen>
 
   late DateTimeRange _selectedDateRange;
 
-  DateTime _selectedDate = DateTime.now();
-  CalendarFormat _calendarFormat = CalendarFormat.week;
+  final DateTime _selectedDate = DateTime.now();
+  final CalendarFormat _calendarFormat = CalendarFormat.week;
 
   String _selectedFilter = 'All';
   bool _isLoading = false;
@@ -293,9 +293,9 @@ class _TimesheetScreenState extends State<TimesheetScreen>
     }).toList();
     if (_selectedFilter == 'All') return dateFilteredData;
     return dateFilteredData
-        .where((entry) => ((entry?['status']?.toString().trim().toLowerCase() ??
-                'approved') ==
-            _selectedFilter.trim().toLowerCase()))
+        .where((entry) =>
+            ((entry['status']?.toString().trim().toLowerCase() ?? 'approved') ==
+                _selectedFilter.trim().toLowerCase()))
         .toList();
   }
 
@@ -531,12 +531,12 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                     return Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Text('Error: ${attendanceProvider.error}',
-                          style: TextStyle(color: Colors.red)),
+                          style: const TextStyle(color: Colors.red)),
                     );
                   }
                   if (_filteredData.isEmpty) {
-                    return Padding(
-                      padding: const EdgeInsets.all(16.0),
+                    return const Padding(
+                      padding: EdgeInsets.all(16.0),
                       child: Text('No timesheet entries for this range.'),
                     );
                   }
@@ -548,7 +548,6 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                       itemCount: _filteredData.length,
                       itemBuilder: (context, index) {
                         final entry = _filteredData[index];
-                        if (entry == null) return const SizedBox.shrink();
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: TimesheetRow(entry: entry),

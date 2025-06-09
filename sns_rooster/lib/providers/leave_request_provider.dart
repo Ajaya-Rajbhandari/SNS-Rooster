@@ -72,7 +72,7 @@ class LeaveRequestProvider with ChangeNotifier {
         if (response['leaveRequest'] != null) {
           _leaveRequests.add(response['leaveRequest']);
         }
-        print("Create leave request (mock) response: ${response}");
+        print("Create leave request (mock) response: $response");
         return true;
       } else {
         // TODO: Replace with real API call (e.g., POST /api/leave-requests).
@@ -97,7 +97,7 @@ class LeaveRequestProvider with ChangeNotifier {
         final response = await _mockLeaveRequestService
             .updateLeaveRequestStatus(requestId, "approved");
         // In a real app, you might refresh the list (or update local state) after approval.
-        print("Approve leave request (mock) response: ${response}");
+        print("Approve leave request (mock) response: $response");
         return true;
       } else {
         // TODO: Replace with real API call (e.g., PATCH /api/leave-requests/:requestId/approve).
@@ -122,7 +122,7 @@ class LeaveRequestProvider with ChangeNotifier {
         final response = await _mockLeaveRequestService
             .updateLeaveRequestStatus(requestId, "rejected");
         // In a real app, you might refresh the list (or update local state) after rejection.
-        print("Reject leave request (mock) response: ${response}");
+        print("Reject leave request (mock) response: $response");
         return true;
       } else {
         // TODO: Replace with real API call (e.g., PATCH /api/leave-requests/:requestId/reject).

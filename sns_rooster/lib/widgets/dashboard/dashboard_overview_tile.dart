@@ -397,7 +397,7 @@ class DashboardOverviewTile extends StatelessWidget {
                             'Attendance Streak',
                             attendanceStreak == 0
                                 ? 'N/A'
-                                : '${attendanceStreak} days',
+                                : '$attendanceStreak days',
                           ),
                         ),
                         Expanded(
@@ -512,10 +512,10 @@ class DashboardOverviewTile extends StatelessWidget {
         if (lastPresentDay == null ||
             normalizedCheckInDay
                 .add(const Duration(days: 1))
-                .isAtSameMomentAs(lastPresentDay!)) {
+                .isAtSameMomentAs(lastPresentDay)) {
           streak++;
           lastPresentDay = normalizedCheckInDay;
-        } else if (normalizedCheckInDay.isAtSameMomentAs(lastPresentDay!)) {
+        } else if (normalizedCheckInDay.isAtSameMomentAs(lastPresentDay)) {
           // Same day, continue
         } else {
           // Gap in attendance
@@ -534,7 +534,7 @@ class DashboardOverviewTile extends StatelessWidget {
           if (lastPresentDay == null ||
               normalizedCheckInDay
                   .add(const Duration(days: 1))
-                  .isAtSameMomentAs(lastPresentDay!)) {
+                  .isAtSameMomentAs(lastPresentDay)) {
             streak++;
             lastPresentDay = normalizedCheckInDay;
           }

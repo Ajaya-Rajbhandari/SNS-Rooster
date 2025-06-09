@@ -1,15 +1,21 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import '../services/mock_service.dart'; // Import the mock service
+import 'package:provider/provider.dart';
+import '../providers/profile_provider.dart';
 
 class AuthProvider with ChangeNotifier {
   String? _token;
   Map<String, dynamic>? _user;
   bool _isLoading = false;
   String? _error;
+  Timer? _logoutDebounce;
+  bool _isLoggingOut = false;
+  final _navigatorKey = GlobalKey<NavigatorState>();
 
   // Instantiate the mock service (with useMock = true) so that we can simulate API responses.
   final MockAuthService _mockAuthService = MockAuthService();
@@ -19,6 +25,8 @@ class AuthProvider with ChangeNotifier {
   String? get error => _error;
   Map<String, dynamic>? get user => _user;
   String? get token => _token;
+  bool get isLoggingOut => _isLoggingOut;
+  GlobalKey<NavigatorState> get navigatorKey => _navigatorKey;
 
   // API base URL
   final String _baseUrl =
@@ -26,9 +34,8 @@ class AuthProvider with ChangeNotifier {
   // Use 'http://localhost:5000/api' for iOS simulator
 
   AuthProvider() {
-    _user = { 'id': 'mock_user_id_123'};
     print('AuthProvider initialized');
-    // _loadStoredAuth() removed from constructor
+    _loadStoredAuth(); // Add this back to load stored auth on initialization
   }
 
   Future<void> initAuth() async {
@@ -50,20 +57,24 @@ class AuthProvider with ChangeNotifier {
 
       if (_token == null) {
         print('No token found in SharedPreferences after retrieval.');
-        _user = null; // Ensure user is also null if token is null
-      }
-      final userStr = prefs.getString('user');
-      print('SharedPreferences retrieved user string: $userStr');
-      if (userStr != null) {
-        _user = json.decode(userStr);
+        _user = null;
       } else {
-        _user = null; // Ensure user is null if user string is null
+        final userStr = prefs.getString('user');
+        print('SharedPreferences retrieved user string: $userStr');
+        if (userStr != null) {
+          _user = json.decode(userStr);
+          print('User data loaded: $_user');
+        } else {
+          _user = null;
+        }
       }
-      print(
-          'Stored auth loaded - Final _token: ${_token != null}, Final User: ${_user != null}');
+      print('Stored auth loaded - Final _token: ${_token != null}, Final User: ${_user != null}');
       notifyListeners();
     } catch (e) {
       print('Error loading stored auth: $e');
+      _token = null;
+      _user = null;
+      notifyListeners();
     }
   }
 
@@ -144,25 +155,25 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> logout() async {
-    _isLoading = true;
+    print('Logging out...');
+    _token = null;
+    _user = null;
+    _error = null;
     notifyListeners();
+
     try {
-      if (useMock) {
-        await _mockAuthService.logout();
-      } else {
-        // TODO: Replace with real API call (e.g., POST /api/auth/logout) (with Authorization header).
-        // For example:
-        // await http.post(Uri.parse("http://yourbackend.com/api/auth/logout"), headers: { "Authorization": "Bearer $_token" });
-        throw UnimplementedError("Real API call not implemented.");
-      }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('token');
+      await prefs.remove('user');
+      
+      // Clear profile data
+      final profileProvider = Provider.of<ProfileProvider>(
+        navigatorKey.currentContext!,
+        listen: false,
+      );
+      await profileProvider.clearProfile();
     } catch (e) {
-      _error = e.toString();
-    } finally {
-      _token = null;
-      _user = null;
-      await _saveAuthToPrefs(); // Clear stored info on logout
-      _isLoading = false;
-      notifyListeners();
+      print('Error during logout: $e');
     }
   }
 
@@ -327,17 +338,27 @@ class AuthProvider with ChangeNotifier {
 
   // Helper to save token and user to SharedPreferences
   Future<void> _saveAuthToPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (_token != null) {
-      prefs.setString('token', _token!);
-    } else {
-      prefs.remove('token');
+    try {
+      print('Saving auth to preferences...');
+      final prefs = await SharedPreferences.getInstance();
+      if (_token != null) {
+        await prefs.setString('token', _token!);
+        print('Token saved to preferences');
+      } else {
+        await prefs.remove('token');
+        print('Token removed from preferences');
+      }
+
+      if (_user != null) {
+        await prefs.setString('user', json.encode(_user));
+        print('User data saved to preferences');
+      } else {
+        await prefs.remove('user');
+        print('User data removed from preferences');
+      }
+      print('Auth data saved to preferences');
+    } catch (e) {
+      print('Error saving auth to preferences: $e');
     }
-    if (_user != null) {
-      prefs.setString('user', json.encode(_user));
-    } else {
-      prefs.remove('user');
-    }
-    print('Auth data saved to preferences.');
   }
 }

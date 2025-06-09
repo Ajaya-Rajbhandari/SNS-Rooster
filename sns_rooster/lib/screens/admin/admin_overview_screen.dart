@@ -124,22 +124,24 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
     final user = Provider.of<AuthProvider>(context).user;
     final now = DateTime.now();
     final greeting = _getGreeting(now.hour);
+    final theme = Theme.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           '$greeting, ${user?['name'] ?? 'Admin'}!',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
           DateFormat('EEEE, MMMM d, y').format(now),
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.grey[600],
-              ),
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.7),
+          ),
         ),
       ],
     );
@@ -152,6 +154,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
   }
 
   Widget _buildQuickStats(BuildContext context) {
+    final theme = Theme.of(context);
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
@@ -165,7 +168,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
           'Total Employees',
           _stats['totalEmployees'].toString(),
           Icons.people,
-          Colors.blue,
+          theme.colorScheme.primary,
         ),
         _buildStatCard(
           context,
@@ -179,14 +182,14 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
           'On Leave',
           _stats['onLeaveToday'].toString(),
           Icons.event_busy,
-          Colors.orange,
+          theme.colorScheme.secondary,
         ),
         _buildStatCard(
           context,
           'Pending Requests',
           _stats['pendingLeaveRequests'].toString(),
           Icons.pending_actions,
-          Colors.purple,
+          Colors.orange,
         ),
       ],
     );
@@ -199,30 +202,51 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
     IconData icon,
     Color color,
   ) {
+    final theme = Theme.of(context);
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            colors: [
+              color.withOpacity(0.1),
+              color.withOpacity(0.05),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  icon,
+                  color: color,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
             Text(
               value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
-                  ),
-              textAlign: TextAlign.center,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
