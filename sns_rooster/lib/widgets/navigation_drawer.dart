@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/screens/splash/splash_screen.dart';
+import 'package:sns_rooster/widgets/user_avatar.dart';
 
 class AppNavigationDrawer extends StatelessWidget {
   const AppNavigationDrawer({super.key});
@@ -91,14 +92,12 @@ class AppNavigationDrawer extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  CircleAvatar(
-                    radius: 32,
-                    backgroundColor: Colors.white,
-                    child: SvgPicture.asset(
-                      'assets/images/profile_placeholder.png',
-                      width: 64,
-                      height: 64,
-                    ),
+                  Consumer<AuthProvider>(
+                    builder: (context, authProvider, child) {
+                      final user = authProvider.user;
+                      final avatarUrl = user?['avatar'];
+                      return UserAvatar(avatarUrl: avatarUrl, radius: 32);
+                    },
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -154,7 +153,7 @@ class AppNavigationDrawer extends StatelessWidget {
                 route: '/attendance'),
             buildNavTile(context,
                 icon: Icons.notifications_none,
-                label: 'Notifications',
+                label: 'Notification/Message',
                 route: '/notifications'),
             buildNavTile(context,
                 icon: Icons.person_outline,

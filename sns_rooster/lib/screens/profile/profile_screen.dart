@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../widgets/navigation_drawer.dart';
+import '../../widgets/user_avatar.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -263,76 +264,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Stack(
                         children: [
-                          CircleAvatar(
-                            radius: 60,
-                            backgroundColor: theme.colorScheme.primaryContainer,
-                            child: Builder(
-                              builder: (context) {
-                                final avatarPath =
-                                    profileProvider.profile?['avatar'];
-                                print(
-                                    'Debug ProfileScreen: Avatar path in Builder: $avatarPath');
-                                if (avatarPath != null) {
-                                  if (avatarPath.startsWith('/') ||
-                                      avatarPath.startsWith('file://')) {
-                                    final file = File(
-                                        avatarPath.replaceFirst('file://', ''));
-                                    if (file.existsSync()) {
-                                      return ClipOval(
-                                        child: Image.file(
-                                          file,
-                                          width: 120, // Match radius * 2
-                                          height: 120, // Match radius * 2
-                                          fit: BoxFit.cover,
-                                        ),
-                                      );
-                                    } else {
-                                      print(
-                                          'Debug: Avatar file not found: $avatarPath. Falling back to placeholder.');
-                                      return SvgPicture.asset(
-                                        'assets/images/profile_placeholder.png',
-                                        width: 100,
-                                        height: 100,
-                                        colorFilter: ColorFilter.mode(
-                                            theme
-                                                .colorScheme.onPrimaryContainer,
-                                            BlendMode.srcIn),
-                                      );
-                                    }
-                                  } else if (avatarPath.startsWith('assets/')) {
-                                    return SvgPicture.asset(
-                                      avatarPath,
-                                      width: 100,
-                                      height: 100,
-                                      colorFilter: ColorFilter.mode(
-                                          theme.colorScheme.onPrimaryContainer,
-                                          BlendMode.srcIn),
-                                    );
-                                  } else {
-                                    print(
-                                        'Debug: Unsupported avatar path format: $avatarPath. Falling back to placeholder.');
-                                    return SvgPicture.asset(
-                                      'assets/images/profile_placeholder.png',
-                                      width: 100,
-                                      height: 100,
-                                      colorFilter: ColorFilter.mode(
-                                          theme.colorScheme.onPrimaryContainer,
-                                          BlendMode.srcIn),
-                                    );
-                                  }
-                                } else {
-                                  return SvgPicture.asset(
-                                    'assets/images/profile_placeholder.png',
-                                    width: 100,
-                                    height: 100,
-                                    colorFilter: ColorFilter.mode(
-                                        theme.colorScheme.onPrimaryContainer,
-                                        BlendMode.srcIn),
-                                  );
-                                }
-                              },
-                            ),
-                          ),
+                          UserAvatar(
+                              avatarUrl: profileProvider.profile?['avatar'],
+                              radius: 60),
                           if (_isEditing)
                             Positioned(
                               bottom: 0,

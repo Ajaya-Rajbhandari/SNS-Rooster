@@ -11,8 +11,7 @@ class LeaveRequestModal extends StatefulWidget {
     DateTime toDate,
     String leaveType,
     String reason,
-  )
-  onSubmit;
+  ) onSubmit;
   final bool disablePastDates; // Added parameter to disable past dates
 
   const LeaveRequestModal({
@@ -208,7 +207,7 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
                 setState(() {
                   isFromDateError = fromDate == null;
                   isToDateError = toDate == null;
-                  isLeaveTypeError = leaveType == null || leaveType!.isEmpty;
+                  isLeaveTypeError = leaveType == null;
                   isReasonError = widget.reasonController.text.isEmpty;
                 });
 

@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 // --- Mock Data ---
 
 final Map<String, dynamic> _mockUser = {
-  "_id": "mock_user_id",
+  "_id": "mock_user_id_123",
   "name": "Mock User",
   "email": "testuser@example.com",
   "role": "employee",
@@ -106,7 +106,52 @@ final List<Map<String, dynamic>> _mockLeaveRequests = [
 
 // Make _mockAttendance a mutable variable
 Map<String, dynamic>? _mockCurrentAttendance;
-List<Map<String, dynamic>> _mockAttendanceHistory = [];
+List<Map<String, dynamic>> _mockAttendanceHistory = [
+  {
+    "_id": "attendance_1",
+    "userId": "mock_user_1",
+    "checkIn": "2024-03-01T09:00:00Z",
+    "checkOut": "2024-03-01T17:00:00Z",
+    "status": "present",
+    "breaks": [
+      {
+        "start": "2024-03-01T12:00:00Z",
+        "end": "2024-03-01T13:00:00Z",
+        "duration": 60
+      }
+    ],
+    "totalBreakDuration": 60,
+    "notes": "Regular day",
+    "createdAt": "2024-03-01T09:00:00Z",
+    "updatedAt": "2024-03-01T17:00:00Z"
+  },
+  {
+    "_id": "attendance_2",
+    "userId": "mock_user_1",
+    "checkIn": "2024-03-02T09:30:00Z",
+    "checkOut": "2024-03-02T17:00:00Z",
+    "status": "late",
+    "breaks": [
+      {
+        "start": "2024-03-02T12:00:00Z",
+        "end": "2024-03-02T13:00:00Z",
+        "duration": 60
+      }
+    ],
+    "totalBreakDuration": 60,
+    "notes": "Traffic delay",
+    "createdAt": "2024-03-02T09:30:00Z",
+    "updatedAt": "2024-03-02T17:00:00Z"
+  },
+  {
+    "_id": "attendance_3",
+    "userId": "mock_user_1",
+    "status": "absent",
+    "notes": "Sick leave",
+    "createdAt": "2024-03-03T00:00:00Z",
+    "updatedAt": "2024-03-03T00:00:00Z"
+  }
+];
 
 // Helper to reset mock attendance (for testing purposes)
 void resetMockAttendance() {
@@ -259,159 +304,186 @@ class MockEmployeeService {
 // --- Attendance Mock Service ---
 
 class MockAttendanceService {
-  Future<Map<String, dynamic>> checkIn({String? note}) async {
+  Future<Map<String, dynamic>> checkIn(String userId, {String? notes}) async {
     if (useMock) {
       await Future.delayed(const Duration(seconds: 1));
-      final now = DateTime.now().toUtc().toIso8601String();
-      // Simulate a new check-in record
-      _mockCurrentAttendance = {
-        "_id": "mock_attendance_id_" +
-            DateTime.now().millisecondsSinceEpoch.toString(),
-        "userId": _mockUser["_id"],
-        "checkIn": now,
-        "checkOut": null,
-        "breaks": [], // Initialize with empty breaks array
-        "totalBreakDuration": 0, // Initialize total break duration
-        "note": note ?? "",
-      };
-      // Add to history for completeness (optional, but good for overview)
-      _mockAttendanceHistory.add(_mockCurrentAttendance!);
 
-      return {
-        "message": "Check-in recorded",
-        "attendance": _mockCurrentAttendance
+      // Check if user already has an active attendance
+      if (_mockCurrentAttendance != null) {
+        throw Exception("You have already checked in today");
+      }
+
+      final now = DateTime.now().toUtc();
+      final attendance = {
+        "_id": "attendance_${now.millisecondsSinceEpoch}",
+        "userId": userId,
+        "checkIn": now.toIso8601String(),
+        "status": now.hour >= 9 ? "late" : "present",
+        "breaks": [],
+        "totalBreakDuration": 0,
+        "notes": notes,
+        "createdAt": now.toIso8601String(),
+        "updatedAt": now.toIso8601String()
       };
+
+      _mockCurrentAttendance = attendance;
+      _mockAttendanceHistory.insert(0, attendance);
+
+      return {"message": "Check-in successful", "attendance": attendance};
     } else {
-      // TODO: Replace with real API call (e.g., POST /api/attendance/check-in).
       throw UnimplementedError("Real API call not implemented.");
     }
   }
 
-  Future<Map<String, dynamic>> checkOut({String? note}) async {
+  Future<Map<String, dynamic>> checkOut(String userId, {String? notes}) async {
     if (useMock) {
       await Future.delayed(const Duration(seconds: 1));
-      final now = DateTime.now().toUtc().toIso8601String();
 
       if (_mockCurrentAttendance == null) {
-        throw Exception("No active check-in to check out from.");
+        throw Exception("No active attendance found");
       }
 
-      // Ensure any ongoing break is ended before checkout
-      if (_mockCurrentAttendance!['breaks'] != null) {
-        final lastBreak = _mockCurrentAttendance!['breaks'].isNotEmpty
-            ? _mockCurrentAttendance!['breaks'].last
-            : null;
-        if (lastBreak != null && lastBreak['endTime'] == null) {
-          final breakStartTime = DateTime.parse(lastBreak['startTime']);
-          final breakDuration =
-              DateTime.now().difference(breakStartTime).inMilliseconds;
-          lastBreak['endTime'] = now;
-          _mockCurrentAttendance!['totalBreakDuration'] =
-              (_mockCurrentAttendance!['totalBreakDuration'] ?? 0) +
-                  breakDuration;
-        }
+      final now = DateTime.now().toUtc();
+      final attendance = _mockCurrentAttendance!;
+      attendance["checkOut"] = now.toIso8601String();
+      attendance["notes"] = notes ?? attendance["notes"];
+      attendance["updatedAt"] = now.toIso8601String();
+
+      _mockCurrentAttendance = null;
+
+      return {"message": "Check-out successful", "attendance": attendance};
+    } else {
+      throw UnimplementedError("Real API call not implemented.");
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAttendanceHistory(String userId,
+      {DateTime? startDate, DateTime? endDate}) async {
+    if (useMock) {
+      await Future.delayed(const Duration(seconds: 1));
+
+      var filteredHistory =
+          _mockAttendanceHistory.where((a) => a["userId"] == userId);
+
+      if (startDate != null) {
+        filteredHistory = filteredHistory
+            .where((a) => DateTime.parse(a["createdAt"]).isAfter(startDate));
       }
 
-      _mockCurrentAttendance!['checkOut'] = now;
-      _mockCurrentAttendance!['note'] = note ?? '';
+      if (endDate != null) {
+        filteredHistory = filteredHistory
+            .where((a) => DateTime.parse(a["createdAt"]).isBefore(endDate));
+      }
+
+      return filteredHistory.toList();
+    } else {
+      throw UnimplementedError("Real API call not implemented.");
+    }
+  }
+
+  Future<Map<String, dynamic>?> getCurrentAttendance(String userId) async {
+    if (useMock) {
+      await Future.delayed(const Duration(seconds: 1));
+      return _mockCurrentAttendance;
+    } else {
+      throw UnimplementedError("Real API call not implemented.");
+    }
+  }
+
+  Future<Map<String, dynamic>> getAttendanceSummary(String userId,
+      {DateTime? startDate, DateTime? endDate}) async {
+    if (useMock) {
+      await Future.delayed(const Duration(seconds: 1));
+
+      final allAttendance = [..._mockAttendanceHistory];
+      var filteredAttendance =
+          allAttendance.where((a) => a["userId"] == userId);
+
+      if (startDate != null) {
+        filteredAttendance = filteredAttendance
+            .where((a) => DateTime.parse(a["createdAt"]).isAfter(startDate));
+      }
+
+      if (endDate != null) {
+        filteredAttendance = filteredAttendance
+            .where((a) => DateTime.parse(a["createdAt"]).isBefore(endDate));
+      }
+
+      final attendanceList = filteredAttendance.toList();
 
       return {
-        "message": "Check-out recorded",
-        "attendance": _mockCurrentAttendance
+        "totalDays": attendanceList.length,
+        "presentDays":
+            attendanceList.where((a) => a["status"] == "present").length,
+        "lateDays": attendanceList.where((a) => a["status"] == "late").length,
+        "absentDays":
+            attendanceList.where((a) => a["status"] == "absent").length,
+        "averageWorkHours": attendanceList
+                .where((a) => a["checkIn"] != null && a["checkOut"] != null)
+                .map((a) {
+              final checkIn = DateTime.parse(a["checkIn"]);
+              final checkOut = DateTime.parse(a["checkOut"]);
+              final breakDuration = a["totalBreakDuration"] ?? 0;
+              return checkOut.difference(checkIn).inHours -
+                  (breakDuration / 60);
+            }).fold(0.0, (sum, hours) => sum + hours) /
+            (attendanceList
+                .where((a) => a["checkIn"] != null && a["checkOut"] != null)
+                .length)
       };
     } else {
-      // TODO: Replace with real API call (e.g., POST /api/attendance/check-out).
       throw UnimplementedError("Real API call not implemented.");
     }
   }
 
-  Future<Map<String, dynamic>> startBreak() async {
+  Future<Map<String, dynamic>> startBreak(String userId) async {
     if (useMock) {
-      await Future.delayed(const Duration(seconds: 1));
-      final now = DateTime.now().toUtc().toIso8601String();
-
+      await Future.delayed(const Duration(milliseconds: 500));
       if (_mockCurrentAttendance == null ||
-          _mockCurrentAttendance!['checkOut'] != null) {
-        throw Exception("Not clocked in or already clocked out.");
+          _mockCurrentAttendance!["userId"] != userId) {
+        throw Exception("No active attendance found");
       }
-
-      if (_mockCurrentAttendance!['breaks'] != null &&
-          _mockCurrentAttendance!['breaks'].isNotEmpty) {
-        final lastBreak = _mockCurrentAttendance!['breaks'].last;
-        if (lastBreak['endTime'] == null) {
-          throw Exception("Already on break. Please end current break first.");
-        }
+      // Check if already on break
+      final breaks = List<Map<String, dynamic>>.from(
+          _mockCurrentAttendance!["breaks"] ?? []);
+      if (breaks.isNotEmpty && breaks.last["end"] == null) {
+        throw Exception("Already on break");
       }
-
-      // Add a new break entry
-      _mockCurrentAttendance!['breaks'] =
-          List.from(_mockCurrentAttendance!['breaks'] ?? []);
-      _mockCurrentAttendance!['breaks'].add({
-        "startTime": now,
-        "endTime": null,
-      });
-
+      final now = DateTime.now().toUtc();
+      breaks.add({"start": now.toIso8601String(), "end": null, "duration": 0});
+      _mockCurrentAttendance!["breaks"] = breaks;
+      _mockCurrentAttendance!["updatedAt"] = now.toIso8601String();
       return {"message": "Break started", "attendance": _mockCurrentAttendance};
     } else {
-      // TODO: Replace with real API call (e.g., POST /api/attendance/start-break).
       throw UnimplementedError("Real API call not implemented.");
     }
   }
 
-  Future<Map<String, dynamic>> endBreak() async {
+  Future<Map<String, dynamic>> endBreak(String userId) async {
     if (useMock) {
-      await Future.delayed(const Duration(seconds: 1));
-      final now = DateTime.now().toUtc().toIso8601String();
-
+      await Future.delayed(const Duration(milliseconds: 500));
       if (_mockCurrentAttendance == null ||
-          _mockCurrentAttendance!['checkOut'] != null) {
-        throw Exception("Not clocked in or already clocked out.");
+          _mockCurrentAttendance!["userId"] != userId) {
+        throw Exception("No active attendance found");
       }
-
-      if (_mockCurrentAttendance!['breaks'] == null ||
-          _mockCurrentAttendance!['breaks'].isEmpty) {
-        throw Exception("No break in progress to end.");
+      final breaks = List<Map<String, dynamic>>.from(
+          _mockCurrentAttendance!["breaks"] ?? []);
+      if (breaks.isEmpty || breaks.last["end"] != null) {
+        throw Exception("Not currently on break");
       }
-
-      final lastBreak = _mockCurrentAttendance!['breaks'].last;
-      if (lastBreak['endTime'] != null) {
-        throw Exception("No active break found to end.");
-      }
-
-      final breakStartTime = DateTime.parse(lastBreak['startTime']);
-      final breakDuration =
-          DateTime.now().difference(breakStartTime).inMilliseconds;
-
-      lastBreak['endTime'] = now; // Mark the break as ended
-
+      final now = DateTime.now().toUtc();
+      final start = DateTime.parse(breaks.last["start"]);
+      final duration = now.difference(start).inMinutes;
+      breaks.last["end"] = now.toIso8601String();
+      breaks.last["duration"] = duration;
+      _mockCurrentAttendance!["breaks"] = breaks;
       // Update total break duration
-      _mockCurrentAttendance!['totalBreakDuration'] =
-          (_mockCurrentAttendance!['totalBreakDuration'] ?? 0) + breakDuration;
-
+      final totalBreakDuration =
+          breaks.fold<int>(0, (sum, b) => sum + ((b["duration"] ?? 0) as int));
+      _mockCurrentAttendance!["totalBreakDuration"] = totalBreakDuration;
+      _mockCurrentAttendance!["updatedAt"] = now.toIso8601String();
       return {"message": "Break ended", "attendance": _mockCurrentAttendance};
     } else {
-      // TODO: Replace with real API call (e.g., POST /api/attendance/end-break).
-      throw UnimplementedError("Real API call not implemented.");
-    }
-  }
-
-  Future<Map<String, dynamic>> getAttendanceHistory() async {
-    if (useMock) {
-      await Future.delayed(const Duration(seconds: 1));
-
-      // Combine current attendance with history. If current attendance is active, it should be the first entry.
-      List<Map<String, dynamic>> history = [];
-      if (_mockCurrentAttendance != null) {
-        history.add(_mockCurrentAttendance!); // Add the active record
-      }
-      // Add other historical records, ensuring they don't duplicate the current one
-      history.addAll(_mockAttendanceHistory.where((record) =>
-          record['_id'] != _mockCurrentAttendance?['_id'] ||
-          _mockCurrentAttendance == null));
-
-      return {"message": "Attendance history fetched", "history": history};
-    } else {
-      // TODO: Replace with real API call (e.g., GET /api/attendance/history).
       throw UnimplementedError("Real API call not implemented.");
     }
   }
@@ -434,9 +506,11 @@ class MockLeaveRequestService {
       String userId) async {
     if (useMock) {
       await Future.delayed(const Duration(seconds: 1));
-      return _mockLeaveRequests
-          .where((req) => req["userId"] == userId)
-          .toList();
+      final userRequests =
+          _mockLeaveRequests.where((req) => req["userId"] == userId).toList();
+      print(
+          'MockLeaveRequestService: Returning requests for user $userId: $userRequests');
+      return userRequests;
     } else {
       // TODO: Replace with real API call (e.g., GET /api/users/:userId/leave-requests).
       throw UnimplementedError("Real API call not implemented.");
@@ -451,9 +525,15 @@ class MockLeaveRequestService {
       final newRequest = {
         "_id": "leave_${_mockLeaveRequests.length + 1}",
         "status": "pending", // Default status for new requests
+        "createdAt": DateTime.now().toIso8601String(),
+        "updatedAt": DateTime.now().toIso8601String(),
+        "approverId": null,
+        "comments": "",
         ...requestData,
       };
       _mockLeaveRequests.add(newRequest);
+      print(
+          'MockLeaveRequestService: After creating, _mockLeaveRequests: $_mockLeaveRequests');
       return {
         "message": "Leave request created successfully",
         "leaveRequest": newRequest
@@ -478,6 +558,37 @@ class MockLeaveRequestService {
       };
     } else {
       // TODO: Replace with real API call (e.g., PATCH /api/leave-requests/:requestId/status).
+      throw UnimplementedError("Real API call not implemented.");
+    }
+  }
+
+  Future<bool> deleteLeaveRequest(String leaveId) async {
+    if (useMock) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      final index =
+          _mockLeaveRequests.indexWhere((req) => req["_id"] == leaveId);
+      if (index != -1) {
+        _mockLeaveRequests.removeAt(index);
+        return true;
+      }
+      return false;
+    } else {
+      throw UnimplementedError("Real API call not implemented.");
+    }
+  }
+
+  Future<bool> updateLeaveRequest(
+      String leaveId, Map<String, dynamic> updates) async {
+    if (useMock) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      final index =
+          _mockLeaveRequests.indexWhere((req) => req["_id"] == leaveId);
+      if (index != -1) {
+        _mockLeaveRequests[index] = {..._mockLeaveRequests[index], ...updates};
+        return true;
+      }
+      return false;
+    } else {
       throw UnimplementedError("Real API call not implemented.");
     }
   }

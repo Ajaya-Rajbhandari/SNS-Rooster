@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class NotificationScreen extends StatefulWidget {
-  const NotificationScreen({super.key});
+  final int initialTabIndex;
+
+  const NotificationScreen({super.key, this.initialTabIndex = 0});
 
   @override
   State<NotificationScreen> createState() => _NotificationScreenState();
@@ -16,7 +18,8 @@ class _NotificationScreenState extends State<NotificationScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+        length: 2, vsync: this, initialIndex: widget.initialTabIndex);
   }
 
   @override
@@ -29,7 +32,7 @@ class _NotificationScreenState extends State<NotificationScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications & Messages'),
+        title: const Text('Notification/Message'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         elevation: 1,
@@ -214,8 +217,8 @@ class _NotificationCard extends StatelessWidget {
                     Text(
                       title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
                     const SizedBox(height: 8.0),
                     Text(
@@ -414,8 +417,7 @@ class _MessagesTabState extends State<_MessagesTab> {
                 child: TextField(
                   controller: _controller,
                   decoration: InputDecoration(
-                    hintText:
-                        'Type your message...'
+                    hintText: 'Type your message...'
                         ' (to $_selectedRecipient)',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
@@ -464,6 +466,7 @@ class _MessageBubble extends StatelessWidget {
     required this.isMe,
     required this.time,
     required this.recipient,
+    this.avatar,
   });
 
   @override
@@ -471,9 +474,8 @@ class _MessageBubble extends StatelessWidget {
     return Semantics(
       label: isMe ? 'Your message: $text' : 'Message from $recipient: $text',
       child: Row(
-        mainAxisAlignment: isMe
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe)
@@ -512,25 +514,24 @@ class _MessageBubble extends StatelessWidget {
                   ),
                 ),
                 child: Column(
-                  crossAxisAlignment: isMe
-                      ? CrossAxisAlignment.end
-                      : CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                   children: [
                     if (!isMe)
                       Text(
                         recipient,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Colors.blueGrey,
-                          fontWeight: FontWeight.bold,
-                        ),
+                              color: Colors.blueGrey,
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
                     Text(
                       text,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: isMe
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.black87,
-                      ),
+                            color: isMe
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.black87,
+                          ),
                     ),
                     const SizedBox(height: 4),
                     Text(

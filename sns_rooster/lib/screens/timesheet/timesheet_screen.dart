@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../widgets/navigation_drawer.dart';
 import 'package:flutter/services.dart';
+import '../../providers/attendance_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class TimesheetScreen extends StatefulWidget {
   const TimesheetScreen({Key? key}) : super(key: key);
@@ -15,10 +17,13 @@ class TimesheetScreen extends StatefulWidget {
 
 class _TimesheetScreenState extends State<TimesheetScreen>
     with SingleTickerProviderStateMixin {
-  DateTimeRange _selectedDateRange = DateTimeRange(
-    start: DateTime.now().subtract(const Duration(days: 7)),
-    end: DateTime.now(),
-  );
+  // Set default range to current month
+  DateTime get _firstDayOfMonth =>
+      DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime get _lastDayOfMonth =>
+      DateTime(DateTime.now().year, DateTime.now().month + 1, 0);
+
+  late DateTimeRange _selectedDateRange;
 
   DateTime _selectedDate = DateTime.now();
   CalendarFormat _calendarFormat = CalendarFormat.week;
@@ -100,6 +105,61 @@ class _TimesheetScreenState extends State<TimesheetScreen>
     _fadeAnimation =
         Tween<double>(begin: 0.0, end: 1.0).animate(_animationController);
     _animationController.forward();
+
+    // Set default first
+    _selectedDateRange = DateTimeRange(
+      start: _firstDayOfMonth,
+      end: _lastDayOfMonth,
+    );
+
+    // Then try to load saved state (which will override if present)
+    _loadQuickActionState();
+
+    // Fetch attendance for current user
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final attendanceProvider =
+          Provider.of<AttendanceProvider>(context, listen: false);
+      if (authProvider.user != null) {
+        attendanceProvider
+            .fetchUserAttendance(authProvider.user!['id'].toString());
+      }
+    });
+  }
+
+  Future<void> _loadQuickActionState() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool changed = false;
+    final filter = prefs.getString('timesheet_selected_filter');
+    final start = prefs.getString('timesheet_selected_range_start');
+    final end = prefs.getString('timesheet_selected_range_end');
+    if (filter != null &&
+        _filters.contains(filter) &&
+        filter != _selectedFilter) {
+      _selectedFilter = filter;
+      changed = true;
+    }
+    if (start != null && end != null) {
+      final startDate = DateTime.tryParse(start);
+      final endDate = DateTime.tryParse(end);
+      if (startDate != null &&
+          endDate != null &&
+          (startDate != _selectedDateRange.start ||
+              endDate != _selectedDateRange.end)) {
+        _selectedDateRange = DateTimeRange(start: startDate, end: endDate);
+        changed = true;
+      }
+    }
+    if (changed) setState(() {});
+  }
+
+  Future<void> _saveQuickActionState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('timesheet_selected_filter', _selectedFilter);
+    await prefs.setString('timesheet_selected_range_start',
+        _selectedDateRange.start.toIso8601String());
+    await prefs.setString('timesheet_selected_range_end',
+        _selectedDateRange.end.toIso8601String());
   }
 
   @override
@@ -111,8 +171,9 @@ class _TimesheetScreenState extends State<TimesheetScreen>
   Future<void> _selectDateRange(BuildContext context) async {
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
-      firstDate: DateTime(2024),
-      lastDate: DateTime(2025),
+      useRootNavigator: true,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
       initialDateRange: _selectedDateRange,
       builder: (context, child) {
         return Theme(
@@ -133,6 +194,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
         _selectedDateRange = picked;
         _isLoading = true;
       });
+      await _saveQuickActionState();
       await Future.delayed(const Duration(seconds: 1));
       setState(() {
         _isLoading = false;
@@ -154,33 +216,105 @@ class _TimesheetScreenState extends State<TimesheetScreen>
   }
 
   List<Map<String, dynamic>> get _filteredData {
+    final attendanceProvider = Provider.of<AttendanceProvider>(context);
+    final List<Map<String, dynamic>> records = attendanceProvider
+        .attendanceRecords
+        .where((e) => e != null)
+        .cast<Map<String, dynamic>>()
+        .toList();
+    // Group by date (yyyy-MM-dd) and only keep the latest open record per day
+    final Map<String, Map<String, dynamic>> latestOpenPerDay = {};
+    for (final entry in records) {
+      DateTime? entryDate;
+      try {
+        entryDate = entry['date'] is DateTime
+            ? entry['date']
+            : DateTime.tryParse(entry['date']?.toString() ?? '');
+        if (entryDate == null && entry['checkIn'] != null) {
+          entryDate = DateTime.tryParse(entry['checkIn'].toString());
+        }
+      } catch (_) {}
+      if (entryDate == null) continue;
+      final dateKey = DateFormat('yyyy-MM-dd').format(entryDate);
+      // Only keep the latest open record (no checkOut) per day
+      if ((entry['checkOut'] == null ||
+          entry['checkOut'].toString() == 'null' ||
+          entry['checkOut'].toString().isEmpty)) {
+        DateTime? currentCheckIn =
+            DateTime.tryParse(entry['checkIn']?.toString() ?? '');
+        DateTime? previousCheckIn = DateTime.tryParse(
+            latestOpenPerDay[dateKey]?['checkIn']?.toString() ?? '');
+        if (!latestOpenPerDay.containsKey(dateKey) ||
+            (currentCheckIn != null &&
+                previousCheckIn != null &&
+                previousCheckIn.isBefore(currentCheckIn))) {
+          latestOpenPerDay[dateKey] = entry;
+        }
+      }
+    }
+    // Remove all but the latest open record for each day
+    final List<Map<String, dynamic>> filteredRecords = records.where((entry) {
+      DateTime? entryDate;
+      try {
+        entryDate = entry['date'] is DateTime
+            ? entry['date']
+            : DateTime.tryParse(entry['date']?.toString() ?? '');
+        if (entryDate == null && entry['checkIn'] != null) {
+          entryDate = DateTime.tryParse(entry['checkIn'].toString());
+        }
+      } catch (_) {}
+      if (entryDate == null) return false;
+      final dateKey = DateFormat('yyyy-MM-dd').format(entryDate);
+      // If open, only keep the latest open record for the day
+      if ((entry['checkOut'] == null ||
+          entry['checkOut'].toString() == 'null' ||
+          entry['checkOut'].toString().isEmpty)) {
+        return latestOpenPerDay[dateKey] == entry;
+      }
+      // Otherwise, keep all closed records
+      return true;
+    }).toList();
     final List<Map<String, dynamic>> dateFilteredData =
-        _mockTimesheetData.where((entry) {
-      final entryDate = entry['date'] as DateTime;
+        filteredRecords.where((entry) {
+      DateTime? entryDate;
+      try {
+        entryDate = entry['date'] is DateTime
+            ? entry['date']
+            : DateTime.tryParse(entry['date']?.toString() ?? '');
+        if (entryDate == null && entry['checkIn'] != null) {
+          entryDate = DateTime.tryParse(entry['checkIn'].toString());
+        }
+      } catch (_) {}
+      if (entryDate == null) return false;
       return entryDate.isAfter(
               _selectedDateRange.start.subtract(const Duration(days: 1))) &&
           entryDate
               .isBefore(_selectedDateRange.end.add(const Duration(days: 1)));
     }).toList();
-
     if (_selectedFilter == 'All') return dateFilteredData;
     return dateFilteredData
-        .where((entry) => entry['status'] == _selectedFilter)
+        .where((entry) => ((entry?['status']?.toString().trim().toLowerCase() ??
+                'approved') ==
+            _selectedFilter.trim().toLowerCase()))
         .toList();
   }
 
   double get _totalHoursFiltered {
     return _filteredData.fold<double>(
       0,
-      (sum, entry) => sum + (entry['totalHours'] as double),
+      (sum, entry) =>
+          sum +
+          ((entry['totalHours'] is num)
+              ? (entry['totalHours'] as num).toDouble()
+              : 0.0),
     );
   }
 
   // Helper to parse time string (e.g., "09:00 AM") into DateTime
   DateTime _parseTime(String timeString) {
     final now = DateTime.now();
-    final format = DateFormat('hh:mm a'); // Assumes 12-hour format with AM/PM
-    final parsedTime = format.parse(timeString);
+    final format = DateFormat('HH:mm'); // Always 24-hour format
+    final parsedTime = format.parseStrict(timeString);
     return DateTime(
       now.year,
       now.month,
@@ -188,6 +322,14 @@ class _TimesheetScreenState extends State<TimesheetScreen>
       parsedTime.hour,
       parsedTime.minute,
     );
+  }
+
+  // Add helper for week range
+  DateTimeRange get _thisWeekRange {
+    final now = DateTime.now();
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final endOfWeek = startOfWeek.add(const Duration(days: 6));
+    return DateTimeRange(start: startOfWeek, end: endOfWeek);
   }
 
   @override
@@ -209,55 +351,110 @@ class _TimesheetScreenState extends State<TimesheetScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Date Range Picker
+              // Enhanced Date Range Picker Card
               Card(
-                elevation: 2,
+                elevation: 4,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(18),
+                  side: BorderSide(
+                    color: theme.primaryColor.withOpacity(0.2),
+                    width: 2,
+                  ),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(18.0),
-                  child: Row(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: theme.primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          Icons.calendar_today,
-                          color: theme.primaryColor,
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_month,
+                              color: theme.primaryColor, size: 32),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Date Range',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  '${dateFormat.format(_selectedDateRange.start)} – ${dateFormat.format(_selectedDateRange.end)}',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.primaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => _selectDateRange(context),
+                            icon: const Icon(Icons.date_range),
+                            label: const Text('Change'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: theme.primaryColor,
+                              textStyle:
+                                  const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Select a date range to view your timesheet entries.',
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 12,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 10),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
                           children: [
-                            Text(
-                              'Selected Date Range',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
+                            OutlinedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _selectedDateRange = DateTimeRange(
+                                    start: _firstDayOfMonth,
+                                    end: _lastDayOfMonth,
+                                  );
+                                });
+                                _saveQuickActionState();
+                              },
+                              child: const Text('This Month'),
                             ),
-                            Text(
-                              '${dateFormat.format(_selectedDateRange.start)} - ${dateFormat.format(_selectedDateRange.end)}',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _selectedDateRange = _thisWeekRange;
+                                });
+                                _saveQuickActionState();
+                              },
+                              child: const Text('This Week'),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _selectedDateRange = DateTimeRange(
+                                    start: DateTime(2020),
+                                    end: DateTime.now(),
+                                  );
+                                });
+                                _saveQuickActionState();
+                              },
+                              child: const Text('All Time'),
                             ),
                           ],
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => _selectDateRange(context),
-                        icon: const Icon(Icons.edit),
-                        label: const Text('Change'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: theme.primaryColor,
                         ),
                       ),
                     ],
@@ -307,6 +504,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                           setState(() {
                             _selectedFilter = filter;
                           });
+                          _saveQuickActionState();
                         },
                         backgroundColor: Colors.grey[100],
                         selectedColor: theme.primaryColor.withOpacity(0.2),
@@ -324,23 +522,42 @@ class _TimesheetScreenState extends State<TimesheetScreen>
               const SizedBox(height: 16),
 
               // Timesheet Entries List
-              _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _filteredData.length,
-                        itemBuilder: (context, index) {
-                          final entry = _filteredData[index];
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8.0),
-                            child: TimesheetRow(entry: entry),
-                          );
-                        },
-                      ),
+              Consumer<AttendanceProvider>(
+                builder: (context, attendanceProvider, _) {
+                  if (attendanceProvider.isLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (attendanceProvider.error != null) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text('Error: ${attendanceProvider.error}',
+                          style: TextStyle(color: Colors.red)),
+                    );
+                  }
+                  if (_filteredData.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text('No timesheet entries for this range.'),
+                    );
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _filteredData.length,
+                      itemBuilder: (context, index) {
+                        final entry = _filteredData[index];
+                        if (entry == null) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: TimesheetRow(entry: entry),
+                        );
+                      },
                     ),
+                  );
+                },
+              ),
               const SizedBox(height: 16),
 
               // Total Hours Card
@@ -394,52 +611,248 @@ class _TimesheetScreenState extends State<TimesheetScreen>
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            builder: (context) {
-              final formKey = GlobalKey<FormState>();
-              final clockInController = TextEditingController();
-              final clockOutController = TextEditingController();
-              final breakDurationController = TextEditingController();
-              final breakDurationFocusNode = FocusNode();
-
-              return SafeArea(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    left: 20.0,
-                    right: 20.0,
-                    top: 20.0,
-                    bottom: MediaQuery.of(context).viewInsets.bottom + 20.0,
+      floatingActionButton: (Provider.of<AuthProvider>(context).user != null &&
+              Provider.of<AuthProvider>(context).user!['role'] == 'admin')
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                showModalBottomSheet<Map<String, dynamic>>(
+                  context: context,
+                  isScrollControlled: true,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(20)),
                   ),
-                  child: SingleChildScrollView(
-                    child: Form(
-                      key: formKey,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Add Timesheet Entry',
-                            style: theme.textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 20),
-                          // Clock In Time
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: clockInController,
+                  builder: (context) {
+                    final formKey = GlobalKey<FormState>();
+                    final clockInController = TextEditingController();
+                    final clockOutController = TextEditingController();
+                    final breakDurationController = TextEditingController();
+                    final breakDurationFocusNode = FocusNode();
+
+                    return SafeArea(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          left: 20.0,
+                          right: 20.0,
+                          top: 20.0,
+                          bottom:
+                              MediaQuery.of(context).viewInsets.bottom + 20.0,
+                        ),
+                        child: SingleChildScrollView(
+                          child: Form(
+                            key: formKey,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Add Timesheet Entry',
+                                  style: theme.textTheme.titleLarge
+                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 20),
+                                // Clock In Time
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextFormField(
+                                        controller: clockInController,
+                                        decoration: InputDecoration(
+                                          labelText: 'Clock In Time',
+                                          prefixIcon: const Icon(Icons.login),
+                                          suffixIcon:
+                                              const Icon(Icons.access_time),
+                                          border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12)),
+                                          filled: true,
+                                          fillColor: Colors.grey[50],
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                  vertical: 18, horizontal: 12),
+                                        ),
+                                        readOnly: true,
+                                        onTap: () async {
+                                          TimeOfDay initialTime =
+                                              TimeOfDay.now();
+                                          if (clockInController
+                                              .text.isNotEmpty) {
+                                            try {
+                                              final format =
+                                                  DateFormat('hh:mm a');
+                                              final parsed = format.parse(
+                                                  clockInController.text);
+                                              initialTime = TimeOfDay(
+                                                  hour: parsed.hour,
+                                                  minute: parsed.minute);
+                                            } catch (_) {}
+                                          }
+                                          final TimeOfDay? pickedTime =
+                                              await showTimePicker(
+                                            context: context,
+                                            initialTime: initialTime,
+                                          );
+                                          if (pickedTime != null) {
+                                            clockInController.text =
+                                                pickedTime.format(context);
+                                          }
+                                        },
+                                        validator: (value) {
+                                          if (value == null || value.isEmpty) {
+                                            return 'Please enter clock in time';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      icon: const Icon(Icons.calendar_month),
+                                      tooltip: 'Set to now',
+                                      onPressed: () {
+                                        final now = TimeOfDay.now();
+                                        clockInController.text =
+                                            "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                // Clock Out Time
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextFormField(
+                                        controller: clockOutController,
+                                        decoration: InputDecoration(
+                                          labelText: 'Clock Out Time',
+                                          prefixIcon: const Icon(Icons.logout),
+                                          suffixIcon:
+                                              const Icon(Icons.schedule),
+                                          border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12)),
+                                          filled: true,
+                                          fillColor: Colors.grey[50],
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                  vertical: 18, horizontal: 12),
+                                        ),
+                                        readOnly: true,
+                                        onTap: () async {
+                                          TimeOfDay initialTime =
+                                              TimeOfDay.now();
+                                          if (clockOutController
+                                              .text.isNotEmpty) {
+                                            try {
+                                              final format =
+                                                  DateFormat('hh:mm a');
+                                              final parsed = format.parse(
+                                                  clockOutController.text);
+                                              initialTime = TimeOfDay(
+                                                  hour: parsed.hour,
+                                                  minute: parsed.minute);
+                                            } catch (_) {}
+                                          }
+                                          final TimeOfDay? pickedTime =
+                                              await showTimePicker(
+                                            context: context,
+                                            initialTime: initialTime,
+                                          );
+                                          if (pickedTime != null) {
+                                            clockOutController.text =
+                                                pickedTime.format(context);
+                                          }
+                                        },
+                                        validator: (value) {
+                                          if (value == null || value.isEmpty) {
+                                            return 'Please enter clock out time';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      icon: const Icon(Icons.calendar_month),
+                                      tooltip: 'Set to now',
+                                      onPressed: () {
+                                        final now = TimeOfDay.now();
+                                        clockOutController.text =
+                                            "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                // Break Duration ChoiceChips
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8.0),
+                                  child: Text(
+                                    'Break Duration',
+                                    style: theme.textTheme.bodyLarge
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    _BreakDurationChip(
+                                      label: '15 min',
+                                      value: '00:15',
+                                      selectedValue:
+                                          breakDurationController.text,
+                                      onSelected: (val) {
+                                        setState(() {
+                                          breakDurationController.text = val;
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _BreakDurationChip(
+                                      label: '30 min',
+                                      value: '00:30',
+                                      selectedValue:
+                                          breakDurationController.text,
+                                      onSelected: (val) {
+                                        setState(() {
+                                          breakDurationController.text = val;
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _BreakDurationChip(
+                                      label: '45 min',
+                                      value: '00:45',
+                                      selectedValue:
+                                          breakDurationController.text,
+                                      onSelected: (val) {
+                                        setState(() {
+                                          breakDurationController.text = val;
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _BreakDurationChip(
+                                      label: '1 hour',
+                                      value: '01:00',
+                                      selectedValue:
+                                          breakDurationController.text,
+                                      onSelected: (val) {
+                                        setState(() {
+                                          breakDurationController.text = val;
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                // Optionally, keep the TextFormField for custom input
+                                TextFormField(
+                                  controller: breakDurationController,
+                                  focusNode: breakDurationFocusNode,
                                   decoration: InputDecoration(
-                                    labelText: 'Clock In Time',
-                                    prefixIcon: const Icon(Icons.login),
-                                    suffixIcon: const Icon(Icons.access_time),
+                                    labelText: 'Custom (HH:MM)',
+                                    prefixIcon: const Icon(Icons.edit),
                                     border: OutlineInputBorder(
                                         borderRadius:
                                             BorderRadius.circular(12)),
@@ -448,262 +861,99 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                                     contentPadding: const EdgeInsets.symmetric(
                                         vertical: 18, horizontal: 12),
                                   ),
-                                  readOnly: true,
-                                  onTap: () async {
-                                    TimeOfDay initialTime = TimeOfDay.now();
-                                    if (clockInController.text.isNotEmpty) {
-                                      try {
-                                        final format = DateFormat('hh:mm a');
-                                        final parsed = format
-                                            .parse(clockInController.text);
-                                        initialTime = TimeOfDay(
-                                            hour: parsed.hour,
-                                            minute: parsed.minute);
-                                      } catch (_) {}
-                                    }
-                                    final TimeOfDay? pickedTime =
-                                        await showTimePicker(
-                                      context: context,
-                                      initialTime: initialTime,
-                                    );
-                                    if (pickedTime != null) {
-                                      clockInController.text =
-                                          pickedTime.format(context);
-                                    }
-                                  },
+                                  readOnly: false,
+                                  keyboardType: TextInputType.text,
                                   validator: (value) {
                                     if (value == null || value.isEmpty) {
-                                      return 'Please enter clock in time';
+                                      return 'Please enter break duration';
+                                    }
+                                    if (!RegExp(r'^([0-9]{2}):([0-9]{2})$')
+                                        .hasMatch(value)) {
+                                      return 'Enter a valid duration (HH:MM)';
                                     }
                                     return null;
                                   },
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                icon: const Icon(Icons.schedule),
-                                tooltip: 'Set to now',
-                                onPressed: () {
-                                  final now = TimeOfDay.now();
-                                  clockInController.text = now.format(context);
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          // Clock Out Time
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: clockOutController,
-                                  decoration: InputDecoration(
-                                    labelText: 'Clock Out Time',
-                                    prefixIcon: const Icon(Icons.logout),
-                                    suffixIcon: const Icon(Icons.access_time),
-                                    border: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12)),
-                                    filled: true,
-                                    fillColor: Colors.grey[50],
-                                    contentPadding: const EdgeInsets.symmetric(
-                                        vertical: 18, horizontal: 12),
+                                const SizedBox(height: 24),
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    if (formKey.currentState!.validate()) {
+                                      final checkInTime =
+                                          _parseTime(clockInController.text);
+                                      final checkOutTime =
+                                          _parseTime(clockOutController.text);
+                                      final Duration totalDuration =
+                                          checkOutTime.difference(checkInTime);
+                                      final double totalHours =
+                                          totalDuration.inMinutes / 60.0;
+                                      final entry = {
+                                        'date': DateTime.now(),
+                                        'checkIn': clockInController.text,
+                                        'checkOut': clockOutController.text,
+                                        'totalHours': totalHours,
+                                        'status': 'Pending',
+                                        'breakDuration':
+                                            breakDurationController.text,
+                                      };
+                                      await showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text('Success'),
+                                          content: const Text(
+                                              'Timesheet entry saved!'),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.of(context).pop(),
+                                              child: const Text('OK'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      Navigator.pop(context, entry);
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    minimumSize: const Size(double.infinity,
+                                        54), // Slightly taller button
+                                    backgroundColor: theme.primaryColor,
+                                    foregroundColor:
+                                        theme.colorScheme.onPrimary,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                            12)), // Rounded corners
+                                    elevation: 3, // Add slight elevation
                                   ),
-                                  readOnly: true,
-                                  onTap: () async {
-                                    TimeOfDay initialTime = TimeOfDay.now();
-                                    if (clockOutController.text.isNotEmpty) {
-                                      try {
-                                        final format = DateFormat('hh:mm a');
-                                        final parsed = format
-                                            .parse(clockOutController.text);
-                                        initialTime = TimeOfDay(
-                                            hour: parsed.hour,
-                                            minute: parsed.minute);
-                                      } catch (_) {}
-                                    }
-                                    final TimeOfDay? pickedTime =
-                                        await showTimePicker(
-                                      context: context,
-                                      initialTime: initialTime,
-                                    );
-                                    if (pickedTime != null) {
-                                      clockOutController.text =
-                                          pickedTime.format(context);
-                                    }
-                                  },
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please enter clock out time';
-                                    }
-                                    return null;
-                                  },
+                                  child: const Text('Save Entry',
+                                      style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight:
+                                              FontWeight.bold)), // Bold text
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                icon: const Icon(Icons.schedule),
-                                tooltip: 'Set to now',
-                                onPressed: () {
-                                  final now = TimeOfDay.now();
-                                  clockOutController.text = now.format(context);
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          // Break Duration ChoiceChips
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
-                            child: Text(
-                              'Break Duration',
-                              style: theme.textTheme.bodyLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold),
+                                const SizedBox(height: 16),
+                              ],
                             ),
                           ),
-                          Row(
-                            children: [
-                              _BreakDurationChip(
-                                label: '15 min',
-                                value: '00:15',
-                                selectedValue: breakDurationController.text,
-                                onSelected: (val) {
-                                  setState(() {
-                                    breakDurationController.text = val;
-                                  });
-                                },
-                              ),
-                              const SizedBox(width: 8),
-                              _BreakDurationChip(
-                                label: '30 min',
-                                value: '00:30',
-                                selectedValue: breakDurationController.text,
-                                onSelected: (val) {
-                                  setState(() {
-                                    breakDurationController.text = val;
-                                  });
-                                },
-                              ),
-                              const SizedBox(width: 8),
-                              _BreakDurationChip(
-                                label: '45 min',
-                                value: '00:45',
-                                selectedValue: breakDurationController.text,
-                                onSelected: (val) {
-                                  setState(() {
-                                    breakDurationController.text = val;
-                                  });
-                                },
-                              ),
-                              const SizedBox(width: 8),
-                              _BreakDurationChip(
-                                label: '1 hour',
-                                value: '01:00',
-                                selectedValue: breakDurationController.text,
-                                onSelected: (val) {
-                                  setState(() {
-                                    breakDurationController.text = val;
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          // Optionally, keep the TextFormField for custom input
-                          TextFormField(
-                            controller: breakDurationController,
-                            focusNode: breakDurationFocusNode,
-                            decoration: InputDecoration(
-                              labelText: 'Custom (HH:MM)',
-                              prefixIcon: const Icon(Icons.edit),
-                              border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12)),
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                              contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 18, horizontal: 12),
-                            ),
-                            readOnly: false,
-                            keyboardType: TextInputType.text,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter break duration';
-                              }
-                              if (!RegExp(r'^([0-9]{2}):([0-9]{2})$')
-                                  .hasMatch(value)) {
-                                return 'Enter a valid duration (HH:MM)';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 24),
-                          ElevatedButton(
-                            onPressed: () {
-                              if (formKey.currentState!.validate()) {
-                                // Parse time strings into DateTime objects (mock parsing)
-                                final checkInTime =
-                                    _parseTime(clockInController.text);
-                                final checkOutTime =
-                                    _parseTime(clockOutController.text);
-
-                                // Calculate total hours (mock calculation for simplicity)
-                                final Duration totalDuration =
-                                    checkOutTime.difference(checkInTime);
-                                final double totalHours =
-                                    totalDuration.inMinutes / 60.0;
-
-                                setState(() {
-                                  _mockTimesheetData.add({
-                                    'date': DateTime.now(),
-                                    'checkIn': clockInController.text,
-                                    'checkOut': clockOutController.text,
-                                    'totalHours': totalHours,
-                                    'status':
-                                        'Pending', // New entries are typically pending
-                                    'breakDuration':
-                                        breakDurationController.text,
-                                  });
-                                });
-
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Timesheet entry saved!')),
-                                );
-                                Navigator.pop(context);
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(double.infinity,
-                                  54), // Slightly taller button
-                              backgroundColor: theme.primaryColor,
-                              foregroundColor: theme.colorScheme.onPrimary,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                      12)), // Rounded corners
-                              elevation: 3, // Add slight elevation
-                            ),
-                            child: const Text('Save Entry',
-                                style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold)), // Bold text
-                          ),
-                          const SizedBox(height: 16),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-        backgroundColor: theme.primaryColor,
-        icon: const Icon(Icons.add, color: Colors.white), // White icon
-        label: const Text('Add Entry',
-            style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold)), // White and bold text
-      ),
+                    );
+                  },
+                ).then((entry) {
+                  if (entry != null) {
+                    setState(() {
+                      _mockTimesheetData.add(entry);
+                    });
+                  }
+                });
+              },
+              backgroundColor: theme.primaryColor,
+              icon: const Icon(Icons.add, color: Colors.white), // White icon
+              label: const Text('Add Entry',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold)), // White and bold text
+            )
+          : null,
     );
   }
 }
@@ -735,12 +985,12 @@ class TimesheetSummary extends StatelessWidget {
           children: [
             _SummaryTile(
                 label: 'Total Hours',
-                value: '${totalHours.toStringAsFixed(1)} hrs'),
-            _SummaryTile(label: 'Present', value: '$presentCount'),
-            _SummaryTile(label: 'Absent', value: '$absentCount'),
+                value: '${(totalHours ?? 0.0).toStringAsFixed(1)} hrs'),
+            _SummaryTile(label: 'Present', value: '${presentCount ?? 0}'),
+            _SummaryTile(label: 'Absent', value: '${absentCount ?? 0}'),
             _SummaryTile(
                 label: 'Overtime',
-                value: '${overtimeHours.toStringAsFixed(1)} hrs'),
+                value: '${(overtimeHours ?? 0.0).toStringAsFixed(1)} hrs'),
           ],
         ),
       ),
@@ -751,7 +1001,9 @@ class TimesheetSummary extends StatelessWidget {
 class _SummaryTile extends StatelessWidget {
   final String label;
   final String value;
-  const _SummaryTile({required this.label, required this.value});
+  const _SummaryTile({required String? label, required String? value})
+      : label = label ?? '',
+        value = value ?? '';
 
   @override
   Widget build(BuildContext context) {
@@ -790,10 +1042,66 @@ class TimesheetRow extends StatelessWidget {
     }
   }
 
+  String formatTime(String? iso) {
+    if (iso == null || iso == '--' || iso.isEmpty) return '--';
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return '--';
+    return DateFormat('hh:mm a').format(dt);
+  }
+
+  String formatBreak(dynamic breakVal) {
+    if (breakVal == null) return '--';
+    int breakInt = 0;
+    if (breakVal is int) breakInt = breakVal;
+    if (breakVal is String) breakInt = int.tryParse(breakVal) ?? 0;
+    final hours = breakInt ~/ 60;
+    final minutes = breakInt % 60;
+    if (hours > 0) return '${hours}h ${minutes}m';
+    return '${minutes}m';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final statusColor = TimesheetRow._getStatusColor(entry['status']);
+    final checkInRaw = entry['checkIn']?.toString() ?? '--';
+    final checkOutRaw = entry['checkOut']?.toString() ?? '--';
+    final inTime = formatTime(checkInRaw);
+    final outTime = formatTime(checkOutRaw);
+    final breakDuration = entry['breakDuration']?.toString() ??
+        entry['totalBreakDuration']?.toString() ??
+        '--';
+    final breakStr = formatBreak(breakDuration);
+    final status = entry['status']?.toString() ?? 'Pending';
+    final totalHours = entry['totalHours']?.toString() ??
+        (() {
+          if (entry['checkIn'] != null &&
+              entry['checkOut'] != null &&
+              entry['checkOut'] != 'null' &&
+              entry['checkIn'] != 'null') {
+            try {
+              final inTime = DateTime.tryParse(entry['checkIn'].toString());
+              final outTime = DateTime.tryParse(entry['checkOut'].toString());
+              if (inTime != null && outTime != null) {
+                return ((outTime.difference(inTime).inMinutes) / 60.0)
+                    .toStringAsFixed(2);
+              }
+            } catch (_) {}
+          }
+          return '0.0';
+        })();
+    DateTime? date;
+    try {
+      if (entry['date'] is DateTime) {
+        date = entry['date'];
+      } else if (entry['date'] is String) {
+        date = DateTime.tryParse(entry['date']);
+      } else if (entry['checkIn'] is String) {
+        date = DateTime.tryParse(entry['checkIn']);
+      }
+    } catch (_) {}
+    final dateText = date != null ? '${date.day}/${date.month}' : '--';
+    final weekdayText = date != null ? _weekday(date.weekday) : '--';
+    final statusColor = _getStatusColor(status);
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -801,17 +1109,18 @@ class TimesheetRow extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${entry['date'].day}/${entry['date'].month}',
+                  dateText,
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  _weekday(entry['date'].weekday),
+                  weekdayText,
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: Colors.grey[600]),
                 ),
@@ -826,33 +1135,65 @@ class TimesheetRow extends StatelessWidget {
                     children: [
                       const Icon(Icons.login, size: 18, color: Colors.blueGrey),
                       const SizedBox(width: 4),
-                      Expanded(
-                          child: Text('In: ${entry['checkIn']}',
-                              style: theme.textTheme.bodyMedium)),
+                      Flexible(
+                        child: Text('In:',
+                            style: theme.textTheme.bodySmall,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      const SizedBox(width: 2),
+                      Flexible(
+                        child: Text(inTime,
+                            style: theme.textTheme.bodyMedium,
+                            overflow: TextOverflow.ellipsis),
+                      ),
                       const SizedBox(width: 12),
                       const Icon(Icons.logout,
                           size: 18, color: Colors.blueGrey),
                       const SizedBox(width: 4),
-                      Expanded(
-                          child: Text('Out: ${entry['checkOut']}',
-                              style: theme.textTheme.bodyMedium)),
+                      Flexible(
+                        child: Text('Out:',
+                            style: theme.textTheme.bodySmall,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      const SizedBox(width: 2),
+                      Flexible(
+                        child: Text(outTime,
+                            style: theme.textTheme.bodyMedium,
+                            overflow: TextOverflow.ellipsis),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
                       const Icon(Icons.free_breakfast,
                           size: 16, color: Colors.orange),
                       const SizedBox(width: 4),
-                      Expanded(
-                          child: Text('Break: ${entry['breakDuration']}',
-                              style: theme.textTheme.bodySmall)),
-                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Text('Break:',
+                            style: theme.textTheme.bodySmall,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      const SizedBox(width: 2),
+                      Flexible(
+                        child: Text(breakStr,
+                            style: theme.textTheme.bodySmall,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      const SizedBox(width: 16),
                       const Icon(Icons.timer, size: 16, color: Colors.blue),
                       const SizedBox(width: 4),
-                      Expanded(
-                          child: Text('Total: ${entry['totalHours']} hrs',
-                              style: theme.textTheme.bodySmall)),
+                      Flexible(
+                        child: Text('Total:',
+                            style: theme.textTheme.bodySmall,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      const SizedBox(width: 2),
+                      Flexible(
+                        child: Text('$totalHours hrs',
+                            style: theme.textTheme.bodySmall,
+                            overflow: TextOverflow.ellipsis),
+                      ),
                     ],
                   ),
                 ],
@@ -863,7 +1204,7 @@ class TimesheetRow extends StatelessWidget {
               children: [
                 Icon(Icons.circle, color: statusColor, size: 16),
                 const SizedBox(height: 2),
-                Text(entry['status'],
+                Text(status,
                     style: theme.textTheme.bodySmall?.copyWith(
                         color: statusColor, fontWeight: FontWeight.bold)),
               ],
@@ -876,7 +1217,7 @@ class TimesheetRow extends StatelessWidget {
 
   String _weekday(int weekday) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return days[weekday - 1];
+    return days[(weekday - 1).clamp(0, 6)];
   }
 }
 

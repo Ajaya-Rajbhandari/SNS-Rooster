@@ -1,42 +1,58 @@
 /// AttendanceService: Handles attendance logic and (future) API integration
+import 'package:sns_rooster/models/attendance.dart';
+import 'package:flutter/material.dart';
+import 'mock_service.dart';
+
 class AttendanceService {
-  // Simulate clock in/out and break logic for now
-  bool isClockedIn = false;
-  bool isOnBreak = false;
-  DateTime? lastClockIn;
+  final MockAttendanceService _mockService = MockAttendanceService();
 
-  void clockIn() {
-    isClockedIn = true;
-    lastClockIn = DateTime.now();
-    isOnBreak = false;
+  Future<Map<String, dynamic>> checkIn(String userId, {String? notes}) async {
+    if (useMock) {
+      return _mockService.checkIn(userId, notes: notes);
+    } else {
+      // TODO: Implement real API call
+      throw UnimplementedError("Real API call not implemented.");
+    }
   }
 
-  void clockOut() {
-    isClockedIn = false;
-    isOnBreak = false;
+  Future<Map<String, dynamic>> checkOut(String userId, {String? notes}) async {
+    if (useMock) {
+      return _mockService.checkOut(userId, notes: notes);
+    } else {
+      // TODO: Implement real API call
+      throw UnimplementedError("Real API call not implemented.");
+    }
   }
 
-  void startBreak() {
-    if (isClockedIn) isOnBreak = true;
+  Future<List<Map<String, dynamic>>> getAttendanceHistory(String userId,
+      {DateTime? startDate, DateTime? endDate}) async {
+    if (useMock) {
+      return _mockService.getAttendanceHistory(userId,
+          startDate: startDate, endDate: endDate);
+    } else {
+      // TODO: Implement real API call
+      throw UnimplementedError("Real API call not implemented.");
+    }
   }
 
-  void endBreak() {
-    if (isClockedIn) isOnBreak = false;
+  Future<Map<String, dynamic>?> getCurrentAttendance(String userId) async {
+    if (useMock) {
+      return _mockService.getCurrentAttendance(userId);
+    } else {
+      // TODO: Implement real API call
+      throw UnimplementedError("Real API call not implemented.");
+    }
   }
 
-  static Future<List<Map<String, String>>> getAttendance() async {
-    // Mock data for demonstration purposes
-    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
-    return [
-      {'date': '2025-06-01', 'status': 'Present'},
-      {'date': '2025-06-02', 'status': 'Absent'},
-      {'date': '2025-06-03', 'status': 'Present'},
-      {'date': '2025-06-04', 'status': 'Leave'},
-      {'date': '2025-06-05', 'status': 'Present'},
-      {'date': '2025-06-06', 'status': 'Leave'},
-      {'date': '2025-06-07', 'status': 'Present'},
-      {'date': '2025-06-08', 'status': 'Absent'},
-    ];
+  Future<Map<String, dynamic>> getAttendanceSummary(String userId,
+      {DateTime? startDate, DateTime? endDate}) async {
+    if (useMock) {
+      return _mockService.getAttendanceSummary(userId,
+          startDate: startDate, endDate: endDate);
+    } else {
+      // TODO: Implement real API call
+      throw UnimplementedError("Real API call not implemented.");
+    }
   }
 
   // For future: integrate with backend API
