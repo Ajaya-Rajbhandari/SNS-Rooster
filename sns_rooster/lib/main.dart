@@ -16,6 +16,7 @@ import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
 import 'package:sns_rooster/providers/profile_provider.dart';
 import 'package:sns_rooster/providers/leave_request_provider.dart';
+import 'package:sns_rooster/providers/notification_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +33,7 @@ void main() async {
           update: (context, auth, profile) => ProfileProvider(auth),
         ),
         ChangeNotifierProvider(create: (_) => LeaveRequestProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
       child: const MyApp(),
     ),

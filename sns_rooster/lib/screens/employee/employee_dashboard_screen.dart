@@ -21,6 +21,10 @@ import '../../screens/splash/splash_screen.dart'; // Import SplashScreen
 import '../../widgets/dashboard/dashboard_overview_tile.dart'; // Import the new overview tile
 import 'analytics_screen.dart'; // Import AnalyticsScreen from the same directory
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sns_rooster/widgets/user_avatar.dart';
+import '../../screens/notification/notification_screen.dart';
+import '../../providers/notification_provider.dart'; // Import NotificationProvider
 
 class EmployeeDashboardScreen extends StatefulWidget {
   const EmployeeDashboardScreen({super.key});
@@ -42,8 +46,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
   bool isClockedIn = false;
   bool isOnBreak = false;
   DateTime? lastClockIn;
-  DateTime? breakStart;
-  Duration totalBreakDuration = Duration.zero;
   late final ValueNotifier<DateTime> _now;
   bool isLoadingClock = false;
   bool isLoadingBreak = false;
@@ -59,6 +61,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
       _now.value = DateTime.now();
       return true;
     });
+    // Load saved clock state
+    _loadClockState();
     // Schedule the initial fetch for after the first build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -66,6 +70,25 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         _fetchLeaveData(); // Fetch leave data on init
       }
     });
+  }
+
+  Future<void> _loadClockState() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      isClockedIn = prefs.getBool('dashboard_isClockedIn') ?? false;
+      isOnBreak = prefs.getBool('dashboard_isOnBreak') ?? false;
+      final lastClockInStr = prefs.getString('dashboard_lastClockIn');
+      lastClockIn =
+          lastClockInStr != null ? DateTime.tryParse(lastClockInStr) : null;
+    });
+  }
+
+  Future<void> _saveClockState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('dashboard_isClockedIn', isClockedIn);
+    await prefs.setBool('dashboard_isOnBreak', isOnBreak);
+    await prefs.setString(
+        'dashboard_lastClockIn', lastClockIn?.toIso8601String() ?? '');
   }
 
   Future<void> _fetchInitialAttendance() async {
@@ -97,48 +120,25 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
       final currentAttendance = attendanceProvider.currentAttendance;
 
       if (currentAttendance != null && currentAttendance.isNotEmpty) {
-        setState(() {
-          isClockedIn = currentAttendance['checkIn'] != null &&
-              currentAttendance['checkOut'] == null;
-          if (isClockedIn) {
-            lastClockIn = DateTime.parse(currentAttendance['checkIn']);
-
-            // Check for ongoing break
-            if (currentAttendance['breaks'] != null &&
-                currentAttendance['breaks'].isNotEmpty) {
-              final lastBreak = currentAttendance['breaks'].last;
-              if (lastBreak['startTime'] != null &&
-                  lastBreak['endTime'] == null) {
-                isOnBreak = true;
-                breakStart = DateTime.parse(lastBreak['startTime']);
-              } else {
-                isOnBreak = false; // No ongoing break
-                breakStart = null;
-              }
-            } else {
-              isOnBreak = false; // No breaks recorded
-              breakStart = null;
-            }
-            // Sum total break duration from all completed breaks
-            totalBreakDuration = Duration(
-                milliseconds: currentAttendance['totalBreakDuration'] ?? 0);
-          }
-          isLoadingClock = false;
-          print(
-              'isClockedIn: $isClockedIn, lastClockIn: $lastClockIn, isOnBreak: $isOnBreak, breakStart: $breakStart, totalBreakDuration: $totalBreakDuration');
-        });
+        isClockedIn = currentAttendance['checkIn'] != null &&
+            currentAttendance['checkOut'] == null;
+        if (isClockedIn) {
+          lastClockIn = DateTime.parse(currentAttendance['checkIn']);
+        }
+        // Check if on break
+        final breaks =
+            List<Map<String, dynamic>>.from(currentAttendance['breaks'] ?? []);
+        if (breaks.isNotEmpty && breaks.last['end'] == null) {
+          isOnBreak = true;
+        }
+        isLoadingClock = false;
+        print('isClockedIn: $isClockedIn, lastClockIn: $lastClockIn');
       } else {
-        // No active attendance record found or currentAttendance is null
-        setState(() {
-          isClockedIn = false;
-          lastClockIn = null;
-          isOnBreak = false;
-          breakStart = null;
-          totalBreakDuration = Duration.zero;
-          isLoadingClock = false;
-          print(
-              'No active attendance record found or currentAttendance is null. Resetting state.');
-        });
+        isClockedIn = false;
+        lastClockIn = null;
+        isLoadingClock = false;
+        print(
+            'No active attendance record found or currentAttendance is null. Resetting state.');
       }
     } catch (e) {
       if (!mounted) return;
@@ -184,49 +184,25 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         Provider.of<AttendanceProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    if (isClockedIn && !isOnBreak) {
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Confirm Clock Out'),
-          content: const Text('Are you sure you want to clock out?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Clock Out'),
-            ),
-          ],
-        ),
+    if (isClockedIn && isOnBreak) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('End your break before clocking out.'),
+            backgroundColor: Colors.orange),
       );
-      if (confirm != true) return;
+      return;
     }
 
     setState(() => isLoadingClock = true);
 
     try {
       if (isClockedIn) {
-        if (isOnBreak) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Please end your break before clocking out.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-          isLoadingClock = false;
-          return;
-        }
         await attendanceProvider.checkOut();
         if (attendanceProvider.error == null) {
           setState(() {
             isClockedIn = false;
+            isOnBreak = false;
             lastClockIn = null;
-            isOnBreak = false; // Ensure break state is reset on clock out
-            breakStart = null;
-            totalBreakDuration = Duration.zero;
           });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Clocked out successfully!')),
@@ -243,10 +219,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         if (attendanceProvider.error == null) {
           setState(() {
             isClockedIn = true;
-            lastClockIn = DateTime.now(); // Set based on successful check-in
             isOnBreak = false;
-            breakStart = null;
-            totalBreakDuration = Duration.zero;
+            lastClockIn = DateTime.now();
           });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Clocked in successfully!')),
@@ -264,6 +238,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         SnackBar(content: Text('Network error: ${e.toString()}')),
       );
     } finally {
+      await _saveClockState();
       setState(() {
         isLoadingClock = false;
       });
@@ -274,97 +249,57 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     if (isLoadingBreak) return;
     final attendanceProvider =
         Provider.of<AttendanceProvider>(context, listen: false);
-
-    print(
-        'Debug: _toggleBreak called. Current isOnBreak: $isOnBreak, breakStart: $breakStart');
-
     if (!isClockedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please clock in before starting/ending a break.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Clock in before starting/ending a break.'),
+          backgroundColor: Colors.orange));
       return;
     }
-
     setState(() => isLoadingBreak = true);
-
     try {
       if (isOnBreak) {
-        print('Debug: Attempting to end break.');
         await attendanceProvider.endBreak();
-        print(
-            'Debug: endBreak completed. Provider error: ${attendanceProvider.error}');
         if (attendanceProvider.error == null) {
           setState(() {
             isOnBreak = false;
-            breakStart = null;
-            // Update totalBreakDuration from provider after successful endBreak
-            totalBreakDuration = Duration(
-                milliseconds: attendanceProvider
-                        .currentAttendance?['totalBreakDuration'] ??
-                    0);
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Break ended successfully!')),
-          );
-          print(
-              'Debug: Break ended. Updated totalBreakDuration: $totalBreakDuration');
+              const SnackBar(content: Text('Break ended successfully!')));
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(
-                    'Error ending break: ${attendanceProvider.error.toString()}')),
-          );
-          print('Debug: Error ending break: ${attendanceProvider.error}');
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(
+                  'Error ending break: ${attendanceProvider.error.toString()}')));
         }
       } else {
-        print('Debug: Attempting to start break.');
         await attendanceProvider.startBreak();
-        print(
-            'Debug: startBreak completed. Provider error: ${attendanceProvider.error}');
-
         if (attendanceProvider.error == null) {
           setState(() {
             isOnBreak = true;
-            breakStart = DateTime.now(); // Set based on successful startBreak
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Break started successfully!')),
-          );
-          print('Debug: Break started.');
+              const SnackBar(content: Text('Break started successfully!')));
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(
-                    'Error starting break: ${attendanceProvider.error.toString()}')),
-          );
-          print('Debug: Error starting break: ${attendanceProvider.error}');
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(
+                  'Error starting break: ${attendanceProvider.error.toString()}')));
         }
       }
     } catch (e) {
-      if (!mounted) return;
-      print('Debug: Exception in _toggleBreak: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An unexpected error occurred: $e')),
-      );
+          SnackBar(content: Text('Network error: ${e.toString()}')));
     } finally {
-      if (mounted) {
-        setState(() {
-          isLoadingBreak = false;
-        });
-      }
+      await _saveClockState();
+      setState(() {
+        isLoadingBreak = false;
+      });
     }
   }
 
   String _getStatusDisplay() {
-    if (isOnBreak) {
-      return 'On Break';
-    } else if (isClockedIn) {
+    if (isClockedIn) {
       return 'Clocked In';
     } else if (lastClockIn != null) {
-      return 'Clocked Out'; // Or 'Completed for today'
+      return 'Clocked Out';
     } else {
       return 'Not Clocked In';
     }
@@ -389,35 +324,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     }
   }
 
-  String _getBreakTimeDisplay() {
-    final attendanceProvider = Provider.of<AttendanceProvider>(context);
-    final currentAttendance = attendanceProvider.currentAttendance;
-
-    if (currentAttendance != null &&
-        currentAttendance['checkIn'] != null &&
-        currentAttendance['checkOut'] == null) {
-      final totalBreakMs = currentAttendance['totalBreakDuration'] ?? 0;
-      Duration calculatedTotalBreakDuration =
-          Duration(milliseconds: totalBreakMs);
-
-      // If currently on break, add the current break duration to the total
-      if (isOnBreak && breakStart != null) {
-        final currentBreakDuration = DateTime.now().difference(breakStart!);
-        calculatedTotalBreakDuration += currentBreakDuration;
-      }
-      return _formatDuration(calculatedTotalBreakDuration);
-    } else {
-      return _formatDuration(Duration.zero);
-    }
-  }
-
-  String _formatDuration(Duration d) {
-    final h = d.inHours.toString().padLeft(2, '0');
-    final m = (d.inMinutes % 60).toString().padLeft(2, '0');
-    final s = (d.inSeconds % 60).toString().padLeft(2, '0');
-    return '$h:$m:$s';
-  }
-
   String _getCheckoutTimeDisplay(AttendanceProvider attendanceProvider) {
     final currentAttendance = attendanceProvider.currentAttendance;
 
@@ -436,18 +342,27 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     final attendanceProvider = Provider.of<AttendanceProvider>(context);
     final leaveProvider = Provider.of<LeaveRequestProvider>(
         context); // Listen to LeaveRequestProvider
+    final notificationProvider = Provider.of<NotificationProvider>(
+        context); // Listen to NotificationProvider
 
     // Calculate total annual leave days remaining (mock logic)
     // This should ideally come from backend with specific leave types
     final int totalAnnualLeaveDays = 20; // Example total
     final int usedAnnualLeaveDays = leaveProvider.leaveRequests
         .where((request) =>
-            request['leaveType'] == 'annual' && request['status'] == 'approved')
-        .map((request) => (DateTime.parse(request['endDate'])
-                .difference(DateTime.parse(request['startDate']))
-                .inDays +
-            1))
-        .fold(0,
+            (request['leaveType']?.toString().toLowerCase() == 'annual') &&
+            (request['status']?.toString().toLowerCase() == 'approved'))
+        .map((request) {
+      final startDateStr = request['startDate']?.toString();
+      final endDateStr = request['endDate']?.toString();
+      if (startDateStr == null || endDateStr == null)
+        return 0; // Handle null dates
+      final startDate = DateTime.tryParse(startDateStr);
+      final endDate = DateTime.tryParse(endDateStr);
+      if (startDate == null || endDate == null)
+        return 0; // Handle invalid date strings
+      return (endDate.difference(startDate).inDays + 1);
+    }).fold(0,
             (sum, days) => sum + days as int); // Ensure sum + days returns int
 
     final int remainingAnnualLeaveDays =
@@ -455,15 +370,56 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
 
     // Find the latest pending leave request for display
     final latestPendingLeaveRequest = leaveProvider.leaveRequests
-            .where((request) => request['status'] == 'pending')
+            .where((request) =>
+                (request['status']?.toString().toLowerCase() == 'pending'))
             .isNotEmpty
         ? leaveProvider.leaveRequests
-            .where((request) => request['status'] == 'pending')
-            .reduce((a, b) => DateTime.parse(a['startDate'])
-                    .isAfter(DateTime.parse(b['startDate']))
-                ? a
-                : b) // Get the latest one
+            .where((request) =>
+                (request['status']?.toString().toLowerCase() == 'pending'))
+            .reduce((a, b) {
+            final aStartDateStr = a['startDate']?.toString();
+            final bStartDateStr = b['startDate']?.toString();
+
+            if (aStartDateStr == null || bStartDateStr == null) {
+              // Handle cases where a date is null, prioritize non-null dates or 'a' if both are null
+              return aStartDateStr == null ? b : a;
+            }
+
+            final aStartDate = DateTime.tryParse(aStartDateStr);
+            final bStartDate = DateTime.tryParse(bStartDateStr);
+
+            if (aStartDate == null || bStartDate == null) {
+              // Handle cases where date string is invalid, prioritize valid dates or 'a' if both are invalid
+              return aStartDate == null ? b : a;
+            }
+
+            return aStartDate.isAfter(bStartDate) ? a : b;
+          }) // Get the latest one
         : null;
+
+    final currentAttendance = attendanceProvider.currentAttendance;
+    String? clockInTime;
+    String? clockOutTime;
+    String? breakStartTime;
+    if (currentAttendance != null) {
+      if (currentAttendance['checkIn'] != null) {
+        final dt = DateTime.parse(currentAttendance['checkIn']).toLocal();
+        clockInTime =
+            '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      }
+      if (currentAttendance['checkOut'] != null) {
+        final dt = DateTime.parse(currentAttendance['checkOut']).toLocal();
+        clockOutTime =
+            '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      }
+      final breaks =
+          List<Map<String, dynamic>>.from(currentAttendance['breaks'] ?? []);
+      if (breaks.isNotEmpty && breaks.last['end'] == null) {
+        final dt = DateTime.parse(breaks.last['start']).toLocal();
+        breakStartTime =
+            '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -638,294 +594,431 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header with current time and status
+            // Header with user avatar, welcome message, and notification icons
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    Text(
-                      'Good ${(_now.value.hour < 12) ? 'Morning' : (_now.value.hour < 17) ? 'Afternoon' : 'Evening'}, ${authProvider.user?['name']?.split(' ')[0] ?? 'Employee'}!',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                          color: theme.colorScheme.onSurface,
-                          fontWeight: FontWeight.bold),
-                    ),
-                    ValueListenableBuilder<DateTime>(
-                      valueListenable: _now,
-                      builder: (context, value, child) {
-                        return Text(
-                          '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}:${value.second.toString().padLeft(2, '0')}',
-                          style: theme.textTheme.displaySmall?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.bold),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Status: ${_getStatusDisplay()}',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.8)),
+                    UserAvatar(
+                        avatarUrl: authProvider.user?['avatar'],
+                        radius: 24), // Add user avatar
+                    const SizedBox(
+                        width: 12), // Spacing between avatar and text
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Welcome,',
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        Text(
+                          authProvider.user?['name'] ?? 'Employee',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                  child: Builder(
-                    builder: (context) {
-                      final avatarPath = authProvider.user?['avatar'];
-                      if (avatarPath != null) {
-                        // Check if it's a local file path (e.g., from image_picker)
-                        if (avatarPath.startsWith('/') ||
-                            avatarPath.startsWith('file://')) {
-                          final file =
-                              File(avatarPath.replaceFirst('file://', ''));
-                          if (file.existsSync()) {
-                            return ClipOval(
-                              child: Image.file(
-                                file,
-                                width: 80, // Match radius * 2 (40 * 2)
-                                height: 80, // Match radius * 2
-                                fit: BoxFit.cover,
+                // Notification and Message Icons with Badges
+                Row(
+                  children: [
+                    // Bell Icon (Notifications)
+                    Stack(
+                      alignment: Alignment.topRight,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.notifications_none),
+                          tooltip: 'Notifications',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const NotificationScreen(
+                                    initialTabIndex:
+                                        0), // Pass initialTabIndex for notifications
                               ),
                             );
-                          } else {
-                            // File not found, fallback to placeholder
-                            print(
-                                'Debug: Dashboard main avatar file not found: $avatarPath. Falling back to placeholder.');
-                            return SvgPicture.asset(
-                              'assets/images/profile_placeholder.png',
-                              width: 64,
-                              height: 64,
+                          },
+                        ),
+                        // Dynamic unread notification count
+                        if (notificationProvider.unreadNotifications > 0)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 18,
+                                minHeight: 18,
+                              ),
+                              child: Text(
+                                notificationProvider.unreadNotifications
+                                    .toString(), // Use dynamic unread count
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    // Message Icon (Messages)
+                    Stack(
+                      alignment: Alignment.topRight,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.message_outlined),
+                          tooltip: 'Messages',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const NotificationScreen(
+                                    initialTabIndex:
+                                        1), // Pass initialTabIndex for messages
+                              ),
                             );
-                          }
-                        } else if (avatarPath.startsWith('assets/')) {
-                          // It's an SVG asset (e.g., default placeholder)
-                          return SvgPicture.asset(
-                            avatarPath,
-                            width: 64,
-                            height: 64,
-                          );
-                        } else {
-                          // Potentially a network image or other unsupported format, fall back.
-                          print(
-                              'Debug: Dashboard main unsupported avatar path format: $avatarPath. Falling back to placeholder.');
-                          return SvgPicture.asset(
-                            'assets/images/profile_placeholder.png',
-                            width: 64,
-                            height: 64,
-                          );
-                        }
-                      } else {
-                        // No avatar path, use placeholder
-                        return SvgPicture.asset(
-                          'assets/images/profile_placeholder.png',
-                          width: 64,
-                          height: 64,
-                        );
-                      }
-                    },
-                  ),
+                          },
+                        ),
+                        // Dynamic unread message count
+                        if (notificationProvider.unreadMessages > 0)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 18,
+                                minHeight: 18,
+                              ),
+                              child: Text(
+                                notificationProvider.unreadMessages
+                                    .toString(), // Use dynamic unread count
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            // Quick Actions
-            Text(
-              'Quick Actions',
-              style: theme.textTheme.titleLarge?.copyWith(
-                  color: theme.colorScheme.onSurface,
-                  fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 600),
-              child: Row(
-                key: ValueKey(isClockedIn.toString() + isOnBreak.toString()),
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  if (!isClockedIn)
-                    Expanded(
-                      child: DashboardActionButton(
-                        icon: Icons.login,
-                        label: 'Clock In',
-                        onPressed: _toggleClockInOut,
-                        backgroundColor:
-                            theme.colorScheme.primary.withOpacity(0.9),
-                        foregroundColor: theme.colorScheme.onPrimary,
-                        loading: isLoadingClock,
-                      ),
-                    ),
-                  if (isClockedIn && !isOnBreak)
-                    Expanded(
-                      child: DashboardActionButton(
-                        icon: Icons.logout,
-                        label: 'Clock Out',
-                        onPressed: _toggleClockInOut,
-                        backgroundColor:
-                            theme.colorScheme.tertiary.withOpacity(0.9),
-                        foregroundColor: theme.colorScheme.onTertiary,
-                        loading: isLoadingClock,
-                      ),
-                    ),
-                  if (isClockedIn && !isOnBreak) const SizedBox(width: 16),
-                  if (isClockedIn && !isOnBreak)
-                    Expanded(
-                      child: DashboardActionButton(
-                        icon: Icons.pause,
-                        label: 'Start Break',
-                        onPressed: _toggleBreak,
-                        backgroundColor:
-                            theme.colorScheme.secondary.withOpacity(0.9),
-                        foregroundColor: theme.colorScheme.onSecondary,
-                        loading: isLoadingBreak,
-                      ),
-                    ),
-                  if (isOnBreak)
-                    Expanded(
-                      child: DashboardActionButton(
-                        icon: Icons.play_arrow,
-                        label: 'End Break',
-                        onPressed: _toggleBreak,
-                        backgroundColor: theme.colorScheme.secondaryContainer
-                            .withOpacity(0.9),
-                        foregroundColor: theme.colorScheme.onSecondaryContainer,
-                        loading: isLoadingBreak,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Today's Attendance Summary
-            Text(
-              "Today's Attendance Summary",
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: theme.colorScheme.onSurface,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24.0), // Consistent spacing after header
+            // Today's Status & Live Clock Section
             Card(
-              elevation: 4,
+              elevation: 8, // Increased elevation for more prominence
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  children: [
-                    _buildSummaryRow('Total Time', _getTimeDisplay(), theme),
-                    const Divider(height: 20),
-                    _buildSummaryRow(
-                        'Break Time', _getBreakTimeDisplay(), theme),
-                    const Divider(height: 20),
-                    _buildSummaryRow(
-                      'Check-in',
-                      lastClockIn != null
-                          ? '${lastClockIn!.hour.toString().padLeft(2, '0')}:${lastClockIn!.minute.toString().padLeft(2, '0')}'
-                          : 'N/A',
-                      theme,
-                    ),
-                    const Divider(height: 20),
-                    _buildSummaryRow(
-                      'Check-out',
-                      _getCheckoutTimeDisplay(attendanceProvider),
-                      theme,
-                    ),
-                  ],
+                  borderRadius:
+                      BorderRadius.circular(18)), // More rounded corners
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  gradient: LinearGradient(
+                    colors: [
+                      theme.colorScheme.primary.withOpacity(0.8),
+                      theme.colorScheme.primary,
+                      theme.colorScheme.primary.withOpacity(0.9),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Add the new Dashboard Overview Tile here
-            AnimatedOpacity(
-              opacity: 1.0,
-              duration: const Duration(milliseconds: 700),
-              child: DashboardOverviewTile(
-                onStatTileTap: (label) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Tapped $label tile!')),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const AnalyticsScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.analytics_outlined),
-                label: const Text('View Analytics'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0), // Increased padding
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Today\'s Status',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color:
+                                Colors.white), // Text color white for contrast
+                      ),
+                      const Divider(
+                          height: 20, thickness: 1, color: Colors.white70),
+                      // Main status display: Time and Status (Stacked vertically and prominent)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Current Time Display
+                          Text(
+                            'Current Time',
+                            style: theme.textTheme.labelLarge
+                                ?.copyWith(color: Colors.white70),
+                          ),
+                          ValueListenableBuilder<DateTime>(
+                            valueListenable: _now,
+                            builder: (context, value, child) {
+                              return Text(
+                                '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}:${value.second.toString().padLeft(2, '0')}',
+                                style: theme.textTheme.displayMedium?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold),
+                              );
+                            },
+                          ),
+                          const SizedBox(
+                              height:
+                                  24), // Increased space between time and status blocks
+                          // Your Status Display
+                          Text(
+                            'Your Status',
+                            style: theme.textTheme.labelLarge
+                                ?.copyWith(color: Colors.white70),
+                          ),
+                          Row(
+                            // Keep Row for icon and status text
+                            children: [
+                              Icon(
+                                isClockedIn ? Icons.check_circle : Icons.cancel,
+                                color: isClockedIn
+                                    ? Colors.greenAccent
+                                    : Colors.redAccent,
+                                size:
+                                    28, // Reverting icon size for better visual balance
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                // Ensure text fills remaining space with ellipsis
+                                child: Text(
+                                  _getStatusDisplay(),
+                                  style: theme.textTheme.headlineSmall
+                                      ?.copyWith(
+                                          // Reverting to headlineSmall for prominence
+                                          color: isClockedIn
+                                              ? Colors.greenAccent
+                                              : Colors.redAccent,
+                                          fontWeight: FontWeight.bold),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20), // Space before detailed times
+                      // Detailed times (Clocked in/out, on break) - always aligned left within the card
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (isClockedIn && clockInTime != null)
+                            Row(
+                              children: [
+                                Icon(Icons.login,
+                                    color: Colors.white70, size: 18),
+                                const SizedBox(width: 8),
+                                Text('Clocked in at: $clockInTime',
+                                    style: theme.textTheme.bodyMedium
+                                        ?.copyWith(color: Colors.white70)),
+                              ],
+                            ),
+                          if (isOnBreak && breakStartTime != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.pause_circle_outline,
+                                      color: Colors.yellowAccent, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text('On break since: $breakStartTime',
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                              color: Colors.yellowAccent)),
+                                ],
+                              ),
+                            ),
+                          if (!isClockedIn && clockOutTime != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.logout,
+                                      color: Colors.white70, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text('Clocked out at: $clockOutTime',
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(color: Colors.white70)),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 24),
-            // Leave Balance and Request
+            const SizedBox(height: 24.0), // Consistent spacing
+            // Quick Actions Section
             Text(
-              'Leave Overview',
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: theme.colorScheme.onSurface,
-                fontWeight: FontWeight.bold,
-              ),
+              'Quick Actions',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 16.0), // Consistent spacing
             Row(
               children: [
                 Expanded(
-                  child: LeaveBalanceTile(
-                    type: 'Annual',
-                    days: remainingAnnualLeaveDays, // Dynamic leave days
-                    color: theme.colorScheme.primary,
+                  child: DashboardActionButton(
+                    label: isClockedIn ? 'Clock Out' : 'Clock In',
+                    icon: isClockedIn ? Icons.logout : Icons.login,
+                    onPressed: _toggleClockInOut,
+                    loading: isLoadingClock,
+                    backgroundColor: isClockedIn
+                        ? theme.colorScheme.error
+                        : theme.colorScheme.primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: LeaveRequestTile(
-                    // Display latest pending leave request, or a default message
-                    type: latestPendingLeaveRequest?['leaveType'] ??
-                        'No Pending Leave',
-                    date: latestPendingLeaveRequest?['startDate'] != null
-                        ? '${DateTime.parse(latestPendingLeaveRequest!['startDate']).year}-${DateTime.parse(latestPendingLeaveRequest!['startDate']).month.toString().padLeft(2, '0')}-${DateTime.parse(latestPendingLeaveRequest!['startDate']).day.toString().padLeft(2, '0')}'
-                        : 'N/A',
-                    status: latestPendingLeaveRequest?['status'] ?? '',
+                  child: DashboardActionButton(
+                    label: isOnBreak ? 'End Break' : 'Start Break',
+                    icon: isOnBreak
+                        ? Icons.play_arrow_outlined
+                        : Icons.pause_outlined,
+                    onPressed: _toggleBreak,
+                    loading: isLoadingBreak,
+                    backgroundColor: isOnBreak
+                        ? theme.colorScheme.secondary
+                        : Colors.orange[700]!,
+                    foregroundColor: theme.colorScheme.onSecondary,
+                    disabled: !isClockedIn || isLoadingBreak,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            // Apply for Leave button
-            Center(
-              child: ElevatedButton.icon(
+            const SizedBox(height: 24.0), // Consistent spacing
+            // My Leave Overview Section
+            Text(
+              'My Leave Overview',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface),
+            ),
+            const SizedBox(height: 16.0), // Consistent spacing
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LeaveBalanceTile(
+                      type: 'Annual Leave',
+                      days: remainingAnnualLeaveDays,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Latest Pending Leave Request',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary),
+                    ),
+                    const Divider(height: 20, thickness: 1),
+                    latestPendingLeaveRequest != null
+                        ? LeaveRequestTile(
+                            type:
+                                latestPendingLeaveRequest['leaveType'] ?? 'N/A',
+                            date: latestPendingLeaveRequest['startDate'] != null
+                                ? '${DateTime.parse(latestPendingLeaveRequest['startDate']).year}-${DateTime.parse(latestPendingLeaveRequest['startDate']).month.toString().padLeft(2, '0')}-${DateTime.parse(latestPendingLeaveRequest['startDate']).day.toString().padLeft(2, '0')}'
+                                : 'N/A',
+                            status:
+                                latestPendingLeaveRequest['status'] ?? 'N/A',
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: Text(
+                              'No pending leave requests.',
+                              style: theme.textTheme.bodyMedium
+                                  ?.copyWith(color: Colors.grey[700]),
+                            ),
+                          ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24.0), // Consistent spacing
+            // Recent Notifications / Announcements Section (Placeholder)
+            Text(
+              'Recent Updates',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface),
+            ),
+            const SizedBox(height: 16.0), // Consistent spacing
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'No new announcements or notifications.',
+                      style: theme.textTheme.bodyMedium
+                          ?.copyWith(color: Colors.grey[700]),
+                    ),
+                    // TODO: Implement actual recent notifications/announcements here
+                    // For example, a ListView.builder of the latest 2-3 items
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24.0), // Consistent spacing
+            // Attendance & Work Overview Section
+            const DashboardOverviewTile(),
+
+            // TODO: Add other relevant sections like Timesheet Summary, etc.
+            // Expanded section for analytics screen
+            // AnalyticsScreen(),
+            const SizedBox(height: 16.0), // Consistent spacing
+            Align(
+              alignment: Alignment.center,
+              child: TextButton.icon(
                 onPressed: () {
-                  Navigator.pushNamed(context, '/leave_request');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const AnalyticsScreen()),
+                  );
                 },
-                icon: const Icon(Icons.add_task), // Changed icon to add_task
-                label: const Text('Apply for Leave'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme
-                      .colorScheme.secondary, // Use secondary color for action
-                  foregroundColor: theme.colorScheme.onSecondary,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                icon: Icon(Icons.analytics, color: theme.colorScheme.primary),
+                label: Text(
+                  'View Detailed Analytics',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -982,24 +1075,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
           Navigator.pushReplacementNamed(context, targetRoute);
         }
       },
-    );
-  }
-
-  Widget _buildSummaryRow(String label, String value, ThemeData theme) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.titleMedium
-              ?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.8)),
-        ),
-        Text(
-          value,
-          style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.primary, fontWeight: FontWeight.bold),
-        ),
-      ],
     );
   }
 }

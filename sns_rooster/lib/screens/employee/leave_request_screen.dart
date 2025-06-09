@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sns_rooster/config/leave_config.dart';
+import '../../widgets/navigation_drawer.dart';
+import 'package:provider/provider.dart';
+import '../../providers/leave_request_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../models/leave_request.dart';
 
 class LeaveRequestScreen extends StatefulWidget {
   const LeaveRequestScreen({super.key});
@@ -8,61 +13,13 @@ class LeaveRequestScreen extends StatefulWidget {
   State<LeaveRequestScreen> createState() => _LeaveRequestScreenState();
 }
 
-class LeaveRequest {
-  final String id;
-  final String employeeName;
-  final String leaveType;
-  final String startDate;
-  final String endDate;
-  String reason;
-  String status;
-
-  LeaveRequest({
-    required this.id,
-    required this.employeeName,
-    required this.leaveType,
-    required this.startDate,
-    required this.endDate,
-    required this.reason,
-    this.status = 'Pending',
-  });
-}
-
 class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   String? _selectedLeaveType;
   final TextEditingController _startDateController = TextEditingController();
   final TextEditingController _endDateController = TextEditingController();
   final TextEditingController _reasonController = TextEditingController();
 
-  final List<LeaveRequest> _leaveHistory = [
-    LeaveRequest(
-      id: '1',
-      employeeName: 'John Doe',
-      leaveType: 'Annual Leave',
-      startDate: '2023-01-01',
-      endDate: '2023-01-05',
-      reason: 'Vacation',
-      status: 'Approved',
-    ),
-    LeaveRequest(
-      id: '2',
-      employeeName: 'Jane Smith',
-      leaveType: 'Sick Leave',
-      startDate: '2023-02-10',
-      endDate: '2023-02-10',
-      reason: 'Fever',
-      status: 'Pending',
-    ),
-    LeaveRequest(
-      id: '3',
-      employeeName: 'Peter Jones',
-      leaveType: 'Casual Leave',
-      startDate: '2023-03-15',
-      endDate: '2023-03-16',
-      reason: 'Personal',
-      status: 'Rejected',
-    ),
-  ];
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
@@ -91,12 +48,17 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final leaveProvider = Provider.of<LeaveRequestProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Leave Request'),
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
       ),
+      drawer: const AppNavigationDrawer(),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -106,7 +68,22 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: ElevatedButton.icon(
                 onPressed: () {
-                  _showLeaveRequestForm(context);
+                  if (authProvider.user != null &&
+                      authProvider.user!['_id'] != null) {
+                    _showLeaveRequestForm(
+                        context,
+                        leaveProvider,
+                        authProvider,
+                        authProvider.user!['_id']
+                            .toString()); // Ensure '_id' is a String
+                  } else {
+                    // Handle the case where user or user ID is null (e.g., show a message)
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text(
+                              'User not authenticated or user ID is missing.')),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.amber,
@@ -127,60 +104,180 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
             Text(
               'Your Leave History',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColor,
-              ),
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).primaryColor,
+                  ),
             ),
             const SizedBox(height: 15),
-            // Display leave history from the _leaveHistory list
-            ..._leaveHistory.map((leave) {
-              IconData iconData;
-              Color statusColor;
-              switch (leave.leaveType) {
-                case 'Annual Leave':
-                  iconData = Icons.beach_access;
-                  break;
-                case 'Sick Leave':
-                  iconData = Icons.medical_services;
-                  break;
-                case 'Casual Leave':
-                  iconData = Icons.event;
-                  break;
-                case 'Maternity Leave':
-                  iconData = Icons.pregnant_woman;
-                  break;
-                case 'Paternity Leave':
-                  iconData = Icons.family_restroom;
-                  break;
-                default:
-                  iconData = Icons.event;
-              }
+            if (leaveProvider.isLoading)
+              const Center(child: CircularProgressIndicator())
+            else if (leaveProvider.error != null)
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text('Error: ${leaveProvider.error}',
+                    style: TextStyle(color: Colors.red)),
+              )
+            else if (leaveProvider.leaveRequests.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text('No leave requests found.'),
+              )
+            else
+              ...leaveProvider.leaveRequests.map((leave) {
+                IconData iconData;
+                Color statusColor;
+                switch (leave['leaveType']?.toString().toLowerCase()) {
+                  case 'annual leave':
+                    iconData = Icons.beach_access;
+                    break;
+                  case 'sick leave':
+                    iconData = Icons.medical_services;
+                    break;
+                  case 'casual leave':
+                    iconData = Icons.event;
+                    break;
+                  case 'maternity leave':
+                    iconData = Icons.pregnant_woman;
+                    break;
+                  case 'paternity leave':
+                    iconData = Icons.family_restroom;
+                    break;
+                  default:
+                    iconData = Icons.event;
+                }
 
-              switch (leave.status) {
-                case 'Pending':
-                  statusColor = Colors.orange;
-                  break;
-                case 'Approved':
-                  statusColor = Colors.green;
-                  break;
-                case 'Rejected':
-                  statusColor = Colors.red;
-                  break;
-                default:
-                  statusColor = Colors.grey;
-              }
+                switch (leave['status']?.toString().toLowerCase()) {
+                  case 'pending':
+                    statusColor = Colors.orange;
+                    break;
+                  case 'approved':
+                    statusColor = Colors.green;
+                    break;
+                  case 'rejected':
+                    statusColor = Colors.red;
+                    break;
+                  default:
+                    statusColor = Colors.grey;
+                }
 
-              return _buildLeaveHistoryItem(
-                icon: iconData,
-                leaveType: leave.leaveType,
-                dates: '${leave.startDate} - ${leave.endDate}',
-                status: leave.status,
-                statusColor: statusColor,
-                showEdit: leave.status == 'Pending',
-                showCancel: leave.status == 'Pending',
-                showView: leave.status != 'Pending',
-              );
-            }),
+                final createdAtStr = leave['createdAt'] != null
+                    ? DateTime.tryParse(leave['createdAt'])
+                        ?.toLocal()
+                        .toString()
+                        .split('.')[0]
+                    : 'N/A';
+                final approver = leave['approverId'] ?? 'N/A';
+                final comments = leave['comments'] ?? '';
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildLeaveHistoryItem(
+                      icon: iconData,
+                      leaveType:
+                          leave['leaveType']?.toString() ?? 'Unspecified',
+                      dates:
+                          '${leave['startDate']?.toString() ?? ''} - ${leave['endDate']?.toString() ?? ''}',
+                      status: leave['status']?.toString() ?? 'Unknown',
+                      statusColor: statusColor,
+                      showEdit: (leave['status']?.toString().toLowerCase() ??
+                              'pending') ==
+                          'pending',
+                      showCancel: (leave['status']?.toString().toLowerCase() ??
+                              'pending') ==
+                          'pending',
+                      showView: (leave['status']?.toString().toLowerCase() ??
+                              'pending') !=
+                          'pending',
+                      onEdit: () async {
+                        final leaveId = leave['_id']?.toString() ?? 'N/A';
+                        final newReason = await showDialog<String>(
+                          context: context,
+                          builder: (context) {
+                            final controller =
+                                TextEditingController(text: leave['reason']);
+                            return AlertDialog(
+                              title: Text('Edit Leave Reason'),
+                              content: TextField(
+                                controller: controller,
+                                decoration:
+                                    InputDecoration(labelText: 'Reason'),
+                              ),
+                              actions: [
+                                TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: Text('Cancel')),
+                                ElevatedButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, controller.text),
+                                  child: Text('Save'),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                        if (newReason != null && newReason != leave['reason']) {
+                          await leaveProvider.updateLeaveRequest(
+                              leaveId, {'reason': newReason});
+                          await leaveProvider
+                              .getUserLeaveRequests(authProvider.user!['_id']);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Leave request updated!')),
+                          );
+                        }
+                      },
+                      onCancel: () async {
+                        final leaveId = leave['_id']?.toString() ?? 'N/A';
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text('Cancel Leave Request'),
+                            content: Text(
+                                'Are you sure you want to cancel this leave request?'),
+                            actions: [
+                              TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
+                                  child: Text('No')),
+                              ElevatedButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: Text('Yes')),
+                            ],
+                          ),
+                        );
+                        if (confirmed == true) {
+                          await leaveProvider.deleteLeaveRequest(leaveId);
+                          await leaveProvider
+                              .getUserLeaveRequests(authProvider.user!['_id']);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Leave request deleted!')),
+                          );
+                        }
+                      },
+                      onView: () {
+                        final leaveId = leave['_id']?.toString() ?? 'N/A';
+                        print('View leave request: $leaveId');
+                      },
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0, vertical: 4.0),
+                      child: Text('Created At: $createdAtStr'),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0, vertical: 4.0),
+                      child: Text('Approver ID: $approver'),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0, vertical: 4.0),
+                      child: Text('Comments: $comments'),
+                    ),
+                    const Divider(),
+                  ],
+                );
+              }).toList(),
           ],
         ),
       ),
@@ -335,130 +432,212 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     );
   }
 
-  void _showLeaveRequestForm(BuildContext context) {
+  void _showLeaveRequestForm(
+      BuildContext context,
+      LeaveRequestProvider leaveProvider,
+      AuthProvider authProvider, // Add AuthProvider here
+      String userId) {
+    _selectedLeaveType = null;
+    _startDateController.clear();
+    _endDateController.clear();
+    _reasonController.clear();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (BuildContext context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Submit a New Leave Request',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              left: 20,
+              right: 20,
+              top: 20,
+            ),
+            child: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'New Leave Request',
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).primaryColor),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildDropdownField(
-                    'Leave Type',
-                    _selectedLeaveType,
-                    [
-                      'Annual Leave',
-                      'Sick Leave',
-                      'Casual Leave',
-                      'Maternity Leave',
-                      'Paternity Leave',
-                    ],
-                    (String? newValue) {
-                      setState(() {
-                        _selectedLeaveType = newValue;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 15),
-                  _buildDateField('Start Date', _startDateController, context),
-                  const SizedBox(height: 15),
-                  _buildDateField('End Date', _endDateController, context),
-                  const SizedBox(height: 15),
-                  _buildInputField('Reason', _reasonController, maxLines: 4),
-                  const SizedBox(height: 30),
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (_selectedLeaveType != null &&
-                            _startDateController.text.isNotEmpty &&
-                            _endDateController.text.isNotEmpty &&
-                            _reasonController.text.isNotEmpty) {
-                          _submitLeaveRequest();
-                          Navigator.pop(context); // Close the bottom sheet
-                        } else {
-                          // Show an error or a toast message if fields are not filled
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please fill all fields'),
-                            ),
-                          );
-                        }
+                    const SizedBox(height: 20),
+                    DropdownButtonFormField<String>(
+                      value: _selectedLeaveType,
+                      decoration: InputDecoration(
+                        labelText: 'Leave Type',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        prefixIcon: const Icon(Icons.category),
+                      ),
+                      items: LeaveConfig.leaveTypes.map((type) {
+                        return DropdownMenuItem(value: type, child: Text(type));
+                      }).toList(),
+                      onChanged: (value) {
+                        _selectedLeaveType = value;
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 40,
-                          vertical: 15,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please select a leave type';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 15),
+                    TextFormField(
+                      controller: _startDateController,
+                      readOnly: true,
+                      onTap: () => _selectDate(context, _startDateController),
+                      decoration: InputDecoration(
+                        labelText: 'Start Date',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        prefixIcon: const Icon(Icons.calendar_today),
                       ),
-                      child: const Text(
-                        'Submit Request',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please select a start date';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 15),
+                    TextFormField(
+                      controller: _endDateController,
+                      readOnly: true,
+                      onTap: () => _selectDate(context, _endDateController),
+                      decoration: InputDecoration(
+                        labelText: 'End Date',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        prefixIcon: const Icon(Icons.calendar_today),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please select an end date';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 15),
+                    TextFormField(
+                      controller: _reasonController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: 'Reason',
+                        alignLabelWithHint: true,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        prefixIcon: const Icon(Icons.edit_note),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a reason';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    Center(
+                      child: ElevatedButton(
+                        onPressed: leaveProvider.isLoading
+                            ? null
+                            : () async {
+                                print('Form validation started');
+                                if (_formKey.currentState!.validate()) {
+                                  print(
+                                      'Form is valid, preparing request data');
+                                  final nowIso =
+                                      DateTime.now().toIso8601String();
+                                  final newRequest = {
+                                    'userId':
+                                        userId.toString(), // Ensure string type
+                                    'employeeName':
+                                        authProvider.user?['name'] ??
+                                            'Unknown', // Use authProvider here
+                                    'leaveType': _selectedLeaveType!,
+                                    'startDate': _startDateController.text,
+                                    'endDate': _endDateController.text,
+                                    'reason': _reasonController.text,
+                                    'status': 'Pending',
+                                    'createdAt': nowIso,
+                                    'updatedAt': nowIso,
+                                    'approverId': null,
+                                    'comments': '',
+                                  };
+                                  print(
+                                      'Submitting leave request with data: $newRequest');
+
+                                  final success = await leaveProvider
+                                      .createLeaveRequest(newRequest);
+                                  print(
+                                      'Leave request submission result: $success');
+
+                                  if (success) {
+                                    print(
+                                        'Leave request submitted successfully');
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'Leave request submitted successfully!')),
+                                    );
+                                    Navigator.pop(context);
+                                    print('Refreshing leave requests list');
+                                    await leaveProvider
+                                        .getUserLeaveRequests(userId);
+                                  } else {
+                                    print(
+                                        'Failed to submit leave request: ${leaveProvider.error}');
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                          content: Text(
+                                              'Failed to submit leave request: ${leaveProvider.error}')),
+                                    );
+                                  }
+                                } else {
+                                  print('Form validation failed');
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).primaryColor,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
+                        child: leaveProvider.isLoading
+                            ? const CircularProgressIndicator(
+                                color: Colors.white)
+                            : const Text(
+                                'Submit Request',
+                                style: TextStyle(
+                                    fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         );
       },
     );
-  }
-
-  void _submitLeaveRequest() {
-    if (_selectedLeaveType != null &&
-        _startDateController.text.isNotEmpty &&
-        _endDateController.text.isNotEmpty &&
-        _reasonController.text.isNotEmpty) {
-      setState(() {
-        _leaveHistory.add(
-          LeaveRequest(
-            id: DateTime.now().millisecondsSinceEpoch.toString(), // Unique ID
-            employeeName: 'Current Employee', // Placeholder for current employee
-            leaveType: _selectedLeaveType!,
-            startDate: _startDateController.text,
-            endDate: _endDateController.text,
-            reason: _reasonController.text,
-            status: 'Pending',
-          ),
-        );
-        _selectedLeaveType = null;
-        _startDateController.clear();
-        _endDateController.clear();
-        _reasonController.clear();
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Leave request submitted successfully!'))
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields'))
-      );
-    }
   }
 
   Widget _buildLeaveHistoryItem({
@@ -470,6 +649,9 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     bool showEdit = false,
     bool showCancel = false,
     bool showView = false,
+    VoidCallback? onEdit,
+    VoidCallback? onCancel,
+    VoidCallback? onView,
   }) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -488,8 +670,8 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                   Text(
                     leaveType,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                          fontWeight: FontWeight.bold,
+                        ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -511,89 +693,41 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                     child: Text(
                       status,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: statusColor,
-                        fontWeight: FontWeight.bold,
-                      ),
+                            color: statusColor,
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
                   ),
                 ],
               ),
             ),
             if (showEdit)
-              IconButton(
-                icon: Icon(Icons.edit, color: Colors.blue[600]),
-                onPressed: () {},
+              Tooltip(
+                message: showEdit ? 'Edit' : 'Can only edit pending requests',
+                child: IconButton(
+                  icon: Icon(Icons.edit,
+                      color: showEdit ? Colors.blue[600] : Colors.grey),
+                  onPressed: showEdit ? onEdit : null,
+                ),
               ),
             if (showCancel)
-              IconButton(
-                icon: Icon(Icons.close, color: Colors.red[600]),
-                onPressed: () {},
+              Tooltip(
+                message:
+                    showCancel ? 'Cancel' : 'Can only cancel pending requests',
+                child: IconButton(
+                  icon: Icon(Icons.close,
+                      color: showCancel ? Colors.red[600] : Colors.grey),
+                  onPressed: showCancel ? onCancel : null,
+                ),
               ),
             if (showView)
               IconButton(
                 icon: Icon(Icons.visibility, color: Colors.grey[600]),
-                onPressed: () {},
+                onPressed: onView,
               ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildInputField(
-    String label,
-    TextEditingController controller, {
-    int maxLines = 1,
-  }) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      decoration: InputDecoration(
-        labelText: label,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        filled: true,
-        fillColor: Colors.grey[100],
-      ),
-    );
-  }
-
-  Widget _buildDateField(
-    String label,
-    TextEditingController controller,
-    BuildContext context,
-  ) {
-    return TextField(
-      controller: controller,
-      readOnly: true,
-      onTap: () => _selectDate(context, controller),
-      decoration: InputDecoration(
-        labelText: label,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        filled: true,
-        fillColor: Colors.grey[100],
-        suffixIcon: const Icon(Icons.calendar_today),
-      ),
-    );
-  }
-
-  Widget _buildDropdownField(
-    String label,
-    String? value,
-    List<String> items,
-    ValueChanged<String?> onChanged,
-  ) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      decoration: InputDecoration(
-        labelText: label,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        filled: true,
-        fillColor: Colors.grey[100],
-      ),
-      items: items.map<DropdownMenuItem<String>>((String item) {
-        return DropdownMenuItem<String>(value: item, child: Text(item));
-      }).toList(),
-      onChanged: onChanged,
     );
   }
 }

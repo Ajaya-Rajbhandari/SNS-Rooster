@@ -77,7 +77,11 @@ class DashboardOverviewTile extends StatelessWidget {
 
     return Card(
       elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade300, width: 1.0),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -180,86 +184,75 @@ class DashboardOverviewTile extends StatelessWidget {
 
                           Widget glassCard = ClipRRect(
                             borderRadius: BorderRadius.circular(16),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                              child: Container(
-                                width: 120,
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 6.0),
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white
-                                      .withOpacity(0.6), // Glassmorphism base
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: isPresent
-                                        ? theme.colorScheme.primary
-                                        : isOnLeave
-                                            ? theme.colorScheme.tertiary
-                                            : Colors.red.shade400,
-                                    width: 1.5,
-                                  ),
+                            child: Container(
+                              width: 120,
+                              margin:
+                                  const EdgeInsets.symmetric(horizontal: 6.0),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isPresent
+                                      ? theme.colorScheme.primary
+                                      : isOnLeave
+                                          ? theme.colorScheme.tertiary
+                                          : Colors.red.shade400,
+                                  width: 1.5,
                                 ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      DateFormat('EEE').format(day),
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              color: isPresent
-                                                  ? theme.colorScheme.primary
-                                                  : isOnLeave
-                                                      ? theme
-                                                          .colorScheme.tertiary
-                                                      : Colors.red.shade700),
-                                    ),
-                                    Text(
-                                      DateFormat('MMM d').format(day),
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                              color: isPresent
-                                                  ? theme.colorScheme.primary
-                                                  : isOnLeave
-                                                      ? theme
-                                                          .colorScheme.tertiary
-                                                      : Colors.red.shade700),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      statusText,
-                                      style:
-                                          theme.textTheme.bodySmall?.copyWith(
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    DateFormat('EEE').format(day),
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
                                         color: isPresent
                                             ? theme.colorScheme.primary
                                             : isOnLeave
                                                 ? theme.colorScheme.tertiary
-                                                : Colors.red.shade700,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                                : Colors.red.shade700),
+                                  ),
+                                  Text(
+                                    DateFormat('MMM d').format(day),
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                        color: isPresent
+                                            ? theme.colorScheme.primary
+                                            : isOnLeave
+                                                ? theme.colorScheme.tertiary
+                                                : Colors.red.shade700),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    statusText,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: isPresent
+                                          ? theme.colorScheme.primary
+                                          : isOnLeave
+                                              ? theme.colorScheme.tertiary
+                                              : Colors.red.shade700,
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                    const SizedBox(height: 4),
-                                    if (isPresent && workHours.inMinutes > 0)
-                                      Text(
-                                        '${workHours.inHours}h ${workHours.inMinutes.remainder(60)}m',
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                                color:
-                                                    theme.colorScheme.primary),
-                                      ),
-                                    if (isPresent &&
-                                        workHours.inMinutes <= 0 &&
-                                        recordForDay['checkIn'] != null)
-                                      Text(
-                                        'Check-in: $checkInTime',
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                                color:
-                                                    theme.colorScheme.primary),
-                                      ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  if (isPresent && workHours.inMinutes > 0)
+                                    Text(
+                                      '${workHours.inHours}h ${workHours.inMinutes.remainder(60)}m',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                              color: theme.colorScheme.primary),
+                                    ),
+                                  if (isPresent &&
+                                      workHours.inMinutes <= 0 &&
+                                      recordForDay['checkIn'] != null)
+                                    Text(
+                                      'Check-in: $checkInTime',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                              color: theme.colorScheme.primary),
+                                    ),
+                                ],
                               ),
                             ),
                           );
@@ -360,7 +353,9 @@ class DashboardOverviewTile extends StatelessWidget {
                             Icons.trending_up,
                             theme.colorScheme.primary, // Use theme color
                             'Avg. Daily Hours',
-                            '${avgDailyWorkHours.toStringAsFixed(1)}h',
+                            avgDailyWorkHours == 0.0
+                                ? 'N/A'
+                                : '${avgDailyWorkHours.toStringAsFixed(1)}h',
                           ),
                         ),
                       ],
@@ -400,7 +395,9 @@ class DashboardOverviewTile extends StatelessWidget {
                             Icons.star,
                             theme.colorScheme.secondary, // Use theme color
                             'Attendance Streak',
-                            '$attendanceStreak days',
+                            attendanceStreak == 0
+                                ? 'N/A'
+                                : '${attendanceStreak} days',
                           ),
                         ),
                         Expanded(
@@ -433,53 +430,52 @@ class DashboardOverviewTile extends StatelessWidget {
         child: AnimatedScale(
           scale: 1.0,
           duration: const Duration(milliseconds: 200),
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            height: 120,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.7),
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.12),
-                    shape: BoxShape.circle,
+          child: Card(
+            elevation: 4,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 24, color: color),
                   ),
-                  child: Icon(icon, size: 24, color: color),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  value,
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                    fontSize: 26,
+                  const SizedBox(height: 10),
+                  Text(
+                    value,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                      fontSize: 20,
+                    ),
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  label,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.6),
-                    fontWeight: FontWeight.w500,
-                    fontSize: 13,
+                  const SizedBox(height: 6),
+                  Text(
+                    label,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

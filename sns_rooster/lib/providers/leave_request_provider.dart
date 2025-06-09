@@ -45,6 +45,8 @@ class LeaveRequestProvider with ChangeNotifier {
       if (useMock) {
         _leaveRequests =
             await _mockLeaveRequestService.getLeaveRequestsByUser(userId);
+        print(
+            'LeaveRequestProvider: _leaveRequests after fetch: $_leaveRequests');
       } else {
         // TODO: Replace with real API call (e.g., GET /api/users/:userId/leave-requests).
         throw UnimplementedError("Real API call not implemented.");
@@ -66,7 +68,10 @@ class LeaveRequestProvider with ChangeNotifier {
       if (useMock) {
         final response =
             await _mockLeaveRequestService.createLeaveRequest(requestData);
-        // In a real app, you might refresh the list (or add to local state) after creation.
+        // Add the new request to the local state
+        if (response['leaveRequest'] != null) {
+          _leaveRequests.add(response['leaveRequest']);
+        }
         print("Create leave request (mock) response: ${response}");
         return true;
       } else {
@@ -121,6 +126,57 @@ class LeaveRequestProvider with ChangeNotifier {
         return true;
       } else {
         // TODO: Replace with real API call (e.g., PATCH /api/leave-requests/:requestId/reject).
+        throw UnimplementedError("Real API call not implemented.");
+      }
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> deleteLeaveRequest(String leaveId) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      if (useMock) {
+        final result =
+            await _mockLeaveRequestService.deleteLeaveRequest(leaveId);
+        if (result) {
+          _leaveRequests.removeWhere((leave) => leave['_id'] == leaveId);
+        }
+        return result;
+      } else {
+        throw UnimplementedError("Real API call not implemented.");
+      }
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> updateLeaveRequest(
+      String leaveId, Map<String, dynamic> updates) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      if (useMock) {
+        final result =
+            await _mockLeaveRequestService.updateLeaveRequest(leaveId, updates);
+        if (result) {
+          final index =
+              _leaveRequests.indexWhere((leave) => leave['_id'] == leaveId);
+          if (index != -1) {
+            _leaveRequests[index] = {..._leaveRequests[index], ...updates};
+          }
+        }
+        return result;
+      } else {
         throw UnimplementedError("Real API call not implemented.");
       }
     } catch (e) {

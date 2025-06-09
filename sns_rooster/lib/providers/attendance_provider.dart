@@ -42,9 +42,10 @@ class AttendanceProvider with ChangeNotifier {
 
     try {
       if (useMock) {
-        final response = await _mockAttendanceService.getAttendanceHistory();
-        _attendanceRecords =
-            List<Map<String, dynamic>>.from(response["history"]);
+        final userId = _authProvider.user?['_id'] ?? 'mock_user_1';
+        final response =
+            await _mockAttendanceService.getAttendanceHistory(userId);
+        _attendanceRecords = response;
       } else {
         final response = await http.get(
           Uri.parse('$_baseUrl/attendance'),
@@ -86,19 +87,13 @@ class AttendanceProvider with ChangeNotifier {
 
     try {
       if (useMock) {
-        final response = await _mockAttendanceService.getAttendanceHistory();
-        _attendanceRecords =
-            List<Map<String, dynamic>>.from(response["history"]);
+        final response =
+            await _mockAttendanceService.getAttendanceHistory(userId);
+        _attendanceRecords = response;
 
-        // Find the active record for the current user from the history
-        _currentAttendance = _attendanceRecords.firstWhere(
-          (record) => record['userId'] == userId && record['checkOut'] == null,
-          orElse: () => {},
-        );
-        if (_currentAttendance!.isEmpty) {
-          // If no active record, assume not clocked in
-          _currentAttendance = null;
-        }
+        // Get current attendance
+        _currentAttendance =
+            await _mockAttendanceService.getCurrentAttendance(userId);
       } else {
         final response = await http.get(
           Uri.parse('$_baseUrl/attendance/user/$userId'),
@@ -110,11 +105,9 @@ class AttendanceProvider with ChangeNotifier {
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
-          // Assuming backend returns the current user's active attendance or null/empty if not clocked in
-          _currentAttendance =
-              data['attendance']; // This might be a single map or null
-          _attendanceRecords = List<Map<String, dynamic>>.from(
-              data['history'] ?? []); // Update history if provided
+          _currentAttendance = data['attendance'];
+          _attendanceRecords =
+              List<Map<String, dynamic>>.from(data['history'] ?? []);
           _error = null;
         } else {
           final data = json.decode(response.body);
@@ -135,11 +128,9 @@ class AttendanceProvider with ChangeNotifier {
     notifyListeners();
     try {
       if (useMock) {
-        final response = await _mockAttendanceService.checkIn();
-        print("Check-in (mock) response: ${response}");
-        _currentAttendance =
-            response["attendance"]; // Assign to current attendance
-        // In a real app, you'd also want to add this to _attendanceRecords if it represents a new entry
+        final userId = _authProvider.user?['_id'] ?? 'mock_user_1';
+        final response = await _mockAttendanceService.checkIn(userId);
+        _currentAttendance = response["attendance"];
         return true;
       } else {
         // TODO: Replace with real API call
@@ -160,59 +151,9 @@ class AttendanceProvider with ChangeNotifier {
     notifyListeners();
     try {
       if (useMock) {
-        final response = await _mockAttendanceService.checkOut();
-        print("Check-out (mock) response: ${response}");
-        _currentAttendance =
-            response["attendance"]; // Update current attendance
-        // In a real app, you'd update the specific record in _attendanceRecords
-        return true;
-      } else {
-        // TODO: Replace with real API call
-        throw UnimplementedError("Real API call not implemented.");
-      }
-    } catch (e) {
-      _error = e.toString();
-      return false;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<bool> startBreak() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-    try {
-      if (useMock) {
-        final response = await _mockAttendanceService.startBreak();
-        print("Start break (mock) response: ${response}");
-        _currentAttendance =
-            response["attendance"]; // Update current attendance
-        return true;
-      } else {
-        // TODO: Replace with real API call
-        throw UnimplementedError("Real API call not implemented.");
-      }
-    } catch (e) {
-      _error = e.toString();
-      return false;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<bool> endBreak() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-    try {
-      if (useMock) {
-        final response = await _mockAttendanceService.endBreak();
-        print("End break (mock) response: ${response}");
-        _currentAttendance =
-            response["attendance"]; // Update current attendance
+        final userId = _authProvider.user?['_id'] ?? 'mock_user_1';
+        final response = await _mockAttendanceService.checkOut(userId);
+        _currentAttendance = response["attendance"];
         return true;
       } else {
         // TODO: Replace with real API call
@@ -233,15 +174,60 @@ class AttendanceProvider with ChangeNotifier {
     notifyListeners();
     try {
       if (useMock) {
-        final response = await _mockAttendanceService.getAttendanceHistory();
-        _attendanceRecords =
-            List<Map<String, dynamic>>.from(response["history"]);
+        final userId = _authProvider.user?['_id'] ?? 'mock_user_1';
+        final response =
+            await _mockAttendanceService.getAttendanceHistory(userId);
+        _attendanceRecords = response;
       } else {
         // TODO: Replace with real API call
         throw UnimplementedError("Real API call not implemented.");
       }
     } catch (e) {
       _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> startBreak() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      if (useMock) {
+        final userId = _authProvider.user?['_id'] ?? 'mock_user_1';
+        final response = await _mockAttendanceService.startBreak(userId);
+        _currentAttendance = response["attendance"];
+        return true;
+      } else {
+        throw UnimplementedError("Real API call not implemented.");
+      }
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> endBreak() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      if (useMock) {
+        final userId = _authProvider.user?['_id'] ?? 'mock_user_1';
+        final response = await _mockAttendanceService.endBreak(userId);
+        _currentAttendance = response["attendance"];
+        return true;
+      } else {
+        throw UnimplementedError("Real API call not implemented.");
+      }
+    } catch (e) {
+      _error = e.toString();
+      return false;
     } finally {
       _isLoading = false;
       notifyListeners();

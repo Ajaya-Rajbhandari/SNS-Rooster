@@ -5,17 +5,19 @@ class LeaveRequestManagementScreen extends StatefulWidget {
   const LeaveRequestManagementScreen({super.key});
 
   @override
-  State<LeaveRequestManagementScreen> createState() => _LeaveRequestManagementScreenState();
+  State<LeaveRequestManagementScreen> createState() =>
+      _LeaveRequestManagementScreenState();
 }
 
-class _LeaveRequestManagementScreenState extends State<LeaveRequestManagementScreen> {
+class _LeaveRequestManagementScreenState
+    extends State<LeaveRequestManagementScreen> {
   final List<LeaveRequest> _leaveRequests = [
     LeaveRequest(
       id: '1',
       employeeName: 'Alice Smith',
       leaveType: 'Annual Leave',
-      startDate: DateTime(2024, 7, 1),
-      endDate: DateTime(2024, 7, 5),
+      startDate: '2024-07-01',
+      endDate: '2024-07-05',
       reason: 'Family vacation',
       status: 'Pending',
     ),
@@ -23,8 +25,8 @@ class _LeaveRequestManagementScreenState extends State<LeaveRequestManagementScr
       id: '2',
       employeeName: 'Bob Johnson',
       leaveType: 'Sick Leave',
-      startDate: DateTime(2024, 7, 10),
-      endDate: DateTime(2024, 7, 10),
+      startDate: '2024-07-10',
+      endDate: '2024-07-10',
       reason: 'Fever',
       status: 'Approved',
     ),
@@ -32,8 +34,8 @@ class _LeaveRequestManagementScreenState extends State<LeaveRequestManagementScr
       id: '3',
       employeeName: 'Charlie Brown',
       leaveType: 'Casual Leave',
-      startDate: DateTime(2024, 7, 15),
-      endDate: DateTime(2024, 7, 16),
+      startDate: '2024-07-15',
+      endDate: '2024-07-16',
       reason: 'Personal errands',
       status: 'Rejected',
     ),
@@ -65,23 +67,28 @@ class _LeaveRequestManagementScreenState extends State<LeaveRequestManagementScr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Employee: ${request.employeeName}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Employee: ${request.employeeName}',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   Text('Type: ${request.leaveType}'),
-                  Text('Dates: ${request.startDate.toLocal().toString().split(' ')[0]} - ${request.endDate.toLocal().toString().split(' ')[0]}'),
+                  Text('Dates: ${request.startDate} - ${request.endDate}'),
                   Text('Reason: ${request.reason}'),
-                  Text('Status: ${request.status}', style: TextStyle(color: _getStatusColor(request.status))),
+                  Text('Status: ${request.status}',
+                      style: TextStyle(color: _getStatusColor(request.status))),
                   if (request.status == 'Pending')
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         ElevatedButton(
-                          onPressed: () => _updateLeaveRequestStatus(request.id, 'Approved'),
+                          onPressed: () =>
+                              _updateLeaveRequestStatus(request.id, 'Approved'),
                           child: const Text('Approve'),
                         ),
                         const SizedBox(width: 8.0),
                         ElevatedButton(
-                          onPressed: () => _updateLeaveRequestStatus(request.id, 'Rejected'),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                          onPressed: () =>
+                              _updateLeaveRequestStatus(request.id, 'Rejected'),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red),
                           child: const Text('Reject'),
                         ),
                       ],

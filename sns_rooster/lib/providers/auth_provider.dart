@@ -26,6 +26,7 @@ class AuthProvider with ChangeNotifier {
   // Use 'http://localhost:5000/api' for iOS simulator
 
   AuthProvider() {
+    _user = { 'id': 'mock_user_id_123'};
     print('AuthProvider initialized');
     // _loadStoredAuth() removed from constructor
   }
