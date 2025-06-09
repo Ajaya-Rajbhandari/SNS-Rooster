@@ -5,6 +5,12 @@ import '../home/home_screen.dart';
 import '../admin/user_management_screen.dart';
 import 'package:flutter/foundation.dart';
 
+extension StringExtension on String {
+  String capitalize() {
+    return "${this[0].toUpperCase()}${substring(1)}";
+  }
+}
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
 
@@ -27,10 +33,15 @@ class _LoginScreenState extends State<LoginScreen>
   String? _error;
   bool _autoFill = false;
   bool _autoLogin = false;
+  String _selectedRole = 'employee'; // Default to employee for auto-fill
 
   // Test credentials for developer convenience
-  static const String _devEmail = 'testuser@example.com';
-  static const String _devPassword = 'password123';
+  static const String _devEmployeeEmail = 'testuser@example.com';
+  static const String _devEmployeePassword = 'password123';
+  static const String _devAdminEmail =
+      'adminuser@example.com'; // New admin test email
+  static const String _devAdminPassword =
+      'adminpass2'; // New admin test password
 
   @override
   void initState() {
@@ -50,10 +61,16 @@ class _LoginScreenState extends State<LoginScreen>
     _animationController.forward();
 
     // Auto-fill and auto-login logic (debug only)
+    _updateAutoFillFields();
+  }
+
+  void _updateAutoFillFields() {
     assert(() {
       if (_autoFill) {
-        _emailController.text = _devEmail;
-        _passwordController.text = _devPassword;
+        _emailController.text =
+            _selectedRole == 'admin' ? _devAdminEmail : _devEmployeeEmail;
+        _passwordController.text =
+            _selectedRole == 'admin' ? _devAdminPassword : _devEmployeePassword;
         if (_autoLogin) {
           Future.delayed(const Duration(milliseconds: 300), () {
             if (mounted) _handleLogin();
@@ -224,44 +241,61 @@ class _LoginScreenState extends State<LoginScreen>
                     children: [
                       // Debug toggles (only in debug mode)
                       if (kDebugMode) ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Checkbox(
+                            ListTile(
+                              title: DropdownButtonFormField<String>(
+                                value: _selectedRole,
+                                decoration: InputDecoration(
+                                  labelText: 'Auto-login Role',
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10)),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                ),
+                                onChanged: (String? newValue) {
+                                  setState(() {
+                                    _selectedRole = newValue!;
+                                    _updateAutoFillFields();
+                                  });
+                                },
+                                items: <String>[
+                                  'employee',
+                                  'admin'
+                                ].map<DropdownMenuItem<String>>((String value) {
+                                  return DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value.capitalize()),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            SwitchListTile(
+                              title: const Text('Auto-fill credentials'),
                               value: _autoFill,
                               onChanged: (val) {
                                 setState(() {
-                                  _autoFill = val ?? false;
-                                  if (_autoFill) {
-                                    _emailController.text = _devEmail;
-                                    _passwordController.text = _devPassword;
-                                  } else {
-                                    _emailController.clear();
-                                    _passwordController.clear();
-                                  }
+                                  _autoFill = val;
+                                  _updateAutoFillFields();
                                 });
                               },
                             ),
-                            const Text('Auto-fill credentials'),
-                            const SizedBox(width: 16),
-                            Checkbox(
+                            SwitchListTile(
+                              title: const Text('Auto-login'),
                               value: _autoLogin,
                               onChanged: (val) {
                                 setState(() {
-                                  _autoLogin = val ?? false;
-                                  if (_autoLogin && _autoFill) {
-                                    Future.delayed(
-                                        const Duration(milliseconds: 300), () {
-                                      if (mounted) _handleLogin();
-                                    });
+                                  _autoLogin = val;
+                                  if (_autoLogin) {
+                                    _updateAutoFillFields();
                                   }
                                 });
                               },
                             ),
-                            const Text('Auto-login'),
+                            const SizedBox(height: 16),
                           ],
                         ),
-                        const SizedBox(height: 8),
                       ],
                       // Logo
                       Container(

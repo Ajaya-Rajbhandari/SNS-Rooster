@@ -11,6 +11,7 @@ import 'package:sns_rooster/screens/employee/notification_screen.dart';
 import 'package:sns_rooster/screens/admin/admin_dashboard_screen.dart';
 import 'package:sns_rooster/screens/admin/user_management_screen.dart';
 import 'package:sns_rooster/screens/admin/attendance_management_screen.dart';
+import 'package:sns_rooster/screens/admin/admin_timesheet_screen.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
 import 'package:sns_rooster/providers/profile_provider.dart';
@@ -142,6 +143,7 @@ class MyApp extends StatelessWidget {
             '/user_management': (context) => const UserManagementScreen(),
             '/attendance_management': (context) =>
                 const AttendanceManagementScreen(),
+            '/admin_timesheet': (context) => const AdminTimesheetScreen(),
           },
         );
       },

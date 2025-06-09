@@ -67,6 +67,19 @@ final List<Map<String, dynamic>> _mockUsers = [
     "lastLogin": "2023-10-01T12:00:00Z",
     "avatar": "assets/images/profile_placeholder.png",
     "password": "password123"
+  },
+  {
+    "_id": "mock_admin_user_2",
+    "name": "Admin User",
+    "email": "adminuser@example.com",
+    "role": "admin",
+    "department": "Management",
+    "position": "Senior Administrator",
+    "isActive": true,
+    "isProfileComplete": true,
+    "lastLogin": "2023-10-01T12:00:00Z",
+    "avatar": "assets/images/profile_placeholder.png",
+    "password": "adminpass2"
   }
 ];
 
@@ -114,7 +127,8 @@ class MockAuthService {
       // Simulate a delay (e.g., 1 second) to mimic a network call.
       await Future.delayed(const Duration(seconds: 1));
       if ((email == "mock@example.com" && password == "password") ||
-          (email == "testuser@example.com" && password == "password123")) {
+          (email == "testuser@example.com" && password == "password123") ||
+          (email == "adminuser@example.com" && password == "adminpass2")) {
         // Find the user in _mockUsers
         final user = _mockUsers.firstWhere(
           (u) => u["email"] == email && u["password"] == password,
