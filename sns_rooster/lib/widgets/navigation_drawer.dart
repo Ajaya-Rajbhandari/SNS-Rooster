@@ -135,10 +135,15 @@ class AppNavigationDrawer extends StatelessWidget {
                 icon: Icons.dashboard,
                 label: 'Dashboard',
                 route: '/employee_dashboard'),
-            buildNavTile(context,
-                icon: Icons.access_time,
-                label: 'Timesheet',
-                route: '/timesheet'),
+            Consumer<AuthProvider>(
+              builder: (context, authProvider, child) {
+                final bool isAdmin = authProvider.user?['role'] == 'admin';
+                return buildNavTile(context,
+                    icon: Icons.access_time,
+                    label: 'Timesheet',
+                    route: isAdmin ? '/admin_timesheet' : '/timesheet');
+              },
+            ),
             buildNavTile(context,
                 icon: Icons.calendar_today,
                 label: 'Leave',
