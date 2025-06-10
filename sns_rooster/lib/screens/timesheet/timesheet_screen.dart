@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
-import '../../widgets/navigation_drawer.dart';
+import 'package:sns_rooster/widgets/app_drawer.dart';
 import 'package:flutter/services.dart';
 import '../../providers/attendance_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -334,6 +334,8 @@ class _TimesheetScreenState extends State<TimesheetScreen>
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final attendanceProvider = Provider.of<AttendanceProvider>(context);
     final theme = Theme.of(context);
     final dateFormat = DateFormat('MMM dd, yyyy');
 
@@ -343,7 +345,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
         elevation: 0,
         backgroundColor: theme.primaryColor,
       ),
-      drawer: const AppNavigationDrawer(),
+      drawer: const AppDrawer(),
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: SingleChildScrollView(
@@ -610,8 +612,8 @@ class _TimesheetScreenState extends State<TimesheetScreen>
           ),
         ),
       ),
-      floatingActionButton: (Provider.of<AuthProvider>(context).user != null &&
-              Provider.of<AuthProvider>(context).user!['role'] == 'admin')
+      floatingActionButton: (authProvider.user != null &&
+              authProvider.user!['role'] == 'admin')
           ? FloatingActionButton.extended(
               onPressed: () {
                 showModalBottomSheet<Map<String, dynamic>>(

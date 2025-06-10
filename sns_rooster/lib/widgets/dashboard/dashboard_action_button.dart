@@ -30,30 +30,37 @@ class DashboardActionButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: (loading || disabled) ? null : onPressed,
         child: Container(
-          width: 90,
-          height: 90,
           decoration: BoxDecoration(
             color: effectiveBg,
             borderRadius: BorderRadius.circular(12),
           ),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (loading)
                 SizedBox(
                   width: 24,
-                  height: 24,
+                  height: 28,
                   child: CircularProgressIndicator(
                     color: effectiveFg,
-                    strokeWidth: 2,
+                    strokeWidth: 2.5,
                   ),
                 )
               else
-                Icon(icon, color: effectiveFg, size: 32),
-              const SizedBox(height: 8),
-              Text(label,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold, color: effectiveFg)),
+                Icon(icon, color: effectiveFg, size: 40),
+              const SizedBox(height: 10),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: effectiveFg,
+                      fontSize: 16,
+                    ),
+              ),
             ],
           ),
         ),

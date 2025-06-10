@@ -19,12 +19,15 @@ import '../../providers/attendance_provider.dart';
 import '../../providers/leave_request_provider.dart'; // Import LeaveRequestProvider
 import '../../screens/splash/splash_screen.dart'; // Import SplashScreen
 import '../../widgets/dashboard/dashboard_overview_tile.dart'; // Import the new overview tile
-import 'analytics_screen.dart'; // Import AnalyticsScreen from the same directory
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sns_rooster/widgets/user_avatar.dart';
 import '../../screens/notification/notification_screen.dart';
 import '../../providers/notification_provider.dart'; // Import NotificationProvider
+import 'employee_notification_screen.dart';
+import 'package:sns_rooster/widgets/app_drawer.dart'; // Import AppDrawer
+import 'package:intl/intl.dart';
+import 'package:sns_rooster/providers/holiday_provider.dart';
 
 class EmployeeDashboardScreen extends StatefulWidget {
   const EmployeeDashboardScreen({super.key});
@@ -423,6 +426,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     }
 
     return Scaffold(
+      drawer: const AppDrawer(), // Use the reusable AppDrawer
       appBar: AppBar(
         title: const Text('Employee Dashboard'),
         backgroundColor: theme.colorScheme.primary,
@@ -433,99 +437,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
             icon: const Icon(Icons.menu),
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
-        ),
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.white,
-                    child: ClipOval(
-                      child: authProvider.user?['avatar'] != null
-                          ? Image.network(
-                              authProvider.user!['avatar'],
-                              width: 60,
-                              height: 60,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Image.asset(
-                                  'assets/images/profile_placeholder.png',
-                                  width: 60,
-                                  height: 60,
-                                  fit: BoxFit.cover,
-                                );
-                              },
-                            )
-                          : Image.asset(
-                              'assets/images/profile_placeholder.png',
-                              width: 60,
-                              height: 60,
-                              fit: BoxFit.cover,
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    authProvider.user?['name'] ?? 'User',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    authProvider.user?['role'] ?? 'Employee',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            _buildNavTile(context,
-                icon: Icons.dashboard, label: 'Dashboard', route: '/'),
-            _buildNavTile(context,
-                icon: Icons.access_time,
-                label: 'Timesheet',
-                route: '/timesheet'),
-            _buildNavTile(context,
-                icon: Icons.calendar_today,
-                label: 'Leave',
-                route: '/leave_request'),
-            _buildNavTile(context,
-                icon: Icons.check_circle_outline,
-                label: 'Attendance',
-                route: '/attendance'),
-            _buildNavTile(context,
-                icon: Icons.notifications_none,
-                label: 'Notifications',
-                route: '/notification',
-                trailing: _buildNotificationDot()),
-            _buildNavTile(context,
-                icon: Icons.person_outline,
-                label: 'Profile',
-                route: '/profile'),
-            const Divider(),
-
-            ListTile(
-              leading: Icon(Icons.logout, color: theme.colorScheme.onSurface),
-              title: Text(
-                'Logout',
-                style: theme.textTheme.bodyLarge,
-              ),
-              onTap: () => authProvider.logout(),
-            ),
-          ],
         ),
       ),
       body: SingleChildScrollView(
@@ -572,13 +483,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                           icon: const Icon(Icons.notifications_none),
                           tooltip: 'Notifications',
                           onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const NotificationScreen(),
-                              ),
-                            );
+                            Navigator.pushNamed(context, '/notification');
                           },
                         ),
                         // Dynamic unread notification count
@@ -619,13 +524,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                           icon: const Icon(Icons.message_outlined),
                           tooltip: 'Messages',
                           onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const NotificationScreen(),
-                              ),
-                            );
+                            Navigator.pushNamed(context, '/notification');
                           },
                         ),
                         // Dynamic unread message count
@@ -814,38 +713,83 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
             Text(
               'Quick Actions',
               style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface),
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
-            const SizedBox(height: 16.0), // Consistent spacing
+            const SizedBox(height: 16),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: !isClockedIn
+                  ? SizedBox(
+                      key: const ValueKey('clockIn'),
+                      width: double.infinity,
+                      child: DashboardActionButton(
+                        icon: Icons.access_time,
+                        label: 'Clock In',
+                        onPressed: _toggleClockInOut,
+                        loading: isLoadingClock,
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
+                    )
+                  : Row(
+                      key: const ValueKey('clockedIn'),
+                      children: [
+                        Expanded(
+                          child: DashboardActionButton(
+                            icon: isOnBreak ? Icons.play_arrow : Icons.pause,
+                            label: isOnBreak ? 'End Break' : 'Start Break',
+                            onPressed: _toggleBreak,
+                            loading: isLoadingBreak,
+                            backgroundColor:
+                                isOnBreak ? Colors.orange : Colors.blueGrey,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: DashboardActionButton(
+                            icon: Icons.logout,
+                            label: 'Clock Out',
+                            onPressed: _toggleClockInOut,
+                            loading: isLoadingClock,
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+            const SizedBox(height: 20),
             Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Expanded(
+                SizedBox(
+                  width: 120,
+                  height: 110,
                   child: DashboardActionButton(
-                    label: isClockedIn ? 'Clock Out' : 'Clock In',
-                    icon: isClockedIn ? Icons.logout : Icons.login,
-                    onPressed: _toggleClockInOut,
-                    loading: isLoadingClock,
-                    backgroundColor: isClockedIn
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.primary,
-                    foregroundColor: theme.colorScheme.onPrimary,
+                    icon: Icons.event_note,
+                    label: 'Apply Leave',
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/leave_request');
+                    },
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
                   ),
                 ),
                 const SizedBox(width: 16),
-                Expanded(
+                SizedBox(
+                  width: 120,
+                  height: 110,
                   child: DashboardActionButton(
-                    label: isOnBreak ? 'End Break' : 'Start Break',
-                    icon: isOnBreak
-                        ? Icons.play_arrow_outlined
-                        : Icons.pause_outlined,
-                    onPressed: _toggleBreak,
-                    loading: isLoadingBreak,
-                    backgroundColor: isOnBreak
-                        ? theme.colorScheme.secondary
-                        : Colors.orange[700]!,
-                    foregroundColor: theme.colorScheme.onSecondary,
-                    disabled: !isClockedIn || isLoadingBreak,
+                    icon: Icons.edit_document,
+                    label: 'Timesheet',
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/timesheet');
+                    },
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
                   ),
                 ),
               ],
@@ -933,32 +877,85 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
               ),
             ),
             const SizedBox(height: 24.0), // Consistent spacing
-            // Attendance & Work Overview Section
-            const DashboardOverviewTile(),
-
-            // TODO: Add other relevant sections like Timesheet Summary, etc.
-            // Expanded section for analytics screen
-            // AnalyticsScreen(),
-            const SizedBox(height: 16.0), // Consistent spacing
-            Align(
-              alignment: Alignment.center,
-              child: TextButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const AnalyticsScreen()),
-                  );
-                },
-                icon: Icon(Icons.analytics, color: theme.colorScheme.primary),
-                label: Text(
-                  'View Detailed Analytics',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.bold),
-                ),
+            // Upcoming Holidays & Events
+            const SizedBox(height: 24),
+            Text(
+              'Upcoming Holidays & Events',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
               ),
             ),
+            const SizedBox(height: 16),
+            Consumer<HolidayProvider>(
+              builder: (context, holidayProvider, child) {
+                if (holidayProvider.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (holidayProvider.error != null) {
+                  return Center(
+                    child: Text('Error: ${holidayProvider.error}'),
+                  );
+                } else if (holidayProvider.holidays.isEmpty) {
+                  return const Center(
+                    child: Text('No upcoming holidays or events.'),
+                  );
+                } else {
+                  final upcomingHolidays = holidayProvider.holidays
+                      .where((holiday) => DateTime.parse(holiday['date'])
+                          .isAfter(DateTime.now().subtract(const Duration(
+                              days: 1)))) // Filter out past events
+                      .toList();
+
+                  if (upcomingHolidays.isEmpty) {
+                    return const Center(
+                      child: Text('No upcoming holidays or events.'),
+                    );
+                  }
+
+                  return Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: upcomingHolidays.length,
+                      itemBuilder: (context, index) {
+                        final holiday = upcomingHolidays[index];
+                        final holidayDate = DateTime.parse(holiday['date']);
+                        final formattedDate =
+                            DateFormat('MMM d, y').format(holidayDate);
+
+                        return Column(
+                          children: [
+                            ListTile(
+                              leading: Icon(
+                                holiday['type'] == 'public_holiday'
+                                    ? Icons.calendar_today
+                                    : Icons.event,
+                                color: theme.colorScheme.primary,
+                              ),
+                              title: Text(holiday['title']),
+                              subtitle: Text(
+                                  '$formattedDate - ${holiday['description']}'),
+                            ),
+                            if (index < upcomingHolidays.length - 1)
+                              const Divider(indent: 16, endIndent: 16),
+                          ],
+                        );
+                      },
+                    ),
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 24.0), // Consistent spacing
+            // Attendance & Work Overview Section
+            const DashboardOverviewTile(),
+            const SizedBox(height: 32),
+            // User Info Section
+            // ... existing code ...
           ],
         ),
       ),
@@ -974,44 +971,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         color: Colors.red,
         shape: BoxShape.circle,
       ),
-    );
-  }
-
-  Widget _buildNavTile(BuildContext context,
-      {required IconData icon,
-      required String label,
-      required String route,
-      Widget? trailing}) {
-    final theme = Theme.of(context);
-    final currentRoute = ModalRoute.of(context)?.settings.name;
-    final isSelected = currentRoute == route;
-
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: isSelected
-            ? theme.colorScheme.primary
-            : theme.colorScheme.onSurface,
-      ),
-      title: Text(
-        label,
-        style: theme.textTheme.bodyLarge?.copyWith(
-          color: isSelected
-              ? theme.colorScheme.primary
-              : theme.colorScheme.onSurface,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
-      trailing: trailing,
-      selected: isSelected,
-      onTap: () {
-        Navigator.pop(context); // Close the drawer
-        if (currentRoute != route) {
-          // For dashboard, use employee_dashboard route instead of '/'
-          final targetRoute = route == '/' ? '/employee_dashboard' : route;
-          Navigator.pushReplacementNamed(context, targetRoute);
-        }
-      },
     );
   }
 }

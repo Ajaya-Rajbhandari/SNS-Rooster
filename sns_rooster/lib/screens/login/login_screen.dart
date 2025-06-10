@@ -37,8 +37,10 @@ class _LoginScreenState extends State<LoginScreen> {
   void _updateAutoFillFields() {
     assert(() {
       if (_autoFill) {
-        _emailController.text = _selectedRole == 'admin' ? _devAdminEmail : _devEmployeeEmail;
-        _passwordController.text = _selectedRole == 'admin' ? _devAdminPassword : _devEmployeePassword;
+        _emailController.text =
+            _selectedRole == 'admin' ? _devAdminEmail : _devEmployeeEmail;
+        _passwordController.text =
+            _selectedRole == 'admin' ? _devAdminPassword : _devEmployeePassword;
         if (_autoLogin) {
           Future.delayed(const Duration(milliseconds: 300), () {
             if (mounted) _login();
@@ -178,7 +180,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         prefixIcon: const Icon(Icons.lock),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                            _obscurePassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
                           ),
                           onPressed: () {
                             setState(() {
@@ -199,6 +203,20 @@ class _LoginScreenState extends State<LoginScreen> {
                         }
                         return null;
                       },
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/forgot_password');
+                        },
+                        child: Text(
+                          'Forgot Password?',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 24),
                     if (kDebugMode) ...[
@@ -260,7 +278,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               width: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.black),
                               ),
                             )
                           : const Text(

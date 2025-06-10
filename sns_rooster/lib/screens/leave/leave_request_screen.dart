@@ -3,7 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/leave_request_provider.dart';
-import '../../widgets/navigation_drawer.dart';
+import 'package:sns_rooster/widgets/app_drawer.dart';
+import 'package:table_calendar/table_calendar.dart';
 
 class LeaveRequestScreen extends StatefulWidget {
   const LeaveRequestScreen({super.key});
@@ -20,6 +21,10 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   String _selectedLeaveType = 'Annual Leave';
   bool _isLoading = false;
 
+  // Calendar state variables
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
+
   final List<String> _leaveTypes = [
     'Annual Leave',
     'Sick Leave',
@@ -33,14 +38,27 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   void initState() {
     super.initState();
     _loadLeaveRequests();
+    _loadLeaveBalances();
+    _selectedDay = _focusedDay; // Initialize selectedDay
   }
 
   Future<void> _loadLeaveRequests() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final leaveProvider = Provider.of<LeaveRequestProvider>(context, listen: false);
-    
+    final leaveProvider =
+        Provider.of<LeaveRequestProvider>(context, listen: false);
+
     if (authProvider.user?['_id'] != null) {
       await leaveProvider.getUserLeaveRequests(authProvider.user!['_id']);
+    }
+  }
+
+  Future<void> _loadLeaveBalances() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final leaveProvider =
+        Provider.of<LeaveRequestProvider>(context, listen: false);
+
+    if (authProvider.user?['_id'] != null) {
+      await leaveProvider.fetchLeaveBalances(authProvider.user!['_id']);
     }
   }
 
@@ -79,7 +97,8 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final leaveProvider = Provider.of<LeaveRequestProvider>(context, listen: false);
+      final leaveProvider =
+          Provider.of<LeaveRequestProvider>(context, listen: false);
 
       final success = await leaveProvider.createLeaveRequest({
         'userId': authProvider.user!['_id'],
@@ -104,7 +123,9 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         _resetForm();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(leaveProvider.error ?? 'Failed to submit leave request')),
+          SnackBar(
+              content: Text(
+                  leaveProvider.error ?? 'Failed to submit leave request')),
         );
       }
     } catch (e) {
@@ -140,13 +161,45 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     final theme = Theme.of(context);
     final leaveProvider = Provider.of<LeaveRequestProvider>(context);
 
+    final annualLeave = leaveProvider.leaveBalances['annual'] ?? {};
+    final sickLeave = leaveProvider.leaveBalances['sick'] ?? {};
+    final casualLeave = leaveProvider.leaveBalances['casual'] ?? {};
+
+    // Function to get events for a given day
+    List<dynamic> _getEventsForDay(DateTime day) {
+      return leaveProvider.leaveRequests.where((request) {
+        final startDate = DateTime.parse(request['startDate']);
+        final endDate = DateTime.parse(request['endDate']);
+        // Normalize dates to compare only year, month, and day
+        final normalizedDay = DateTime(day.year, day.month, day.day);
+        final normalizedStartDate =
+            DateTime(startDate.year, startDate.month, startDate.day);
+        final normalizedEndDate =
+            DateTime(endDate.year, endDate.month, endDate.day);
+
+        return (normalizedDay.isAfter(
+                normalizedStartDate.subtract(const Duration(days: 1))) &&
+            normalizedDay
+                .isBefore(normalizedEndDate.add(const Duration(days: 1))));
+      }).toList();
+    }
+
+    void _onDaySelected(DateTime selectedDay, DateTime focusedDay) {
+      if (!isSameDay(_selectedDay, selectedDay)) {
+        setState(() {
+          _selectedDay = selectedDay;
+          _focusedDay = focusedDay;
+        });
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Leave Request'),
         backgroundColor: theme.colorScheme.primary,
         foregroundColor: Colors.white,
       ),
-      drawer: const AppNavigationDrawer(),
+      drawer: const AppDrawer(),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -175,23 +228,81 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                       children: [
                         _buildLeaveBalanceItem(
                           'Annual Leave',
-                          '20',
-                          '15',
+                          annualLeave['total']?.toString() ?? '-',
+                          annualLeave['used']?.toString() ?? '-',
                           theme.colorScheme.primary,
                         ),
                         _buildLeaveBalanceItem(
                           'Sick Leave',
-                          '10',
-                          '8',
+                          sickLeave['total']?.toString() ?? '-',
+                          sickLeave['used']?.toString() ?? '-',
                           theme.colorScheme.secondary,
                         ),
                         _buildLeaveBalanceItem(
                           'Casual Leave',
-                          '5',
-                          '3',
+                          casualLeave['total']?.toString() ?? '-',
+                          casualLeave['used']?.toString() ?? '-',
                           theme.colorScheme.tertiary,
                         ),
                       ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Leave Calendar
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Leave Calendar',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TableCalendar(
+                      firstDay: DateTime.utc(2020, 1, 1),
+                      lastDay: DateTime.utc(2030, 12, 31),
+                      focusedDay: _focusedDay,
+                      selectedDayPredicate: (day) =>
+                          isSameDay(_selectedDay, day),
+                      onDaySelected: _onDaySelected,
+                      eventLoader: _getEventsForDay,
+                      calendarFormat: CalendarFormat.month,
+                      headerStyle: HeaderStyle(
+                        formatButtonVisible: false,
+                        titleCentered: true,
+                        titleTextStyle: theme.textTheme.titleMedium!.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      calendarStyle: CalendarStyle(
+                        todayDecoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withOpacity(0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        selectedDecoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        markerDecoration: BoxDecoration(
+                          color: theme.colorScheme.secondary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      onPageChanged: (focusedDay) {
+                        _focusedDay = focusedDay;
+                      },
                     ),
                   ],
                 ),
@@ -256,7 +367,8 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                               ),
                               controller: TextEditingController(
                                 text: _startDate != null
-                                    ? DateFormat('yyyy-MM-dd').format(_startDate!)
+                                    ? DateFormat('yyyy-MM-dd')
+                                        .format(_startDate!)
                                     : '',
                               ),
                               onTap: () => _selectDate(context, true),
@@ -369,7 +481,8 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                             color: _getStatusColor(request['status']),
                           ),
                         ),
-                        backgroundColor: _getStatusColor(request['status']).withOpacity(0.1),
+                        backgroundColor:
+                            _getStatusColor(request['status']).withOpacity(0.1),
                       ),
                     ),
                   );

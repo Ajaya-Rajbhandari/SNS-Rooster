@@ -7,17 +7,23 @@ import 'package:sns_rooster/screens/attendance/attendance_screen.dart';
 import 'package:sns_rooster/screens/profile/profile_screen.dart';
 import 'package:sns_rooster/screens/employee/employee_dashboard_screen.dart';
 import 'package:sns_rooster/screens/leave/leave_request_screen.dart';
-import 'package:sns_rooster/screens/employee/notification_screen.dart';
+import 'package:sns_rooster/screens/notification/notification_screen.dart';
 import 'package:sns_rooster/screens/admin/admin_dashboard_screen.dart';
 import 'package:sns_rooster/screens/admin/user_management_screen.dart';
 import 'package:sns_rooster/screens/admin/attendance_management_screen.dart';
 import 'package:sns_rooster/screens/admin/admin_timesheet_screen.dart';
+import 'package:sns_rooster/screens/auth/forgot_password_screen.dart';
+import 'package:sns_rooster/screens/employee/payroll_screen.dart';
+import 'package:sns_rooster/screens/employee/analytics_screen.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
 import 'package:sns_rooster/providers/profile_provider.dart';
 import 'package:sns_rooster/providers/leave_request_provider.dart';
 import 'package:sns_rooster/providers/notification_provider.dart';
 import 'package:sns_rooster/providers/leave_provider.dart';
+import 'package:sns_rooster/providers/payroll_provider.dart';
+import 'package:sns_rooster/providers/analytics_provider.dart';
+import 'package:sns_rooster/providers/holiday_provider.dart';
 
 void main() {
   runApp(const MyApp());
@@ -46,6 +52,19 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LeaveRequestProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => LeaveProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, PayrollProvider>(
+          create: (context) => PayrollProvider(
+            Provider.of<AuthProvider>(context, listen: false),
+          ),
+          update: (context, auth, previous) => PayrollProvider(auth),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, AnalyticsProvider>(
+          create: (context) => AnalyticsProvider(
+            Provider.of<AuthProvider>(context, listen: false),
+          ),
+          update: (context, auth, previous) => AnalyticsProvider(auth),
+        ),
+        ChangeNotifierProvider(create: (_) => HolidayProvider()),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {
@@ -110,11 +129,16 @@ class MyApp extends StatelessWidget {
               '/attendance': (context) => const AttendanceScreen(),
               '/leave_request': (context) => const LeaveRequestScreen(),
               '/notification': (context) => const NotificationScreen(),
+              '/payroll': (context) => const PayrollScreen(),
+              '/analytics': (context) => const AnalyticsScreen(),
               '/admin_dashboard': (context) => const AdminDashboardScreen(),
-              '/employee_dashboard': (context) => const EmployeeDashboardScreen(),
+              '/employee_dashboard': (context) =>
+                  const EmployeeDashboardScreen(),
               '/user_management': (context) => const UserManagementScreen(),
-              '/attendance_management': (context) => const AttendanceManagementScreen(),
+              '/attendance_management': (context) =>
+                  const AttendanceManagementScreen(),
               '/admin_timesheet': (context) => const AdminTimesheetScreen(),
+              '/forgot_password': (context) => const ForgotPasswordScreen(),
             },
             onGenerateRoute: (settings) {
               // Handle any dynamic routes here

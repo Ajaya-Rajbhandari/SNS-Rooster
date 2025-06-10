@@ -27,51 +27,55 @@ class NotificationProvider with ChangeNotifier {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Load notifications
       final notificationsJson = prefs.getString(_notificationsKey);
       if (notificationsJson != null) {
         final List<dynamic> decoded = json.decode(notificationsJson);
-        _notifications = decoded.map((item) => AppNotification(
-          id: item['id'],
-          title: item['title'],
-          message: item['message'],
-          timestamp: DateTime.parse(item['timestamp']),
-          type: NotificationType.values.firstWhere(
-            (e) => e.toString() == item['type'],
-            orElse: () => NotificationType.system,
-          ),
-          priority: NotificationPriority.values.firstWhere(
-            (e) => e.toString() == item['priority'],
-            orElse: () => NotificationPriority.medium,
-          ),
-          avatar: item['avatar'],
-          isRead: item['isRead'] ?? false,
-          data: item['data'],
-        )).toList();
+        _notifications = decoded
+            .map((item) => AppNotification(
+                  id: item['id'],
+                  title: item['title'],
+                  message: item['message'],
+                  timestamp: DateTime.parse(item['timestamp']),
+                  type: NotificationType.values.firstWhere(
+                    (e) => e.toString() == item['type'],
+                    orElse: () => NotificationType.system,
+                  ),
+                  priority: NotificationPriority.values.firstWhere(
+                    (e) => e.toString() == item['priority'],
+                    orElse: () => NotificationPriority.medium,
+                  ),
+                  avatar: item['avatar'],
+                  isRead: item['isRead'] ?? false,
+                  data: item['data'],
+                ))
+            .toList();
       }
 
       // Load messages
       final messagesJson = prefs.getString(_messagesKey);
       if (messagesJson != null) {
         final List<dynamic> decoded = json.decode(messagesJson);
-        _messages = decoded.map((item) => AppNotification(
-          id: item['id'],
-          title: item['title'],
-          message: item['message'],
-          timestamp: DateTime.parse(item['timestamp']),
-          type: NotificationType.values.firstWhere(
-            (e) => e.toString() == item['type'],
-            orElse: () => NotificationType.system,
-          ),
-          priority: NotificationPriority.values.firstWhere(
-            (e) => e.toString() == item['priority'],
-            orElse: () => NotificationPriority.medium,
-          ),
-          avatar: item['avatar'],
-          isRead: item['isRead'] ?? false,
-          data: item['data'],
-        )).toList();
+        _messages = decoded
+            .map((item) => AppNotification(
+                  id: item['id'],
+                  title: item['title'],
+                  message: item['message'],
+                  timestamp: DateTime.parse(item['timestamp']),
+                  type: NotificationType.values.firstWhere(
+                    (e) => e.toString() == item['type'],
+                    orElse: () => NotificationType.system,
+                  ),
+                  priority: NotificationPriority.values.firstWhere(
+                    (e) => e.toString() == item['priority'],
+                    orElse: () => NotificationPriority.medium,
+                  ),
+                  avatar: item['avatar'],
+                  isRead: item['isRead'] ?? false,
+                  data: item['data'],
+                ))
+            .toList();
       }
 
       // If no stored data, fetch from API
@@ -90,33 +94,37 @@ class NotificationProvider with ChangeNotifier {
   Future<void> _saveNotifications() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Save notifications
-      final notificationsJson = json.encode(_notifications.map((n) => {
-        'id': n.id,
-        'title': n.title,
-        'message': n.message,
-        'timestamp': n.timestamp.toIso8601String(),
-        'type': n.type.toString(),
-        'priority': n.priority.toString(),
-        'avatar': n.avatar,
-        'isRead': n.isRead,
-        'data': n.data,
-      }).toList());
+      final notificationsJson = json.encode(_notifications
+          .map((n) => {
+                'id': n.id,
+                'title': n.title,
+                'message': n.message,
+                'timestamp': n.timestamp.toIso8601String(),
+                'type': n.type.toString(),
+                'priority': n.priority.toString(),
+                'avatar': n.avatar,
+                'isRead': n.isRead,
+                'data': n.data,
+              })
+          .toList());
       await prefs.setString(_notificationsKey, notificationsJson);
 
       // Save messages
-      final messagesJson = json.encode(_messages.map((m) => {
-        'id': m.id,
-        'title': m.title,
-        'message': m.message,
-        'timestamp': m.timestamp.toIso8601String(),
-        'type': m.type.toString(),
-        'priority': m.priority.toString(),
-        'avatar': m.avatar,
-        'isRead': m.isRead,
-        'data': m.data,
-      }).toList());
+      final messagesJson = json.encode(_messages
+          .map((m) => {
+                'id': m.id,
+                'title': m.title,
+                'message': m.message,
+                'timestamp': m.timestamp.toIso8601String(),
+                'type': m.type.toString(),
+                'priority': m.priority.toString(),
+                'avatar': m.avatar,
+                'isRead': m.isRead,
+                'data': m.data,
+              })
+          .toList());
       await prefs.setString(_messagesKey, messagesJson);
     } catch (e) {
       print('Error saving notifications: $e');
@@ -153,7 +161,8 @@ class NotificationProvider with ChangeNotifier {
       AppNotification(
         id: '3',
         title: 'Company Announcement: Holiday Schedule',
-        message: 'Please review the updated holiday schedule for the upcoming year.',
+        message:
+            'Please review the updated holiday schedule for the upcoming year.',
         timestamp: DateTime.now().subtract(const Duration(days: 3)),
         type: NotificationType.announcement,
         priority: NotificationPriority.high,
@@ -226,33 +235,37 @@ class NotificationProvider with ChangeNotifier {
   }
 
   void markAllNotificationsAsRead() {
-    _notifications = _notifications.map((notification) => AppNotification(
-      id: notification.id,
-      title: notification.title,
-      message: notification.message,
-      timestamp: notification.timestamp,
-      type: notification.type,
-      priority: notification.priority,
-      avatar: notification.avatar,
-      isRead: true,
-      data: notification.data,
-    )).toList();
+    _notifications = _notifications
+        .map((notification) => AppNotification(
+              id: notification.id,
+              title: notification.title,
+              message: notification.message,
+              timestamp: notification.timestamp,
+              type: notification.type,
+              priority: notification.priority,
+              avatar: notification.avatar,
+              isRead: true,
+              data: notification.data,
+            ))
+        .toList();
     _saveNotifications();
     notifyListeners();
   }
 
   void markAllMessagesAsRead() {
-    _messages = _messages.map((message) => AppNotification(
-      id: message.id,
-      title: message.title,
-      message: message.message,
-      timestamp: message.timestamp,
-      type: message.type,
-      priority: message.priority,
-      avatar: message.avatar,
-      isRead: true,
-      data: message.data,
-    )).toList();
+    _messages = _messages
+        .map((message) => AppNotification(
+              id: message.id,
+              title: message.title,
+              message: message.message,
+              timestamp: message.timestamp,
+              type: message.type,
+              priority: message.priority,
+              avatar: message.avatar,
+              isRead: true,
+              data: message.data,
+            ))
+        .toList();
     _saveNotifications();
     notifyListeners();
   }
@@ -269,6 +282,18 @@ class NotificationProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void deleteAllNotifications() {
+    _notifications.clear();
+    _saveNotifications();
+    notifyListeners();
+  }
+
+  void deleteAllMessages() {
+    _messages.clear();
+    _saveNotifications();
+    notifyListeners();
+  }
+
   // Add filter methods
   List<AppNotification> getFilteredNotifications({
     NotificationType? type,
@@ -281,8 +306,10 @@ class NotificationProvider with ChangeNotifier {
       if (type != null && notification.type != type) return false;
       if (priority != null && notification.priority != priority) return false;
       if (isRead != null && notification.isRead != isRead) return false;
-      if (startDate != null && notification.timestamp.isBefore(startDate)) return false;
-      if (endDate != null && notification.timestamp.isAfter(endDate)) return false;
+      if (startDate != null && notification.timestamp.isBefore(startDate))
+        return false;
+      if (endDate != null && notification.timestamp.isAfter(endDate))
+        return false;
       return true;
     }).toList();
   }

@@ -16,7 +16,7 @@ final Map<String, dynamic> _mockUser = {
   "isActive": true,
   "isProfileComplete": true,
   "lastLogin": "2023-10-01T12:00:00Z",
-  "avatar": "assets/images/profile_placeholder.png",
+  "avatar": "assets/images/sample_avatar.png",
   "password": "password123",
 };
 
@@ -64,7 +64,7 @@ final List<Map<String, dynamic>> _mockUsers = [
     "isActive": true,
     "isProfileComplete": true,
     "lastLogin": "2023-10-01T12:00:00Z",
-    "avatar": "assets/images/profile_placeholder.png",
+    "avatar": "assets/images/sample_avatar.png",
     "password": "password123"
   },
   {
@@ -77,7 +77,7 @@ final List<Map<String, dynamic>> _mockUsers = [
     "isActive": true,
     "isProfileComplete": true,
     "lastLogin": "2023-10-01T12:00:00Z",
-    "avatar": "assets/images/profile_placeholder.png",
+    "avatar": "assets/images/sample_avatar.png",
     "password": "adminpass2"
   }
 ];
@@ -101,6 +101,133 @@ final List<Map<String, dynamic>> _mockLeaveRequests = [
     "status": "approved",
     "reason": "Illness"
   }
+];
+
+// Mock Leave Balances
+final Map<String, Map<String, dynamic>> _mockLeaveBalances = {
+  "mock_user_id_123": {
+    "annual": {"total": 20, "used": 15, "remaining": 5},
+    "sick": {"total": 10, "used": 8, "remaining": 2},
+    "casual": {"total": 5, "used": 3, "remaining": 2},
+  },
+  "mock_user_1": {
+    "annual": {"total": 25, "used": 10, "remaining": 15},
+    "sick": {"total": 12, "used": 5, "remaining": 7},
+    "casual": {"total": 7, "used": 2, "remaining": 5},
+  },
+  "mock_admin_user_2": {
+    "annual": {"total": 30, "used": 5, "remaining": 25},
+    "sick": {"total": 15, "used": 2, "remaining": 13},
+    "casual": {"total": 10, "used": 0, "remaining": 10},
+  },
+};
+
+// Mock Payroll Slips
+final List<Map<String, dynamic>> _mockPayrollSlips = [
+  {
+    "_id": "payroll_0",
+    "userId": "mock_user_id_123",
+    "payPeriod": "2024-03-01 to 2024-03-15",
+    "netPay": 2750.00,
+    "grossPay": 3250.00,
+    "deductions": 500.00,
+    "issueDate": "2024-03-15",
+    "fileName": "payslip_mar_1.pdf"
+  },
+  {
+    "_id": "payroll_1",
+    "userId": "mock_user_test",
+    "payPeriod": "2024-01-01 to 2024-01-15",
+    "netPay": 2500.00,
+    "grossPay": 3000.00,
+    "deductions": 500.00,
+    "issueDate": "2024-01-15",
+    "fileName": "payslip_jan_1.pdf"
+  },
+  {
+    "_id": "payroll_2",
+    "userId": "mock_user_test",
+    "payPeriod": "2024-01-16 to 2024-01-31",
+    "netPay": 2600.00,
+    "grossPay": 3100.00,
+    "deductions": 500.00,
+    "issueDate": "2024-01-31",
+    "fileName": "payslip_jan_2.pdf"
+  },
+  {
+    "_id": "payroll_3",
+    "userId": "mock_user_1",
+    "payPeriod": "2024-02-01 to 2024-02-15",
+    "netPay": 2800.00,
+    "grossPay": 3300.00,
+    "deductions": 500.00,
+    "issueDate": "2024-02-15",
+    "fileName": "payslip_feb_1.pdf"
+  }
+];
+
+// Mock Analytics Data
+final Map<String, Map<String, int>> _mockAttendanceAnalytics = {
+  "mock_user_test": {
+    "Present": 20,
+    "Absent": 2,
+    "Leave": 3,
+  },
+  "mock_user_1": {
+    "Present": 18,
+    "Absent": 4,
+    "Leave": 3,
+  },
+  "mock_admin_user_2": {
+    "Present": 22,
+    "Absent": 1,
+    "Leave": 2,
+  },
+};
+
+final Map<String, List<double>> _mockWorkHoursAnalytics = {
+  "mock_user_test": [8.0, 7.5, 8.0, 9.0, 7.0, 8.5, 7.0],
+  "mock_user_1": [7.0, 8.0, 8.5, 7.0, 9.0, 7.5, 8.0],
+  "mock_admin_user_2": [9.0, 8.0, 8.5, 9.0, 7.0, 8.0, 7.5],
+};
+
+// Mock Holiday/Event Data
+final List<Map<String, dynamic>> _mockHolidays = [
+  {
+    "id": "holiday_1",
+    "title": "New Year's Day",
+    "date": "2025-01-01",
+    "type": "public_holiday",
+    "description": "Public holiday for New Year's Day."
+  },
+  {
+    "id": "holiday_2",
+    "title": "Independence Day",
+    "date": "2024-07-04",
+    "type": "public_holiday",
+    "description": "National holiday."
+  },
+  {
+    "id": "event_1",
+    "title": "Company Picnic",
+    "date": "2024-08-15",
+    "type": "company_event",
+    "description": "Annual company picnic for all employees."
+  },
+  {
+    "id": "holiday_3",
+    "title": "Christmas Day",
+    "date": "2024-12-25",
+    "type": "public_holiday",
+    "description": "Public holiday for Christmas."
+  },
+  {
+    "id": "event_2",
+    "title": "Annual Performance Reviews Due",
+    "date": "2024-06-30",
+    "type": "deadline",
+    "description": "All annual performance reviews must be submitted."
+  },
 ];
 
 // Make _mockAttendance a mutable variable
@@ -199,6 +326,24 @@ class MockAuthService {
     }
   }
 
+  Future<bool> sendPasswordResetEmail(String email) async {
+    if (useMock) {
+      await Future.delayed(
+          const Duration(seconds: 1)); // Simulate network delay
+      // Simulate success for any email in mock users, or failure if email is not found
+      if (_mockUsers.any((user) => user['email'] == email)) {
+        print("Mock: Password reset email sent to $email");
+        return true;
+      } else {
+        throw Exception("No user found with that email.");
+      }
+    } else {
+      // TODO: Replace with real API call (e.g., POST /api/auth/forgot-password).
+      throw UnimplementedError(
+          "Real API call for password reset not implemented.");
+    }
+  }
+
   Future<void> logout() async {
     if (useMock) {
       // Simulate a delay to mimic a network call
@@ -232,6 +377,42 @@ class MockAuthService {
       // TODO: Replace with real API call (e.g., POST /api/auth/register).
       throw UnimplementedError("Real API call not implemented.");
     }
+  }
+}
+
+// --- Payroll Mock Service ---
+
+class MockPayrollService {
+  Future<List<Map<String, dynamic>>> getPayrollSlips() async {
+    if (useMock) {
+      await Future.delayed(
+          const Duration(milliseconds: 500)); // Simulate network delay
+      return _mockPayrollSlips;
+    } else {
+      // TODO: Replace with real API call (e.g., GET /api/payroll/slips).
+      throw UnimplementedError(
+          "Real API call for payroll slips not implemented.");
+    }
+  }
+}
+
+// --- Analytics Mock Service ---
+
+class MockAnalyticsService {
+  Future<Map<String, int>> getAttendanceAnalytics() async {
+    if (useMock) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      return _mockAttendanceAnalytics['mock_user_test'] ?? {};
+    }
+    throw UnimplementedError('Real API not implemented yet');
+  }
+
+  Future<List<double>> getWorkHoursAnalytics() async {
+    if (useMock) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      return _mockWorkHoursAnalytics['mock_user_test'] ?? [];
+    }
+    throw UnimplementedError('Real API not implemented yet');
   }
 }
 
@@ -592,5 +773,22 @@ class MockLeaveRequestService {
     } else {
       throw UnimplementedError("Real API call not implemented.");
     }
+  }
+
+  Future<Map<String, dynamic>> getLeaveBalancesByUser(String userId) async {
+    // Simulate network delay
+    await Future.delayed(const Duration(milliseconds: 500));
+    return _mockLeaveBalances[userId] ?? {};
+  }
+}
+
+// --- Holiday/Event Mock Service ---
+class MockHolidayService {
+  Future<List<Map<String, dynamic>>> getHolidays() async {
+    if (useMock) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      return _mockHolidays;
+    }
+    throw UnimplementedError('Real API not implemented yet');
   }
 }

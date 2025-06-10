@@ -7,6 +7,7 @@ import 'package:sns_rooster/screens/admin/admin_settings_screen.dart';
 import 'package:sns_rooster/screens/admin/leave_request_management_screen.dart';
 import 'package:sns_rooster/screens/admin/add_employee_dialog.dart';
 import 'package:sns_rooster/screens/login/login_screen.dart';
+import 'package:sns_rooster/screens/admin/payroll_management_screen.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -109,6 +110,21 @@ class AdminDashboardScreen extends StatelessWidget {
                   },
                   colorScheme: colorScheme,
                 ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.payments,
+                  title: 'Payroll Management',
+                  onTap: () {
+                    Navigator.pop(context); // Close the drawer
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const PayrollManagementScreen(),
+                      ),
+                    );
+                  },
+                  colorScheme: colorScheme,
+                ),
                 // Add more admin specific options here
                 const Divider(),
                 _buildDrawerItem(
@@ -118,7 +134,7 @@ class AdminDashboardScreen extends StatelessWidget {
                   onTap: () async {
                     // Close the drawer first
                     Navigator.pop(context);
-                    
+
                     // Show confirmation dialog
                     final shouldLogout = await showDialog<bool>(
                       context: context,
@@ -149,7 +165,8 @@ class AdminDashboardScreen extends StatelessWidget {
                       );
 
                       // Perform logout
-                      await Provider.of<AuthProvider>(context, listen: false).logout();
+                      await Provider.of<AuthProvider>(context, listen: false)
+                          .logout();
                     }
                   },
                   colorScheme: colorScheme,
