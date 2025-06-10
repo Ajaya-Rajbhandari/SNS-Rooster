@@ -82,6 +82,31 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
       );
     }
 
+    void _deletePayslip(int idx) async {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Delete Payslip'),
+          content: const Text('Are you sure you want to delete this payslip?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed == true) {
+        setState(() {
+          _mockPayslips[_selectedEmployeeId]!.removeAt(idx);
+        });
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Payroll Management'),
@@ -203,14 +228,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                     OutlinedButton.icon(
-                                      onPressed: () {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                              content:
-                                                  Text('Delete coming soon!')),
-                                        );
-                                      },
+                                      onPressed: () => _deletePayslip(idx),
                                       icon: const Icon(Icons.delete),
                                       label: const Text('Delete'),
                                       style: OutlinedButton.styleFrom(
