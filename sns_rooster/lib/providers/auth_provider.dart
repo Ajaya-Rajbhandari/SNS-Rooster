@@ -30,8 +30,10 @@ class AuthProvider with ChangeNotifier {
 
   // API base URL
   final String _baseUrl =
-      'http://192.168.1.72:5000/api'; // For Android emulator
+      'http://192.168.1.71:5000/api'; // For Android emulator
   // Use 'http://localhost:5000/api' for iOS simulator
+
+  String get baseUrl => _baseUrl; // Expose baseUrl as a getter
 
   AuthProvider() {
     print('AuthProvider initialized');
@@ -127,32 +129,81 @@ class AuthProvider with ChangeNotifier {
     print('AUTH_CHECK: ===== AUTH CHECK COMPLETED =====');
   }
 
+  Future<Map<String, dynamic>?> registerUser(String name, String email,
+      String password, String role, String department, String position) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners(); // Notify listeners only for loading state change
+
+    try {
+      if (useMock) {
+        final Map<String, dynamic>? response = await _mockAuthService
+            .registerUser(name, email, password, role, department, position);
+        // Do NOT modify _token, _user, or call _saveAuthToPrefs here for registration
+        return response;
+      } else {
+        final response = await http.post(
+          Uri.parse('$_baseUrl/auth/register'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'name': name,
+            'email': email,
+            'password': password,
+            'role': role,
+            'department': department,
+            'position': position,
+          }),
+        );
+
+        final data = json.decode(response.body);
+
+        if (response.statusCode == 201) {
+          // Do NOT modify _token, _user, or call _saveAuthToPrefs here for registration
+          return {
+            'success': true,
+            'user': data['user'],
+            'token': data['token']
+          };
+        } else {
+          _error = data['message'] ?? 'Failed to register user';
+          return {'success': false, 'message': _error};
+        }
+      }
+    } catch (e) {
+      _error = e.toString();
+      return {'success': false, 'message': _error};
+    } finally {
+      _isLoading = false;
+      // Removed notifyListeners() here to prevent main.dart from reacting to registration completion
+    }
+  }
+
   Future<bool> login(String email, String password) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      // If useMock (in mock_service.dart) is true, call the mock service; otherwise, call the real API.
       if (useMock) {
         final response = await _mockAuthService.login(email, password);
-        _token = response["token"];
-        _user = response["user"];
-        await _saveAuthToPrefs(); // Save updated user info after login
+        if (response != null) {
+          _token = response["token"];
+          _user = response["user"];
+          await _saveAuthToPrefs();
+          return true;
+        }
+        _error = "Invalid email or password";
+        return false;
       } else {
-        // TODO: Replace with real API call (e.g., POST /api/auth/login) using http or dio.
-        // For example:
-        // final response = await http.post(Uri.parse("http://yourbackend.com/api/auth/login"), body: json.encode({ "email": email, "password": password }));
-        // if (response.statusCode == 200) { final data = json.decode(response.body); _token = data["token"]; _user = data["user"]; } else { _error = "Invalid email or password"; }
         throw UnimplementedError("Real API call not implemented.");
       }
     } catch (e) {
       _error = e.toString();
+      return false;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
-    return (_token != null);
   }
 
   Future<bool> sendPasswordResetEmail(String email) async {
@@ -256,7 +307,10 @@ class AuthProvider with ChangeNotifier {
       final response = await http.post(
         Uri.parse('$_baseUrl/auth/reset-password'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({'token': token, 'password': newPassword}),
+        body: json.encode({
+          'token': token,
+          'newPassword': newPassword,
+        }),
       );
 
       final data = json.decode(response.body);
@@ -273,97 +327,53 @@ class AuthProvider with ChangeNotifier {
   }
 
   bool isTokenExpired() {
-    if (_token == null) return true;
-    final isExpired = JwtDecoder.isExpired(_token!);
-    print('Token expired check: $isExpired');
-    return isExpired;
+    if (_token == null) {
+      return true;
+    }
+    try {
+      final decodedToken = JwtDecoder.decode(_token!);
+      final exp = decodedToken['exp'];
+      if (exp == null) {
+        return true; // Token has no expiration, consider it expired or invalid
+      }
+      final DateTime expirationDate =
+          DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+      return expirationDate.isBefore(DateTime.now());
+    } catch (e) {
+      print('Error decoding token: $e');
+      return true; // Invalid token
+    }
   }
 
-  Future<bool> registerUser(
-    String name,
-    String email,
-    String password,
-    String role,
-    String department,
-    String position,
-  ) async {
-    print('Registering user: $email');
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+  Future<void> _saveAuthToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_token != null) {
+      await prefs.setString('token', _token!);
+      print('Token saved to SharedPreferences: $_token');
+    } else {
+      await prefs.remove('token');
+      print('Token removed from SharedPreferences');
+    }
 
-    print('Current Token: $_token');
-    print('Is Authenticated: $isAuthenticated');
-    try {
-      print('Sending register request to: $_baseUrl/auth/register');
-      print('Authorization Token: Bearer $_token');
-      final requestBody = json.encode({
-        'name': name,
-        'email': email,
-        'password': password,
-        'role': role,
-        'department': department,
-        'position': position,
-      });
-      print('Request Body: $requestBody');
-      final response = await http.post(
-        Uri.parse('$_baseUrl/auth/register'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_token'
-        },
-        body: requestBody,
-      );
-
-      final data = json.decode(response.body);
-      print('Register response status: ${response.statusCode}');
-      print('Register response body: ${response.body}');
-
-      if (response.statusCode == 201) {
-        // 201 Created for successful registration
-        _error = null;
-        return true;
-      } else {
-        _error = data['message'] ?? 'Registration failed';
-        return false;
-      }
-    } catch (e) {
-      print('Registration error: $e');
-      _error = 'Network error occurred: ${e.toString()}';
-      return false;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+    if (_user != null) {
+      await prefs.setString('user', json.encode(_user));
+      print('User saved to SharedPreferences: $_user');
+    } else {
+      await prefs.remove('user');
+      print('User removed from SharedPreferences');
     }
   }
 
   Future<void> forceClearAuth() async {
-    print('FORCE_CLEAR: ===== FORCE CLEARING AUTH STATE =====');
-
-    // Clear in-memory state
     _token = null;
     _user = null;
     _error = null;
     notifyListeners();
-    print('FORCE_CLEAR: In-memory state cleared');
 
-    // Clear persistent storage
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('token');
-      await prefs.remove('user');
-      await prefs.clear();
-
-      // Verify clear
-      final verifyToken = prefs.getString('token');
-      final verifyUser = prefs.getString('user');
-      print(
-          'FORCE_CLEAR: Storage verification - token exists: ${verifyToken != null}, user exists: ${verifyUser != null}');
-    } catch (e) {
-      print('FORCE_CLEAR: Error clearing storage: $e');
-    }
-
-    print('FORCE_CLEAR: ===== AUTH STATE CLEARED =====');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('token');
+    await prefs.remove('user');
+    print('Auth state forcibly cleared from SharedPreferences and memory.');
   }
 
   // Method to update user information from other providers (e.g., ProfileProvider)
@@ -371,31 +381,5 @@ class AuthProvider with ChangeNotifier {
     _user = updatedUserData;
     await _saveAuthToPrefs(); // Save the updated user data
     notifyListeners();
-  }
-
-  // Helper to save token and user to SharedPreferences
-  Future<void> _saveAuthToPrefs() async {
-    try {
-      print('Saving auth to preferences...');
-      final prefs = await SharedPreferences.getInstance();
-      if (_token != null) {
-        await prefs.setString('token', _token!);
-        print('Token saved to preferences');
-      } else {
-        await prefs.remove('token');
-        print('Token removed from preferences');
-      }
-
-      if (_user != null) {
-        await prefs.setString('user', json.encode(_user));
-        print('User data saved to preferences');
-      } else {
-        await prefs.remove('user');
-        print('User data removed from preferences');
-      }
-      print('Auth data saved to preferences');
-    } catch (e) {
-      print('Error saving auth to preferences: $e');
-    }
   }
 }

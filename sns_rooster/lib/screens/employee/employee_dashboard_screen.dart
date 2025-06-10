@@ -134,21 +134,22 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         if (breaks.isNotEmpty && breaks.last['end'] == null) {
           isOnBreak = true;
         }
-        isLoadingClock = false;
         print('isClockedIn: $isClockedIn, lastClockIn: $lastClockIn');
       } else {
         isClockedIn = false;
         lastClockIn = null;
-        isLoadingClock = false;
         print(
             'No active attendance record found or currentAttendance is null. Resetting state.');
       }
     } catch (e) {
       if (!mounted) return;
       print('Error fetching initial attendance: $e');
-      setState(() {
-        isLoadingClock = false;
-      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoadingClock = false;
+        });
+      }
     }
   }
 

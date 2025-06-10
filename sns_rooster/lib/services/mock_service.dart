@@ -288,60 +288,75 @@ void resetMockAttendance() {
 // --- Mock Service ---
 
 // Set this flag to true to use mock data (for frontend development) or false to use real API calls.
-const bool useMock = true;
+const bool useMock = false;
 
 // --- Auth Mock Service ---
 
 class MockAuthService {
-  Future<Map<String, dynamic>> login(String email, String password) async {
-    if (useMock) {
-      // Simulate a delay (e.g., 1 second) to mimic a network call.
-      await Future.delayed(const Duration(seconds: 1));
-      if ((email == "mock@example.com" && password == "password") ||
-          (email == "testuser@example.com" && password == "password123") ||
-          (email == "adminuser@example.com" && password == "adminpass2")) {
-        // Find the user in _mockUsers
-        final user = _mockUsers.firstWhere(
-          (u) => u["email"] == email && u["password"] == password,
-          orElse: () => _mockUser,
-        );
-        // Generate a mock JWT with a valid structure (header.payload.signature)
-        final String header = base64Url
-            .encode(utf8.encode(json.encode({"alg": "HS256", "typ": "JWT"})));
-        final int expirationTime = DateTime.now()
-                .add(const Duration(hours: 1))
-                .millisecondsSinceEpoch ~/
-            1000;
-        final String payload = base64Url
-            .encode(utf8.encode(json.encode({...user, "exp": expirationTime})));
-        final String mockToken = "$header.$payload.mock_signature";
+  Future<Map<String, dynamic>?> login(String email, String password) async {
+    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
 
-        return {"token": mockToken, "user": user};
-      } else {
-        throw Exception("Invalid email or password");
-      }
+    final user = _mockUsers.firstWhere(
+      (u) => u['email'] == email && u['password'] == password,
+      orElse: () => {},
+    );
+
+    if (user.isNotEmpty) {
+      // Generate a mock JWT with a valid structure (header.payload.signature)
+      final String header = base64Url
+          .encode(utf8.encode(json.encode({"alg": "HS256", "typ": "JWT"})));
+      final int expirationTime =
+          DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch ~/
+              1000;
+      final String payload = base64Url
+          .encode(utf8.encode(json.encode({...user, "exp": expirationTime})));
+      final String token = "$header.$payload.mock_signature";
+
+      return {'token': token, 'user': user};
     } else {
-      // TODO: Replace with real API call (e.g., POST /api/auth/login).
-      throw UnimplementedError("Real API call not implemented.");
+      return null; // Simulate login failure
     }
   }
 
+  Future<Map<String, dynamic>?> registerUser(String name, String email,
+      String password, String role, String department, String position) async {
+    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
+
+    // Simulate successful registration with a new mock user ID
+    final String newUserId =
+        'mock_user_id_${DateTime.now().millisecondsSinceEpoch}';
+    final Map<String, dynamic> newUser = {
+      "_id": newUserId,
+      "name": name,
+      "email": email,
+      "role": role,
+      "department": department,
+      "position": position,
+      "isActive": true,
+      "isProfileComplete": true,
+      "lastLogin": DateTime.now().toIso8601String(),
+      "avatar": "assets/images/sample_avatar.png",
+      "password": password,
+    };
+
+    _mockUsers.add(newUser); // Add the new user to mock data
+
+    // Generate a mock JWT with a valid structure (header.payload.signature)
+    final String header = base64Url
+        .encode(utf8.encode(json.encode({"alg": "HS256", "typ": "JWT"})));
+    final int expirationTime =
+        DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch ~/
+            1000;
+    final String payload = base64Url
+        .encode(utf8.encode(json.encode({...newUser, "exp": expirationTime})));
+    final String token = "$header.$payload.mock_signature";
+
+    return {'success': true, 'user': newUser, 'token': token};
+  }
+
   Future<bool> sendPasswordResetEmail(String email) async {
-    if (useMock) {
-      await Future.delayed(
-          const Duration(seconds: 1)); // Simulate network delay
-      // Simulate success for any email in mock users, or failure if email is not found
-      if (_mockUsers.any((user) => user['email'] == email)) {
-        print("Mock: Password reset email sent to $email");
-        return true;
-      } else {
-        throw Exception("No user found with that email.");
-      }
-    } else {
-      // TODO: Replace with real API call (e.g., POST /api/auth/forgot-password).
-      throw UnimplementedError(
-          "Real API call for password reset not implemented.");
-    }
+    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
+    return true;
   }
 
   Future<void> logout() async {

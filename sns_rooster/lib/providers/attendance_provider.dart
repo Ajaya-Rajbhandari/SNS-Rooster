@@ -13,7 +13,8 @@ class AttendanceProvider with ChangeNotifier {
   String? _error;
 
   // API base URL - ensure this matches your backend config
-  final String _baseUrl = 'http://10.0.2.2:5000/api'; // For Android emulator
+  final String _baseUrl =
+      'http://192.168.1.71:5000/api'; // For Android emulator
   // Use 'http://localhost:5000/api' for iOS simulator
 
   // Instantiate the mock service (with useMock = true) so that we can simulate API responses.
