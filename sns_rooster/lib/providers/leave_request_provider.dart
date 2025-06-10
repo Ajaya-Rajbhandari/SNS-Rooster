@@ -5,6 +5,7 @@ import '../services/mock_service.dart'; // Import the mock service
 
 class LeaveRequestProvider with ChangeNotifier {
   List<Map<String, dynamic>> _leaveRequests = [];
+  Map<String, dynamic> _leaveBalances = {};
   String? _error;
   bool _isLoading = false;
 
@@ -13,6 +14,7 @@ class LeaveRequestProvider with ChangeNotifier {
       MockLeaveRequestService();
 
   List<Map<String, dynamic>> get leaveRequests => _leaveRequests;
+  Map<String, dynamic> get leaveBalances => _leaveBalances;
   String? get error => _error;
   bool get isLoading => _isLoading;
 
@@ -50,6 +52,28 @@ class LeaveRequestProvider with ChangeNotifier {
       } else {
         // TODO: Replace with real API call (e.g., GET /api/users/:userId/leave-requests).
         throw UnimplementedError("Real API call not implemented.");
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // --- Get User Leave Balances ---
+  Future<void> fetchLeaveBalances(String userId) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      if (useMock) {
+        _leaveBalances =
+            await _mockLeaveRequestService.getLeaveBalancesByUser(userId);
+      } else {
+        // TODO: Replace with real API call (e.g., GET /api/users/:userId/leave-balances).
+        throw UnimplementedError(
+            "Real API call for leave balances not implemented.");
       }
     } catch (e) {
       _error = e.toString();

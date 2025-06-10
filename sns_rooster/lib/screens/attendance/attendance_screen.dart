@@ -5,7 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
-import 'package:sns_rooster/widgets/navigation_drawer.dart';
+import 'package:sns_rooster/widgets/app_drawer.dart';
 import 'attendance_detail_widgets.dart';
 
 class AttendanceScreen extends StatefulWidget {
@@ -202,7 +202,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ),
         ],
       ),
-      drawer: const AppNavigationDrawer(),
+      drawer: const AppDrawer(),
       body: Column(
         children: [
           Padding(

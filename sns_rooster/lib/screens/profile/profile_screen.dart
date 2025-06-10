@@ -4,7 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
-import '../../widgets/navigation_drawer.dart';
+import '../../widgets/app_drawer.dart';
 import '../../widgets/user_avatar.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -35,7 +35,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _loadUserData() {
-    final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
     final profile = profileProvider.profile;
     if (profile != null) {
       _nameController.text = profile['name'] ?? '';
@@ -60,7 +61,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       setState(() => _isLoading = true);
 
-      final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+      final profileProvider =
+          Provider.of<ProfileProvider>(context, listen: false);
       final success = await profileProvider.updateProfilePicture(image.path);
 
       if (!mounted) return;
@@ -71,7 +73,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(profileProvider.error ?? 'Failed to update profile picture')),
+          SnackBar(
+              content: Text(
+                  profileProvider.error ?? 'Failed to update profile picture')),
         );
       }
     } catch (e) {
@@ -92,9 +96,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+      final profileProvider =
+          Provider.of<ProfileProvider>(context, listen: false);
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      
+
       // Update user data
       final updatedUser = {
         'name': _nameController.text,
@@ -112,14 +117,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (success) {
         // Update AuthProvider's user data for consistency
         await authProvider.updateUser(profileProvider.profile!);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully')),
         );
         setState(() => _isEditing = false);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(profileProvider.error ?? 'Failed to update profile')),
+          SnackBar(
+              content:
+                  Text(profileProvider.error ?? 'Failed to update profile')),
         );
       }
     } catch (e) {
@@ -153,7 +160,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (profileProvider.error != null) {
       return Scaffold(
-        drawer: const AppNavigationDrawer(),
+        drawer: const AppDrawer(),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -178,7 +185,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // Show loading indicator only if we don't have any cached data
     if (!profileProvider.isInitialized && profileProvider.isLoading) {
       return const Scaffold(
-        drawer: AppNavigationDrawer(),
+        drawer: AppDrawer(),
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -186,7 +193,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // Show empty state only if we have no data and are not loading
     if (profile == null && !profileProvider.isLoading) {
       return Scaffold(
-        drawer: const AppNavigationDrawer(),
+        drawer: const AppDrawer(),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -233,7 +240,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-      drawer: const AppNavigationDrawer(),
+      drawer: const AppDrawer(),
       body: Stack(
         children: [
           SingleChildScrollView(
@@ -295,7 +302,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     Icons.camera_alt,
                                     color: Colors.white,
                                   ),
-                                  onPressed: _isLoading ? null : _pickAndUploadImage,
+                                  onPressed:
+                                      _isLoading ? null : _pickAndUploadImage,
                                 ),
                               ),
                             ),
@@ -531,7 +539,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: theme.colorScheme.primary,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),

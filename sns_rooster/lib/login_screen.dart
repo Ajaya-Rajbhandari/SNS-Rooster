@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,9 +15,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
   @override
   void dispose() {
     _emailController.dispose();
@@ -26,31 +25,43 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _resetPassword() async {
     if (_emailController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your email to reset password.')),
+        const SnackBar(
+            content: Text('Please enter your email to reset password.')),
       );
       return;
     }
+    setState(() {
+      _isLoading = true;
+    });
     try {
-      await _auth.sendPasswordResetEmail(email: _emailController.text.trim());
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password reset link sent to your email.')),
-      );
-    } on FirebaseAuthException catch (e) {
-      String message;
-      if (e.code == 'user-not-found') {
-        message = 'No user found for that email.';
-      } else if (e.code == 'invalid-email') {
-        message = 'The email address is not valid.';
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final success = await authProvider
+          .sendPasswordResetEmail(_emailController.text.trim());
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Password reset link sent to your email.')),
+        );
+        Navigator.pop(context);
       } else {
-        message = 'Error sending password reset email: ${e.message}';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  authProvider.error ?? 'Failed to send password reset link')),
+        );
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('An unexpected error occurred: $e')),
       );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -59,55 +70,30 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
     try {
-      final userCredential = await _auth.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final success = await authProvider.login(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
       );
 
-      if (userCredential.user != null) {
-        final userDoc = await _firestore
-            .collection('users')
-            .doc(userCredential.user!.uid)
-            .get();
+      if (!mounted) return;
 
-        if (userDoc.exists) {
-          final role = userDoc.data()?['role'];
-          print('User UID: ${userCredential.user!.uid}');
-          print('User Doc Exists: ${userDoc.exists}');
-          print('User Doc Data: ${userDoc.data()}');
-          print('Retrieved Role: $role');
-          if (role == 'admin') {
-            Navigator.pushReplacementNamed(context, '/admin_dashboard');
-          } else if (role == 'employee') {
-            Navigator.pushReplacementNamed(context, '/dashboard');
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('User role not recognized.')),
-            );
-            await _auth.signOut(); // Sign out if role is not recognized
-          }
+      if (success) {
+        if (authProvider.user?['role'] == 'admin') {
+          Navigator.pushReplacementNamed(context, '/admin_dashboard');
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('User data not found.')),
-          );
-          await _auth.signOut(); // Sign out if user data not found
+          Navigator.pushReplacementNamed(context, '/employee_dashboard');
         }
-      }
-    } on FirebaseAuthException catch (e) {
-      String message;
-      if (e.code == 'user-not-found') {
-        message = 'No user found for that email.';
-      } else if (e.code == 'wrong-password') {
-        message = 'Wrong password provided for that user.';
-      } else if (e.code == 'invalid-email') {
-        message = 'The email address is not valid.';
       } else {
-        message = 'Login failed: ${e.message}';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.error ?? 'Login failed'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('An unexpected error occurred: $e')),
       );
@@ -143,8 +129,8 @@ class _LoginScreenState extends State<LoginScreen> {
               Text(
                 'to SNS HR Attendee',
                 style: Theme.of(context).textTheme.headlineMedium!.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               const SizedBox(height: 4),
               Text(
@@ -178,7 +164,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   prefixIcon: const Icon(Icons.lock),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                      _isPasswordVisible
+                          ? Icons.visibility
+                          : Icons.visibility_off,
                     ),
                     onPressed: () {
                       setState(() {
@@ -219,8 +207,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-
-
             ],
           ),
         ),

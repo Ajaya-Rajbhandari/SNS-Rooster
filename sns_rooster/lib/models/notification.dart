@@ -5,14 +5,11 @@ enum NotificationType {
   timesheet,
   announcement,
   message,
-  system
+  system,
+  attendance
 }
 
-enum NotificationPriority {
-  high,
-  medium,
-  low
-}
+enum NotificationPriority { high, medium, low }
 
 class AppNotification {
   final String id;
@@ -23,7 +20,8 @@ class AppNotification {
   final NotificationPriority priority;
   final String? avatar;
   final bool isRead;
-  final Map<String, dynamic>? data; // For additional data like leave request ID, etc.
+  final Map<String, dynamic>?
+      data; // For additional data like leave request ID, etc.
 
   AppNotification({
     required this.id,
@@ -50,6 +48,8 @@ class AppNotification {
         return Icons.message;
       case NotificationType.system:
         return Icons.info;
+      case NotificationType.attendance:
+        return Icons.check_circle_outline;
     }
   }
 
@@ -66,6 +66,8 @@ class AppNotification {
         return Colors.green;
       case NotificationType.system:
         return Colors.grey;
+      case NotificationType.attendance:
+        return Colors.teal;
     }
   }
 
@@ -90,7 +92,8 @@ class AppNotification {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    final notificationDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final notificationDate =
+        DateTime(timestamp.year, timestamp.month, timestamp.day);
 
     if (notificationDate == today) {
       return 'Today';
@@ -100,4 +103,4 @@ class AppNotification {
       return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
     }
   }
-} 
+}

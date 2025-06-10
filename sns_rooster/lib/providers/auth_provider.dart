@@ -68,7 +68,8 @@ class AuthProvider with ChangeNotifier {
           _user = null;
         }
       }
-      print('Stored auth loaded - Final _token: ${_token != null}, Final User: ${_user != null}');
+      print(
+          'Stored auth loaded - Final _token: ${_token != null}, Final User: ${_user != null}');
       notifyListeners();
     } catch (e) {
       print('Error loading stored auth: $e');
@@ -154,6 +155,42 @@ class AuthProvider with ChangeNotifier {
     return (_token != null);
   }
 
+  Future<bool> sendPasswordResetEmail(String email) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      if (useMock) {
+        final success = await _mockAuthService.sendPasswordResetEmail(email);
+        return success;
+      } else {
+        // TODO: Replace with real API call (e.g., POST $_baseUrl/auth/forgot-password).
+        // Example:
+        // final response = await http.post(
+        //   Uri.parse('$_baseUrl/auth/forgot-password'),
+        //   headers: {'Content-Type': 'application/json'},
+        //   body: json.encode({'email': email}),
+        // );
+        // if (response.statusCode == 200) {
+        //   return true;
+        // } else {
+        //   final data = json.decode(response.body);
+        //   _error = data['message'] ?? 'Failed to send password reset email';
+        //   return false;
+        // }
+        throw UnimplementedError(
+            "Real API call for password reset not implemented.");
+      }
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> logout() async {
     print('Logging out...');
     _token = null;
@@ -165,7 +202,7 @@ class AuthProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('token');
       await prefs.remove('user');
-      
+
       // Clear profile data
       final profileProvider = Provider.of<ProfileProvider>(
         navigatorKey.currentContext!,
