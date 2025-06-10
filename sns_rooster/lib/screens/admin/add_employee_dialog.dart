@@ -1,9 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:sns_rooster/services/employee_service.dart';
+import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
 
 class AddEmployeeDialog extends StatefulWidget {
-  const AddEmployeeDialog({super.key});
+  final EmployeeService employeeService;
+
+  const AddEmployeeDialog({super.key, required this.employeeService});
 
   @override
   State<AddEmployeeDialog> createState() => _AddEmployeeDialogState();
@@ -11,22 +16,27 @@ class AddEmployeeDialog extends StatefulWidget {
 
 class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _departmentController = TextEditingController();
+  final TextEditingController _employeeIdController = TextEditingController();
   final TextEditingController _positionController = TextEditingController();
-  String _selectedRole = 'employee'; // Default role
+  final TextEditingController _departmentController = TextEditingController();
+
   bool _isLoading = false;
   String? _error;
+  bool _dialogResult = false;
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _departmentController.dispose();
+    _employeeIdController.dispose();
     _positionController.dispose();
+    _departmentController.dispose();
     super.dispose();
   }
 
@@ -42,101 +52,155 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final success = await authProvider.registerUser(
-        _nameController.text.trim(),
-        _emailController.text.trim(),
-        _passwordController.text,
-        _selectedRole,
-        _departmentController.text.trim(),
-        _positionController.text.trim(),
+      final registerUrl = Uri.parse('${authProvider.baseUrl}/auth/register');
+      final registerBody = json.encode({
+        'name':
+            '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
+        'email': _emailController.text.trim(),
+        'password': _passwordController.text,
+        'role': 'employee',
+        'department': _departmentController.text.trim(),
+        'position': _positionController.text.trim(),
+      });
+
+      print("Registering user to URL: $registerUrl");
+      print("Registering user with body: $registerBody");
+
+      final response = await http.post(
+        registerUrl,
+        headers: {'Content-Type': 'application/json'},
+        body: registerBody,
       );
 
+      print("User registration response status: ${response.statusCode}");
+      print("User registration response body: ${response.body}");
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode != 201) {
+        throw Exception(data['message'] ?? 'Failed to register user');
+      }
+
+      final userId = data['user']['_id'];
+
+      final newEmployee = {
+        'userId': userId,
+        'firstName': _firstNameController.text.trim(),
+        'lastName': _lastNameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'employeeId': _employeeIdController.text.trim(),
+        'position': _positionController.text.trim(),
+        'department': _departmentController.text.trim(),
+      };
+
+      final addEmployeeUrl = Uri.parse('${authProvider.baseUrl}/employees');
+      final addEmployeeBody = json.encode(newEmployee);
+
+      print("Adding employee to URL: $addEmployeeUrl");
+      print("Adding employee with body: $addEmployeeBody");
+
+      final addEmployeeResponse = await http.post(
+        addEmployeeUrl,
+        headers: widget.employeeService.getHeaders(), // Use the correct headers
+        body: addEmployeeBody,
+      );
+
+      print("Add employee response status: ${addEmployeeResponse.statusCode}");
+      print("Add employee response body: ${addEmployeeResponse.body}");
+
+      if (addEmployeeResponse.statusCode != 201) {
+        throw Exception(json.decode(addEmployeeResponse.body)['message'] ??
+            'Failed to add employee');
+      }
+
       if (!mounted) return;
 
-      if (success) {
-        Navigator.of(context).pop(true); // Pop with true to indicate success
-      } else {
-        setState(() {
-          _error = authProvider.error ?? 'Failed to add employee';
-        });
-      }
-    } catch (e) {
+      _dialogResult = true;
+    } on Exception catch (e) {
       if (!mounted) return;
+      String errorMessage = 'An error occurred: ${e.toString()}';
+      if (e.toString().contains('E11000 duplicate key error') &&
+          e.toString().contains('email_1 dup key')) {
+        errorMessage =
+            'An employee with this email already exists. Please use a different email.';
+      } else if (e.toString().contains('Failed to register user')) {
+        errorMessage = 'Failed to create user account: ${e.toString()}';
+      }
       setState(() {
-        _error = 'An error occurred: ${e.toString()}';
+        _error = errorMessage;
       });
+      _dialogResult = false;
     } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(_dialogResult);
+        }
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
+    final theme = Theme.of(context);
     return AlertDialog(
-      title: const Text('Add New Employee'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
+      title: const Text('Add Employee'),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: 'Employee Name',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: Icon(Icons.person, color: colorScheme.primary),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter employee name';
-                  }
-                  return null;
-                },
+                controller: _firstNameController,
+                decoration: const InputDecoration(labelText: 'First Name'),
+                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _lastNameController,
+                decoration: const InputDecoration(labelText: 'Last Name'),
+                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _emailController,
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: Icon(Icons.email, color: colorScheme.primary),
-                ),
+                decoration: const InputDecoration(labelText: 'Email'),
                 keyboardType: TextInputType.emailAddress,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter email';
-                  }
-                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                    return 'Please enter a valid email';
-                  }
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Required';
+                  if (!v.contains('@')) return 'Enter a valid email';
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _passwordController,
+                decoration: const InputDecoration(labelText: 'Password'),
+                obscureText: true,
+                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _employeeIdController,
+                decoration: const InputDecoration(labelText: 'Employee ID'),
+                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _positionController,
                 decoration: InputDecoration(
-                  labelText: 'Password',
+                  labelText: 'Position',
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: Icon(Icons.lock, color: colorScheme.primary),
+                  prefixIcon:
+                      Icon(Icons.work, color: theme.colorScheme.primary),
                 ),
-                obscureText: true,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter password';
-                  }
-                  if (value.length < 6) {
-                    return 'Password must be at least 6 characters';
+                    return 'Please enter position';
                   }
                   return null;
                 },
@@ -148,7 +212,8 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                   labelText: 'Department',
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: Icon(Icons.business, color: colorScheme.primary),
+                  prefixIcon:
+                      Icon(Icons.business, color: theme.colorScheme.primary),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -157,52 +222,12 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _positionController,
-                decoration: InputDecoration(
-                  labelText: 'Position',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: Icon(Icons.work, color: colorScheme.primary),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter position';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _selectedRole,
-                decoration: InputDecoration(
-                  labelText: 'Role',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: Icon(Icons.category, color: colorScheme.primary),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'employee', child: Text('Employee')),
-                  DropdownMenuItem(value: 'admin', child: Text('Admin')),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _selectedRole = value!;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please select a role';
-                  }
-                  return null;
-                },
-              ),
               if (_error != null) ...[
                 const SizedBox(height: 16),
                 Text(
                   _error!,
-                  style: TextStyle(color: colorScheme.error, fontSize: 14),
+                  style:
+                      TextStyle(color: theme.colorScheme.error, fontSize: 14),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -212,32 +237,21 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _isLoading
-              ? null
-              : () {
-                  Navigator.of(context).pop(); // Close the dialog
-                },
-          child: Text('Cancel', style: TextStyle(color: colorScheme.onSurface)),
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
         ),
         ElevatedButton(
           onPressed: _isLoading ? null : _addEmployee,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: colorScheme.primary, // Use primary brand color
-            foregroundColor: colorScheme.onPrimary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
           child: _isLoading
               ? SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
-                    color: colorScheme.onPrimary,
+                    color: theme.colorScheme.onPrimary,
                     strokeWidth: 2,
                   ),
                 )
-              : const Text('Add'),
+              : const Text('Save'),
         ),
       ],
     );
