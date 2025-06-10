@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
+import 'package:sns_rooster/services/employee_service.dart';
 
 class EditEmployeeDialog extends StatefulWidget {
   final Map<String, dynamic> employee;
+  final EmployeeService employeeService;
 
-  const EditEmployeeDialog({super.key, required this.employee});
+  const EditEmployeeDialog(
+      {super.key, required this.employee, required this.employeeService});
 
   @override
   State<EditEmployeeDialog> createState() => _EditEmployeeDialogState();
@@ -13,32 +14,40 @@ class EditEmployeeDialog extends StatefulWidget {
 
 class _EditEmployeeDialogState extends State<EditEmployeeDialog> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameController;
+  late TextEditingController _firstNameController;
+  late TextEditingController _lastNameController;
   late TextEditingController _emailController;
-  late TextEditingController _departmentController;
+  late TextEditingController _employeeIdController;
   late TextEditingController _positionController;
-  late bool _isActive;
+  late TextEditingController _departmentController;
   bool _isLoading = false;
   String? _error;
+  bool _dialogResult = false;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.employee['name']);
+    _firstNameController =
+        TextEditingController(text: widget.employee['firstName']);
+    _lastNameController =
+        TextEditingController(text: widget.employee['lastName']);
     _emailController = TextEditingController(text: widget.employee['email']);
-    _departmentController =
-        TextEditingController(text: widget.employee['department']);
+    _employeeIdController =
+        TextEditingController(text: widget.employee['employeeId']);
     _positionController =
         TextEditingController(text: widget.employee['position']);
-    _isActive = widget.employee['isActive'] ?? false;
+    _departmentController =
+        TextEditingController(text: widget.employee['department']);
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _emailController.dispose();
-    _departmentController.dispose();
+    _employeeIdController.dispose();
     _positionController.dispose();
+    _departmentController.dispose();
     super.dispose();
   }
 
@@ -53,44 +62,40 @@ class _EditEmployeeDialogState extends State<EditEmployeeDialog> {
     });
 
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final updates = {
-        'name': _nameController.text.trim(),
+        'firstName': _firstNameController.text.trim(),
+        'lastName': _lastNameController.text.trim(),
         'email': _emailController.text.trim(),
-        'department': _departmentController.text.trim(),
+        'employeeId': _employeeIdController.text.trim(),
         'position': _positionController.text.trim(),
-        'isActive': _isActive,
+        'department': _departmentController.text.trim(),
       };
-      await authProvider.updateUser(updates);
+      await widget.employeeService
+          .updateEmployee(widget.employee['_id'], updates);
 
-      if (!mounted) return;
-
-      if (authProvider.error == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Employee updated successfully')),
-        );
-        Navigator.of(context).pop(true);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(authProvider.error!)),
-        );
-      }
-    } catch (e) {
+      // No snackbar here; success is indicated by the dialog closing and list refreshing
+      _dialogResult = true;
+    } on Exception catch (e) {
       if (!mounted) return;
       setState(() {
         _error = 'An error occurred: ${e.toString()}';
       });
+      _dialogResult = false;
     } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(_dialogResult);
+        }
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final colorScheme = Theme.of(context).colorScheme;
 
     return AlertDialog(
@@ -102,21 +107,27 @@ class _EditEmployeeDialogState extends State<EditEmployeeDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextFormField(
-                controller: _nameController,
+                controller: _firstNameController,
                 decoration: InputDecoration(
-                  labelText: 'Employee Name',
+                  labelText: 'First Name',
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12)),
                   prefixIcon: Icon(Icons.person, color: colorScheme.primary),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter employee name';
-                  }
-                  return null;
-                },
+                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _lastNameController,
+                decoration: InputDecoration(
+                  labelText: 'Last Name',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: Icon(Icons.person, color: colorScheme.primary),
+                ),
+                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _emailController,
                 decoration: InputDecoration(
@@ -126,33 +137,20 @@ class _EditEmployeeDialogState extends State<EditEmployeeDialog> {
                   prefixIcon: Icon(Icons.email, color: colorScheme.primary),
                 ),
                 keyboardType: TextInputType.emailAddress,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter email';
-                  }
-                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                    return 'Please enter a valid email';
-                  }
-                  return null;
-                },
+                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               TextFormField(
-                controller: _departmentController,
+                controller: _employeeIdController,
                 decoration: InputDecoration(
-                  labelText: 'Department',
+                  labelText: 'Employee ID',
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: Icon(Icons.business, color: colorScheme.primary),
+                  prefixIcon: Icon(Icons.badge, color: colorScheme.primary),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter department';
-                  }
-                  return null;
-                },
+                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _positionController,
                 decoration: InputDecoration(
@@ -161,31 +159,18 @@ class _EditEmployeeDialogState extends State<EditEmployeeDialog> {
                       borderRadius: BorderRadius.circular(12)),
                   prefixIcon: Icon(Icons.work, color: colorScheme.primary),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter position';
-                  }
-                  return null;
-                },
+                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
               ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Active Status:',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  Switch(
-                    value: _isActive,
-                    onChanged: (value) {
-                      setState(() {
-                        _isActive = value;
-                      });
-                    },
-                    activeColor: colorScheme.primary,
-                  ),
-                ],
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _departmentController,
+                decoration: InputDecoration(
+                  labelText: 'Department',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: Icon(Icons.business, color: colorScheme.primary),
+                ),
+                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
               ),
               if (_error != null) ...[
                 const SizedBox(height: 16),
@@ -201,17 +186,13 @@ class _EditEmployeeDialogState extends State<EditEmployeeDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _isLoading
-              ? null
-              : () {
-                  Navigator.of(context).pop(); // Close the dialog
-                },
+          onPressed: () => Navigator.pop(context, null),
           child: Text('Cancel', style: TextStyle(color: colorScheme.onSurface)),
         ),
         ElevatedButton(
           onPressed: _isLoading ? null : _updateEmployee,
           style: ElevatedButton.styleFrom(
-            backgroundColor: colorScheme.primary, // Use primary brand color
+            backgroundColor: colorScheme.primary,
             foregroundColor: colorScheme.onPrimary,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -226,7 +207,7 @@ class _EditEmployeeDialogState extends State<EditEmployeeDialog> {
                     strokeWidth: 2,
                   ),
                 )
-              : const Text('Update'),
+              : const Text('Save'),
         ),
       ],
     );

@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
+const employeeRoutes = require('./routes/employeeRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -24,6 +25,7 @@ mongoose.connect(MONGODB_URI)
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/attendance', attendanceRoutes);
+app.use('/api/employees', employeeRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {
