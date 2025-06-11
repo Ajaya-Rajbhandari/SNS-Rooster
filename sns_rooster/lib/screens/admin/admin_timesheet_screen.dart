@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../widgets/navigation_drawer.dart';
-import '../timesheet/timesheet_screen.dart'; // Import shared widgets/classes (TimesheetSummary, TimesheetRow)
+// Import shared widgets/classes (TimesheetSummary, TimesheetRow)
 
 class AdminTimesheetScreen extends StatefulWidget {
   const AdminTimesheetScreen({Key? key}) : super(key: key);

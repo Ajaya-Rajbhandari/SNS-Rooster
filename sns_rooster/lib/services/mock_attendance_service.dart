@@ -21,7 +21,7 @@ class MockAttendanceService {
     Attendance mockAttendance = Attendance(
       id: 'attendance_id',
       userId: 'user_id',
-      checkIn: DateTime.now().subtract(Duration(hours: 8)),
+      checkIn: DateTime.now().subtract(const Duration(hours: 8)),
       checkOut: DateTime.now(),
       note: note,
     );

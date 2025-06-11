@@ -13,7 +13,8 @@ class UserAvatar extends StatelessWidget {
     if (avatarUrl == null || avatarUrl!.isEmpty) {
       return CircleAvatar(
         radius: radius,
-        backgroundImage: AssetImage('assets/images/profile_placeholder.png'),
+        backgroundImage:
+            const AssetImage('assets/images/profile_placeholder.png'),
       );
     } else if (avatarUrl!.startsWith('http')) {
       return CircleAvatar(

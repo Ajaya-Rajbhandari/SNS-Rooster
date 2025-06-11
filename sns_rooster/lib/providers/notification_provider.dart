@@ -306,10 +306,12 @@ class NotificationProvider with ChangeNotifier {
       if (type != null && notification.type != type) return false;
       if (priority != null && notification.priority != priority) return false;
       if (isRead != null && notification.isRead != isRead) return false;
-      if (startDate != null && notification.timestamp.isBefore(startDate))
+      if (startDate != null && notification.timestamp.isBefore(startDate)) {
         return false;
-      if (endDate != null && notification.timestamp.isAfter(endDate))
+      }
+      if (endDate != null && notification.timestamp.isAfter(endDate)) {
         return false;
+      }
       return true;
     }).toList();
   }

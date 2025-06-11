@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
-import 'package:sns_rooster/screens/admin/admin_overview_screen.dart';
 import 'package:sns_rooster/screens/admin/employee_management_screen.dart';
-import 'package:sns_rooster/screens/admin/admin_settings_screen.dart';
-import 'package:sns_rooster/screens/admin/leave_request_management_screen.dart';
-import 'package:sns_rooster/screens/admin/add_employee_dialog.dart';
-import 'package:sns_rooster/screens/login/login_screen.dart';
 import 'package:sns_rooster/screens/admin/payroll_management_screen.dart';
 import 'package:sns_rooster/screens/admin/leave_management_screen.dart';
 import 'package:sns_rooster/screens/admin/notification_alert_screen.dart';
 import 'package:sns_rooster/screens/admin/settings_screen.dart';
 import 'package:sns_rooster/screens/admin/help_support_screen.dart';
+import 'package:sns_rooster/screens/admin/user_management_screen.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -98,6 +94,21 @@ class AdminDashboardScreen extends StatelessWidget {
             ),
             _buildDrawerItem(
               context,
+              icon: Icons.person_add,
+              title: 'User Management',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const UserManagementScreen(),
+                  ),
+                );
+              },
+              colorScheme: colorScheme,
+            ),
+            _buildDrawerItem(
+              context,
               icon: Icons.notifications,
               title: 'Notifications & Alerts',
               onTap: () {
@@ -146,9 +157,50 @@ class AdminDashboardScreen extends StatelessWidget {
               context,
               icon: Icons.logout,
               title: 'Logout',
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                // Handle logout
+                // Show confirmation dialog
+                final shouldLogout = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Logout'),
+                    content: const Text('Are you sure you want to logout?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Logout'),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (shouldLogout == true && context.mounted) {
+                  // Show loading indicator
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+
+                  // Perform logout
+                  final authProvider =
+                      Provider.of<AuthProvider>(context, listen: false);
+                  await authProvider.logout();
+
+                  if (context.mounted) {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/login',
+                      (route) => false,
+                    );
+                  }
+                }
               },
               colorScheme: colorScheme,
             ),
@@ -775,7 +827,7 @@ class _PayrollInsightsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     // Calculate summary stats
-    final currentMonth = 'May';
+    const currentMonth = 'May';
     final currentMonthData =
         payrollData.where((e) => e['month'] == currentMonth).toList();
     final totalPayroll =

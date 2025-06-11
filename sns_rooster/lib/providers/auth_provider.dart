@@ -1,5 +1,5 @@
-import 'dart:convert';
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,8 +13,7 @@ class AuthProvider with ChangeNotifier {
   Map<String, dynamic>? _user;
   bool _isLoading = false;
   String? _error;
-  Timer? _logoutDebounce;
-  bool _isLoggingOut = false;
+  final bool _isLoggingOut = false;
   final _navigatorKey = GlobalKey<NavigatorState>();
 
   // Instantiate the mock service (with useMock = true) so that we can simulate API responses.
@@ -30,8 +29,9 @@ class AuthProvider with ChangeNotifier {
 
   // API base URL
   final String _baseUrl =
-      'http://192.168.1.71:5000/api'; // For Android emulator
-  // Use 'http://localhost:5000/api' for iOS simulator
+      'http://192.168.1.67:5000/api'; // For physical device - use your computer's IP
+  // Use 'http://localhost:5000/api' for desktop/web
+  // Use 'http://10.0.2.2:5000/api' for Android emulator
 
   String get baseUrl => _baseUrl; // Expose baseUrl as a getter
 
@@ -113,7 +113,7 @@ class AuthProvider with ChangeNotifier {
       print('AUTH_CHECK: Server response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = jsonDecode(response.body);
         _user = data['user'];
         print('AUTH_CHECK: Token verified - User role: ${_user?['role']}');
         notifyListeners();
@@ -145,7 +145,7 @@ class AuthProvider with ChangeNotifier {
         final response = await http.post(
           Uri.parse('$_baseUrl/auth/register'),
           headers: {'Content-Type': 'application/json'},
-          body: json.encode({
+          body: jsonEncode({
             'name': name,
             'email': email,
             'password': password,
@@ -155,7 +155,7 @@ class AuthProvider with ChangeNotifier {
           }),
         );
 
-        final data = json.decode(response.body);
+        final data = jsonDecode(response.body);
 
         if (response.statusCode == 201) {
           // Do NOT modify _token, _user, or call _saveAuthToPrefs here for registration
@@ -179,30 +179,64 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<bool> login(String email, String password) async {
+    print('LOGIN_DEBUG: Starting login for email: $email');
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
       if (useMock) {
+        print('LOGIN_DEBUG: Using mock service');
         final response = await _mockAuthService.login(email, password);
         if (response != null) {
           _token = response["token"];
           _user = response["user"];
           await _saveAuthToPrefs();
+          print('LOGIN_DEBUG: Mock login successful');
           return true;
         }
         _error = "Invalid email or password";
+        print('LOGIN_DEBUG: Mock login failed');
         return false;
       } else {
-        throw UnimplementedError("Real API call not implemented.");
+        print('LOGIN_DEBUG: Making real API call to: $_baseUrl/auth/login');
+        // Real API call implementation
+        final response = await http.post(
+          Uri.parse('$_baseUrl/auth/login'),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'email': email,
+            'password': password,
+          }),
+        );
+
+        print('LOGIN_DEBUG: Response status: ${response.statusCode}');
+        print('LOGIN_DEBUG: Response body: ${response.body}');
+
+        final data = jsonDecode(response.body);
+
+        if (response.statusCode == 200) {
+          _token = data['token'];
+          _user = data['user'];
+          await _saveAuthToPrefs();
+          print('LOGIN_DEBUG: Real API login successful');
+          return true;
+        } else {
+          _error = data['message'] ?? 'Login failed';
+          print('LOGIN_DEBUG: Real API login failed: $_error');
+          return false;
+        }
       }
     } catch (e) {
       _error = e.toString();
+      print('LOGIN_DEBUG: Login exception: $e');
       return false;
     } finally {
       _isLoading = false;
       notifyListeners();
+      print('LOGIN_DEBUG: Login completed, error: $_error');
     }
   }
 

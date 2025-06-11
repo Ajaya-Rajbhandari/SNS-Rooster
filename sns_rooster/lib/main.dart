@@ -15,6 +15,7 @@ import 'package:sns_rooster/screens/admin/admin_timesheet_screen.dart';
 import 'package:sns_rooster/screens/auth/forgot_password_screen.dart';
 import 'package:sns_rooster/screens/employee/payroll_screen.dart';
 import 'package:sns_rooster/screens/employee/analytics_screen.dart';
+import 'package:sns_rooster/screens/home/home_screen.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
 import 'package:sns_rooster/providers/profile_provider.dart';
@@ -24,6 +25,7 @@ import 'package:sns_rooster/providers/leave_provider.dart';
 import 'package:sns_rooster/providers/payroll_provider.dart';
 import 'package:sns_rooster/providers/analytics_provider.dart';
 import 'package:sns_rooster/providers/holiday_provider.dart';
+import 'package:sns_rooster/providers/employee_provider.dart';
 
 void main() {
   runApp(const MyApp());
@@ -65,6 +67,7 @@ class MyApp extends StatelessWidget {
           update: (context, auth, previous) => AnalyticsProvider(auth),
         ),
         ChangeNotifierProvider(create: (_) => HolidayProvider()),
+        ChangeNotifierProvider(create: (_) => EmployeeProvider()),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {
@@ -124,6 +127,7 @@ class MyApp extends StatelessWidget {
             routes: {
               '/splash': (context) => const SplashScreen(),
               '/login': (context) => const LoginScreen(),
+              '/home': (context) => const HomeScreen(),
               '/profile': (context) => const ProfileScreen(),
               '/timesheet': (context) => const TimesheetScreen(),
               '/attendance': (context) => const AttendanceScreen(),

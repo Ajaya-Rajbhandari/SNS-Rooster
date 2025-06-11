@@ -8,23 +8,19 @@
 // To connect to backend, use AttendanceService and Employee model.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import '../../../../models/employee.dart';
 import '../../widgets/dashboard/leave_balance_tile.dart';
 import '../../widgets/dashboard/leave_request_tile.dart';
 import '../../widgets/dashboard/dashboard_action_button.dart';
+import '../../widgets/dashboard/user_info_header.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/attendance_provider.dart';
 import '../../providers/leave_request_provider.dart'; // Import LeaveRequestProvider
-import '../../screens/splash/splash_screen.dart'; // Import SplashScreen
+// Import SplashScreen
 import '../../widgets/dashboard/dashboard_overview_tile.dart'; // Import the new overview tile
-import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sns_rooster/widgets/user_avatar.dart';
-import '../../screens/notification/notification_screen.dart';
 import '../../providers/notification_provider.dart'; // Import NotificationProvider
-import 'employee_notification_screen.dart';
 import 'package:sns_rooster/widgets/app_drawer.dart'; // Import AppDrawer
 import 'package:intl/intl.dart';
 import 'package:sns_rooster/providers/holiday_provider.dart';
@@ -446,120 +442,19 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header with user avatar, welcome message, and notification icons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    UserAvatar(
-                        avatarUrl: authProvider.user?['avatar'],
-                        radius: 24), // Add user avatar
-                    const SizedBox(
-                        width: 12), // Spacing between avatar and text
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Welcome,',
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        Text(
-                          authProvider.user?['name'] ?? 'Employee',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                // Notification and Message Icons with Badges
-                Row(
-                  children: [
-                    // Bell Icon (Notifications)
-                    Stack(
-                      alignment: Alignment.topRight,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.notifications_none),
-                          tooltip: 'Notifications',
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/notification');
-                          },
-                        ),
-                        // Dynamic unread notification count
-                        if (notificationProvider.unreadNotifications > 0)
-                          Positioned(
-                            right: 8,
-                            top: 8,
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              constraints: const BoxConstraints(
-                                minWidth: 18,
-                                minHeight: 18,
-                              ),
-                              child: Text(
-                                notificationProvider.unreadNotifications
-                                    .toString(), // Use dynamic unread count
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(width: 8),
-                    // Message Icon (Messages)
-                    Stack(
-                      alignment: Alignment.topRight,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.message_outlined),
-                          tooltip: 'Messages',
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/notification');
-                          },
-                        ),
-                        // Dynamic unread message count
-                        if (notificationProvider.unreadMessages > 0)
-                          Positioned(
-                            right: 8,
-                            top: 8,
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              constraints: const BoxConstraints(
-                                minWidth: 18,
-                                minHeight: 18,
-                              ),
-                              child: Text(
-                                notificationProvider.unreadMessages
-                                    .toString(), // Use dynamic unread count
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
+            Consumer<AuthProvider>(
+              builder: (context, authProvider, child) {
+                final user = authProvider.user;
+                return UserInfoHeader(
+                  userName: user?['name'] ?? 'User',
+                  userRole: user?['role'] ?? 'Employee',
+                  userAvatar: user?['avatar'] ?? '',
+                  onNotificationTap: () {
+                    // Handle notification tap
+                    Navigator.pushNamed(context, '/notification');
+                  },
+                );
+              },
             ),
             const SizedBox(height: 24.0), // Consistent spacing after header
             // Today's Status & Live Clock Section
