@@ -78,8 +78,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             final int totalWorkDays = totalPresent + totalAbsent + totalLeave;
 
             final int longestStreak = totalPresent;
-            final String mostProductiveDay = 'N/A';
-            final String avgCheckIn = 'N/A';
+            const String mostProductiveDay = 'N/A';
+            const String avgCheckIn = 'N/A';
 
             return Padding(
               padding: const EdgeInsets.all(16.0),

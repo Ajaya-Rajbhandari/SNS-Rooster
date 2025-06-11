@@ -2,9 +2,6 @@
 library;
 
 import 'package:flutter/material.dart';
-import '../models/employee.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import '../services/mock_service.dart'; // Import the mock service
 
 class EmployeeProvider with ChangeNotifier {

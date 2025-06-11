@@ -24,8 +24,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   List<Map<String, dynamic>> _users = [];
 
   // API base URL
-  final String _baseUrl = 'http://10.0.2.2:5000/api'; // For Android emulator
-  // Use 'http://localhost:5000/api' for iOS simulator
+  final String _baseUrl = 'http://192.168.1.67:5000/api'; // Use actual IP address for emulator access
+  // Use 'http://192.168.1.67:5000/api' for physical device - use your computer's IP
 
   @override
   void initState() {
@@ -51,7 +51,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final response = await http.get(
-        Uri.parse('$_baseUrl/users'),
+        Uri.parse('$_baseUrl/auth/users'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${authProvider.token}',
@@ -145,7 +145,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final response = await http.patch(
-        Uri.parse('$_baseUrl/users/$userId'),
+        Uri.parse('$_baseUrl/auth/users/$userId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${authProvider.token}',

@@ -19,14 +19,14 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _autoFill = false;
-  bool _autoLogin = false;
+  final bool _autoLogin = false;
   String _selectedRole = 'employee';
 
   // Test credentials for developer convenience
   static const String _devEmployeeEmail = 'testuser@example.com';
-  static const String _devEmployeePassword = 'password123';
-  static const String _devAdminEmail = 'adminuser@example.com';
-  static const String _devAdminPassword = 'adminpass2';
+  static const String _devEmployeePassword = 'Test@123';
+  static const String _devAdminEmail = 'admin@snsrooster.com';
+  static const String _devAdminPassword = 'Admin@123';
 
   @override
   void initState() {
