@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_provider.dart';
 import '../services/mock_service.dart'; // Import the mock service
+import '../config/api_config.dart';
 
 class ProfileProvider with ChangeNotifier {
   final AuthProvider _authProvider;
@@ -15,10 +16,6 @@ class ProfileProvider with ChangeNotifier {
 
   // Instantiate the mock service
   final MockEmployeeService _mockEmployeeService = MockEmployeeService();
-
-  // API base URL
-  final String _baseUrl = 'http://10.0.2.2:5000/api'; // For Android emulator
-  // Use 'http://localhost:5000/api' for iOS simulator
 
   ProfileProvider(this._authProvider) {
     print('ProfileProvider initialized');
@@ -66,7 +63,7 @@ class ProfileProvider with ChangeNotifier {
         _updateProfileData(response['user']);
       } else {
         final response = await http.get(
-          Uri.parse('$_baseUrl/me'),
+          Uri.parse('${ApiConfig.baseUrl}/me'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ${_authProvider.token}',
@@ -142,7 +139,7 @@ class ProfileProvider with ChangeNotifier {
         return true;
       } else {
         final response = await http.patch(
-          Uri.parse('$_baseUrl/users/profile'),
+          Uri.parse('${ApiConfig.baseUrl}/users/profile'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ${_authProvider.token}',
@@ -196,7 +193,7 @@ class ProfileProvider with ChangeNotifier {
       } else {
         var request = http.MultipartRequest(
           'POST',
-          Uri.parse('$_baseUrl/users/profile/picture'),
+          Uri.parse('${ApiConfig.baseUrl}/users/profile/picture'),
         );
 
         request.headers['Authorization'] = 'Bearer ${_authProvider.token}';

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart'; // For date formatting
 import 'package:provider/provider.dart';
+import '../../widgets/admin_side_navigation.dart';
 import '../../providers/leave_provider.dart';
 import '../../models/leave_request.dart';
 
@@ -17,6 +19,7 @@ class _LeaveRequestManagementScreenState extends State<LeaveRequestManagementScr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AdminSideNavigation(currentRoute: '/leave_request_management'),
       appBar: AppBar(
         title: const Text('Leave Requests'),
         actions: [
@@ -248,4 +251,4 @@ class _LeaveRequestManagementScreenState extends State<LeaveRequestManagementScr
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
   }
-} 
+}

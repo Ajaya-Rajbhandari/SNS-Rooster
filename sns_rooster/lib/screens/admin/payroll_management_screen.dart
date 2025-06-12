@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'edit_payslip_dialog.dart';
+import '../../widgets/admin_side_navigation.dart';
 
 class PayrollManagementScreen extends StatefulWidget {
   const PayrollManagementScreen({super.key});
@@ -111,6 +112,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
       appBar: AppBar(
         title: const Text('Payroll Management'),
       ),
+      drawer: const AdminSideNavigation(currentRoute: '/payroll_management'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

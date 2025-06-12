@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/admin_side_navigation.dart';
 
 class HelpSupportScreen extends StatelessWidget {
   const HelpSupportScreen({super.key});
@@ -7,6 +8,7 @@ class HelpSupportScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
+      drawer: const AdminSideNavigation(currentRoute: '/help_support'),
       appBar: AppBar(
         title: const Text('Help & Support'),
         backgroundColor: theme.colorScheme.primary,

@@ -7,6 +7,7 @@ import 'package:jwt_decoder/jwt_decoder.dart';
 import '../services/mock_service.dart'; // Import the mock service
 import 'package:provider/provider.dart';
 import '../providers/profile_provider.dart';
+import '../config/api_config.dart';
 
 class AuthProvider with ChangeNotifier {
   String? _token;
@@ -27,13 +28,7 @@ class AuthProvider with ChangeNotifier {
   bool get isLoggingOut => _isLoggingOut;
   GlobalKey<NavigatorState> get navigatorKey => _navigatorKey;
 
-  // API base URL
-  final String _baseUrl =
-      'http://192.168.1.67:5000/api'; // For physical device - use your computer's IP
-  // Use 'http://localhost:5000/api' for desktop/web
-  // Use 'http://10.0.2.2:5000/api' for Android emulator
 
-  String get baseUrl => _baseUrl; // Expose baseUrl as a getter
 
   AuthProvider() {
     print('AuthProvider initialized');
@@ -102,7 +97,7 @@ class AuthProvider with ChangeNotifier {
     try {
       print('AUTH_CHECK: Verifying token with server...');
       final response = await http.get(
-        Uri.parse('$_baseUrl/auth/me'),
+        Uri.parse('${ApiConfig.baseUrl}/auth/me'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $_token',
@@ -143,7 +138,7 @@ class AuthProvider with ChangeNotifier {
         return response;
       } else {
         final response = await http.post(
-          Uri.parse('$_baseUrl/auth/register'),
+          Uri.parse('${ApiConfig.baseUrl}/auth/register'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
             'name': name,
@@ -199,10 +194,10 @@ class AuthProvider with ChangeNotifier {
         print('LOGIN_DEBUG: Mock login failed');
         return false;
       } else {
-        print('LOGIN_DEBUG: Making real API call to: $_baseUrl/auth/login');
+        print('LOGIN_DEBUG: Making real API call to: ${ApiConfig.baseUrl}/auth/login');
         // Real API call implementation
         final response = await http.post(
-          Uri.parse('$_baseUrl/auth/login'),
+          Uri.parse('${ApiConfig.baseUrl}/auth/login'),
           headers: {
             'Content-Type': 'application/json',
           },
@@ -314,7 +309,7 @@ class AuthProvider with ChangeNotifier {
 
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/auth/request-reset'),
+        Uri.parse('${ApiConfig.baseUrl}/auth/request-reset'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'email': email}),
       );
@@ -339,7 +334,7 @@ class AuthProvider with ChangeNotifier {
 
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/auth/reset-password'),
+        Uri.parse('${ApiConfig.baseUrl}/auth/reset-password'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'token': token,
