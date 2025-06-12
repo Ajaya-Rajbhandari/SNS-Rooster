@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 /// It automatically detects the platform and provides the appropriate base URL.
 class ApiConfig {
   // Network Configuration - Update these IPs based on your setup
-  static const String homeIP = '192.168.1.67';     // Your home network IP
+  static const String homeIP = '10.0.2.2';         // Android emulator maps to host localhost
   static const String officeIP = '10.0.0.45';      // Your office network IP (update this!)
   static const String port = '5000';
   

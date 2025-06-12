@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../providers/attendance_provider.dart';
+import '../../models/attendance.dart';
+import '../../widgets/admin_side_navigation.dart';
 
 class AttendanceManagementScreen extends StatefulWidget {
   const AttendanceManagementScreen({super.key});
@@ -38,6 +40,7 @@ class _AttendanceManagementScreenState
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
       ),
+      drawer: const AdminSideNavigation(currentRoute: '/attendance_management'),
       body: Consumer<AttendanceProvider>(
         builder: (context, attendanceProvider, child) {
           if (attendanceProvider.isLoading) {

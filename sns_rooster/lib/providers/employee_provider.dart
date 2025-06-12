@@ -3,20 +3,23 @@ library;
 
 import 'package:flutter/material.dart';
 import '../services/mock_service.dart'; // Import the mock service
+import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 
 class EmployeeProvider with ChangeNotifier {
   List<Map<String, dynamic>> _employees = [];
   Map<String, dynamic>? _profile;
-  String? _error;
   bool _isLoading = false;
+  String? _error;
 
-  // Instantiate the mock service (with useMock = true) so that we can simulate API responses.
+  // Instantiate the mock service
   final MockEmployeeService _mockEmployeeService = MockEmployeeService();
 
   List<Map<String, dynamic>> get employees => _employees;
   Map<String, dynamic>? get profile => _profile;
-  String? get error => _error;
   bool get isLoading => _isLoading;
+  String? get error => _error;
+
 
   // --- Get Employees (Admin) ---
   Future<void> getEmployees() async {
@@ -31,7 +34,7 @@ class EmployeeProvider with ChangeNotifier {
         // For example:
         // final response = await http.get(Uri.parse("http://yourbackend.com/api/users"), headers: { "Authorization": "Bearer YOUR_TOKEN" });
         // if (response.statusCode == 200) { final data = json.decode(response.body); _employees = List<Map<String, dynamic>>.from(data["users"]); } else { _error = "Failed to load employees"; }
-        throw UnimplementedError("Real API call not implemented.");
+    final url = Uri.parse('${ApiConfig.baseUrl}/employees');
       }
     } catch (e) {
       _error = e.toString();

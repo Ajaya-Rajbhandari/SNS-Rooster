@@ -18,9 +18,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
-  bool _autoFill = false;
+  bool _autoFill = true;
   final bool _autoLogin = false;
-  String _selectedRole = 'employee';
+  String _selectedRole = 'admin';
 
   // Test credentials for developer convenience
   static const String _devEmployeeEmail = 'testuser@example.com';

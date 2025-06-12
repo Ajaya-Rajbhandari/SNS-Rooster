@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/leave_request.dart';
 import '../services/api_service.dart';
+import '../config/api_config.dart';
 
 class LeaveProvider with ChangeNotifier {
   late final ApiService _apiService;
@@ -15,7 +16,7 @@ class LeaveProvider with ChangeNotifier {
   Future<void> _initializeApiService() async {
     final prefs = await SharedPreferences.getInstance();
     _apiService = ApiService(
-      baseUrl: 'http://localhost:3000/api', // Update with your backend URL
+      baseUrl: ApiConfig.baseUrl,
       prefs: prefs,
     );
   }
@@ -167,4 +168,4 @@ class LeaveProvider with ChangeNotifier {
     _apiService.dispose();
     super.dispose();
   }
-} 
+}

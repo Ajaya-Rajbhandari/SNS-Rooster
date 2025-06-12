@@ -13,7 +13,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  name: {
+  firstName: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  lastName: {
     type: String,
     required: true,
     trim: true,
@@ -72,10 +77,15 @@ userSchema.methods.getPublicProfile = function() {
   delete userObject.password;
   delete userObject.resetPasswordToken;
   delete userObject.resetPasswordExpires;
+  // Ensure name is not sent if it was part of the old schema and not cleaned up
+  delete userObject.name; 
   userObject.isProfileComplete = this.isProfileComplete;
+  // Add firstName and lastName to the public profile
+  userObject.firstName = this.firstName;
+  userObject.lastName = this.lastName;
   return userObject;
 };
 
 const User = mongoose.model('User', userSchema);
 
-module.exports = User; 
+module.exports = User;

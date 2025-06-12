@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
-import '../../widgets/navigation_drawer.dart';
+import '../../widgets/admin_side_navigation.dart';
 // Import shared widgets/classes (TimesheetSummary, TimesheetRow)
 
 class AdminTimesheetScreen extends StatefulWidget {
@@ -211,6 +211,7 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen>
     final dateFormat = DateFormat('MMM dd, yyyy');
 
     return Scaffold(
+      drawer: const AdminSideNavigation(currentRoute: '/admin_timesheet'),
       appBar: AppBar(
         title: const Text('Admin Timesheet'),
         elevation: 0,
@@ -227,7 +228,6 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen>
           ),
         ],
       ),
-      drawer: const AppNavigationDrawer(),
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: SingleChildScrollView(

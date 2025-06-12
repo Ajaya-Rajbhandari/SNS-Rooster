@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../providers/auth_provider.dart'; // Assuming AuthProvider is in this path
 import '../services/mock_service.dart'; // Import the mock service
+import '../config/api_config.dart';
 
 class AttendanceProvider with ChangeNotifier {
   final AuthProvider _authProvider;
@@ -11,11 +12,6 @@ class AttendanceProvider with ChangeNotifier {
       _currentAttendance; // New: to hold the active attendance record
   bool _isLoading = false;
   String? _error;
-
-  // API base URL - ensure this matches your backend config
-  final String _baseUrl =
-      'http://192.168.1.71:5000/api'; // For Android emulator
-  // Use 'http://localhost:5000/api' for iOS simulator
 
   // Instantiate the mock service (with useMock = true) so that we can simulate API responses.
   final MockAttendanceService _mockAttendanceService = MockAttendanceService();
@@ -48,7 +44,7 @@ class AttendanceProvider with ChangeNotifier {
         _attendanceRecords = response;
       } else {
         final response = await http.get(
-          Uri.parse('$_baseUrl/attendance'),
+          Uri.parse('${ApiConfig.baseUrl}/attendance'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ${_authProvider.token}',
@@ -96,7 +92,7 @@ class AttendanceProvider with ChangeNotifier {
             await _mockAttendanceService.getCurrentAttendance(userId);
       } else {
         final response = await http.get(
-          Uri.parse('$_baseUrl/attendance/user/$userId'),
+          Uri.parse('${ApiConfig.baseUrl}/attendance/user/$userId'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ${_authProvider.token}',

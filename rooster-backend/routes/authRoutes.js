@@ -62,7 +62,7 @@ router.post('/register', auth, async (req, res) => {
       return res.status(403).json({ message: 'Only admins can register new users' });
     }
 
-    const { email, password, name, role, department, position } = req.body;
+    const { email, password, firstName, lastName, role, department, position } = req.body; // Changed name to firstName, lastName
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -74,7 +74,8 @@ router.post('/register', auth, async (req, res) => {
     const user = new User({
       email,
       password,
-      name,
+      firstName, // Added firstName
+      lastName, // Added lastName
       role: role || 'employee',
       department,
       position,
