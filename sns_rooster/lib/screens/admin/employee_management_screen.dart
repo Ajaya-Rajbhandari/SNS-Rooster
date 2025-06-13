@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sns_rooster/screens/admin/edit_employee_dialog.dart';
 import 'package:sns_rooster/screens/admin/add_employee_dialog.dart';
-import 'package:sns_rooster/services/employee_service.dart';
 import 'package:provider/provider.dart';
-import 'package:sns_rooster/providers/auth_provider.dart';
+import 'package:sns_rooster/providers/auth_provider.dart'; // Keep if needed for other purposes
+import 'package:sns_rooster/providers/employee_provider.dart'; // Import EmployeeProvider
 
 class EmployeeManagementScreen extends StatefulWidget {
   const EmployeeManagementScreen({super.key});
@@ -15,44 +15,18 @@ class EmployeeManagementScreen extends StatefulWidget {
 
 class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
   final TextEditingController _searchController = TextEditingController();
-  late final EmployeeService _employeeService;
-  List<Map<String, dynamic>> _employees = [];
-  bool _isLoading = false;
-  String? _error;
+  // Remove _employeeService, _employees, _isLoading, _error as they will come from EmployeeProvider
 
   @override
   void initState() {
     super.initState();
+    // Fetch employees using EmployeeProvider after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _employeeService =
-          EmployeeService(Provider.of<AuthProvider>(context, listen: false));
-      _loadEmployees();
+      Provider.of<EmployeeProvider>(context, listen: false).getEmployees();
     });
   }
 
-  Future<void> _loadEmployees() async {
-    List<Map<String, dynamic>> fetchedEmployees = [];
-    String? fetchError;
-
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      fetchedEmployees = await _employeeService.getEmployees();
-    } catch (e) {
-      fetchError = e.toString();
-    } finally {
-      if (mounted) {
-        setState(() {
-          _employees = fetchedEmployees;
-          _error = fetchError;
-          _isLoading = false;
-        });
-      }
-    }
-  }
+  // _loadEmployees is no longer needed here as EmployeeProvider handles it
 
   @override
   void dispose() {
@@ -62,6 +36,11 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Access EmployeeProvider
+    final employeeProvider = Provider.of<EmployeeProvider>(context);
+    final _employees = employeeProvider.employees;
+    final _isLoading = employeeProvider.isLoading;
+    final _error = employeeProvider.error;
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
@@ -143,15 +122,13 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                                   context: context,
                                   builder: (context) => EditEmployeeDialog(
                                       employee: employee,
-                                      employeeService: _employeeService),
+                                      // Pass EmployeeProvider instead of EmployeeService
+                                      employeeProvider: employeeProvider),
                                 );
                                 if (result == true) {
-                                  WidgetsBinding.instance
-                                      .addPostFrameCallback((_) {
-                                    if (mounted) {
-                                      _loadEmployees(); // Refresh list after update
-                                    }
-                                  });
+                                  // EmployeeProvider will notify listeners, so direct refresh might not be needed
+                                  // or call employeeProvider.getEmployees() if explicit refresh is desired
+                                  employeeProvider.getEmployees(); 
                                 }
                               },
                             ),
@@ -171,9 +148,12 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                                       ),
                                       ElevatedButton(
                                         onPressed: () async {
-                                          await _employeeService
+                                          // Use EmployeeProvider to delete employee
+                                          await employeeProvider
                                               .deleteEmployee(employee['id']);
-                                          _loadEmployees(); // Refresh list after delete
+                                          // EmployeeProvider will notify listeners, so direct refresh might not be needed
+                                          // or call employeeProvider.getEmployees() if explicit refresh is desired
+                                          // _loadEmployees(); // This method is removed
                                           Navigator.pop(context);
                                         },
                                         child: const Text('Delete'),
@@ -198,12 +178,13 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
           final result = await showDialog<bool>(
             context: context,
             builder: (context) =>
-                AddEmployeeDialog(employeeService: _employeeService),
+                // Pass EmployeeProvider instead of EmployeeService
+                AddEmployeeDialog(employeeProvider: employeeProvider),
           );
           if (result == true) {
-            if (mounted) {
-              _loadEmployees(); // Refresh list after add
-            }
+            // EmployeeProvider will notify listeners, so direct refresh might not be needed
+            // or call employeeProvider.getEmployees() if explicit refresh is desired
+            employeeProvider.getEmployees();
           }
         },
         icon: const Icon(Icons.person_add),

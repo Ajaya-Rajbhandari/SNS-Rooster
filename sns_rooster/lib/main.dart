@@ -24,6 +24,7 @@ import 'package:sns_rooster/providers/leave_provider.dart';
 import 'package:sns_rooster/providers/payroll_provider.dart';
 import 'package:sns_rooster/providers/analytics_provider.dart';
 import 'package:sns_rooster/providers/holiday_provider.dart';
+import 'package:sns_rooster/providers/employee_provider.dart';
 
 void main() {
   runApp(const MyApp());
@@ -65,6 +66,12 @@ class MyApp extends StatelessWidget {
           update: (context, auth, previous) => AnalyticsProvider(auth),
         ),
         ChangeNotifierProvider(create: (_) => HolidayProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, EmployeeProvider>(
+          create: (context) => EmployeeProvider(
+            Provider.of<AuthProvider>(context, listen: false),
+          ),
+          update: (context, auth, previous) => EmployeeProvider(auth),
+        ),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {

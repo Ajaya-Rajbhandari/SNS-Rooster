@@ -19,6 +19,7 @@ class AuthProvider with ChangeNotifier {
 
   // Instantiate the mock service (with useMock = true) so that we can simulate API responses.
   final MockAuthService _mockAuthService = MockAuthService();
+  final bool useMock = true; // Explicitly set useMock to true
 
   bool get isAuthenticated => _token != null && !isTokenExpired();
   bool get isLoading => _isLoading;

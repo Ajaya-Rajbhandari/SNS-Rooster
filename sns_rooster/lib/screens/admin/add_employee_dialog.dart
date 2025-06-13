@@ -1,14 +1,15 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:sns_rooster/services/employee_service.dart';
-import 'package:sns_rooster/providers/auth_provider.dart';
+import 'dart:convert'; // Keep if still needed for other parts, or remove if EmployeeProvider handles all.
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sns_rooster/providers/auth_provider.dart'; // Keep if needed for other purposes
+import 'package:sns_rooster/providers/employee_provider.dart'; // Import EmployeeProvider
 
 class AddEmployeeDialog extends StatefulWidget {
-  final EmployeeService employeeService;
+  final EmployeeProvider employeeProvider; // Change to EmployeeProvider
 
-  const AddEmployeeDialog({super.key, required this.employeeService});
+  const AddEmployeeDialog({super.key, required this.employeeProvider}); // Update constructor
 
   @override
   State<AddEmployeeDialog> createState() => _AddEmployeeDialogState();
@@ -51,70 +52,22 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
     });
 
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final registerUrl = Uri.parse('${authProvider.baseUrl}/auth/register');
-      final registerBody = json.encode({
-        'name':
-            '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
-        'email': _emailController.text.trim(),
-        'password': _passwordController.text,
-        'role': 'employee',
-        'department': _departmentController.text.trim(),
-        'position': _positionController.text.trim(),
-      });
-
-      print("Registering user to URL: $registerUrl");
-      print("Registering user with body: $registerBody");
-
-      final response = await http.post(
-        registerUrl,
-        headers: {'Content-Type': 'application/json'},
-        body: registerBody,
-      );
-
-      print("User registration response status: ${response.statusCode}");
-      print("User registration response body: ${response.body}");
-
-      final data = json.decode(response.body);
-
-      if (response.statusCode != 201) {
-        throw Exception(data['message'] ?? 'Failed to register user');
-      }
-
-      final userId = data['user']['_id'];
-
-      final newEmployee = {
-        'userId': userId,
+      // Prepare the employee data from the form controllers
+      final employeeData = {
         'firstName': _firstNameController.text.trim(),
         'lastName': _lastNameController.text.trim(),
         'email': _emailController.text.trim(),
+        'password': _passwordController.text, // Assuming EmployeeProvider handles registration or this is for a different purpose
         'employeeId': _employeeIdController.text.trim(),
         'position': _positionController.text.trim(),
         'department': _departmentController.text.trim(),
+        // 'role': 'employee', // This might be set within EmployeeProvider or backend
       };
 
-      final addEmployeeUrl = Uri.parse('${authProvider.baseUrl}/employees');
-      final addEmployeeBody = json.encode(newEmployee);
-
-      print("Adding employee to URL: $addEmployeeUrl");
-      print("Adding employee with body: $addEmployeeBody");
-
-      final addEmployeeResponse = await http.post(
-        addEmployeeUrl,
-        headers: widget.employeeService.getHeaders(), // Use the correct headers
-        body: addEmployeeBody,
-      );
-
-      print("Add employee response status: ${addEmployeeResponse.statusCode}");
-      print("Add employee response body: ${addEmployeeResponse.body}");
-
-      if (addEmployeeResponse.statusCode != 201) {
-        throw Exception(json.decode(addEmployeeResponse.body)['message'] ??
-            'Failed to add employee');
-      }
+      // Call addEmployee on the EmployeeProvider
+      await widget.employeeProvider.addEmployee(employeeData);
 
       if (!mounted) return;
-
       _dialogResult = true;
     } on Exception catch (e) {
       if (!mounted) return;
