@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'edit_payslip_dialog.dart';
+import '../../widgets/admin_side_navigation.dart';
 
 class PayrollManagementScreen extends StatefulWidget {
   const PayrollManagementScreen({super.key});
@@ -54,7 +55,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
     final theme = Theme.of(context);
     final payslips = _mockPayslips[_selectedEmployeeId] ?? [];
 
-    void _addPayslip() async {
+    void addPayslip() async {
       await showDialog(
         context: context,
         builder: (context) => EditPayslipDialog(
@@ -67,7 +68,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
       );
     }
 
-    void _editPayslip(int idx) async {
+    void editPayslip(int idx) async {
       final payslip = payslips[idx];
       await showDialog(
         context: context,
@@ -82,7 +83,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
       );
     }
 
-    void _deletePayslip(int idx) async {
+    void deletePayslip(int idx) async {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -111,6 +112,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
       appBar: AppBar(
         title: const Text('Payroll Management'),
       ),
+      drawer: const AdminSideNavigation(currentRoute: '/payroll_management'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -222,13 +224,13 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                     OutlinedButton.icon(
-                                      onPressed: () => _editPayslip(idx),
+                                      onPressed: () => editPayslip(idx),
                                       icon: const Icon(Icons.edit),
                                       label: const Text('Edit'),
                                     ),
                                     const SizedBox(width: 8),
                                     OutlinedButton.icon(
-                                      onPressed: () => _deletePayslip(idx),
+                                      onPressed: () => deletePayslip(idx),
                                       icon: const Icon(Icons.delete),
                                       label: const Text('Delete'),
                                       style: OutlinedButton.styleFrom(
@@ -247,7 +249,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
             Align(
               alignment: Alignment.bottomRight,
               child: FloatingActionButton.extended(
-                onPressed: _addPayslip,
+                onPressed: addPayslip,
                 icon: const Icon(Icons.add),
                 label: const Text('Add Payslip'),
               ),

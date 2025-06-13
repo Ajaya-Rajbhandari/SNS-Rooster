@@ -323,8 +323,8 @@ class AttendanceDetailScreen extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12.0),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
+              child: const Padding(
+                padding: EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -334,21 +334,21 @@ class AttendanceDetailScreen extends StatelessWidget {
                       label: 'Check-In Time',
                       value: checkInTime,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     AttendanceDetailCard(
                       icon: Icons.exit_to_app,
                       iconColor: Colors.red,
                       label: 'Check-Out Time',
                       value: checkOutTime,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     AttendanceDetailCard(
                       icon: Icons.timer,
                       iconColor: Colors.green,
                       label: 'Total Hours Worked',
                       value: totalHoursWorked,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     AttendanceDetailCard(
                       icon: Icons.coffee,
                       iconColor: Colors.orange,

@@ -1,20 +1,106 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
-import 'package:sns_rooster/screens/admin/admin_overview_screen.dart';
+import 'package:sns_rooster/config/api_config.dart';
 import 'package:sns_rooster/screens/admin/employee_management_screen.dart';
-import 'package:sns_rooster/screens/admin/admin_settings_screen.dart';
-import 'package:sns_rooster/screens/admin/leave_request_management_screen.dart';
-import 'package:sns_rooster/screens/admin/add_employee_dialog.dart';
-import 'package:sns_rooster/screens/login/login_screen.dart';
 import 'package:sns_rooster/screens/admin/payroll_management_screen.dart';
 import 'package:sns_rooster/screens/admin/leave_management_screen.dart';
 import 'package:sns_rooster/screens/admin/notification_alert_screen.dart';
 import 'package:sns_rooster/screens/admin/settings_screen.dart';
 import 'package:sns_rooster/screens/admin/help_support_screen.dart';
+import 'package:sns_rooster/screens/admin/user_management_screen.dart';
+import '../../widgets/admin_side_navigation.dart';
 
-class AdminDashboardScreen extends StatelessWidget {
+class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
+
+  @override
+  State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+}
+
+class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+  // Placeholder for dashboard data
+  Map<String, dynamic> _dashboardData = {};
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDashboardData();
+  }
+
+  Future<void> _fetchDashboardData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      String userName = authProvider.user?['name'] as String? ?? 'Admin';
+
+      // Fetch total users (employees) count
+      int totalEmployees = 0;
+      try {
+        final response = await http.get(
+          Uri.parse('${ApiConfig.baseUrl}/api/users'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${authProvider.token}',
+          },
+        );
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['users'] is List) {
+            totalEmployees = (data['users'] as List).length;
+          }
+        } else {
+          print('Warning: Could not fetch total employees. Status code: ${response.statusCode}');
+        }
+      } catch (e) {
+        print('Error fetching total employees: $e. Using default 0.');
+        // Potentially set a specific error message for this part
+      }
+
+      // TODO: Fetch actual data for these from dedicated API endpoints when available
+      int presentToday = 0; // Placeholder - API needed
+      int onLeave = 0; // Placeholder - API needed
+      int pendingRequests = 0; // Placeholder - API needed
+
+      _dashboardData = {
+        'welcomeMessage': 'Welcome, $userName!',
+        'overviewText': 'Here\'s an overview of your admin dashboard.',
+        'quickStats': {
+          'totalEmployees': totalEmployees,
+          'presentToday': presentToday, // TODO: Replace with real data
+          'onLeave': onLeave, // TODO: Replace with real data
+          'pendingRequests': pendingRequests, // TODO: Replace with real data
+        },
+        // TODO: Fetch actual recent activities from an API endpoint (e.g., /api/admin/recent-activity)
+        'recentActivities': [
+          // Example structure, will be replaced by API data
+          // {'id': '1', 'description': 'New leave request from Jane Doe.', 'timestamp': '2024-07-21T09:15:00Z'},
+        ],
+        // TODO: Fetch actual chart data from an API endpoint (e.g., /api/admin/dashboard-charts)
+        'chartData': {
+          'attendance': [], // Example: [70.0, 85.0, 90.0, 75.0, 95.0, 88.0, 92.0]
+        }
+      };
+
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error fetching dashboard data: $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load dashboard data. Please try again.';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,155 +113,27 @@ class AdminDashboardScreen extends StatelessWidget {
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
       ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: BoxDecoration(
-                color: colorScheme.primary,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.white,
-                    child: Icon(Icons.person, size: 40, color: Colors.blue),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Admin',
-                    style: theme.textTheme.headlineSmall
-                        ?.copyWith(color: Colors.white),
-                  ),
-                  Text(
-                    'admin@example.com',
-                    style: theme.textTheme.bodyMedium
-                        ?.copyWith(color: Colors.white70),
-                  ),
-                ],
-              ),
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.dashboard,
-              title: 'Dashboard',
-              onTap: () {
-                Navigator.pop(context);
-              },
-              colorScheme: colorScheme,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.payments,
-              title: 'Payroll Management',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const PayrollManagementScreen(),
-                  ),
-                );
-              },
-              colorScheme: colorScheme,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.people,
-              title: 'Employee Management',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const EmployeeManagementScreen(),
-                  ),
-                );
-              },
-              colorScheme: colorScheme,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.notifications,
-              title: 'Notifications & Alerts',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const NotificationAlertScreen(),
-                  ),
-                );
-              },
-              colorScheme: colorScheme,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.settings,
-              title: 'Settings',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SettingsScreen(),
-                  ),
-                );
-              },
-              colorScheme: colorScheme,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.help_outline,
-              title: 'Help & Support',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const HelpSupportScreen(),
-                  ),
-                );
-              },
-              colorScheme: colorScheme,
-            ),
-            const Divider(),
-            _buildDrawerItem(
-              context,
-              icon: Icons.logout,
-              title: 'Logout',
-              onTap: () async {
-                Navigator.pop(context); // Close the drawer
-                final authProvider =
-                    Provider.of<AuthProvider>(context, listen: false);
-                await authProvider.logout();
-                // Navigate to LoginScreen and remove all previous routes
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (Route<dynamic> route) => false,
-                );
-              },
-              colorScheme: colorScheme,
-            ),
-          ],
-        ),
-      ),
+      drawer: const AdminSideNavigation(currentRoute: '/admin_dashboard'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Welcome, Admin!',
-              style: theme.textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Here\'s an overview of your admin dashboard.',
-              style: theme.textTheme.bodyLarge,
-            ),
+            if (_isLoading) ...[
+              const Center(child: CircularProgressIndicator()),
+            ] else if (_errorMessage != null) ...[
+              Center(child: Text('Error: $_errorMessage', style: const TextStyle(color: Colors.red))),
+            ] else ...[
+              Text(
+                _dashboardData['welcomeMessage'] ?? 'Welcome, Admin!',
+                style: theme.textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _dashboardData['overviewText'] ?? 'Here\'s an overview of your admin dashboard.',
+                style: theme.textTheme.bodyLarge,
+              ),
+            ],
             const SizedBox(height: 24),
             Text(
               'Quick Actions & Shortcuts',
@@ -293,16 +251,12 @@ class AdminDashboardScreen extends StatelessWidget {
                       style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 16),
-                    Container(
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Text('Recent Activity coming soon!'),
-                      ),
-                    ),
+                    // TODO: Implement _buildRecentActivitySection with real data
+                    // For now, showing a placeholder if no activities are fetched
+                    _dashboardData['recentActivities'] != null && (_dashboardData['recentActivities'] as List).isNotEmpty
+                        ? _buildRecentActivitySection(theme)
+                        : const Text('No recent activities to display. (TODO: Connect to API)'),
+
                   ],
                 ),
               ),
@@ -327,16 +281,12 @@ class AdminDashboardScreen extends StatelessWidget {
                       style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 16),
-                    Container(
-                      height: 200,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Text('Charts coming soon!'),
-                      ),
-                    ),
+                    // TODO: Implement _buildChartsSection with real data
+                    // For now, showing a placeholder if no chart data is fetched
+                    _dashboardData['chartData'] != null && (_dashboardData['chartData']['attendance'] as List).isNotEmpty
+                        ? _buildChartsSection(theme)
+                        : const Text('Chart data not available. (TODO: Connect to API)'),
+
                     const SizedBox(height: 24),
                     Text(
                       'Live Metrics',
@@ -733,6 +683,107 @@ class AdminDashboardScreen extends StatelessWidget {
       selectedTileColor: colorScheme.primary.withOpacity(0.1),
     );
   }
+
+  Widget _buildRecentActivitySection(ThemeData theme) {
+    if (_isLoading || _dashboardData['recentActivities'] == null || (_dashboardData['recentActivities'] as List).isEmpty) {
+      return Container(
+        height: 100,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Center(
+          child: Text('No recent activity or loading...'),
+        ),
+      );
+    }
+
+    List<dynamic> activities = _dashboardData['recentActivities'];
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: activities.length,
+      itemBuilder: (context, index) {
+        final activity = activities[index];
+        return ListTile(
+          leading: const Icon(Icons.history),
+          title: Text(activity['description'] ?? 'N/A'),
+          subtitle: Text(activity['timestamp'] != null ? 'At: ${activity['timestamp']}' : 'No timestamp'),
+        );
+      },
+    );
+  }
+
+  Widget _buildChartsSection(ThemeData theme) {
+    // Placeholder for charts. In a real app, you'd use a charting library like fl_chart.
+    if (_isLoading || _dashboardData['chartData'] == null) {
+       return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Center(
+          child: Text('Chart data loading or unavailable...'),
+        ),
+      );
+    }
+    // Example: Display a simple text representation of chart data
+    return Container(
+      height: 200,
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Attendance Trend (Example)', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Center(
+              child: Text(_dashboardData['chartData']['attendance']?.join(', ') ?? 'No chart data'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Keep _buildActionCard as it is, or refactor if needed for dynamic data
+Widget _buildActionCard(BuildContext context, {
+  required IconData icon,
+  required String title,
+  required VoidCallback onTap,
+}) {
+  final theme = Theme.of(context);
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(icon, size: 40, color: theme.colorScheme.primary),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _PayrollInsightsSection extends StatelessWidget {
@@ -782,7 +833,7 @@ class _PayrollInsightsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     // Calculate summary stats
-    final currentMonth = 'May';
+    const currentMonth = 'May';
     final currentMonthData =
         payrollData.where((e) => e['month'] == currentMonth).toList();
     final totalPayroll =

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
+import 'dart:convert';
+import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:http/http.dart' as http;
+import 'package:sns_rooster/config/api_config.dart';
+import 'package:sns_rooster/providers/auth_provider.dart';
+import '../../widgets/admin_side_navigation.dart'; // Added this import
 
 class AdminOverviewScreen extends StatefulWidget {
   const AdminOverviewScreen({super.key});
@@ -39,26 +43,90 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
     });
 
     try {
-      // TODO: Replace with actual API call
-      // Simulated data for now
-      await Future.delayed(const Duration(seconds: 1));
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.token;
+
+      // Fetch all users for total count and department stats
+      final usersResponse = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/api/users'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      int totalEmployees = 0;
+      Map<String, dynamic> departmentStats = {};
+
+      if (usersResponse.statusCode == 200) {
+        final usersData = jsonDecode(usersResponse.body);
+        if (usersData['users'] is List) {
+          final usersList = usersData['users'] as List;
+          totalEmployees = usersList.length;
+          // Calculate department stats (total per department)
+          for (var user in usersList) {
+            final department = user['department'] ?? 'Unknown';
+            if (departmentStats.containsKey(department)) {
+              departmentStats[department]['total'] =
+                  (departmentStats[department]['total'] ?? 0) + 1;
+              // TODO: Need attendance data to calculate 'present' per department
+              departmentStats[department]['present'] =
+                  departmentStats[department]['present'] ?? 0;
+            } else {
+              departmentStats[department] = {
+                'total': 1,
+                'present': 0
+              }; // Present count needs real data
+            }
+          }
+        }
+      } else {
+        print('Failed to load users: ${usersResponse.statusCode}');
+        // Handle error or set default/error state for totalEmployees and departmentStats
+      }
+
+      // Fetch leave requests for pending count
+      final leaveRequestsResponse = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/api/leave-requests'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      int pendingLeaveRequests = 0;
+      if (leaveRequestsResponse.statusCode == 200) {
+        final leaveRequestsData = jsonDecode(leaveRequestsResponse.body);
+        if (leaveRequestsData['leaveRequests'] is List) {
+          pendingLeaveRequests = (leaveRequestsData['leaveRequests'] as List)
+              .where((req) => req['status'] == 'pending')
+              .length;
+        }
+      } else {
+        print(
+            'Failed to load leave requests: ${leaveRequestsResponse.statusCode}');
+      }
+
+      // TODO: Fetch actual data for these from dedicated API endpoints when available
+      int presentToday =
+          0; // Placeholder - API needed (e.g., from /api/attendance/today)
+      int absentToday = 0; // Placeholder - API needed
+      int onLeaveToday =
+          0; // Placeholder - API needed (derive from approved leave requests for today)
+      int upcomingHolidays =
+          0; // Placeholder - API needed (e.g., from /api/holidays)
 
       if (!mounted) return;
       setState(() {
         _stats = {
-          'totalEmployees': 150,
-          'presentToday': 140,
-          'absentToday': 7,
-          'onLeaveToday': 3,
-          'pendingLeaveRequests': 5,
-          'upcomingHolidays': 2,
-          'departmentStats': {
-            'Engineering': {'total': 50, 'present': 48},
-            'HR': {'total': 20, 'present': 19},
-            'Sales': {'total': 30, 'present': 28},
-            'Marketing': {'total': 25, 'present': 24},
-            'Finance': {'total': 25, 'present': 23},
-          },
+          'totalEmployees': totalEmployees,
+          'presentToday': presentToday, // TODO: Replace with real data
+          'absentToday': absentToday, // TODO: Replace with real data
+          'onLeaveToday': onLeaveToday, // TODO: Replace with real data
+          'pendingLeaveRequests': pendingLeaveRequests,
+          'upcomingHolidays': upcomingHolidays, // TODO: Replace with real data
+          'departmentStats':
+              departmentStats, // Partially real, 'present' count is placeholder
         };
       });
     } catch (e) {
@@ -76,46 +144,63 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(_error!, style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadDashboardData,
-              child: const Text('Retry'),
+    return Scaffold(
+      // Added Scaffold
+      appBar: AppBar(
+        // Added AppBar
+        title: const Text('Overview'),
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+      ),
+      drawer: const AdminSideNavigation(
+          currentRoute: '/admin_overview'), // Added Drawer
+      body: Builder(
+        builder: (context) {
+          if (_isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (_error != null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(_error!, style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadDashboardData,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          }
+          return RefreshIndicator(
+            onRefresh: _loadDashboardData,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildWelcomeHeader(context),
+                  const SizedBox(height: 24),
+                  _buildQuickStats(context),
+                  const SizedBox(height: 24),
+                  _buildAttendanceChart(context),
+                  const SizedBox(height: 24),
+                  _buildDepartmentStats(context),
+                  const SizedBox(height: 24),
+                  _buildUpcomingEvents(context),
+                  const SizedBox(height: 24),
+                  _buildRecentActivities(context),
+                ],
+              ),
             ),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _loadDashboardData,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildWelcomeHeader(context),
-            const SizedBox(height: 24),
-            _buildQuickStats(context),
-            const SizedBox(height: 24),
-            _buildAttendanceChart(context),
-            const SizedBox(height: 24),
-            _buildDepartmentStats(context),
-            const SizedBox(height: 24),
-            _buildUpcomingEvents(context),
-            const SizedBox(height: 24),
-            _buildRecentActivities(context),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -161,7 +246,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
-      childAspectRatio: 1.5,
+      childAspectRatio: 1.2, // Adjusted for better fit
       children: [
         _buildStatCard(
           context,
@@ -232,10 +317,14 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                   size: 24,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith( // Changed from titleMedium to titleSmall
+                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                    overflow: TextOverflow.ellipsis, // Added ellipsis for long text
+                    maxLines: 2, // Allow up to 2 lines for the title
                   ),
                 ),
               ],

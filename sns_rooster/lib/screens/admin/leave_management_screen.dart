@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/admin_side_navigation.dart';
 
 class LeaveManagementScreen extends StatefulWidget {
   const LeaveManagementScreen({super.key});
@@ -72,6 +73,7 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
         backgroundColor: theme.colorScheme.primary,
         foregroundColor: theme.colorScheme.onPrimary,
       ),
+      drawer: const AdminSideNavigation(currentRoute: '/leave_management'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

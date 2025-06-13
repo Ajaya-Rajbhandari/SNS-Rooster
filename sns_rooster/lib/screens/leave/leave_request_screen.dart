@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/leave_request_provider.dart';
+import '../../widgets/leave_request_modal.dart';
 import 'package:sns_rooster/widgets/app_drawer.dart';
 import 'package:table_calendar/table_calendar.dart';
 
@@ -166,7 +167,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     final casualLeave = leaveProvider.leaveBalances['casual'] ?? {};
 
     // Function to get events for a given day
-    List<dynamic> _getEventsForDay(DateTime day) {
+    List<dynamic> getEventsForDay(DateTime day) {
       return leaveProvider.leaveRequests.where((request) {
         final startDate = DateTime.parse(request['startDate']);
         final endDate = DateTime.parse(request['endDate']);
@@ -184,7 +185,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       }).toList();
     }
 
-    void _onDaySelected(DateTime selectedDay, DateTime focusedDay) {
+    void onDaySelected(DateTime selectedDay, DateTime focusedDay) {
       if (!isSameDay(_selectedDay, selectedDay)) {
         setState(() {
           _selectedDay = selectedDay;
@@ -200,6 +201,29 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         foregroundColor: Colors.white,
       ),
       drawer: const AppDrawer(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          final reasonController = TextEditingController();
+          showDialog(
+            context: context,
+            builder: (context) => LeaveRequestModal(
+              reasonController: reasonController,
+              onSubmit: (fromDate, toDate, leaveType, reason) {
+                // Handle leave request submission
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Leave request submitted successfully!'),
+                  ),
+                );
+                reasonController.dispose();
+              },
+            ),
+          );
+        },
+        child: const Icon(Icons.add),
+        tooltip: 'New Leave Request',
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -276,8 +300,8 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                       focusedDay: _focusedDay,
                       selectedDayPredicate: (day) =>
                           isSameDay(_selectedDay, day),
-                      onDaySelected: _onDaySelected,
-                      eventLoader: _getEventsForDay,
+                      onDaySelected: onDaySelected,
+                      eventLoader: getEventsForDay,
                       calendarFormat: CalendarFormat.month,
                       headerStyle: HeaderStyle(
                         formatButtonVisible: false,
