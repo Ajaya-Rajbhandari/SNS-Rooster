@@ -146,9 +146,16 @@ class AdminDashboardScreen extends StatelessWidget {
               context,
               icon: Icons.logout,
               title: 'Logout',
-              onTap: () {
-                Navigator.pop(context);
-                // Handle logout
+              onTap: () async {
+                Navigator.pop(context); // Close the drawer
+                final authProvider =
+                    Provider.of<AuthProvider>(context, listen: false);
+                await authProvider.logout();
+                // Navigate to LoginScreen and remove all previous routes
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (Route<dynamic> route) => false,
+                );
               },
               colorScheme: colorScheme,
             ),

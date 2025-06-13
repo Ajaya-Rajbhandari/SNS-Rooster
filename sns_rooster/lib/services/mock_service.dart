@@ -290,7 +290,7 @@ void resetMockAttendance() {
 // Set this flag to true to use mock data (for frontend development) or false to use real API calls.
 const bool useMock = false;
 
-// --- Auth Mock Service ---
+// --- Mock Auth Service ---
 
 class MockAuthService {
   Future<Map<String, dynamic>?> login(String email, String password) async {
@@ -431,9 +431,32 @@ class MockAnalyticsService {
   }
 }
 
-// --- Employee Mock Service ---
+// --- Mock User Service (Admin) ---
 
 class MockEmployeeService {
+  // Add a new user
+  Future<Map<String, dynamic>> addUser(Map<String, dynamic> userData) async {
+    await Future.delayed(const Duration(milliseconds: 500)); // Simulate network delay
+    // Basic validation or data transformation can be done here
+    final newUser = {
+      '_id': 'mock_user_${_mockUsers.length + 1}', // Generate a simple new ID
+      'name': userData['firstName'] + ' ' + userData['lastName'], // Combine first and last name
+      'email': userData['email'],
+      'role': userData['role'] ?? 'employee', // Default role to employee if not provided
+      'department': userData['department'],
+      'position': userData['position'],
+      'employeeId': userData['employeeId'],
+      'isActive': true, // Default to active
+      'isProfileComplete': false, // New users might need to complete their profile
+      'lastLogin': DateTime.now().toIso8601String(),
+      // 'avatar': userData['avatar'], // Handle avatar if provided
+      // 'password': userData['password'], // Password should ideally be handled by an auth service
+    };
+    _mockUsers.add(newUser);
+    return {'message': 'User added successfully', 'user': newUser};
+  }
+
+  // Get all users (for admin view)
   Future<List<Map<String, dynamic>>> getUsers() async {
     if (useMock) {
       await Future.delayed(const Duration(seconds: 1));
