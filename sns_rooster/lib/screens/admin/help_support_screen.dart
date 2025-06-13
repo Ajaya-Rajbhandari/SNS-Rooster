@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/admin_side_navigation.dart';
 
 class HelpSupportScreen extends StatelessWidget {
   const HelpSupportScreen({super.key});
@@ -7,6 +8,7 @@ class HelpSupportScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
+      drawer: const AdminSideNavigation(currentRoute: '/help_support'),
       appBar: AppBar(
         title: const Text('Help & Support'),
         backgroundColor: theme.colorScheme.primary,
@@ -26,19 +28,19 @@ class HelpSupportScreen extends StatelessWidget {
               elevation: 4,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
+              child: const Padding(
+                padding: EdgeInsets.all(16.0),
                 child: Column(
                   children: [
                     ListTile(
-                      title: const Text('How do I add a new employee?'),
-                      subtitle: const Text(
+                      title: Text('How do I add a new employee?'),
+                      subtitle: Text(
                           'Navigate to Employee Management and click the \'Add Employee\' button.'),
                     ),
-                    const Divider(),
+                    Divider(),
                     ListTile(
-                      title: const Text('Where can I see payroll reports?'),
-                      subtitle: const Text(
+                      title: Text('Where can I see payroll reports?'),
+                      subtitle: Text(
                           'Check the Payroll Insights section on the dashboard.'),
                     ),
                   ],

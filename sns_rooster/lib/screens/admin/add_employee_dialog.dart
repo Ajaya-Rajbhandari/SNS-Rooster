@@ -1,15 +1,15 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'dart:convert'; // Keep if still needed for other parts, or remove if EmployeeProvider handles all.
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:sns_rooster/providers/auth_provider.dart'; // Keep if needed for other purposes
-import 'package:sns_rooster/providers/employee_provider.dart'; // Import EmployeeProvider
+import 'package:http/http.dart' as http;
+import 'package:sns_rooster/services/employee_service.dart';
+import 'package:sns_rooster/models/user_model.dart';
+import 'package:sns_rooster/services/user_service.dart';
+import 'package:sns_rooster/utils/constants.dart';
 
 class AddEmployeeDialog extends StatefulWidget {
-  final EmployeeProvider employeeProvider; // Change to EmployeeProvider
+  final EmployeeService employeeService;
 
-  const AddEmployeeDialog({super.key, required this.employeeProvider}); // Update constructor
+  const AddEmployeeDialog({super.key, required this.employeeService});
 
   @override
   State<AddEmployeeDialog> createState() => _AddEmployeeDialogState();
@@ -17,32 +17,87 @@ class AddEmployeeDialog extends StatefulWidget {
 
 class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _firstNameController = TextEditingController();
-  final TextEditingController _lastNameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _employeeIdController = TextEditingController();
   final TextEditingController _positionController = TextEditingController();
   final TextEditingController _departmentController = TextEditingController();
+
+  final UserService _userService = UserService();
+  List<UserModel> _users = [];
+  UserModel? _selectedUser;
+  String? _selectedPosition;
+  String? _selectedDepartment;
+  String? _selectedRole;
+  bool _isLoadingUsers = true;
+
+  final List<String> _roles = ['employee', 'admin'];
 
   bool _isLoading = false;
   String? _error;
   bool _dialogResult = false;
 
   @override
+  void initState() {
+    super.initState();
+    _fetchUsers();
+  }
+
+  @override
   void dispose() {
-    _firstNameController.dispose();
-    _lastNameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
     _employeeIdController.dispose();
     _positionController.dispose();
     _departmentController.dispose();
     super.dispose();
   }
 
+  Future<void> _fetchUsers() async {
+    setState(() {
+      _isLoadingUsers = true;
+    });
+    try {
+      final users = await _userService.getUsers();
+      setState(() {
+        _users = users;
+        _isLoadingUsers = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingUsers = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load users: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
   Future<void> _addEmployee() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_selectedUser == null) {
+      setState(() {
+        _error = 'Please select a user.';
+      });
+      return;
+    }
+    if (_selectedRole == null) {
+      setState(() {
+        _error = 'Please select a role.';
+      });
+      return;
+    }
+    if (_selectedPosition == null) {
+      setState(() {
+        _error = 'Please select a position.';
+      });
+      return;
+    }
+    if (_selectedDepartment == null) {
+      setState(() {
+        _error = 'Please select a department.';
+      });
       return;
     }
 
@@ -52,35 +107,25 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
     });
 
     try {
-      // Prepare the employee data from the form controllers
-      final employeeData = {
-        'firstName': _firstNameController.text.trim(),
-        'lastName': _lastNameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'password': _passwordController.text, // Assuming EmployeeProvider handles registration or this is for a different purpose
+      final newEmployeeData = {
+        'userId': _selectedUser!.id,
+        'firstName': _selectedUser!.firstName,
+        'lastName': _selectedUser!.lastName,
+        'email': _selectedUser!.email,
         'employeeId': _employeeIdController.text.trim(),
-        'position': _positionController.text.trim(),
-        'department': _departmentController.text.trim(),
-        // 'role': 'employee', // This might be set within EmployeeProvider or backend
+        'position': _selectedPosition,
+        'department': _selectedDepartment,
+        'role': _selectedRole,
       };
 
-      // Call addEmployee on the EmployeeProvider
-      await widget.employeeProvider.addEmployee(employeeData);
+      await widget.employeeService.addEmployee(newEmployeeData);
 
       if (!mounted) return;
       _dialogResult = true;
     } on Exception catch (e) {
       if (!mounted) return;
-      String errorMessage = 'An error occurred: ${e.toString()}';
-      if (e.toString().contains('E11000 duplicate key error') &&
-          e.toString().contains('email_1 dup key')) {
-        errorMessage =
-            'An employee with this email already exists. Please use a different email.';
-      } else if (e.toString().contains('Failed to register user')) {
-        errorMessage = 'Failed to create user account: ${e.toString()}';
-      }
       setState(() {
-        _error = errorMessage;
+        _error = 'An error occurred: ${e.toString()}';
       });
       _dialogResult = false;
     } finally {
@@ -99,88 +144,177 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
-      title: const Text('Add Employee'),
+      title: const Text('Add New Employee'),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextFormField(
-                controller: _firstNameController,
-                decoration: const InputDecoration(labelText: 'First Name'),
-                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _lastNameController,
-                decoration: const InputDecoration(labelText: 'Last Name'),
-                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-                keyboardType: TextInputType.emailAddress,
-                validator: (v) {
-                  if (v == null || v.isEmpty) return 'Required';
-                  if (!v.contains('@')) return 'Enter a valid email';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Password'),
-                obscureText: true,
-                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _employeeIdController,
-                decoration: const InputDecoration(labelText: 'Employee ID'),
-                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _positionController,
-                decoration: InputDecoration(
-                  labelText: 'Position',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  prefixIcon:
-                      Icon(Icons.work, color: theme.colorScheme.primary),
+              // User Selection
+              _isLoadingUsers
+                  ? const Center(child: CircularProgressIndicator())
+                  : _users.isEmpty
+                      ? const Center(child: Text('No users available'))
+                      : Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Select User',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                DropdownButtonFormField<UserModel>(
+                                  decoration: const InputDecoration(
+                                    hintText: 'Select a user to add as employee',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  value: _selectedUser,
+                                  isExpanded: true, // Allow the dropdown to expand
+                                  items: _users.map((UserModel user) {
+                                    return DropdownMenuItem<UserModel>(
+                                      value: user,
+                                      child: Expanded(
+                                        child: Text(
+                                          user.displayName,
+                                          overflow: TextOverflow.ellipsis, // Handle long text
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (UserModel? newValue) {
+                                    setState(() {
+                                      _selectedUser = newValue;
+                                    });
+                                  },
+                                  validator: (value) =>
+                                      value == null ? 'Please select a user' : null,
+                                ),
+                                if (_selectedUser != null) ...[
+                                  const SizedBox(height: 8),
+                                  Text('Selected: ${_selectedUser!.displayName}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  Text('Email: ${_selectedUser!.email}', style: TextStyle(fontSize: 12, color: theme.textTheme.bodySmall?.color)),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+              const SizedBox(height: 16),
+
+              // Role Selection
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Assign Role',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        decoration: const InputDecoration(
+                          hintText: 'Select role',
+                          border: OutlineInputBorder(),
+                        ),
+                        value: _selectedRole,
+                        items: _roles.map((String role) {
+                          return DropdownMenuItem<String>(
+                            value: role,
+                            child: Text(role[0].toUpperCase() + role.substring(1)),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _selectedRole = newValue;
+                          });
+                        },
+                        validator: (value) =>
+                            value == null ? 'Please select a role' : null,
+                      ),
+                    ],
+                  ),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter position';
-                  }
-                  return null;
-                },
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _departmentController,
-                decoration: InputDecoration(
-                  labelText: 'Department',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  prefixIcon:
-                      Icon(Icons.business, color: theme.colorScheme.primary),
+
+              // Employee Details Section
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Employee Details',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _employeeIdController,
+                        decoration: const InputDecoration(
+                          labelText: 'Employee ID',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) =>
+                            v == null || v.isEmpty ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        decoration: const InputDecoration(
+                          labelText: 'Position',
+                          border: OutlineInputBorder(),
+                        ),
+                        value: _selectedPosition,
+                        items: EmployeeConstants.positions.map((String position) {
+                          return DropdownMenuItem<String>(
+                            value: position,
+                            child: Text(position),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _selectedPosition = newValue;
+                          });
+                        },
+                        validator: (value) =>
+                            value == null ? 'Please select a position' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        decoration: const InputDecoration(
+                          labelText: 'Department',
+                          border: OutlineInputBorder(),
+                        ),
+                        value: _selectedDepartment,
+                        items: EmployeeConstants.departments.map((String department) {
+                          return DropdownMenuItem<String>(
+                            value: department,
+                            child: Text(department),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _selectedDepartment = newValue;
+                          });
+                        },
+                        validator: (value) =>
+                            value == null ? 'Please select a department' : null,
+                      ),
+                    ],
+                  ),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter department';
-                  }
-                  return null;
-                },
               ),
-              if (_error != null) ...[
+
+              if (_error != null) ...[  // Show error message if present
                 const SizedBox(height: 16),
                 Text(
                   _error!,
-                  style:
-                      TextStyle(color: theme.colorScheme.error, fontSize: 14),
+                  style: TextStyle(color: theme.colorScheme.error, fontSize: 14),
                   textAlign: TextAlign.center,
                 ),
               ],

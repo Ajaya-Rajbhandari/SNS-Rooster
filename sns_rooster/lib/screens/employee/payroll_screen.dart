@@ -94,10 +94,10 @@ class _PayrollScreenState extends State<PayrollScreen> {
                       children: [
                         CircleAvatar(
                           backgroundColor: Colors.white,
+                          radius: 28,
                           child: Icon(Icons.account_balance_wallet,
                               color: Theme.of(context).colorScheme.primary,
                               size: 28),
-                          radius: 28,
                         ),
                         const SizedBox(width: 20),
                         Expanded(
@@ -112,7 +112,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
                                       )),
-                              Text('${totalNetPay.toStringAsFixed(2)}',
+                              Text(totalNetPay.toStringAsFixed(2),
                                   style: Theme.of(context)
                                       .textTheme
                                       .headlineSmall

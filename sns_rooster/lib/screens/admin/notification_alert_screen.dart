@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/admin_side_navigation.dart';
 
 class NotificationAlertScreen extends StatelessWidget {
   const NotificationAlertScreen({super.key});
@@ -7,6 +8,7 @@ class NotificationAlertScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
+      drawer: const AdminSideNavigation(currentRoute: '/notification_alerts'),
       appBar: AppBar(
         title: const Text('Notifications & Alerts'),
         backgroundColor: theme.colorScheme.primary,

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:sns_rooster/providers/auth_provider.dart';
+import '../config/api_config.dart';
 
 class EmployeeService {
   final AuthProvider authProvider;
@@ -24,7 +25,7 @@ class EmployeeService {
   Future<List<Map<String, dynamic>>> getEmployees() async {
     try {
       final response = await http.get(
-          Uri.parse('${authProvider.baseUrl}/employees'),
+          Uri.parse('${ApiConfig.baseUrl}/employees'),
           headers: getHeaders());
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
@@ -42,7 +43,7 @@ class EmployeeService {
       Map<String, dynamic> employee) async {
     try {
       final response = await http.post(
-        Uri.parse('${authProvider.baseUrl}/employees'),
+        Uri.parse('${ApiConfig.baseUrl}/employees'),
         headers: getHeaders(),
         body: json.encode(employee),
       );
@@ -61,7 +62,7 @@ class EmployeeService {
       String id, Map<String, dynamic> updates) async {
     try {
       final response = await http.put(
-        Uri.parse('${authProvider.baseUrl}/employees/$id'),
+        Uri.parse('${ApiConfig.baseUrl}/employees/$id'),
         headers: getHeaders(),
         body: json.encode(updates),
       );
@@ -79,7 +80,7 @@ class EmployeeService {
   Future<void> deleteEmployee(String id) async {
     try {
       final response = await http.delete(
-          Uri.parse('${authProvider.baseUrl}/employees/$id'),
+          Uri.parse('${ApiConfig.baseUrl}/employees/$id'),
           headers: getHeaders());
       if (response.statusCode != 204) {
         throw Exception(
@@ -87,6 +88,34 @@ class EmployeeService {
       }
     } catch (e) {
       throw Exception('Error deleting employee: $e');
+    }
+  }
+
+  // New method to permanently delete an employee (user) from the database
+  Future<void> deleteEmployeeFromDatabase(String userId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('${ApiConfig.baseUrl}/auth/users/$userId'), // Correct endpoint for permanent deletion
+        headers: getHeaders(),
+      );
+      if (response.statusCode == 200 || response.statusCode == 204) { // 200 or 204 for successful deletion
+        // Successfully deleted
+      } else {
+        // Attempt to parse error message from response body
+        String errorMessage = 'Failed to delete employee from database: ${response.statusCode}';
+        try {
+          final errorBody = json.decode(response.body);
+          if (errorBody != null && errorBody['message'] != null) {
+            errorMessage += ' - ${errorBody['message']}';
+          }
+        } catch (_) {
+          // If parsing fails, use the raw body
+          errorMessage += ' - ${response.body}';
+        }
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      throw Exception('Error deleting employee from database: $e');
     }
   }
 }
