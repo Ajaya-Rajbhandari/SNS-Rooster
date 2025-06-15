@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:sns_rooster/services/employee_service.dart';
+import 'package:sns_rooster/providers/employee_provider.dart'; // Import EmployeeProvider
 
 class EditEmployeeDialog extends StatefulWidget {
   final Map<String, dynamic> employee;
-  final EmployeeService employeeService;
+  final EmployeeProvider employeeProvider; // Change to EmployeeProvider
 
   const EditEmployeeDialog(
-      {super.key, required this.employee, required this.employeeService});
+      {super.key, required this.employee, required this.employeeProvider}); // Update constructor
 
   @override
   State<EditEmployeeDialog> createState() => _EditEmployeeDialogState();
@@ -70,7 +70,8 @@ class _EditEmployeeDialogState extends State<EditEmployeeDialog> {
         'position': _positionController.text.trim(),
         'department': _departmentController.text.trim(),
       };
-      await widget.employeeService
+      // Call updateEmployee on the EmployeeProvider
+      await widget.employeeProvider
           .updateEmployee(widget.employee['_id'], updates);
 
       // No snackbar here; success is indicated by the dialog closing and list refreshing
