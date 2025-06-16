@@ -134,14 +134,29 @@ router.patch('/end-break', auth, async (req, res) => {
   }
 });
 
-// Get attendance for a specific user (Admin/Manager only)
+// Get current user's own attendance data
+router.get('/my-attendance', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const attendanceRecords = await Attendance.find({ user: userId }).populate('user', 'name email role');
+
+    res.json({ attendance: attendanceRecords });
+  } catch (error) {
+    console.error('Get my attendance error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get attendance for a specific user (Admin/Manager only, or self)
 router.get('/user/:userId', auth, async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+    const { userId } = req.params;
+    
+    // Allow users to access their own data, or admin/manager to access any data
+    if (req.user.role !== 'admin' && req.user.role !== 'manager' && req.user.userId !== userId) {
       return res.status(403).json({ message: 'Unauthorized to view this attendance data' });
     }
 
-    const { userId } = req.params;
     const attendanceRecords = await Attendance.find({ user: userId }).populate('user', 'name email role');
 
     if (!attendanceRecords) {
@@ -170,4 +185,4 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;

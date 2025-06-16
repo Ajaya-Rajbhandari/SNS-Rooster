@@ -4,9 +4,14 @@ const router = express.Router();
 const Employee = require('../models/Employee');
 const authMiddleware = require('../middleware/auth');
 
-// Get all employees
-router.get('/', async (req, res) => {
+// Get all employees (admin/manager only)
+router.get('/', authMiddleware, async (req, res) => {
   try {
+    // Check if requester is admin or manager
+    if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+      return res.status(403).json({ message: 'Only admins and managers can view all employees' });
+    }
+    
     const employees = await Employee.find();
     res.status(200).json(employees);
   } catch (error) {
@@ -14,9 +19,14 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get a single employee by ID
-router.get('/:id', async (req, res) => {
+// Get a single employee by ID (admin/manager or self)
+router.get('/:id', authMiddleware, async (req, res) => {
   try {
+    // Check if requester is admin/manager or requesting their own data
+    if (req.user.role !== 'admin' && req.user.role !== 'manager' && req.user.userId !== req.params.id) {
+      return res.status(403).json({ message: 'Unauthorized to view this employee data' });
+    }
+    
     const employee = await Employee.findById(req.params.id);
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
@@ -27,20 +37,25 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create a new employee
-router.post('/', async (req, res) => {
-  const employee = new Employee({
-    userId: req.body.userId,
-    firstName: req.body.firstName,
-    lastName: req.body.lastName,
-    email: req.body.email,
-    employeeId: req.body.employeeId,
-    hireDate: req.body.hireDate,
-    position: req.body.position,
-    department: req.body.department,
-  });
-
+// Create a new employee (admin only)
+router.post('/', authMiddleware, async (req, res) => {
   try {
+    // Check if requester is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only admins can create new employees' });
+    }
+    
+    const employee = new Employee({
+      userId: req.body.userId,
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      email: req.body.email,
+      employeeId: req.body.employeeId,
+      hireDate: req.body.hireDate,
+      position: req.body.position,
+      department: req.body.department,
+    });
+
     const newEmployee = await employee.save();
     res.status(201).json(newEmployee);
   } catch (error) {
@@ -48,9 +63,14 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update an employee
-router.put('/:id', async (req, res) => {
+// Update an employee (admin/manager or self)
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
+    // Check if requester is admin/manager or updating their own data
+    if (req.user.role !== 'admin' && req.user.role !== 'manager' && req.user.userId !== req.params.id) {
+      return res.status(403).json({ message: 'Unauthorized to update this employee data' });
+    }
+    
     const employee = await Employee.findById(req.params.id);
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
@@ -72,9 +92,14 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete an employee
-router.delete('/:id', async (req, res) => {
+// Delete an employee (admin only)
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
+    // Check if requester is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only admins can delete employees' });
+    }
+    
     const employee = await Employee.findByIdAndDelete(req.params.id);
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
@@ -85,8 +110,8 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Employee dashboard route
-router.get('/dashboard', async (req, res) => {
+// Employee dashboard route (authenticated users only)
+router.get('/dashboard', authMiddleware, async (req, res) => {
   try {
     console.log('DASHBOARD ROUTE: Returning mock data directly');
     const mockData = {
