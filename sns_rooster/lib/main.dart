@@ -75,16 +75,10 @@ class MyApp extends StatelessWidget {
           return EmployeeProvider(employeeService);
         }),
         ChangeNotifierProxyProvider<AuthProvider, ProfileProvider>(
-          create: (context) {
-            print('DEBUG: Initializing ProfileProvider');
-            return ProfileProvider(
-              Provider.of<AuthProvider>(context, listen: false),
-            );
-          },
-          update: (context, auth, previous) {
-            print('DEBUG: Updating ProfileProvider');
-            return ProfileProvider(auth);
-          },
+          create: (context) => ProfileProvider(
+            Provider.of<AuthProvider>(context, listen: false),
+          ),
+          update: (context, auth, previous) => previous!,
         ),
       ],
       child: Consumer<AuthProvider>(
