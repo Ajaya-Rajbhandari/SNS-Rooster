@@ -4,6 +4,7 @@ import 'package:sns_rooster/screens/admin/add_employee_dialog.dart';
 import 'package:sns_rooster/services/employee_service.dart';
 import 'package:provider/provider.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
+import 'package:sns_rooster/providers/employee_provider.dart';
 import '../../widgets/admin_side_navigation.dart';
 
 class EmployeeManagementScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class EmployeeManagementScreen extends StatefulWidget {
 class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
   final TextEditingController _searchController = TextEditingController();
   late final EmployeeService _employeeService;
+  late final EmployeeProvider _employeeProvider;
   List<Map<String, dynamic>> _employees = []; // Master list of all employees
   List<Map<String, dynamic>> _filteredEmployees = []; // List of employees to display (after filtering)
   bool _isLoading = false;
@@ -29,6 +31,7 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _employeeService =
           EmployeeService(Provider.of<AuthProvider>(context, listen: false));
+      _employeeProvider = Provider.of<EmployeeProvider>(context, listen: false); // Initialize EmployeeProvider
       _loadEmployees();
     });
   }
@@ -185,7 +188,7 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                                   context: context,
                                   builder: (context) => EditEmployeeDialog(
                                       employee: employee,
-                                      employeeService: _employeeService),
+                                      employeeProvider: _employeeProvider),
                                 );
                                 if (result == true) {
                                   WidgetsBinding.instance

@@ -36,6 +36,42 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  phone: {
+    type: String,
+    trim: true,
+  },
+  address: {
+    type: String,
+    trim: true,
+  },
+  emergencyContact: {
+    type: String,
+    trim: true,
+  },
+  emergencyPhone: {
+    type: String,
+    trim: true,
+  },
+  passport: {
+    type: String, // File path or URL
+    trim: true,
+  },
+  education: [
+    {
+      institution: { type: String, trim: true },
+      degree: { type: String, trim: true },
+      fieldOfStudy: { type: String, trim: true },
+      startDate: { type: Date },
+      endDate: { type: Date },
+      certificate: { type: String, trim: true } // File path or URL
+    }
+  ],
+  certificates: [
+    {
+      name: { type: String, trim: true },
+      file: { type: String, trim: true } // File path or URL
+    }
+  ],
   isProfileComplete: {
     type: Boolean,
     default: false,
@@ -86,6 +122,23 @@ userSchema.methods.getPublicProfile = function() {
   return userObject;
 };
 
+userSchema.methods.recalculateProfileComplete = function() {
+  // Required fields for profile completion
+  const requiredFields = [
+    'firstName',
+    'lastName',
+    'email',
+    'department',
+    'position',
+    'phone',
+    'address',
+    'emergencyContact',
+    'emergencyPhone'
+  ];
+  this.isProfileComplete = requiredFields.every(field => {
+    return this[field] && String(this[field]).trim().length > 0;
+  });
+};
 const User = mongoose.model('User', userSchema);
 
 module.exports = User;

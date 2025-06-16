@@ -13,6 +13,7 @@ import '../screens/admin/admin_overview_screen.dart';
 import '../screens/admin/admin_timesheet_screen.dart';
 import '../screens/admin/attendance_management_screen.dart';
 import '../screens/admin/leave_request_management_screen.dart';
+import 'package:sns_rooster/main.dart'; // Re-added import for navigatorKey
 
 class AdminSideNavigation extends StatelessWidget {
   final String currentRoute;
@@ -213,7 +214,8 @@ class AdminSideNavigation extends StatelessWidget {
 
   Future<void> _handleLogout(BuildContext context) async {
     Navigator.pop(context);
-    
+    print('LOGOUT: Initiating logout process');
+
     // Show confirmation dialog
     final shouldLogout = await showDialog<bool>(
       context: context,
@@ -222,38 +224,75 @@ class AdminSideNavigation extends StatelessWidget {
         content: const Text('Are you sure you want to logout?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () {
+              print('DIALOG: Cancel button clicked');
+              Navigator.pop(context, false);
+            },
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () {
+              print('DIALOG: Logout button clicked');
+              Navigator.pop(context, true);
+            },
             child: const Text('Logout'),
           ),
         ],
       ),
     );
 
-    if (shouldLogout == true && context.mounted) {
-      // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+    print('LOGOUT: shouldLogout value: $shouldLogout');
 
-      // Perform logout
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      await authProvider.logout();
+    if (shouldLogout != null && shouldLogout) {
+      print('LOGOUT: User confirmed logout');
 
-      if (context.mounted) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/login',
-          (route) => false,
+      await Future.delayed(const Duration(milliseconds: 100)); // Add delay
+
+      if (navigatorKey.currentContext != null) {
+        print('LOGOUT: Navigator context is available');
+
+        // Show loading indicator
+        showDialog(
+          context: navigatorKey.currentContext!,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
         );
+
+        // Perform logout
+        final authProvider = Provider.of<AuthProvider>(navigatorKey.currentContext!, listen: false);
+        await authProvider.logout();
+
+        if (navigatorKey.currentContext != null) {
+          print('LOGOUT: Navigating to login screen');
+          Navigator.pushNamedAndRemoveUntil(
+            navigatorKey.currentContext!,
+            '/login',
+            (route) => false,
+          );
+        } else {
+          print('LOGOUT: Navigator context not available after logout');
+          // Fallback navigation
+          navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (route) => false);
+        }
+      } else {
+        print('LOGOUT: Navigator context not available before logout');
+        // Fallback navigation
+        if (navigatorKey.currentState != null) {
+          print('LOGOUT: Using navigatorKey.currentState for fallback navigation');
+          navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (route) => false);
+        } else {
+          print('LOGOUT: navigatorKey.currentState is also unavailable');
+          // Final fallback: Use a direct MaterialPageRoute
+          // runApp(MaterialApp(
+          //   home: const LoginScreen(),
+          // ));
+          // print('LOGOUT: Used direct MaterialPageRoute for fallback navigation');
+        }
       }
+    } else {
+      print('LOGOUT: User canceled logout');
     }
   }
 }

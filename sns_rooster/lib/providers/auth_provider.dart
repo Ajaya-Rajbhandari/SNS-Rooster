@@ -5,9 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import '../services/mock_service.dart'; // Import the mock service
-import 'package:provider/provider.dart';
 import '../providers/profile_provider.dart';
 import '../config/api_config.dart';
+import '../main.dart'; // Import main.dart to access MyApp class
 
 class AuthProvider with ChangeNotifier {
   String? _token;
@@ -19,7 +19,13 @@ class AuthProvider with ChangeNotifier {
 
   // Instantiate the mock service (with useMock = true) so that we can simulate API responses.
   final MockAuthService _mockAuthService = MockAuthService();
-  final bool useMock = true; // Explicitly set useMock to true
+  final bool useMock = false; // Switch to real API
+
+  // Test credentials for developer convenience
+  static const String devEmployeeEmail = 'employee2@snsrooster.com';
+  static const String devEmployeePassword = 'Employee@456';
+  static const String devAdminEmail = 'admin@snsrooster.com';
+  static const String devAdminPassword = 'Admin@123';
 
   bool get isAuthenticated => _token != null && !isTokenExpired();
   bool get isLoading => _isLoading;
@@ -29,10 +35,8 @@ class AuthProvider with ChangeNotifier {
   bool get isLoggingOut => _isLoggingOut;
   GlobalKey<NavigatorState> get navigatorKey => _navigatorKey;
 
-
-
   AuthProvider() {
-    print('AuthProvider initialized');
+    print('AUTH PROVIDER: Initialized');
     _loadStoredAuth(); // Add this back to load stored auth on initialization
   }
 
@@ -78,19 +82,18 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> checkAuthStatus() async {
-    print('AUTH_CHECK: ===== STARTING AUTH CHECK =====');
-    print(
-        'AUTH_CHECK: Current state - isAuthenticated: $isAuthenticated, token exists: ${_token != null}, user exists: ${_user != null}');
+    print('AUTH_CHECK: Starting authentication status check...');
+    print('AUTH_CHECK: Current state - isAuthenticated: $isAuthenticated, token exists: ${_token != null}, user exists: ${_user != null}');
 
     if (_token == null) {
-      print('AUTH_CHECK: No token found, clearing user and returning');
+      print('AUTH_CHECK: No token found, clearing user and returning.');
       _user = null;
       notifyListeners();
       return;
     }
 
     if (isTokenExpired()) {
-      print('AUTH_CHECK: Token is expired, logging out');
+      print('AUTH_CHECK: Token is expired, logging out.');
       await logout();
       return;
     }
@@ -114,15 +117,19 @@ class AuthProvider with ChangeNotifier {
         print('AUTH_CHECK: Token verified - User role: ${_user?['role']}');
         notifyListeners();
       } else {
-        print('AUTH_CHECK: Token verification failed, logging out');
+        final errorMessage = jsonDecode(response.body)['message'] ?? 'Token verification failed';
+        print('AUTH_CHECK: $errorMessage');
         await logout();
+        throw Exception(errorMessage);
       }
     } catch (e) {
       print('AUTH_CHECK: Error verifying token: $e');
-      print('AUTH_CHECK: Logging out due to error');
       await logout();
+      _error = 'Authentication failed: $e';
+      notifyListeners();
     }
-    print('AUTH_CHECK: ===== AUTH CHECK COMPLETED =====');
+
+    print('AUTH_CHECK: Authentication status check completed.');
   }
 
   Future<Map<String, dynamic>?> registerUser(String name, String email,
@@ -175,55 +182,46 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<bool> login(String email, String password) async {
+    print('AUTH PROVIDER: Login called with email: $email');
     print('LOGIN_DEBUG: Starting login for email: $email');
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      if (useMock) {
-        print('LOGIN_DEBUG: Using mock service');
-        final response = await _mockAuthService.login(email, password);
-        if (response != null) {
-          _token = response["token"];
-          _user = response["user"];
-          await _saveAuthToPrefs();
-          print('LOGIN_DEBUG: Mock login successful');
-          return true;
-        }
-        _error = "Invalid email or password";
-        print('LOGIN_DEBUG: Mock login failed');
-        return false;
+      print('LOGIN_DEBUG: Making real API call to: ${ApiConfig.baseUrl}/auth/login');
+      print('LOGIN_DEBUG: Sending request with email: $email');
+      print('LOGIN_DEBUG: Request body: ${jsonEncode({'email': email, 'password': password})}');
+
+      // Real API call implementation
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/auth/login'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
+      );
+
+      print('LOGIN_DEBUG: Response status: ${response.statusCode}');
+      print('LOGIN_DEBUG: Response body: ${response.body}');
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        _token = data['token'];
+        _user = data['user'];
+        print('LOGIN_DEBUG: Token received: $_token');
+        print('LOGIN_DEBUG: User data received: $_user');
+        await _saveAuthToPrefs();
+        print('LOGIN_DEBUG: Real API login successful');
+        return true;
       } else {
-        print('LOGIN_DEBUG: Making real API call to: ${ApiConfig.baseUrl}/auth/login');
-        // Real API call implementation
-        final response = await http.post(
-          Uri.parse('${ApiConfig.baseUrl}/auth/login'),
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode({
-            'email': email,
-            'password': password,
-          }),
-        );
-
-        print('LOGIN_DEBUG: Response status: ${response.statusCode}');
-        print('LOGIN_DEBUG: Response body: ${response.body}');
-
-        final data = jsonDecode(response.body);
-
-        if (response.statusCode == 200) {
-          _token = data['token'];
-          _user = data['user'];
-          await _saveAuthToPrefs();
-          print('LOGIN_DEBUG: Real API login successful');
-          return true;
-        } else {
-          _error = data['message'] ?? 'Login failed';
-          print('LOGIN_DEBUG: Real API login failed: $_error');
-          return false;
-        }
+        _error = data['message'] ?? 'Login failed';
+        print('LOGIN_DEBUG: Real API login failed: $_error');
+        return false;
       }
     } catch (e) {
       _error = e.toString();
@@ -272,28 +270,59 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  ProfileProvider? _profileProvider;
+
+  void setProfileProvider(ProfileProvider profileProvider) {
+    _profileProvider = profileProvider;
+  }
+
   Future<void> logout() async {
+    print('AUTH PROVIDER: Logout called');
     print('Logging out...');
     _token = null;
     _user = null;
     _error = null;
     notifyListeners();
 
+    print('DEBUG: Starting logout process');
+    print('DEBUG: Current token: $_token');
+    print('DEBUG: Current user: $_user');
+
     try {
       final prefs = await SharedPreferences.getInstance();
+      print('DEBUG: Clearing SharedPreferences');
       await prefs.remove('token');
       await prefs.remove('user');
 
-      // Clear profile data
-      final profileProvider = Provider.of<ProfileProvider>(
-        navigatorKey.currentContext!,
-        listen: false,
-      );
-      await profileProvider.clearProfile();
+      if (_profileProvider != null) {
+        print('DEBUG: Clearing profile via ProfileProvider');
+        await _profileProvider!.clearProfile();
+      } else {
+        print('DEBUG: ProfileProvider is not set');
+      }
+
+      print('DEBUG: Logout process completed');
     } catch (e) {
-      print('Error during logout: $e');
+      print('ERROR: Exception during logout: $e');
     }
+
+    // Navigate to login screen after logout
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (navigatorKey.currentContext != null) {
+        Navigator.of(navigatorKey.currentContext!).pushNamedAndRemoveUntil(
+          '/login',
+          (route) => false,
+        );
+        print('DEBUG: Navigated to login screen');
+      } else {
+        print('ERROR: navigatorKey.currentContext is null, unable to navigate');
+        // Fallback: Restart the app or log the error
+        print('FALLBACK: Restarting app due to navigation failure');
+        runApp(const MyApp());
+      }
+    });
   }
+
 
   void reset() {
     _token = null;
@@ -395,15 +424,22 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> forceClearAuth() async {
+    print('FORCE_CLEAR_AUTH: Clearing authentication state...');
     _token = null;
     _user = null;
     _error = null;
     notifyListeners();
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('token');
-    await prefs.remove('user');
-    print('Auth state forcibly cleared from SharedPreferences and memory.');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('token');
+      await prefs.remove('user');
+      print('FORCE_CLEAR_AUTH: SharedPreferences cleared successfully.');
+    } catch (e) {
+      print('FORCE_CLEAR_AUTH: Error clearing SharedPreferences: $e');
+    }
+
+    print('FORCE_CLEAR_AUTH: Authentication state cleared.');
   }
 
   // Method to update user information from other providers (e.g., ProfileProvider)

@@ -13,6 +13,7 @@ class ProfileProvider with ChangeNotifier {
   bool _isInitialized = false;
   String? _error;
   static const String _profileKey = 'user_profile';
+  bool _disposed = false;
 
   // Instantiate the mock service
   final MockEmployeeService _mockEmployeeService = MockEmployeeService();
@@ -32,9 +33,15 @@ class ProfileProvider with ChangeNotifier {
   Future<void> _initializeProfile() async {
     // First, try to load cached data immediately
     await _loadStoredProfile();
-    
+
     // Then fetch fresh data in the background
     _fetchProfileInBackground();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   Future<void> _loadStoredProfile() async {
@@ -44,10 +51,11 @@ class ProfileProvider with ChangeNotifier {
       if (storedProfile != null) {
         _profile = json.decode(storedProfile);
         _isInitialized = true;
+        if (_disposed) return;
         notifyListeners();
       }
     } catch (e) {
-      print('Error loading stored profile: $e');
+      print('Error loading stored profile: \$e');
     }
   }
 
@@ -63,7 +71,7 @@ class ProfileProvider with ChangeNotifier {
         _updateProfileData(response['user']);
       } else {
         final response = await http.get(
-          Uri.parse('${ApiConfig.baseUrl}/me'),
+          Uri.parse('${ApiConfig.baseUrl}/auth/me'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ${_authProvider.token}',
@@ -89,38 +97,39 @@ class ProfileProvider with ChangeNotifier {
     _error = null;
     _isInitialized = true;
     _saveProfileToPrefs();
+    if (_disposed) return;
     notifyListeners();
   }
 
   Future<void> _saveProfileToPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      if (_profile != null) {
-        await prefs.setString(_profileKey, json.encode(_profile));
-      } else {
-        await prefs.remove(_profileKey);
-      }
+      // print('SharedPreferences instance obtained');
+      // print('Profile data to save: \$_profile');
+      await prefs.setString(_profileKey, json.encode(_profile));
     } catch (e) {
-      print('Error saving profile to preferences: $e');
+      // print('Error saving profile to prefs: \$e');
     }
   }
 
   // Public method to force refresh profile data
   Future<void> refreshProfile() async {
     _isLoading = true;
+    if (_disposed) return;
     notifyListeners();
 
     try {
       await _fetchProfileInBackground();
     } finally {
       _isLoading = false;
+      if (_disposed) return;
       notifyListeners();
     }
   }
 
   Future<bool> updateProfile(Map<String, dynamic> updates) async {
-    _isLoading = true;
     _error = null;
+    if (_disposed) return false;
     notifyListeners();
 
     if (!_authProvider.isAuthenticated || _authProvider.token == null) {
@@ -134,12 +143,13 @@ class ProfileProvider with ChangeNotifier {
       if (useMock) {
         final response = await _mockEmployeeService.updateProfile(updates);
         _updateProfileData(response['user']);
+        if (_disposed) return false;
         // Update AuthProvider's user data for consistency
         await _authProvider.updateUser(_profile!);
         return true;
       } else {
         final response = await http.patch(
-          Uri.parse('${ApiConfig.baseUrl}/users/profile'),
+          Uri.parse('${ApiConfig.baseUrl}/auth/me'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ${_authProvider.token}',
@@ -148,15 +158,30 @@ class ProfileProvider with ChangeNotifier {
         );
 
         if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          _updateProfileData(data['profile']);
-          // Update AuthProvider's user data for consistency
-          await _authProvider.updateUser(_profile!);
-          return true;
+          try {
+            final data = json.decode(response.body);
+            _updateProfileData(data['profile']);
+            if (_disposed) return false;
+            await _authProvider.updateUser(_profile!);
+            return true;
+          } catch (e) {
+            // print('Error decoding JSON response: \$e');
+            // print('Raw response body: \${response.body}');
+            _error = 'Unexpected response format';
+            notifyListeners();
+            return false;
+          }
         } else {
-          final data = json.decode(response.body);
-          _error = data['message'] ?? 'Failed to update profile';
+          try {
+            final data = json.decode(response.body);
+            _error = data['message'] ?? 'Failed to update profile';
+          } catch (e) {
+            // print('Error decoding error response: \$e');
+            // print('Raw response body: \${response.body}');
+            _error = 'Unexpected response format';
+          }
           notifyListeners();
+          if (_disposed) return false;
           return false;
         }
       }
@@ -172,6 +197,7 @@ class ProfileProvider with ChangeNotifier {
   Future<bool> updateProfilePicture(String imagePath) async {
     _isLoading = true;
     _error = null;
+    if (_disposed) return false;
     notifyListeners();
 
     if (!_authProvider.isAuthenticated || _authProvider.token == null) {
@@ -187,6 +213,7 @@ class ProfileProvider with ChangeNotifier {
           'avatar': imagePath,
         });
         _updateProfileData(response['user']);
+        if (_disposed) return false;
         // Update AuthProvider's user data for consistency
         await _authProvider.updateUser(_profile!);
         return true;
@@ -208,6 +235,7 @@ class ProfileProvider with ChangeNotifier {
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           _updateProfileData(data['profile']);
+          if (_disposed) return false;
           // Update AuthProvider's user data for consistency
           await _authProvider.updateUser(_profile!);
           return true;
@@ -215,6 +243,7 @@ class ProfileProvider with ChangeNotifier {
           final data = json.decode(response.body);
           _error = data['message'] ?? 'Failed to update profile picture';
           notifyListeners();
+          if (_disposed) return false;
           return false;
         }
       }
@@ -236,8 +265,9 @@ class ProfileProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_profileKey);
     } catch (e) {
-      print('Error clearing profile: $e');
+      // print('Error clearing profile: \$e');
     }
+    if (_disposed) return;
     notifyListeners();
   }
 }

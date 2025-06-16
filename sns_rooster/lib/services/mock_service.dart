@@ -79,6 +79,18 @@ final List<Map<String, dynamic>> _mockUsers = [
     "lastLogin": "2023-10-01T12:00:00Z",
     "avatar": "assets/images/sample_avatar.png",
     "password": "adminpass2"
+  },
+  {
+    "_id": "mock_admin",
+    "name": "Admin User",
+    "email": "admin@snsrooster.com",
+    "password": "admin123",
+    "role": "admin",
+    "department": "Management",
+    "position": "Administrator",
+    "isActive": true,
+    "isProfileComplete": true,
+    "lastLogin": "2023-10-01T12:00:00Z"
   }
 ];
 
@@ -288,17 +300,26 @@ void resetMockAttendance() {
 // --- Mock Service ---
 
 // Set this flag to true to use mock data (for frontend development) or false to use real API calls.
-const bool useMock = false;
+const bool useMock = false; // Set to false to use real API calls
 
 // --- Mock Auth Service ---
 
 class MockAuthService {
+  Future<bool> sendPasswordResetEmail(String email) async {
+    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
+    final user = _mockUsers.firstWhere(
+      (u) => u['email'] == email,
+      orElse: () => {}, // Return an empty map instead of null
+    );
+    return user.isNotEmpty; // Simulate success if user exists
+  }
+
   Future<Map<String, dynamic>?> login(String email, String password) async {
     await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
 
     final user = _mockUsers.firstWhere(
       (u) => u['email'] == email && u['password'] == password,
-      orElse: () => {},
+      orElse: () => {}, // Return an empty map instead of null
     );
 
     if (user.isNotEmpty) {
@@ -329,69 +350,17 @@ class MockAuthService {
       "_id": newUserId,
       "name": name,
       "email": email,
+      "password": password,
       "role": role,
       "department": department,
       "position": position,
       "isActive": true,
       "isProfileComplete": true,
       "lastLogin": DateTime.now().toIso8601String(),
-      "avatar": "assets/images/sample_avatar.png",
-      "password": password,
     };
 
     _mockUsers.add(newUser); // Add the new user to mock data
-
-    // Generate a mock JWT with a valid structure (header.payload.signature)
-    final String header = base64Url
-        .encode(utf8.encode(json.encode({"alg": "HS256", "typ": "JWT"})));
-    final int expirationTime =
-        DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch ~/
-            1000;
-    final String payload = base64Url
-        .encode(utf8.encode(json.encode({...newUser, "exp": expirationTime})));
-    final String token = "$header.$payload.mock_signature";
-
-    return {'success': true, 'user': newUser, 'token': token};
-  }
-
-  Future<bool> sendPasswordResetEmail(String email) async {
-    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
-    return true;
-  }
-
-  Future<void> logout() async {
-    if (useMock) {
-      // Simulate a delay to mimic a network call
-      await Future.delayed(const Duration(milliseconds: 500));
-      // Clear any mock session data if needed
-      return;
-    } else {
-      // TODO: Replace with real API call (e.g., POST /api/auth/logout).
-      throw UnimplementedError("Real API call not implemented.");
-    }
-  }
-
-  Future<Map<String, dynamic>> register(String name, String email,
-      String password, String role, String department, String position) async {
-    if (useMock) {
-      await Future.delayed(const Duration(seconds: 1));
-      // Simulate a new user (in a real app, the backend would assign an _id).
-      final newUser = {
-        "_id": "new_mock_user",
-        "name": name,
-        "email": email,
-        "role": role,
-        "department": department,
-        "position": position,
-        "isActive": true,
-        "isProfileComplete": false,
-        "lastLogin": null
-      };
-      return {"message": "User created successfully", "user": newUser};
-    } else {
-      // TODO: Replace with real API call (e.g., POST /api/auth/register).
-      throw UnimplementedError("Real API call not implemented.");
-    }
+    return newUser;
   }
 }
 
@@ -513,6 +482,10 @@ class MockEmployeeService {
       await Future.delayed(const Duration(seconds: 1));
       // Simulate updating the profile (in a real app, the backend would update the user).
       _mockUser.addAll(updates); // Update the global _mockUser object
+      // Recalculate isProfileComplete based on required fields
+      final requiredFields = ['name', 'email', 'phone', 'address', 'department', 'position'];
+      bool complete = requiredFields.every((field) => _mockUser[field] != null && _mockUser[field].toString().trim().isNotEmpty);
+      _mockUser['isProfileComplete'] = complete;
       return {"message": "Profile updated successfully", "user": _mockUser};
     } else {
       // TODO: Replace with real API call (e.g., PATCH /api/me).

@@ -2,40 +2,33 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 /// API Configuration for SNS Rooster App
-/// 
+///
 /// This class manages API endpoints for different environments and platforms.
 /// It automatically detects the platform and provides the appropriate base URL.
 class ApiConfig {
   // Network Configuration - Update these IPs based on your setup
-  static const String homeIP = '10.0.2.2';         // Android emulator maps to host localhost
-  static const String officeIP = '10.0.0.45';      // Your office network IP (update this!)
+  static const String homeIP =
+      '10.0.2.2'; // Android emulator maps to host localhost
+  static const String officeIP =
+      '10.0.0.45'; // Your office network IP (update this!)
   static const String port = '5000';
-  
+
   /// Get the appropriate base URL based on platform and environment
   static String get baseUrl {
     if (kIsWeb) {
       // Web platform always uses localhost
       return 'http://localhost:$port/api';
-    } else if (Platform.isAndroid) {
-      // Android can use environment variable or default to home IP
-      String ip = const String.fromEnvironment('API_HOST', defaultValue: homeIP);
+    } else if (Platform.isAndroid || Platform.isIOS) {
+      // For physical devices, use the host machine's IP address
+      String ip = const String.fromEnvironment('API_HOST',
+          defaultValue: '192.168.1.80'); // Replace with actual IP
       return 'http://$ip:$port/api';
-    } else if (Platform.isIOS) {
-      // iOS simulator uses localhost, device uses environment variable
-      if (kDebugMode) {
-        // In debug mode (simulator), use localhost
-        return 'http://localhost:$port/api';
-      } else {
-        // On physical device, use environment variable or home IP
-        String ip = const String.fromEnvironment('API_HOST', defaultValue: homeIP);
-        return 'http://$ip:$port/api';
-      }
     } else {
       // Default for other platforms (desktop, etc.)
       return 'http://localhost:$port/api';
     }
   }
-  
+
   /// Get base URL for specific environment
   static String getBaseUrlForEnvironment(Environment env) {
     String ip;
@@ -51,7 +44,7 @@ class ApiConfig {
     }
     return 'http://$ip:$port/api';
   }
-  
+
   /// Get the current environment based on IP detection
   static Environment getCurrentEnvironment() {
     final currentUrl = baseUrl;
@@ -63,22 +56,22 @@ class ApiConfig {
       return Environment.localhost;
     }
   }
-  
+
   /// Check if the current configuration is for localhost
   static bool get isLocalhost {
     return baseUrl.contains('localhost');
   }
-  
+
   /// Check if the current configuration is for home network
   static bool get isHomeNetwork {
     return baseUrl.contains(homeIP);
   }
-  
+
   /// Check if the current configuration is for office network
   static bool get isOfficeNetwork {
     return baseUrl.contains(officeIP);
   }
-  
+
   /// Get platform-specific information for debugging
   static Map<String, dynamic> get debugInfo {
     return {
@@ -112,7 +105,7 @@ extension EnvironmentExtension on Environment {
         return 'Localhost';
     }
   }
-  
+
   String get emoji {
     switch (this) {
       case Environment.home:
