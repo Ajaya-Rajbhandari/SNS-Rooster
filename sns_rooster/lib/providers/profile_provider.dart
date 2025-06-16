@@ -14,6 +14,7 @@ class ProfileProvider with ChangeNotifier {
   String? _error;
   static const String _profileKey = 'user_profile';
   bool _disposed = false;
+  DateTime? _lastUpdated;
 
   // Instantiate the mock service
   final MockEmployeeService _mockEmployeeService = MockEmployeeService();
@@ -28,6 +29,7 @@ class ProfileProvider with ChangeNotifier {
   Map<String, dynamic>? get profile => _profile;
   bool get isLoading => _isLoading;
   bool get isInitialized => _isInitialized;
+  DateTime? get lastUpdated => _lastUpdated;
   String? get error => _error;
 
   Future<void> _initializeProfile() async {
@@ -96,6 +98,7 @@ class ProfileProvider with ChangeNotifier {
     _profile = newProfile;
     _error = null;
     _isInitialized = true;
+    _lastUpdated = DateTime.now();
     _saveProfileToPrefs();
     if (_disposed) return;
     notifyListeners();
