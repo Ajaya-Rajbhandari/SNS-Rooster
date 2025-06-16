@@ -52,6 +52,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  avatar: {
+    type: String, // File path or URL
+    trim: true,
+  },
   passport: {
     type: String, // File path or URL
     trim: true,

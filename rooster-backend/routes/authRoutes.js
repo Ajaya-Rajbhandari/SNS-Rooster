@@ -1,9 +1,13 @@
 const express = require('express');
-const router = express.Router();
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const upload = require('../middleware/upload');
+const path = require('path');
+const fs = require('fs');
+const router = express.Router();
 
 // Login route
 router.post('/login', async (req, res) => {
@@ -298,6 +302,47 @@ router.delete('/users/:id', auth, async (req, res) => {
   } catch (error) {
     console.error('User deletion error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Upload profile picture
+router.post('/users/profile/picture', auth, upload.single('profilePicture'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Delete old avatar file if it exists
+    if (user.avatar) {
+      const oldAvatarPath = path.join(__dirname, '../uploads/avatars', path.basename(user.avatar));
+      if (fs.existsSync(oldAvatarPath)) {
+        fs.unlinkSync(oldAvatarPath);
+      }
+    }
+
+    // Update user with new avatar path
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    user.avatar = avatarUrl;
+    await user.save();
+
+    res.json({
+      message: 'Profile picture updated successfully',
+      profile: user.getPublicProfile()
+    });
+  } catch (error) {
+    console.error('Profile picture upload error:', error);
+    
+    // Clean up uploaded file if there was an error
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    res.status(500).json({ message: 'Server error during file upload' });
   }
 });
 

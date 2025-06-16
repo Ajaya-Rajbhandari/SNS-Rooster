@@ -9,6 +9,8 @@ class ApiConfig {
   // Network Configuration - Update these IPs based on your setup
   static const String homeIP =
       '10.0.2.2'; // Android emulator maps to host localhost
+  static const String fallbackIP =
+      '192.168.1.72'; // Actual machine IP as fallback
   static const String officeIP =
       '10.0.0.45'; // Your office network IP (update this!)
   static const String port = '5000';
@@ -19,10 +21,11 @@ class ApiConfig {
       // Web platform always uses localhost
       return 'http://localhost:$port/api';
     } else if (Platform.isAndroid || Platform.isIOS) {
+      // For emulator, try fallback IP if 10.0.2.2 doesn't work
       // For physical devices, use the host machine's IP address
       String ip = const String.fromEnvironment('API_HOST',
-          defaultValue: '192.168.1.80'); // Replace with actual IP
-      return 'http://$ip:$port/api';
+          defaultValue: fallbackIP); // Use fallbackIP for better connectivity
+      return 'http://$ip:$port/api'; // Added /api here
     } else {
       // Default for other platforms (desktop, etc.)
       return 'http://localhost:$port/api';

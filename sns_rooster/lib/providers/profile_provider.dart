@@ -194,6 +194,7 @@ class ProfileProvider with ChangeNotifier {
       return false;
     } finally {
       _isLoading = false;
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -223,7 +224,7 @@ class ProfileProvider with ChangeNotifier {
       } else {
         var request = http.MultipartRequest(
           'POST',
-          Uri.parse('${ApiConfig.baseUrl}/users/profile/picture'),
+          Uri.parse('${ApiConfig.baseUrl}/auth/users/profile/picture'),
         );
 
         request.headers['Authorization'] = 'Bearer ${_authProvider.token}';
@@ -256,6 +257,7 @@ class ProfileProvider with ChangeNotifier {
       return false;
     } finally {
       _isLoading = false;
+      notifyListeners();
     }
   }
 
