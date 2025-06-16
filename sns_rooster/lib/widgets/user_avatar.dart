@@ -1,85 +1,97 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart'; // Added import
 import 'package:flutter/material.dart';
 import '../config/api_config.dart';
 
 class UserAvatar extends StatelessWidget {
   final String? avatarUrl;
   final double radius;
+  final VoidCallback? onTap; // Added onTap callback
 
-  const UserAvatar({Key? key, this.avatarUrl, this.radius = 40})
-      : super(key: key);
+  const UserAvatar({
+    super.key, // Changed to super.key
+    this.avatarUrl,
+    this.radius = 40, // Default radius to 40 as in original
+    this.onTap,
+  }) ;
 
   @override
   Widget build(BuildContext context) {
+    Widget avatarChild;
+
     if (avatarUrl == null || avatarUrl!.isEmpty) {
-      return Container(
-        width: radius * 2,
-        height: radius * 2,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          color: Color(0xFFE0E0E0),
-        ),
-        child: Icon(
-          Icons.person,
-          size: radius,
-          color: const Color(0xFF9E9E9E),
-        ),
-      );
+      avatarChild = Icon(Icons.person, size: radius, color: Colors.grey[400]);
     } else if (avatarUrl!.startsWith('http')) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundImage: NetworkImage(avatarUrl!),
-        onBackgroundImageError: (exception, stackTrace) {
-          // Handle network image error
-        },
+      avatarChild = CachedNetworkImage(
+        imageUrl: avatarUrl!,
+        placeholder: (context, url) => CircleAvatar(
+          radius: radius,
+          backgroundColor: Colors.grey[200],
+          child: Icon(Icons.person, size: radius, color: Colors.grey[400]),
+        ),
+        errorWidget: (context, url, error) => CircleAvatar(
+          radius: radius,
+          backgroundColor: Colors.red[100],
+          child: Icon(Icons.error_outline, size: radius, color: Colors.red[700]),
+        ),
+        imageBuilder: (context, imageProvider) => CircleAvatar(
+          radius: radius,
+          backgroundImage: imageProvider,
+        ),
       );
     } else if (avatarUrl!.startsWith('/uploads/')) {
-      // Server URL - construct full URL for static files (without /api)
+      // For static files, use base URL without /api prefix
       final baseUrlWithoutApi = ApiConfig.baseUrl.replaceAll('/api', '');
-      final fullUrl = '$baseUrlWithoutApi${avatarUrl!}';
-      print('UserAvatar: Loading image from: $fullUrl');
-      return CircleAvatar(
-        radius: radius,
-        backgroundImage: NetworkImage(fullUrl),
-        onBackgroundImageError: (exception, stackTrace) {
-          print('UserAvatar: Failed to load image from $fullUrl');
-          print('UserAvatar: Error: $exception');
-          print('UserAvatar: Stack trace: $stackTrace');
-          // Optionally, you could return a placeholder widget here if the image fails to load
-          // For example:
-          // return Container(
-          //   width: radius * 2,
-          //   height: radius * 2,
-          //   decoration: const BoxDecoration(
-          //     shape: BoxShape.circle,
-          //     color: Color(0xFFE0E0E0),
-          //   ),
-          //   child: Icon(
-          //     Icons.person,
-          //     size: radius,
-          //     color: const Color(0xFF9E9E9E),
-          //   ),
-          // );
-        },
-        // Removed the child property here as CircleAvatar with backgroundImage doesn't typically use it.
-        // The placeholder logic should be handled in onBackgroundImageError or by returning a different widget.
+      final fullUrl = '$baseUrlWithoutApi$avatarUrl';
+      avatarChild = CachedNetworkImage(
+        imageUrl: fullUrl,
+        placeholder: (context, url) => CircleAvatar(
+          radius: radius,
+          backgroundColor: Colors.grey[200],
+          child: Icon(Icons.person, size: radius, color: Colors.grey[400]),
+        ),
+        errorWidget: (context, url, error) => CircleAvatar(
+          radius: radius,
+          backgroundColor: Colors.red[100],
+          child: Icon(Icons.error_outline, size: radius, color: Colors.red[700]),
+        ),
+        imageBuilder: (context, imageProvider) => CircleAvatar(
+          radius: radius,
+          backgroundImage: imageProvider,
+        ),
       );
     } else if (avatarUrl!.startsWith('file://')) {
-      return CircleAvatar(
+      avatarChild = CircleAvatar(
         radius: radius,
         backgroundImage: FileImage(File(avatarUrl!.replaceFirst('file://', ''))),
-        onBackgroundImageError: (exception, stackTrace) {
-          // Handle file image error
-        },
       );
     } else {
-      return CircleAvatar(
-        radius: radius,
-        backgroundImage: AssetImage(avatarUrl!),
-        onBackgroundImageError: (exception, stackTrace) {
-          // Handle asset image error
-        },
-      );
+      // Assume it's an asset path
+      try {
+        avatarChild = CircleAvatar(
+          radius: radius,
+          backgroundImage: AssetImage(avatarUrl!),
+        );
+      } catch (e) {
+        avatarChild = CircleAvatar(
+          radius: radius,
+          backgroundColor: Colors.orange[100],
+          child: Icon(Icons.broken_image, size: radius, color: Colors.orange[700]),
+        );
+      }
     }
+
+    // Return a GestureDetector if onTap is provided, otherwise just the avatarChild in a CircleAvatar container
+    // This structure ensures the circular shape and tap functionality.
+    return GestureDetector(
+      onTap: onTap,
+      child: CircleAvatar(
+        radius: radius,
+        backgroundColor: Colors.transparent, // Important for CachedNetworkImage's CircleAvatar to show
+        child: ClipOval( // Ensures the child (which might be rectangular from CachedNetworkImage) is clipped to a circle
+          child: avatarChild,
+        ),
+      ),
+    );
   }
 }

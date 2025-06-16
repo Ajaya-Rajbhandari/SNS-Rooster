@@ -287,20 +287,13 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
         ],
       ),
       drawer: const AppDrawer(),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-              child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: constraints.maxHeight,
-            ),
-            child: IntrinsicHeight(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0, vertical: 24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+          child: SingleChildScrollView(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                     // Redesigned Header
                     Container(
                       decoration: BoxDecoration(
@@ -328,8 +321,9 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
                           const SizedBox(width: 18),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: <Widget>[
                                 Text(
                                   'Welcome Back,',
                                   style: Theme.of(context)
@@ -477,7 +471,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
                         final screenWidth = MediaQuery.of(context).size.width;
                         final isTablet = screenWidth > 600;
                         final crossAxisCount = isTablet ? 3 : 2;
-                        final childAspectRatio = isTablet ? 2.5 : 2.2;
+                        final childAspectRatio = isTablet ? 2.1 : 1.9;
 
                         return Column(
                           children: [
@@ -516,17 +510,10 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
                                   Expanded(
                                     child: _buildQuickActionCard(
                                       context,
-                                      icon: _isOnBreak
-                                          ? Icons.stop_circle
-                                          : Icons.free_breakfast,
-                                      label: _isOnBreak
-                                          ? 'End Break'
-                                          : 'Start Break',
-                                      color: _isOnBreak
-                                          ? const Color(0xFFED8936)
-                                          : const Color(0xFF718096),
-                                      onPressed:
-                                          _isOnBreak ? _endBreak : _startBreak,
+                                      icon: _isOnBreak ? Icons.stop_circle : Icons.free_breakfast,
+                                      label: _isOnBreak ? 'End Break' : 'Start Break',
+                                      color: _isOnBreak ? const Color(0xFFED8936) : const Color(0xFF718096),
+                                      onPressed: _isOnBreak ? _endBreak : _startBreak,
                                     ),
                                   ),
                                 ],
@@ -535,52 +522,45 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
                             const SizedBox(height: 16),
 
                             // Other Actions Grid
-                            SizedBox(
-                              height: 120,
-                              child: GridView.count(
-                                crossAxisCount: crossAxisCount,
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                mainAxisSpacing: 12,
-                                crossAxisSpacing: 12,
-                                childAspectRatio: childAspectRatio,
-                                children: [
-                                  _buildQuickActionCard(
-                                    context,
-                                    icon: Icons.calendar_today,
-                                    label: 'Apply Leave',
-                                    color: const Color(0xFF3182CE),
-                                    onPressed: () => _applyLeave(context),
-                                  ),
-                                  _buildQuickActionCard(
-                                    context,
-                                    icon: Icons.access_time,
-                                    label: 'Timesheet',
-                                    color: const Color(0xFF805AD5),
-                                    onPressed: () => _openTimesheet(context),
-                                  ),
-                                  if (isTablet)
-                                    _buildQuickActionCard(
-                                      context,
-                                      icon: Icons.person,
-                                      label: 'Profile',
-                                      color: const Color(0xFF319795),
-                                      onPressed: () => _openProfile(context),
-                                    ),
-                                ],
-                              ),
+                            GridView.count(
+                              crossAxisCount: crossAxisCount,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              mainAxisSpacing: 12,
+                              crossAxisSpacing: 12,
+                              childAspectRatio: childAspectRatio,
+                              children: [
+                                _buildQuickActionCard(
+                                  context,
+                                  icon: Icons.calendar_today,
+                                  label: 'Apply Leave',
+                                  color: const Color(0xFF3182CE),
+                                  onPressed: () => _applyLeave(context),
+                                ),
+                                _buildQuickActionCard(
+                                  context,
+                                  icon: Icons.access_time,
+                                  label: 'Timesheet',
+                                  color: const Color(0xFF805AD5),
+                                  onPressed: () => _openTimesheet(context),
+                                ),
+                                _buildQuickActionCard(
+                                  context,
+                                  icon: Icons.person,
+                                  label: 'Profile',
+                                  color: const Color(0xFF319795),
+                                  onPressed: () => _openProfile(context),
+                                ),
+                              ],
                             ),
                           ],
                         );
                       },
                     ),
-                    const Spacer(),
-                  ],
-                ),
-              ),
+                ],
             ),
-          ));
-        },
+          ),
+        ),
       ),
     );
   }

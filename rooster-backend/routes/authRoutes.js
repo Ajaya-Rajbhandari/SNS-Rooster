@@ -307,38 +307,72 @@ router.delete('/users/:id', auth, async (req, res) => {
 
 // Upload profile picture
 router.post('/users/profile/picture', auth, upload.single('profilePicture'), async (req, res) => {
+  console.log('=== PROFILE PICTURE UPLOAD START ===');
+  console.log('Request received for profile picture upload');
+  console.log('User ID:', req.user?.userId);
+  console.log('File received:', req.file ? 'YES' : 'NO');
+  
+  if (req.file) {
+    console.log('File details:', {
+      filename: req.file.filename,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      path: req.file.path,
+      destination: req.file.destination
+    });
+  }
+  
   try {
     if (!req.file) {
+      console.log('ERROR: No file uploaded');
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
     const user = await User.findById(req.user.userId);
     if (!user) {
+      console.log('ERROR: User not found');
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Delete old avatar file if it exists
-    if (user.avatar) {
-      const oldAvatarPath = path.join(__dirname, '../uploads/avatars', path.basename(user.avatar));
+    console.log('User found:', user.email);
+    console.log('Current avatar:', user.avatar);
+
+    // Store old avatar info before updating
+    const oldAvatarPath = user.avatar ? path.join(__dirname, '../uploads/avatars', path.basename(user.avatar)) : null;
+    
+    // Update user with new avatar path first
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    console.log('New avatar URL:', avatarUrl);
+    console.log('File saved to:', req.file.path);
+    
+    user.avatar = avatarUrl;
+    await user.save();
+    console.log('User avatar updated in database');
+
+    // Delete old avatar file if it exists (after successful database update)
+    if (oldAvatarPath) {
+      console.log('Checking old avatar path:', oldAvatarPath);
       if (fs.existsSync(oldAvatarPath)) {
+        console.log('Deleting old avatar file');
         fs.unlinkSync(oldAvatarPath);
+      } else {
+        console.log('Old avatar file does not exist');
       }
     }
 
-    // Update user with new avatar path
-    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
-    user.avatar = avatarUrl;
-    await user.save();
-
+    console.log('=== PROFILE PICTURE UPLOAD SUCCESS ===');
     res.json({
       message: 'Profile picture updated successfully',
       profile: user.getPublicProfile()
     });
   } catch (error) {
+    console.error('=== PROFILE PICTURE UPLOAD ERROR ===');
     console.error('Profile picture upload error:', error);
     
     // Clean up uploaded file if there was an error
     if (req.file && fs.existsSync(req.file.path)) {
+      console.log('Cleaning up uploaded file due to error');
       fs.unlinkSync(req.file.path);
     }
     
