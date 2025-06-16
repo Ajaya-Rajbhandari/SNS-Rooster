@@ -97,7 +97,14 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with 
   @override
   void didPopNext() {
     // Called when coming back to this screen
-    Provider.of<ProfileProvider>(context, listen: false).refreshProfile();
+    // Only refresh if profile data might be stale (e.g., after 5 minutes)
+    final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+    final lastUpdate = profileProvider.lastUpdated;
+    final now = DateTime.now();
+    
+    if (lastUpdate == null || now.difference(lastUpdate).inMinutes > 5) {
+      profileProvider.refreshProfile();
+    }
     setState(() {});
   }
 
