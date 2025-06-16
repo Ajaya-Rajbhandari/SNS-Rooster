@@ -28,7 +28,8 @@ class EmployeeDashboardScreen extends StatefulWidget {
       _EmployeeDashboardScreenState();
 }
 
-class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with RouteAware {
+class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
+    with RouteAware {
   bool _isClockedIn = false;
   bool _isOnBreak = false;
   bool _profileDialogShown = false;
@@ -43,9 +44,12 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with 
       Provider.of<ProfileProvider>(context, listen: false);
       // print('DEBUG: ProfileProvider is accessible in EmployeeDashboardScreen');
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+        final profileProvider =
+            Provider.of<ProfileProvider>(context, listen: false);
         final profile = profileProvider.profile;
-        if (profile != null && profile['isProfileComplete'] == false && !_profileDialogShown) {
+        if (profile != null &&
+            profile['isProfileComplete'] == false &&
+            !_profileDialogShown) {
           setState(() {
             _profileDialogShown = true;
           });
@@ -53,7 +57,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with 
             context: context,
             builder: (ctx) => AlertDialog(
               title: const Text('Complete Your Profile'),
-              content: const Text('For your safety and to access all features, please complete your profile information.'),
+              content: const Text(
+                  'For your safety and to access all features, please complete your profile information.'),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
@@ -89,7 +94,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with 
   @override
   void dispose() {
     // Unsubscribe from route changes
-    final routeObserver = Provider.of<RouteObserver<ModalRoute<void>>>(context, listen: false);
+    final routeObserver =
+        Provider.of<RouteObserver<ModalRoute<void>>>(context, listen: false);
     routeObserver.unsubscribe(this);
     super.dispose();
   }
@@ -98,10 +104,11 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with 
   void didPopNext() {
     // Called when coming back to this screen
     // Only refresh if profile data might be stale (e.g., after 5 minutes)
-    final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
     final lastUpdate = profileProvider.lastUpdated;
     final now = DateTime.now();
-    
+
     if (lastUpdate == null || now.difference(lastUpdate).inMinutes > 5) {
       profileProvider.refreshProfile();
     }
@@ -235,7 +242,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with 
   }
 
   // Add network connectivity check
-   /// Indicates whether the device is currently connected to a network.
+  /// Indicates whether the device is currently connected to a network.
   /// This is updated by [_checkNetworkConnectivity] and reflected in the app bar icon.
   bool _isConnected = true; // Assume connected by default
 
@@ -324,22 +331,39 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with 
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Welcome Back, ${profile != null ? '${profile['firstName'] ?? ''} ${profile['lastName'] ?? ''}'.trim() : 'Guest'}',
+                                  'Welcome Back,',
                                   style: Theme.of(context)
                                       .textTheme
-                                      .titleLarge
+                                      .titleMedium
+                                      ?.copyWith(
+                                        color: Colors.white70,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  profile != null
+                                      ? '${profile['firstName'] ?? ''} ${profile['lastName'] ?? ''}'
+                                          .trim()
+                                      : 'Guest',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
                                       ?.copyWith(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
                                       ),
                                 ),
+                                const SizedBox(height: 2),
                                 Text(
-                                  profile?['role'] ?? '',
+                                  _capitalizeFirstLetter(
+                                      profile?['role'] ?? ''),
                                   style: Theme.of(context)
                                       .textTheme
                                       .bodyMedium
                                       ?.copyWith(
                                         color: Colors.white70,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                 ),
                               ],
@@ -382,7 +406,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with 
                                 ),
                                 const Spacer(),
                                 StreamBuilder(
-                                  stream: Stream.periodic(const Duration(seconds: 1)),
+                                  stream: Stream.periodic(
+                                      const Duration(seconds: 1)),
                                   builder: (context, snapshot) {
                                     final now = TimeOfDay.now();
                                     return Text(
@@ -446,83 +471,109 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with 
                           .titleMedium
                           ?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _isClockedIn ? _clockOut : _clockIn,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  _isClockedIn ? Colors.red : Colors.green,
-                              minimumSize: const Size(0, 52),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
-                            ),
-                            icon: Icon(
-                                _isClockedIn ? Icons.logout : Icons.login,
-                                color: Colors.white),
-                            label:
-                                Text(_isClockedIn ? 'Clock Out' : 'Clock In'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () => _applyLeave(context),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              minimumSize: const Size(0, 52),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
-                            ),
-                            icon: const Icon(Icons.calendar_today,
-                                color: Colors.white),
-                            label: const Text('Apply Leave'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () => _openTimesheet(context),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.indigo,
-                              minimumSize: const Size(0, 52),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
-                            ),
-                            icon: const Icon(Icons.access_time,
-                                color: Colors.white),
-                            label: const Text('Timesheet'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (_isClockedIn)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _isOnBreak ? _endBreak : _startBreak,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    _isOnBreak ? Colors.orange : Colors.blueGrey,
-                                minimumSize: const Size(0, 48),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
+                    const SizedBox(height: 16),
+                    Builder(
+                      builder: (context) {
+                        final screenWidth = MediaQuery.of(context).size.width;
+                        final isTablet = screenWidth > 600;
+                        final crossAxisCount = isTablet ? 3 : 2;
+                        final childAspectRatio = isTablet ? 2.5 : 2.2;
+
+                        return Column(
+                          children: [
+                            // Clock In/Out Section (Always at top)
+                            if (!_isClockedIn)
+                              // Single Clock In button when not clocked in
+                              SizedBox(
+                                width: double.infinity,
+                                child: _buildQuickActionCard(
+                                  context,
+                                  icon: Icons.login,
+                                  label: 'Clock In',
+                                  color: const Color(0xFF38A169),
+                                  onPressed: _clockIn,
+                                  isFullWidth: true,
+                                ),
+                              )
+                            else
+                              // Clock Out and Break buttons when clocked in
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildQuickActionCard(
+                                      context,
+                                      icon: Icons.logout,
+                                      label: 'Clock Out',
+                                      color: _isOnBreak
+                                          ? const Color(0xFFB0B0B0)
+                                          : const Color(0xFFE53E3E),
+                                      onPressed: _isOnBreak
+                                          ? null
+                                          : _clockOut, // Disable when on break
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildQuickActionCard(
+                                      context,
+                                      icon: _isOnBreak
+                                          ? Icons.stop_circle
+                                          : Icons.free_breakfast,
+                                      label: _isOnBreak
+                                          ? 'End Break'
+                                          : 'Start Break',
+                                      color: _isOnBreak
+                                          ? const Color(0xFFED8936)
+                                          : const Color(0xFF718096),
+                                      onPressed:
+                                          _isOnBreak ? _endBreak : _startBreak,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              icon: Icon(
-                                  _isOnBreak ? Icons.stop_circle : Icons.free_breakfast,
-                                  color: Colors.white),
-                              label:
-                                  Text(_isOnBreak ? 'End Break' : 'Start Break'),
+
+                            const SizedBox(height: 16),
+
+                            // Other Actions Grid
+                            SizedBox(
+                              height: 120,
+                              child: GridView.count(
+                                crossAxisCount: crossAxisCount,
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                mainAxisSpacing: 12,
+                                crossAxisSpacing: 12,
+                                childAspectRatio: childAspectRatio,
+                                children: [
+                                  _buildQuickActionCard(
+                                    context,
+                                    icon: Icons.calendar_today,
+                                    label: 'Apply Leave',
+                                    color: const Color(0xFF3182CE),
+                                    onPressed: () => _applyLeave(context),
+                                  ),
+                                  _buildQuickActionCard(
+                                    context,
+                                    icon: Icons.access_time,
+                                    label: 'Timesheet',
+                                    color: const Color(0xFF805AD5),
+                                    onPressed: () => _openTimesheet(context),
+                                  ),
+                                  if (isTablet)
+                                    _buildQuickActionCard(
+                                      context,
+                                      icon: Icons.person,
+                                      label: 'Profile',
+                                      color: const Color(0xFF319795),
+                                      onPressed: () => _openProfile(context),
+                                    ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        );
+                      },
+                    ),
                     const Spacer(),
                   ],
                 ),
@@ -547,6 +598,95 @@ void _openTimesheet(BuildContext context) {
   // Implement timesheet opening logic here
   ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(content: Text('Timesheet feature coming soon!')),
+  );
+}
+
+// Helper method to capitalize first letter
+String _capitalizeFirstLetter(String text) {
+  if (text.isEmpty) return text;
+  return text[0].toUpperCase() + text.substring(1).toLowerCase();
+}
+
+// Helper method to build quick action cards
+Widget _buildQuickActionCard(
+  BuildContext context, {
+  required IconData icon,
+  required String label,
+  required Color color,
+  VoidCallback? onPressed,
+  bool isFullWidth = false,
+}) {
+  final isDisabled = onPressed == null;
+  final cardColor = isDisabled ? color.withOpacity(0.5) : color;
+
+  return Card(
+    elevation: isDisabled ? 1 : 3,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        height: isFullWidth ? 80 : null,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [cardColor, cardColor.withOpacity(0.8)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: isFullWidth
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ],
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+      ),
+    ),
+  );
+}
+
+void _openProfile(BuildContext context) {
+  // Implement profile opening logic here
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Profile feature coming soon!')),
   );
 }
 
