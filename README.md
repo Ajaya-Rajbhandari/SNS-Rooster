@@ -49,6 +49,7 @@ SNS-Rooster-app/
 - **Role-based Access**: Admin, Manager, and Employee roles
 - **Attendance Tracking**: Clock in/out functionality
 - **Employee Management**: Comprehensive employee data handling
+- **Profile Management**: Complete profile editing with image upload
 - **Authentication**: Secure JWT-based authentication
 - **Cross-platform**: Works on Android, iOS, and Web
 
@@ -149,3 +150,20 @@ For issues and questions:
 2. Review the [development setup guide](docs/DEVELOPMENT_SETUP.md)
 3. Test network connectivity with provided scripts
 4. Create an issue with detailed information
+
+## Recent Updates
+
+### Profile System Enhancements (Latest)
+- **Backend**: Updated profile update endpoint to accept `firstName` and `lastName` fields
+- **Backend**: Added backward compatibility for legacy `name` field
+- **Frontend**: Fixed duplicate email fields in profile screen
+- **Frontend**: Implemented profile image upload and display functionality
+- **Frontend**: Updated user avatar widget with image support and fallback initials
+- **Frontend**: Updated app drawer to display full name using `firstName` and `lastName`
+- **Dependencies**: Added `image_picker` for profile image selection
+
+### Previous Updates
+- Fixed `/api/auth/me` endpoint for profile fetching
+- Updated `auth.js` middleware for better token validation
+- Enhanced error handling for profile fetching
+- Verified API endpoints with comprehensive testing

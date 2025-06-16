@@ -13,6 +13,27 @@ This document defines the data models and API contract for the SNS Rooster Emplo
   "role": "employee | admin",     // User role
   "department": "string",         // Department name
   "position": "string",           // Job title/position
+  "phone": "string",               // Phone number
+  "address": "string",             // Address
+  "emergencyContact": "string",    // Emergency contact name
+  "emergencyPhone": "string",      // Emergency contact phone
+  "passport": "string",            // Passport file path or URL
+  "education": [
+    {
+      "institution": "string",
+      "degree": "string",
+      "fieldOfStudy": "string",
+      "startDate": "YYYY-MM-DD",
+      "endDate": "YYYY-MM-DD",
+      "certificate": "string" // File path or URL
+    }
+  ],
+  "certificates": [
+    {
+      "name": "string",
+      "file": "string" // File path or URL
+    }
+  ],
   "isActive": true,                // Is the user active?
   "isProfileComplete": true,       // Has the user completed their profile?
   "lastLogin": "2023-10-01T12:00:00Z", // Last login (ISO8601)
@@ -100,4 +121,4 @@ This document defines the data models and API contract for the SNS Rooster Emplo
 
 ---
 
-_Last updated: 2024-06-09_ 
+_Last updated: 2024-06-09_

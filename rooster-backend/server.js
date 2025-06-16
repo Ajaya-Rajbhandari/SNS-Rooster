@@ -41,6 +41,25 @@ app.use((err, req, res, next) => {
 // Start server
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '0.0.0.0'; // Listen on all network interfaces
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(`Server is running on ${HOST}:${PORT}`);
 });
+
+console.log('SERVER: Initializing routes');
+console.log('SERVER: MongoDB URI:', MONGODB_URI);
+
+// Close MongoDB connection on server close
+process.on('SIGINT', () => {
+  mongoose.connection.close(() => {
+    console.log('MongoDB connection closed');
+    process.exit(0);
+  });
+});
+
+process.on('exit', () => {
+  mongoose.connection.close(() => {
+    console.log('MongoDB connection closed');
+  });
+});
+
+module.exports = server;

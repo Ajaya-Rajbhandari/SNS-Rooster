@@ -97,11 +97,18 @@ class MockEmployeeService {
         "id": "mock_profile_id",
         "firstName": "Mock",
         "lastName": "ProfileUser",
+        "name": "Mock ProfileUser",
         "email": "profile@example.com",
+        "phone": "+1234567890",
+        "address": "123 Mock Street",
+        "emergencyContact": "Emergency Contact",
+        "emergencyPhone": "+0987654321",
         "employeeId": "PROF001",
         "hireDate": DateTime.now().toIso8601String(),
         "department": "General",
-        "position": "User"
+        "position": "User",
+        "role": "employee",
+        "isProfileComplete": true
       }
     };
   }
@@ -109,16 +116,25 @@ class MockEmployeeService {
   Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> updates) async {
     print("MockEmployeeService: updateProfile called with $updates - returning unimplemented stub");
     await Future.delayed(const Duration(milliseconds: 100));
+    String firstName = updates['firstName'] ?? "Mock";
+    String lastName = updates['lastName'] ?? "ProfileUserUpdated";
     return {
       "user": {
         "id": "mock_profile_id",
-        "firstName": updates['firstName'] ?? "Mock",
-        "lastName": updates['lastName'] ?? "ProfileUserUpdated",
+        "firstName": firstName,
+        "lastName": lastName,
+        "name": "$firstName $lastName",
         "email": updates['email'] ?? "profile@example.com",
+        "phone": updates['phone'] ?? "+1234567890",
+        "address": updates['address'] ?? "123 Mock Street",
+        "emergencyContact": updates['emergencyContact'] ?? "Emergency Contact",
+        "emergencyPhone": updates['emergencyPhone'] ?? "+0987654321",
         "employeeId": "PROF001",
         "hireDate": DateTime.now().toIso8601String(),
         "department": updates['department'] ?? "General",
-        "position": updates['position'] ?? "User"
+        "position": updates['position'] ?? "User",
+        "role": "employee",
+        "isProfileComplete": true
       }
     };
   }

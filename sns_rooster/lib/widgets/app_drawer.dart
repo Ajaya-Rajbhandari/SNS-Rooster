@@ -6,6 +6,11 @@ import '../widgets/user_avatar.dart'; // Assuming UserAvatar is a reusable widge
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
 
+  /// Extracted navigation logic to a reusable function
+  String navigateToRoute(String route, bool isAdmin) {
+    return route == '/' && !isAdmin ? '/employee_dashboard' : route;
+  }
+
   Widget _buildNavTile(
     BuildContext context, {
     required IconData icon,
@@ -23,10 +28,11 @@ class AppDrawer extends StatelessWidget {
       ),
       trailing: trailing,
       onTap: () {
+        print('APP_DRAWER: Closing drawer');
         Navigator.pop(context); // Close the drawer
         // For dashboard, use employee_dashboard route instead of '/'
-        final targetRoute =
-            route == '/' && !isAdmin ? '/employee_dashboard' : route;
+        final targetRoute = navigateToRoute(route, isAdmin);
+        print('APP_DRAWER: Navigating to route: $targetRoute');
         Navigator.pushReplacementNamed(context, targetRoute);
       },
     );
@@ -57,7 +63,9 @@ class AppDrawer extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  user?['name'] ?? 'Guest',
+                  user != null && user['firstName'] != null && user['lastName'] != null
+                      ? '${user['firstName']} ${user['lastName']}'
+                      : 'Guest',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -106,8 +114,12 @@ class AppDrawer extends StatelessWidget {
               'Logout',
               style: theme.textTheme.bodyLarge,
             ),
-            onTap: () => authProvider.logout(),
+            onTap: () {
+              authProvider.logout();
+              Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+            },
           ),
+          const Divider(),
         ],
       ),
     );

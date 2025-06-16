@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const Employee = require('../models/Employee');
+const authMiddleware = require('../middleware/auth');
 
 // Get all employees
 router.get('/', async (req, res) => {
@@ -84,4 +85,25 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-module.exports = router; 
+// Employee dashboard route
+router.get('/dashboard', async (req, res) => {
+  try {
+    console.log('DASHBOARD ROUTE: Returning mock data directly');
+    const mockData = {
+      tasks: ['Task 1', 'Task 2'],
+      notifications: ['Notification 1'],
+      stats: {
+        completedTasks: 10,
+        pendingTasks: 5,
+      },
+    };
+    res.status(200).json({ dashboardData: mockData });
+  } catch (error) {
+    console.error('DASHBOARD ROUTE: Error processing request:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+console.log('EMPLOYEE ROUTES: Registering /dashboard route');
+
+module.exports = router;

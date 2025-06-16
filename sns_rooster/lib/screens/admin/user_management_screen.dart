@@ -95,6 +95,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           }
         }
         print('Users loaded successfully: ${_users.length} users');
+      } else if (response.statusCode == 401) {
+        setState(() {
+          _error = 'Failed to load users: Unauthorized access. Please log in again.';
+          _isLoading = false;
+        });
+        // Navigate to login screen
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
       } else {
         print('Failed to load users. Status: ${response.statusCode}, Body: ${response.body}');
         if (showErrors) {

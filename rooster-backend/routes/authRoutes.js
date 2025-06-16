@@ -166,6 +166,58 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
+// Update current user profile
+router.patch('/me', auth, async (req, res) => {
+  try {
+    console.log('PATCH /me request body:', req.body);
+    console.log('Authenticated user:', req.user);
+
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      console.log('User not found');
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const updates = req.body;
+    const allowedUpdates = ['name', 'firstName', 'lastName', 'email', 'phone', 'address', 'emergencyContact', 'emergencyPhone'];
+    const isValidOperation = Object.keys(updates).every((update) => allowedUpdates.includes(update));
+
+    if (!isValidOperation) {
+      console.log('Invalid updates:', updates);
+      return res.status(400).json({ message: 'Invalid updates' });
+    }
+
+    // Prevent duplicate email errors
+    if (updates.email && updates.email !== user.email) {
+      const emailExists = await User.findOne({ email: updates.email });
+      if (emailExists) {
+        console.log('Duplicate email detected:', updates.email);
+        return res.status(400).json({ message: 'Email already exists' });
+      }
+    }
+
+    // Handle name field for backward compatibility
+    if (updates.name && !updates.firstName && !updates.lastName) {
+      const nameParts = updates.name.trim().split(' ');
+      updates.firstName = nameParts[0] || '';
+      updates.lastName = nameParts.slice(1).join(' ') || '';
+      delete updates.name;
+    }
+
+    Object.keys(updates).forEach((update) => {
+      user[update] = updates[update];
+    });
+
+    user.recalculateProfileComplete();
+    await user.save();
+    console.log('Updated user profile:', user);
+    res.json({ profile: user.getPublicProfile() });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get all users (admin/manager only, with optional role filter)
 router.get('/users', auth, async (req, res) => {
   try {
@@ -214,6 +266,7 @@ router.patch('/users/:id', auth, async (req, res) => {
     Object.keys(updates).forEach(update => {
       user[update] = updates[update];
     });
+    user.recalculateProfileComplete();
     await user.save();
 
     res.json({

@@ -20,7 +20,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = false;
 
   // Controllers for editable fields
-  final _nameController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
@@ -34,16 +35,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _loadUserData() {
-    final profileProvider =
-        Provider.of<ProfileProvider>(context, listen: false);
-    final profile = profileProvider.profile;
-    if (profile != null) {
-      _nameController.text = profile['name'] ?? '';
-      _emailController.text = profile['email'] ?? '';
-      _phoneController.text = profile['phone'] ?? '';
-      _addressController.text = profile['address'] ?? '';
-      _emergencyContactController.text = profile['emergencyContact'] ?? '';
-      _emergencyPhoneController.text = profile['emergencyPhone'] ?? '';
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final user = authProvider.user;
+    if (user != null) {
+      _firstNameController.text = user['firstName'] ?? '';
+      _lastNameController.text = user['lastName'] ?? '';
+      _emailController.text = user['email'] ?? '';
+      _phoneController.text = user['phone'] ?? '';
+      _addressController.text = user['address'] ?? '';
+      _emergencyContactController.text = user['emergencyContact'] ?? '';
+      _emergencyPhoneController.text = user['emergencyPhone'] ?? '';
     }
   }
 
@@ -100,8 +101,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
       // Update user data
+      final firstName = _firstNameController.text.trim();
+      final lastName = _lastNameController.text.trim();
       final updatedUser = {
-        'name': _nameController.text,
+        'firstName': firstName,
+        'lastName': lastName,
         'email': _emailController.text,
         'phone': _phoneController.text,
         'address': _addressController.text,
@@ -116,12 +120,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (success) {
         // Update AuthProvider's user data for consistency
         await authProvider.updateUser(profileProvider.profile!);
-
+        if (!mounted) return;
+        await profileProvider.refreshProfile();
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully')),
         );
         setState(() => _isEditing = false);
       } else {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content:
@@ -140,16 +147,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
-    _addressController.dispose();
-    _emergencyContactController.dispose();
-    _emergencyPhoneController.dispose();
-    super.dispose();
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -310,7 +308,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        profile?['name'] ?? 'Loading...',
+                        '${profile?['firstName'] ?? ''} ${profile?['lastName'] ?? ''}' == ' ' ? 'Loading...' : '${profile?['firstName'] ?? ''} ${profile?['lastName'] ?? ''}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 24,
@@ -380,22 +378,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _nameController,
-                                decoration: InputDecoration(
-                                  labelText: 'Full Name',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _firstNameController,
+                                      decoration: InputDecoration(
+                                        labelText: 'First Name',
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        prefixIcon: const Icon(Icons.person),
+                                      ),
+                                      enabled: _isEditing,
+                                      validator: (value) {
+                                        if (value == null || value.trim().isEmpty) {
+                                          return 'Please enter your first name';
+                                        }
+                                        return null;
+                                      },
+                                    ),
                                   ),
-                                  prefixIcon: const Icon(Icons.person),
-                                ),
-                                enabled: _isEditing,
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Please enter your name';
-                                  }
-                                  return null;
-                                },
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _lastNameController,
+                                      decoration: InputDecoration(
+                                        labelText: 'Last Name',
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        prefixIcon: const Icon(Icons.person_outline),
+                                      ),
+                                      enabled: _isEditing,
+                                      validator: (value) {
+                                        if (value == null || value.trim().isEmpty) {
+                                          return 'Please enter your last name';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 16),
                               TextFormField(
@@ -408,6 +432,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   prefixIcon: const Icon(Icons.email),
                                 ),
                                 enabled: _isEditing,
+                                keyboardType: TextInputType.emailAddress,
                                 validator: (value) {
                                   if (value == null || value.isEmpty) {
                                     return 'Please enter your email';
@@ -567,5 +592,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    _emergencyContactController.dispose();
+    _emergencyPhoneController.dispose();
+    super.dispose();
   }
 }

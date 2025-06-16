@@ -9,13 +9,9 @@ import 'package:sns_rooster/screens/employee/employee_dashboard_screen.dart';
 import 'package:sns_rooster/screens/leave/leave_request_screen.dart';
 import 'package:sns_rooster/screens/notification/notification_screen.dart';
 import 'package:sns_rooster/screens/admin/admin_dashboard_screen.dart';
-import 'package:sns_rooster/screens/admin/user_management_screen.dart';
-import 'package:sns_rooster/screens/admin/attendance_management_screen.dart';
-import 'package:sns_rooster/screens/admin/admin_timesheet_screen.dart';
 import 'package:sns_rooster/screens/auth/forgot_password_screen.dart';
 import 'package:sns_rooster/screens/employee/payroll_screen.dart';
 import 'package:sns_rooster/screens/employee/analytics_screen.dart';
-import 'package:sns_rooster/screens/home/home_screen.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
 import 'package:sns_rooster/providers/profile_provider.dart';
@@ -26,25 +22,31 @@ import 'package:sns_rooster/providers/payroll_provider.dart';
 import 'package:sns_rooster/providers/analytics_provider.dart';
 import 'package:sns_rooster/providers/holiday_provider.dart';
 import 'package:sns_rooster/providers/employee_provider.dart';
+import 'package:sns_rooster/services/employee_service.dart';
 
 void main() {
+  print('MAIN: Initializing navigatorKey');
+  print('MAIN: Starting MyApp with AuthProvider');
   runApp(const MyApp());
 }
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    print('MAIN: Building MaterialApp with navigatorKey');
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProxyProvider<AuthProvider, ProfileProvider>(
-          create: (context) => ProfileProvider(
-            Provider.of<AuthProvider>(context, listen: false),
-          ),
-          update: (context, auth, previous) => ProfileProvider(auth),
-        ),
+        ChangeNotifierProvider(create: (context) {
+          final authProvider = AuthProvider();
+          final profileProvider = ProfileProvider(authProvider);
+          authProvider.setProfileProvider(profileProvider);
+          return authProvider;
+        }),
         ChangeNotifierProxyProvider<AuthProvider, AttendanceProvider>(
           create: (context) => AttendanceProvider(
             Provider.of<AuthProvider>(context, listen: false),
@@ -67,88 +69,54 @@ class MyApp extends StatelessWidget {
           update: (context, auth, previous) => AnalyticsProvider(auth),
         ),
         ChangeNotifierProvider(create: (_) => HolidayProvider()),
-        ChangeNotifierProvider(create: (_) => EmployeeProvider()),
+        ChangeNotifierProvider(create: (context) {
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          final employeeService = EmployeeService(authProvider);
+          return EmployeeProvider(employeeService);
+        }),
+        ChangeNotifierProxyProvider<AuthProvider, ProfileProvider>(
+          create: (context) {
+            print('DEBUG: Initializing ProfileProvider');
+            return ProfileProvider(
+              Provider.of<AuthProvider>(context, listen: false),
+            );
+          },
+          update: (context, auth, previous) {
+            print('DEBUG: Updating ProfileProvider');
+            return ProfileProvider(auth);
+          },
+        ),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {
-          return MaterialApp(
-            title: 'SNS HR',
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF1E88E5),
-                primary: const Color(0xFF1E88E5),
-                secondary: const Color(0xFF42A5F5),
-                error: Colors.red,
-                background: Colors.grey[50],
-                surface: Colors.white,
-              ),
-              fontFamily: 'ProductSans',
-              useMaterial3: true,
-              appBarTheme: const AppBarTheme(
-                backgroundColor: Color(0xFF1E88E5),
-                foregroundColor: Colors.white,
-                elevation: 0,
-              ),
-              elevatedButtonTheme: ElevatedButtonThemeData(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E88E5),
-                  foregroundColor: Colors.white,
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+          return Builder(
+            builder: (context) {
+              print('MAIN: AuthProvider is accessible in MaterialApp');
+              return MaterialApp(
+                navigatorKey: navigatorKey,
+                title: 'SNS HR',
+                theme: ThemeData(
+                  colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+                  useMaterial3: true,
                 ),
-              ),
-              cardTheme: CardThemeData(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                color: Colors.white,
-              ),
-              inputDecorationTheme: InputDecorationTheme(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(
-                    color: Color(0xFF1E88E5),
-                    width: 2,
-                  ),
-                ),
-              ),
-            ),
-            home: authProvider.isAuthenticated
-                ? (authProvider.user?['role'] == 'admin'
-                    ? const AdminDashboardScreen()
-                    : const EmployeeDashboardScreen())
-                : const SplashScreen(),
-            routes: {
-              '/splash': (context) => const SplashScreen(),
-              '/login': (context) => const LoginScreen(),
-              '/home': (context) => const HomeScreen(),
-              '/profile': (context) => const ProfileScreen(),
-              '/timesheet': (context) => const TimesheetScreen(),
-              '/attendance': (context) => const AttendanceScreen(),
-              '/leave_request': (context) => const LeaveRequestScreen(),
-              '/notification': (context) => const NotificationScreen(),
-              '/payroll': (context) => const PayrollScreen(),
-              '/analytics': (context) => const AnalyticsScreen(),
-              '/admin_dashboard': (context) => const AdminDashboardScreen(),
-              '/employee_dashboard': (context) =>
-                  const EmployeeDashboardScreen(),
-              '/user_management': (context) => const UserManagementScreen(),
-              '/attendance_management': (context) =>
-                  const AttendanceManagementScreen(),
-              '/admin_timesheet': (context) => const AdminTimesheetScreen(),
-              '/forgot_password': (context) => const ForgotPasswordScreen(),
+                navigatorObservers: [routeObserver],
+                initialRoute: '/splash',
+                routes: {
+                  '/splash': (context) => const SplashScreen(),
+                  '/login': (context) => const LoginScreen(),
+                  '/admin_dashboard': (context) => const AdminDashboardScreen(),
+                  '/employee_dashboard': (context) => const EmployeeDashboardScreen(),
+                  '/forgot_password': (context) => const ForgotPasswordScreen(),
+                  '/timesheet': (context) => const TimesheetScreen(),
+                  '/leave_request': (context) => const LeaveRequestScreen(),
+                  '/attendance': (context) => const AttendanceScreen(),
+                  '/payroll': (context) => const PayrollScreen(),
+                  '/analytics': (context) => const AnalyticsScreen(),
+                  '/profile': (context) => const ProfileScreen(),
+                  '/notification': (context) => const NotificationScreen(),
+                },
+              );
             },
-            onGenerateRoute: (settings) {
-              // Handle any dynamic routes here
-              return null;
-            },
-            navigatorKey: GlobalKey<NavigatorState>(),
           );
         },
       ),

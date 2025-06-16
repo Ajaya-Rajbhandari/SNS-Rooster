@@ -10,7 +10,6 @@ import 'package:sns_rooster/screens/admin/leave_management_screen.dart';
 import 'package:sns_rooster/screens/admin/notification_alert_screen.dart';
 import 'package:sns_rooster/screens/admin/settings_screen.dart';
 import 'package:sns_rooster/screens/admin/help_support_screen.dart';
-import 'package:sns_rooster/screens/admin/user_management_screen.dart';
 import '../../widgets/admin_side_navigation.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -104,6 +103,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print('ADMIN DASHBOARD: Building AdminDashboardScreen');
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -166,6 +166,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           icon: Icons.payments,
                           title: 'Payroll',
                           onTap: () {
+                            print('ADMIN DASHBOARD: Navigating to PayrollManagementScreen');
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -178,8 +179,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         _buildActionCard(
                           context,
                           icon: Icons.people,
-                          title: 'Employees',
+                          title: 'Employee Management',
                           onTap: () {
+                            print('ADMIN DASHBOARD: Navigating to EmployeeManagementScreen');
                             Navigator.push(
                               context,
                               MaterialPageRoute(

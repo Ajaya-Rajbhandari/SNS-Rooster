@@ -24,6 +24,17 @@ class AttendanceProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  // Getter for last clock-in time
+  DateTime? get lastClockIn {
+    if (_attendanceRecords.isNotEmpty) {
+      final lastRecord = _attendanceRecords.last;
+      return lastRecord['clockInTime'] != null
+          ? DateTime.parse(lastRecord['clockInTime'])
+          : null;
+    }
+    return null;
+  }
+
   Future<void> fetchAllAttendance() async {
     _isLoading = true;
     _error = null;
@@ -186,44 +197,136 @@ class AttendanceProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> startBreak() async {
+  Future<void> clockIn(String userId) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
       if (useMock) {
-        final userId = _authProvider.user?['_id'] ?? 'mock_user_1';
-        final response = await _mockAttendanceService.startBreak(userId);
-        _currentAttendance = response["attendance"];
-        return true;
+        final response = await _mockAttendanceService.checkIn(userId);
+        _currentAttendance = response['attendance'];
       } else {
-        throw UnimplementedError("Real API call not implemented.");
+        final response = await http.post(
+          Uri.parse('${ApiConfig.baseUrl}/attendance/clock-in'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${_authProvider.token}',
+          },
+          body: json.encode({'userId': userId}),
+        );
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          _currentAttendance = data['attendance'];
+        } else {
+          final data = json.decode(response.body);
+          _error = data['message'] ?? 'Failed to clock in';
+        }
       }
     } catch (e) {
-      _error = e.toString();
-      return false;
+      _error = 'Network error occurred: ${e.toString()}';
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<bool> endBreak() async {
+  Future<void> clockOut(String userId) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
       if (useMock) {
-        final userId = _authProvider.user?['_id'] ?? 'mock_user_1';
-        final response = await _mockAttendanceService.endBreak(userId);
-        _currentAttendance = response["attendance"];
-        return true;
+        final response = await _mockAttendanceService.checkOut(userId);
+        _currentAttendance = response['attendance'];
       } else {
-        throw UnimplementedError("Real API call not implemented.");
+        final response = await http.post(
+          Uri.parse('${ApiConfig.baseUrl}/attendance/clock-out'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${_authProvider.token}',
+          },
+          body: json.encode({'userId': userId}),
+        );
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          _currentAttendance = data['attendance'];
+        } else {
+          final data = json.decode(response.body);
+          _error = data['message'] ?? 'Failed to clock out';
+        }
       }
     } catch (e) {
-      _error = e.toString();
-      return false;
+      _error = 'Network error occurred: ${e.toString()}';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> startBreak(String userId) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      if (useMock) {
+        final response = await _mockAttendanceService.startBreak(userId);
+        _currentAttendance = response['attendance'];
+      } else {
+        final response = await http.post(
+          Uri.parse('${ApiConfig.baseUrl}/attendance/start-break'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${_authProvider.token}',
+          },
+          body: json.encode({'userId': userId}),
+        );
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          _currentAttendance = data['attendance'];
+        } else {
+          final data = json.decode(response.body);
+          _error = data['message'] ?? 'Failed to start break';
+        }
+      }
+    } catch (e) {
+      _error = 'Network error occurred: ${e.toString()}';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> endBreak(String userId) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      if (useMock) {
+        final response = await _mockAttendanceService.endBreak(userId);
+        _currentAttendance = response['attendance'];
+      } else {
+        final response = await http.post(
+          Uri.parse('${ApiConfig.baseUrl}/attendance/end-break'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${_authProvider.token}',
+          },
+          body: json.encode({'userId': userId}),
+        );
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          _currentAttendance = data['attendance'];
+        } else {
+          final data = json.decode(response.body);
+          _error = data['message'] ?? 'Failed to end break';
+        }
+      }
+    } catch (e) {
+      _error = 'Network error occurred: ${e.toString()}';
     } finally {
       _isLoading = false;
       notifyListeners();
