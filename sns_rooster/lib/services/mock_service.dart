@@ -304,7 +304,7 @@ void resetMockAttendance() {
 // --- Mock Service ---
 
 // Set this flag to true to use mock data (for frontend development) or false to use real API calls.
-const bool useMock = false; // Set to false to use real API calls
+const bool useMock = true; // Set to true to use mock data for development
 
 // --- Mock Auth Service ---
 
