@@ -103,7 +103,7 @@ class AttendanceProvider with ChangeNotifier {
             await _mockAttendanceService.getCurrentAttendance(userId);
       } else {
         final response = await http.get(
-          Uri.parse('${ApiConfig.baseUrl}/attendance/user/$userId'),
+          Uri.parse('${ApiConfig.baseUrl}/attendance/my-attendance'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ${_authProvider.token}',
@@ -112,9 +112,8 @@ class AttendanceProvider with ChangeNotifier {
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
-          _currentAttendance = data['attendance'];
           _attendanceRecords =
-              List<Map<String, dynamic>>.from(data['history'] ?? []);
+              List<Map<String, dynamic>>.from(data['attendance'] ?? []);
           _error = null;
         } else {
           final data = json.decode(response.body);
@@ -207,12 +206,12 @@ class AttendanceProvider with ChangeNotifier {
         _currentAttendance = response['attendance'];
       } else {
         final response = await http.post(
-          Uri.parse('${ApiConfig.baseUrl}/attendance/clock-in'),
+          Uri.parse('${ApiConfig.baseUrl}/attendance/check-in'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ${_authProvider.token}',
           },
-          body: json.encode({'userId': userId}),
+          body: json.encode({}),
         );
 
         if (response.statusCode == 200) {
@@ -240,13 +239,13 @@ class AttendanceProvider with ChangeNotifier {
         final response = await _mockAttendanceService.checkOut(userId);
         _currentAttendance = response['attendance'];
       } else {
-        final response = await http.post(
-          Uri.parse('${ApiConfig.baseUrl}/attendance/clock-out'),
+        final response = await http.patch(
+          Uri.parse('${ApiConfig.baseUrl}/attendance/check-out'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ${_authProvider.token}',
           },
-          body: json.encode({'userId': userId}),
+          body: json.encode({}),
         );
 
         if (response.statusCode == 200) {
@@ -280,7 +279,43 @@ class AttendanceProvider with ChangeNotifier {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ${_authProvider.token}',
           },
-          body: json.encode({'userId': userId}),
+          body: json.encode({}),
+        );
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          _currentAttendance = data['attendance'];
+        } else {
+          final data = json.decode(response.body);
+          _error = data['message'] ?? 'Failed to start break';
+        }
+      }
+    } catch (e) {
+      _error = 'Network error occurred: ${e.toString()}';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> startBreakWithType(String userId, Map<String, dynamic> breakType) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      if (useMock) {
+        final response = await _mockAttendanceService.startBreak(userId);
+        _currentAttendance = response['attendance'];
+      } else {
+        final response = await http.post(
+          Uri.parse('${ApiConfig.baseUrl}/attendance/start-break'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${_authProvider.token}',
+          },
+          body: json.encode({
+            'breakTypeId': breakType['_id'],
+          }),
         );
 
         if (response.statusCode == 200) {
@@ -308,7 +343,7 @@ class AttendanceProvider with ChangeNotifier {
         final response = await _mockAttendanceService.endBreak(userId);
         _currentAttendance = response['attendance'];
       } else {
-        final response = await http.post(
+        final response = await http.patch(
           Uri.parse('${ApiConfig.baseUrl}/attendance/end-break'),
           headers: {
             'Content-Type': 'application/json',

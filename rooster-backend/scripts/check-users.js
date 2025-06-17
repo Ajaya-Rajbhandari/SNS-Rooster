@@ -6,10 +6,11 @@ async function checkUsers() {
     await mongoose.connect('mongodb://localhost:27017/sns-rooster');
     console.log('Connected to MongoDB');
     
-    const users = await User.find({}, 'email role name');
+    const users = await User.find({}, 'email role firstName lastName');
     console.log('Users in database:');
     users.forEach(user => {
-      console.log(`- Email: ${user.email}, Role: ${user.role}, Name: ${user.name || 'N/A'}`);
+      const fullName = user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : 'N/A';
+      console.log(`- Email: ${user.email}, Role: ${user.role}, Name: ${fullName}`);
     });
     
     console.log(`\nTotal users: ${users.length}`);

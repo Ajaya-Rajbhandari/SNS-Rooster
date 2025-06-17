@@ -11,10 +11,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 import '../../providers/attendance_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../widgets/app_drawer.dart';
 import '../../providers/auth_provider.dart';
+import '../../config/api_config.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../widgets/user_avatar.dart';
 import 'package:flutter/widgets.dart';
@@ -44,37 +46,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       Provider.of<ProfileProvider>(context, listen: false);
       // print('DEBUG: ProfileProvider is accessible in EmployeeDashboardScreen');
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final profileProvider =
-            Provider.of<ProfileProvider>(context, listen: false);
-        final profile = profileProvider.profile;
-        if (profile != null &&
-            profile['isProfileComplete'] == false &&
-            !_profileDialogShown) {
-          setState(() {
-            _profileDialogShown = true;
-          });
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('Complete Your Profile'),
-              content: const Text(
-                  'For your safety and to access all features, please complete your profile information.'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Dismiss'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(ctx).pop();
-                    Navigator.of(context).pushNamed('/profile');
-                  },
-                  child: const Text('Update Now'),
-                ),
-              ],
-            ),
-          );
-        }
+        _checkProfileCompletion();
       });
     } catch (e) {
       print(
@@ -102,17 +74,58 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
 
   @override
   void didPopNext() {
+    super.didPopNext();
     // Called when coming back to this screen
-    // Only refresh if profile data might be stale (e.g., after 5 minutes)
+    // Refresh profile data when returning to check completion status
     final profileProvider =
         Provider.of<ProfileProvider>(context, listen: false);
-    final lastUpdate = profileProvider.lastUpdated;
-    final now = DateTime.now();
-
-    if (lastUpdate == null || now.difference(lastUpdate).inMinutes > 5) {
-      profileProvider.refreshProfile();
-    }
+    profileProvider.refreshProfile().then((_) {
+      // Only check profile completion, don't reset the dialog flag
+      _checkProfileCompletion();
+    });
     setState(() {});
+  }
+
+  void _checkProfileCompletion() {
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
+    final profile = profileProvider.profile;
+    if (profile != null &&
+        profile['isProfileComplete'] == false &&
+        !_profileDialogShown) {
+      setState(() {
+        _profileDialogShown = true;
+      });
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Complete Your Profile'),
+          content: const Text(
+              'For your safety and to access all features, please complete your profile information.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                // Don't reset the flag when dismissing
+              },
+              child: const Text('Dismiss'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                Navigator.of(context).pushNamed('/profile').then((_) {
+                  // Reset the flag when returning from profile screen
+                  // so dialog can show again if profile is still incomplete
+                  _profileDialogShown = false;
+                });
+              },
+              child: const Text('Update Now'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   void _saveProfileToSharedPreferences(Map<String, dynamic> profile) async {
@@ -173,18 +186,22 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
   }
 
   void _startBreak() async {
+    // Show break type selection dialog
+    final selectedBreakType = await _showBreakTypeSelectionDialog();
+    if (selectedBreakType == null) return;
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?['_id'];
     if (userId != null) {
       try {
         final attendanceProvider =
             Provider.of<AttendanceProvider>(context, listen: false);
-        await attendanceProvider.startBreak(userId);
+        await attendanceProvider.startBreakWithType(userId, selectedBreakType);
         setState(() {
           _isOnBreak = true;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Break started successfully!')),
+          SnackBar(content: Text('${selectedBreakType['displayName']} started successfully!')),
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -192,6 +209,92 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
               content: Text('Failed to start break. Please try again.')),
         );
       }
+    }
+  }
+
+  Future<Map<String, dynamic>?> _showBreakTypeSelectionDialog() async {
+    // Fetch available break types
+    final breakTypes = await _fetchBreakTypes();
+    if (breakTypes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No break types available')),
+      );
+      return null;
+    }
+
+    return showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select Break Type'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: breakTypes.length,
+              itemBuilder: (context, index) {
+                final breakType = breakTypes[index];
+                return ListTile(
+                  leading: Icon(
+                    _getIconFromString(breakType['icon']),
+                    color: Color(int.parse(breakType['color'].replaceFirst('#', '0xFF'))),
+                  ),
+                  title: Text(breakType['displayName']),
+                  subtitle: Text(breakType['description']),
+                  onTap: () {
+                    Navigator.of(context).pop(breakType);
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchBreakTypes() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/break-types'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Provider.of<AuthProvider>(context, listen: false).token}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return List<Map<String, dynamic>>.from(data['breakTypes']);
+      }
+    } catch (e) {
+      print('Error fetching break types: $e');
+    }
+    return [];
+  }
+
+  IconData _getIconFromString(String iconName) {
+    switch (iconName) {
+      case 'restaurant':
+        return Icons.restaurant;
+      case 'coffee':
+        return Icons.coffee;
+      case 'person':
+        return Icons.person;
+      case 'medical_services':
+        return Icons.medical_services;
+      case 'smoking_rooms':
+        return Icons.smoking_rooms;
+      case 'more_horiz':
+        return Icons.more_horiz;
+      default:
+        return Icons.free_breakfast;
     }
   }
 

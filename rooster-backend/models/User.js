@@ -2,6 +2,10 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
 const userSchema = new mongoose.Schema({
+  document: {
+    type: String, // File path or URL for uploaded document
+    trim: true,
+  },
   email: {
     type: String,
     required: true,
@@ -123,17 +127,17 @@ userSchema.methods.getPublicProfile = function() {
   // Add firstName and lastName to the public profile
   userObject.firstName = this.firstName;
   userObject.lastName = this.lastName;
+  // Add combined name field for frontend compatibility
+  userObject.name = this.firstName && this.lastName ? `${this.firstName} ${this.lastName}` : (this.firstName || this.lastName || null);
   return userObject;
 };
 
 userSchema.methods.recalculateProfileComplete = function() {
-  // Required fields for profile completion
+  // Only require fields employees can fill themselves
   const requiredFields = [
     'firstName',
     'lastName',
     'email',
-    'department',
-    'position',
     'phone',
     'address',
     'emergencyContact',

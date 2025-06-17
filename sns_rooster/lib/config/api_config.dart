@@ -24,7 +24,7 @@ class ApiConfig {
       // For emulator, try fallback IP if 10.0.2.2 doesn't work
       // For physical devices, use the host machine's IP address
       String ip = const String.fromEnvironment('API_HOST',
-          defaultValue: fallbackIP); // Use fallbackIP for better connectivity
+          defaultValue: homeIP); // Use homeIP (10.0.2.2) for Android emulator
       return 'http://$ip:$port/api'; // Added /api here
     } else {
       // Default for other platforms (desktop, etc.)

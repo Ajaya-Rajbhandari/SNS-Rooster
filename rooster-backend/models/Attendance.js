@@ -24,6 +24,13 @@ const attendanceSchema = new mongoose.Schema({
       start: { type: Date, required: true },
       end: { type: Date },
       duration: { type: Number, default: 0 }, // Duration in milliseconds
+      type: {
+        type: String,
+        enum: ['lunch', 'coffee', 'personal', 'medical', 'smoke', 'other'],
+        default: 'other'
+      },
+      reason: { type: String, maxlength: 200 }, // Optional reason for the break
+      approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Admin who approved/started
     },
   ],
   totalBreakDuration: {
@@ -40,4 +47,4 @@ const attendanceSchema = new mongoose.Schema({
 
 const Attendance = mongoose.model('Attendance', attendanceSchema);
 
-module.exports = Attendance; 
+module.exports = Attendance;

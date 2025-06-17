@@ -9,7 +9,11 @@ import 'dart:convert';
 final Map<String, dynamic> _mockUser = {
   "_id": "mock_user_id_123",
   "name": "Mock User",
+  "firstName": "Mock",
+  "lastName": "User",
   "email": "testuser@example.com",
+  "phone": "+1234567890",
+  "address": "123 Main St, City, State 12345",
   "role": "employee",
   "department": "IT",
   "position": "Developer",
@@ -482,9 +486,24 @@ class MockEmployeeService {
       await Future.delayed(const Duration(seconds: 1));
       // Simulate updating the profile (in a real app, the backend would update the user).
       _mockUser.addAll(updates); // Update the global _mockUser object
+      
+      // If firstName and lastName are provided, also update the 'name' field for compatibility
+      if (updates.containsKey('firstName') || updates.containsKey('lastName')) {
+        final firstName = _mockUser['firstName'] ?? '';
+        final lastName = _mockUser['lastName'] ?? '';
+        _mockUser['name'] = '$firstName $lastName'.trim();
+      }
+      
       // Recalculate isProfileComplete based on required fields
-      final requiredFields = ['name', 'email', 'phone', 'address', 'department', 'position'];
-      bool complete = requiredFields.every((field) => _mockUser[field] != null && _mockUser[field].toString().trim().isNotEmpty);
+      // Check for both name formats for compatibility
+      final hasName = (_mockUser['name'] != null && _mockUser['name'].toString().trim().isNotEmpty) ||
+                     ((_mockUser['firstName'] != null && _mockUser['firstName'].toString().trim().isNotEmpty) &&
+                      (_mockUser['lastName'] != null && _mockUser['lastName'].toString().trim().isNotEmpty));
+      
+      final requiredFields = ['email', 'phone', 'address', 'department', 'position'];
+      bool complete = hasName && requiredFields.every((field) => 
+          _mockUser[field] != null && _mockUser[field].toString().trim().isNotEmpty);
+      
       _mockUser['isProfileComplete'] = complete;
       return {"message": "Profile updated successfully", "user": _mockUser};
     } else {
