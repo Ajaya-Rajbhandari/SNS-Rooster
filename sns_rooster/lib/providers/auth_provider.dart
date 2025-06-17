@@ -8,6 +8,7 @@ import '../services/mock_service.dart'; // Import the mock service
 import '../providers/profile_provider.dart';
 import '../config/api_config.dart';
 import '../main.dart'; // Import main.dart to access MyApp class
+import '../providers/attendance_provider.dart';
 
 class AuthProvider with ChangeNotifier {
   String? _token;
@@ -276,6 +277,12 @@ class AuthProvider with ChangeNotifier {
     _profileProvider = profileProvider;
   }
 
+  AttendanceProvider? _attendanceProvider;
+
+  void setAttendanceProvider(AttendanceProvider attendanceProvider) {
+    _attendanceProvider = attendanceProvider;
+  }
+
   Future<void> logout() async {
     print('AUTH PROVIDER: Logout called');
     print('Logging out...');
@@ -285,8 +292,8 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     print('DEBUG: Starting logout process');
-    print('DEBUG: Current token: $_token');
-    print('DEBUG: Current user: $_user');
+    print('DEBUG: Current token: \$_token');
+    print('DEBUG: Current user: \$_user');
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -300,10 +307,16 @@ class AuthProvider with ChangeNotifier {
       } else {
         print('DEBUG: ProfileProvider is not set');
       }
+      if (_attendanceProvider != null) {
+        print('DEBUG: Clearing attendance via AttendanceProvider');
+        // _attendanceProvider!.clearAttendance();
+      } else {
+        print('DEBUG: AttendanceProvider is not set');
+      }
 
       print('DEBUG: Logout process completed');
     } catch (e) {
-      print('ERROR: Exception during logout: $e');
+      print('ERROR: Exception during logout: \$e');
     }
 
     // Navigate to login screen after logout

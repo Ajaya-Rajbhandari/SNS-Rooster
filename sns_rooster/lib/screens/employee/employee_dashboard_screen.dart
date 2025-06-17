@@ -44,21 +44,31 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     routeObserver.subscribe(this, ModalRoute.of(context)!);
     try {
       Provider.of<ProfileProvider>(context, listen: false);
-      // print('DEBUG: ProfileProvider is accessible in EmployeeDashboardScreen');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _checkProfileCompletion();
+        // Sync _isClockedIn with AttendanceProvider's persisted state after navigation
+        final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+        setState(() {
+          _isClockedIn = attendanceProvider.currentAttendance != null && 
+                       (attendanceProvider.currentAttendance?['clockOutTime'] == null && 
+                        attendanceProvider.currentAttendance?['checkOut'] == null);
+        });
       });
     } catch (e) {
-      print(
-          'ERROR: ProfileProvider is not accessible in EmployeeDashboardScreen: \$e');
+      print('ERROR: ProfileProvider is not accessible in EmployeeDashboardScreen: \$e');
     }
-
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?['_id'];
     if (userId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Provider.of<AttendanceProvider>(context, listen: false)
-            .fetchUserAttendance(userId);
+        Provider.of<AttendanceProvider>(context, listen: false).fetchUserAttendance(userId).then((_) {
+          final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+          setState(() {
+            _isClockedIn = attendanceProvider.currentAttendance != null && 
+                         (attendanceProvider.currentAttendance?['clockOutTime'] == null && 
+                          attendanceProvider.currentAttendance?['checkOut'] == null);
+          });
+        });
       });
     }
   }
@@ -149,6 +159,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
         await attendanceProvider.clockIn(userId);
         setState(() {
           _isClockedIn = true;
+          // Ensure the UI rebuilds after state change
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Clocked in successfully!')),

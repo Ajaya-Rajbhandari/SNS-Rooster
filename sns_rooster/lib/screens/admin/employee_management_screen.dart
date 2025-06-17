@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/employee_provider.dart';
 import '../../widgets/admin_side_navigation.dart';
+import 'package:sns_rooster/screens/admin/employee_detail_screen.dart';
 
 class EmployeeManagementScreen extends StatefulWidget {
   const EmployeeManagementScreen({super.key});
@@ -47,6 +48,14 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
 
     try {
       fetchedEmployees = await _employeeService.getEmployees();
+      // Ensure each employee has a 'name' field for detail screen
+      for (var emp in fetchedEmployees) {
+        final firstName = emp['firstName'] ?? '';
+        final lastName = emp['lastName'] ?? '';
+        emp['name'] = (firstName.isNotEmpty || lastName.isNotEmpty)
+            ? (firstName + (lastName.isNotEmpty ? ' ' + lastName : ''))
+            : null;
+      }
     } catch (e) {
       fetchError = e.toString();
     } finally {
@@ -156,64 +165,77 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                       elevation: 4,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              backgroundColor: theme.colorScheme.primary,
-                              child: Text((employee['firstName'] != null && employee['firstName'].isNotEmpty) ? employee['firstName'][0] : '?',
-                                  style: TextStyle(
-                                      color: theme.colorScheme.onPrimary)),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                      '${employee['firstName'] ?? 'N/A'} ${employee['lastName'] ?? 'N/A'}',
-                                      style: theme.textTheme.titleMedium),
-                                  Text(employee['position'] ?? 'N/A',
-                                      style: theme.textTheme.bodyMedium),
-                                  Text(employee['email'] ?? 'N/A', // Added null check for email
-                                      style: theme.textTheme.bodySmall),
-                                ],
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => Dialog(
+                              insetPadding: const EdgeInsets.all(24),
+                              child: SizedBox(
+                                width: 500,
+                                child: EmployeeDetailScreen(employee: employee, employeeProvider: _employeeProvider),
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.edit),
-                              onPressed: () async {
-                                final result = await showDialog<bool>(
-                                  context: context,
-                                  builder: (context) => EditEmployeeDialog(
-                                      employee: employee,
-                                      employeeProvider: _employeeProvider),
-                                );
-                                if (result == true) {
-                                  WidgetsBinding.instance
-                                      .addPostFrameCallback((_) {
-                                    if (mounted) {
-                                      _loadEmployees(); // Refresh list after update
-                                    }
-                                  });
-                                }
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete),
-                              onPressed: () {
-                                final userId = employee['userId'];
-                                if (userId != null && userId is String) {
-                                  _confirmDeleteEmployee(userId);
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Cannot delete employee: User ID is missing.')),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: theme.colorScheme.primary,
+                                child: Text((employee['firstName'] != null && employee['firstName'].isNotEmpty) ? employee['firstName'][0] : '?',
+                                    style: TextStyle(
+                                        color: theme.colorScheme.onPrimary)),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text("${employee['firstName'] ?? 'N/A'} ${employee['lastName'] ?? 'N/A'}", style: theme.textTheme.titleMedium),
+                                    Text(employee['position'] ?? 'N/A',
+                                        style: theme.textTheme.bodyMedium),
+                                    Text(employee['email'] ?? 'N/A',
+                                        style: theme.textTheme.bodySmall),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () async {
+                                  final result = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => EditEmployeeDialog(
+                                        employee: employee,
+                                        employeeProvider: _employeeProvider),
                                   );
-                                }
-                              },
-                            ),
-                          ],
+                                  if (result == true) {
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                      if (mounted) {
+                                        _loadEmployees();
+                                      }
+                                    });
+                                  }
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                onPressed: () {
+                                  final userId = employee['userId'];
+                                  if (userId != null && userId is String) {
+                                    _confirmDeleteEmployee(userId);
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Cannot delete employee: User ID is missing.')),
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     );

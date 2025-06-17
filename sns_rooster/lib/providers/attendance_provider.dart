@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../providers/auth_provider.dart'; // Assuming AuthProvider is in this path
 import '../services/mock_service.dart'; // Import the mock service
 import '../config/api_config.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AttendanceProvider with ChangeNotifier {
   final AuthProvider _authProvider;
@@ -16,7 +17,9 @@ class AttendanceProvider with ChangeNotifier {
   // Instantiate the mock service (with useMock = true) so that we can simulate API responses.
   final MockAttendanceService _mockAttendanceService = MockAttendanceService();
 
-  AttendanceProvider(this._authProvider);
+  AttendanceProvider(this._authProvider) {
+    _loadCurrentAttendance();
+  }
 
   List<Map<String, dynamic>> get attendanceRecords => _attendanceRecords;
   Map<String, dynamic>? get currentAttendance =>
@@ -137,6 +140,7 @@ class AttendanceProvider with ChangeNotifier {
         final userId = _authProvider.user?['_id'] ?? 'mock_user_1';
         final response = await _mockAttendanceService.checkIn(userId);
         _currentAttendance = response["attendance"];
+        await _saveCurrentAttendance();
         return true;
       } else {
         // TODO: Replace with real API call
@@ -160,6 +164,7 @@ class AttendanceProvider with ChangeNotifier {
         final userId = _authProvider.user?['_id'] ?? 'mock_user_1';
         final response = await _mockAttendanceService.checkOut(userId);
         _currentAttendance = response["attendance"];
+        await _saveCurrentAttendance();
         return true;
       } else {
         // TODO: Replace with real API call
@@ -204,6 +209,7 @@ class AttendanceProvider with ChangeNotifier {
       if (useMock) {
         final response = await _mockAttendanceService.checkIn(userId);
         _currentAttendance = response['attendance'];
+        await _saveCurrentAttendance();
       } else {
         final response = await http.post(
           Uri.parse('${ApiConfig.baseUrl}/attendance/check-in'),
@@ -217,13 +223,14 @@ class AttendanceProvider with ChangeNotifier {
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           _currentAttendance = data['attendance'];
+          await _saveCurrentAttendance();
         } else {
           final data = json.decode(response.body);
           _error = data['message'] ?? 'Failed to clock in';
         }
       }
     } catch (e) {
-      _error = 'Network error occurred: ${e.toString()}';
+      _error = 'Network error occurred: \${e.toString()}';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -238,6 +245,7 @@ class AttendanceProvider with ChangeNotifier {
       if (useMock) {
         final response = await _mockAttendanceService.checkOut(userId);
         _currentAttendance = response['attendance'];
+        await _saveCurrentAttendance();
       } else {
         final response = await http.patch(
           Uri.parse('${ApiConfig.baseUrl}/attendance/check-out'),
@@ -251,13 +259,14 @@ class AttendanceProvider with ChangeNotifier {
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           _currentAttendance = data['attendance'];
+          await _saveCurrentAttendance();
         } else {
           final data = json.decode(response.body);
           _error = data['message'] ?? 'Failed to clock out';
         }
       }
     } catch (e) {
-      _error = 'Network error occurred: ${e.toString()}';
+      _error = 'Network error occurred: \${e.toString()}';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -272,6 +281,7 @@ class AttendanceProvider with ChangeNotifier {
       if (useMock) {
         final response = await _mockAttendanceService.startBreak(userId);
         _currentAttendance = response['attendance'];
+        await _saveCurrentAttendance();
       } else {
         final response = await http.post(
           Uri.parse('${ApiConfig.baseUrl}/attendance/start-break'),
@@ -285,13 +295,14 @@ class AttendanceProvider with ChangeNotifier {
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           _currentAttendance = data['attendance'];
+          await _saveCurrentAttendance();
         } else {
           final data = json.decode(response.body);
           _error = data['message'] ?? 'Failed to start break';
         }
       }
     } catch (e) {
-      _error = 'Network error occurred: ${e.toString()}';
+      _error = 'Network error occurred: \${e.toString()}';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -306,6 +317,7 @@ class AttendanceProvider with ChangeNotifier {
       if (useMock) {
         final response = await _mockAttendanceService.startBreak(userId);
         _currentAttendance = response['attendance'];
+        await _saveCurrentAttendance();
       } else {
         final response = await http.post(
           Uri.parse('${ApiConfig.baseUrl}/attendance/start-break'),
@@ -321,13 +333,14 @@ class AttendanceProvider with ChangeNotifier {
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           _currentAttendance = data['attendance'];
+          await _saveCurrentAttendance();
         } else {
           final data = json.decode(response.body);
           _error = data['message'] ?? 'Failed to start break';
         }
       }
     } catch (e) {
-      _error = 'Network error occurred: ${e.toString()}';
+      _error = 'Network error occurred: \${e.toString()}';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -342,6 +355,7 @@ class AttendanceProvider with ChangeNotifier {
       if (useMock) {
         final response = await _mockAttendanceService.endBreak(userId);
         _currentAttendance = response['attendance'];
+        await _saveCurrentAttendance();
       } else {
         final response = await http.patch(
           Uri.parse('${ApiConfig.baseUrl}/attendance/end-break'),
@@ -355,13 +369,14 @@ class AttendanceProvider with ChangeNotifier {
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           _currentAttendance = data['attendance'];
+          await _saveCurrentAttendance();
         } else {
           final data = json.decode(response.body);
           _error = data['message'] ?? 'Failed to end break';
         }
       }
     } catch (e) {
-      _error = 'Network error occurred: ${e.toString()}';
+      _error = 'Network error occurred: \${e.toString()}';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -369,4 +384,32 @@ class AttendanceProvider with ChangeNotifier {
   }
 
   // Methods for check-in/check-out can be added here if needed for employee-side
+  // Add this method to clear attendance state
+  void clearAttendance() {
+    _attendanceRecords = [];
+    _currentAttendance = null;
+    _error = null;
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove('currentAttendance');
+    });
+    notifyListeners();
+  }
+
+  Future<void> _saveCurrentAttendance() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_currentAttendance != null) {
+      prefs.setString('currentAttendance', json.encode(_currentAttendance));
+    } else {
+      prefs.remove('currentAttendance');
+    }
+  }
+
+  Future<void> _loadCurrentAttendance() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString('currentAttendance');
+    if (data != null) {
+      _currentAttendance = json.decode(data);
+      notifyListeners();
+    }
+  }
 }
