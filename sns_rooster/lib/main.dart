@@ -9,6 +9,8 @@ import 'package:sns_rooster/screens/employee/employee_dashboard_screen.dart';
 import 'package:sns_rooster/screens/leave/leave_request_screen.dart';
 import 'package:sns_rooster/screens/notification/notification_screen.dart';
 import 'package:sns_rooster/screens/admin/admin_dashboard_screen.dart';
+import 'package:sns_rooster/screens/admin/break_management_screen.dart';
+import 'package:sns_rooster/screens/admin/break_types_screen.dart';
 import 'package:sns_rooster/screens/auth/forgot_password_screen.dart';
 import 'package:sns_rooster/screens/employee/payroll_screen.dart';
 import 'package:sns_rooster/screens/employee/analytics_screen.dart';
@@ -108,6 +110,8 @@ class MyApp extends StatelessWidget {
                   '/analytics': (context) => const AnalyticsScreen(),
                   '/profile': (context) => const ProfileScreen(),
                   '/notification': (context) => const NotificationScreen(),
+                  '/break_management': (context) => const BreakManagementScreen(),
+                  '/break_types': (context) => const BreakTypesScreen(),
                 },
               );
             },

@@ -13,6 +13,8 @@ import '../screens/admin/admin_overview_screen.dart';
 import '../screens/admin/admin_timesheet_screen.dart';
 import '../screens/admin/attendance_management_screen.dart';
 import '../screens/admin/leave_request_management_screen.dart';
+import '../screens/admin/break_management_screen.dart';
+import '../screens/admin/break_types_screen.dart';
 import 'package:sns_rooster/main.dart'; // Re-added import for navigatorKey
 
 class AdminSideNavigation extends StatelessWidget {
@@ -133,6 +135,22 @@ class AdminSideNavigation extends StatelessWidget {
             title: 'Leave Requests',
             route: '/leave_request_management',
             screen: const LeaveRequestManagementScreen(),
+            colorScheme: colorScheme,
+          ),
+          _buildDrawerItem(
+            context,
+            icon: Icons.coffee,
+            title: 'Break Management',
+            route: '/break_management',
+            screen: const BreakManagementScreen(),
+            colorScheme: colorScheme,
+          ),
+          _buildDrawerItem(
+            context,
+            icon: Icons.category,
+            title: 'Break Types',
+            route: '/break_types',
+            screen: const BreakTypesScreen(),
             colorScheme: colorScheme,
           ),
           _buildDrawerItem(

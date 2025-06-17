@@ -10,8 +10,8 @@ mongoose.connect(MONGODB_URI)
 
 async function debugLogin() {
   try {
-    const email = 'testuser@example.com';
-    const password = 'Test@123';
+    const email = 'admin@snsrooster.com';
+    const password = 'Admin@123';
     
     console.log('\n=== DEBUG LOGIN FLOW ===');
     console.log('Email:', email);
@@ -48,37 +48,38 @@ async function debugLogin() {
     console.log('   Direct bcrypt.compare result:', directMatch);
     
     // Test with user method
-    const methodMatch = await user.comparePassword(password);
-    console.log('   user.comparePassword result:', methodMatch);
+    const userMethodMatch = await user.comparePassword(password);
+    console.log('   user.comparePassword result:', userMethodMatch);
     
-    if (!methodMatch) {
-      console.log('❌ Password does not match');
-      
-      // Test with different variations
-      console.log('\n   Testing password variations...');
-      const variations = [
-        'test@123',
-        'TEST@123',
-        'Test@123 ',
-        ' Test@123',
-        'Test@123\n',
-        'Test@123\r'
-      ];
-      
-      for (const variation of variations) {
-        const varMatch = await bcrypt.compare(variation, user.password);
-        console.log(`   "${variation}" (${variation.length} chars):`, varMatch);
-      }
-      return;
+    if (directMatch && userMethodMatch) {
+      console.log('\n✅ PASSWORD MATCHES');
+    } else {
+      console.log('\n❌ PASSWORD DOES NOT MATCH');
     }
-    console.log('✅ Password matches');
+    
+    // Step 4: Test JWT generation
+    console.log('\n4. Testing JWT generation...');
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      { 
+        userId: user._id,
+        email: user.email,
+        role: user.role, 
+        isProfileComplete: user.isProfileComplete
+      },
+      process.env.JWT_SECRET || 'fallback-secret',
+      { expiresIn: '24h' }
+    );
+    console.log('✅ JWT generated successfully');
+    console.log('   Token length:', token.length);
     
     console.log('\n✅ LOGIN SHOULD SUCCEED');
     
   } catch (error) {
     console.error('❌ Error during debug:', error);
   } finally {
-    mongoose.connection.close();
+    await mongoose.disconnect();
+    process.exit(0);
   }
 }
 

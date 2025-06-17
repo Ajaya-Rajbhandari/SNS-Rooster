@@ -5,6 +5,7 @@ const cors = require('cors');
 const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
+const adminAttendanceRoutes = require('./routes/adminAttendanceRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 
 // Load environment variables
@@ -29,6 +30,7 @@ mongoose.connect(MONGODB_URI)
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/attendance', attendanceRoutes);
+app.use('/api/attendance', adminAttendanceRoutes);
 app.use('/api/employees', employeeRoutes);
 
 // Basic route for testing

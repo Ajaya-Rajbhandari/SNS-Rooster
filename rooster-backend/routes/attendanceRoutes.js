@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
+const BreakType = require('../models/BreakType');
 
 // Check-in (User can check-in once per day)
 router.post('/check-in', auth, async (req, res) => {
@@ -182,6 +183,17 @@ router.get('/', auth, async (req, res) => {
   } catch (error) {
     console.error('Get all attendance error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get available break types (for employees)
+router.get('/break-types', auth, async (req, res) => {
+  try {
+    const breakTypes = await BreakType.find({ isActive: true }).sort({ priority: 1 });
+    res.status(200).json({ breakTypes });
+  } catch (error) {
+    console.error('Error fetching break types:', error);
+    res.status(500).json({ message: 'Failed to fetch break types' });
   }
 });
 

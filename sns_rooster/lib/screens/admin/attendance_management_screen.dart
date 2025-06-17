@@ -103,6 +103,49 @@ class _AttendanceManagementScreenState
                             style: TextStyle(
                                 color: colorScheme.onSurface.withOpacity(0.8)),
                           ),
+                          // Display break information
+                          if (record['breaks'] != null && (record['breaks'] as List).isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Breaks:',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            ...((record['breaks'] as List).map((breakRecord) {
+                              final startTime = _formatDateTime(breakRecord['start']);
+                              final endTime = breakRecord['end'] != null 
+                                  ? _formatDateTime(breakRecord['end'])
+                                  : 'Ongoing';
+                              final duration = breakRecord['duration'] != null
+                                  ? '${(breakRecord['duration'] / (1000 * 60)).round()} min'
+                                  : 'N/A';
+                              return Padding(
+                                padding: const EdgeInsets.only(left: 16.0, bottom: 2.0),
+                                child: Text(
+                                  '• $startTime - $endTime ($duration)',
+                                  style: TextStyle(
+                                    color: colorScheme.onSurface.withOpacity(0.7),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              );
+                            }).toList()),
+                            if (record['totalBreakDuration'] != null)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 16.0, top: 4.0),
+                                child: Text(
+                                  'Total Break Time: ${(record['totalBreakDuration'] / (1000 * 60)).round()} minutes',
+                                  style: TextStyle(
+                                    color: colorScheme.primary,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ],
                       ),
                     ),
