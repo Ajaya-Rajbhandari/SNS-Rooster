@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_provider.dart';
-import '../services/mock_service.dart'; // Import the mock service
 import '../config/api_config.dart';
 
 class ProfileProvider with ChangeNotifier {
@@ -15,9 +14,6 @@ class ProfileProvider with ChangeNotifier {
   static const String _profileKey = 'user_profile';
   bool _disposed = false;
   DateTime? _lastUpdated;
-
-  // Instantiate the mock service
-  final MockEmployeeService _mockEmployeeService = MockEmployeeService();
 
   ProfileProvider(this._authProvider) {
     print('ProfileProvider initialized');
@@ -68,25 +64,20 @@ class ProfileProvider with ChangeNotifier {
     }
 
     try {
-      if (useMock) {
-        final response = await _mockEmployeeService.getProfile();
-        _updateProfileData(response['user']);
-      } else {
-        final response = await http.get(
-          Uri.parse('${ApiConfig.baseUrl}/auth/me'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ${_authProvider.token}',
-          },
-        );
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/auth/me'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${_authProvider.token}',
+        },
+      );
 
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          _updateProfileData(data['user']);
-        } else {
-          final data = json.decode(response.body);
-          _error = data['message'] ?? 'Failed to fetch profile';
-        }
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        _updateProfileData(data['user']);
+      } else {
+        final data = json.decode(response.body);
+        _error = data['message'] ?? 'Failed to fetch profile';
       }
     } catch (e) {
       print('Error fetching profile: $e');
@@ -143,50 +134,41 @@ class ProfileProvider with ChangeNotifier {
     }
 
     try {
-      if (useMock) {
-        final response = await _mockEmployeeService.updateProfile(updates);
-        _updateProfileData(response['user']);
-        if (_disposed) return false;
-        // Update AuthProvider's user data for consistency
-        await _authProvider.updateUser(_profile!);
-        return true;
-      } else {
-        final response = await http.patch(
-          Uri.parse('${ApiConfig.baseUrl}/auth/me'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ${_authProvider.token}',
-          },
-          body: json.encode(updates),
-        );
+      final response = await http.patch(
+        Uri.parse('${ApiConfig.baseUrl}/auth/me'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${_authProvider.token}',
+        },
+        body: json.encode(updates),
+      );
 
-        if (response.statusCode == 200) {
-          try {
-            final data = json.decode(response.body);
-            _updateProfileData(data['profile']);
-            if (_disposed) return false;
-            await _authProvider.updateUser(_profile!);
-            return true;
-          } catch (e) {
-            // print('Error decoding JSON response: \$e');
-            // print('Raw response body: \${response.body}');
-            _error = 'Unexpected response format';
-            notifyListeners();
-            return false;
-          }
-        } else {
-          try {
-            final data = json.decode(response.body);
-            _error = data['message'] ?? 'Failed to update profile';
-          } catch (e) {
-            // print('Error decoding error response: \$e');
-            // print('Raw response body: \${response.body}');
-            _error = 'Unexpected response format';
-          }
-          notifyListeners();
+      if (response.statusCode == 200) {
+        try {
+          final data = json.decode(response.body);
+          _updateProfileData(data['profile']);
           if (_disposed) return false;
+          await _authProvider.updateUser(_profile!);
+          return true;
+        } catch (e) {
+          // print('Error decoding JSON response: \$e');
+          // print('Raw response body: \${response.body}');
+          _error = 'Unexpected response format';
+          notifyListeners();
           return false;
         }
+      } else {
+        try {
+          final data = json.decode(response.body);
+          _error = data['message'] ?? 'Failed to update profile';
+        } catch (e) {
+          // print('Error decoding error response: \$e');
+          // print('Raw response body: \${response.body}');
+          _error = 'Unexpected response format';
+        }
+        notifyListeners();
+        if (_disposed) return false;
+        return false;
       }
     } catch (e) {
       _error = 'Network error occurred: ${e.toString()}';
@@ -212,44 +194,33 @@ class ProfileProvider with ChangeNotifier {
     }
 
     try {
-      if (useMock) {
-        final response = await _mockEmployeeService.updateProfile({
-          'avatar': imagePath,
-        });
-        _updateProfileData(response['user']);
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${ApiConfig.baseUrl}/auth/users/profile/picture'),
+      );
+
+      request.headers['Authorization'] = 'Bearer ${_authProvider.token}';
+      request.files.add(await http.MultipartFile.fromPath(
+        'profilePicture',
+        imagePath,
+      ));
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        _updateProfileData(data['profile']);
         if (_disposed) return false;
         // Update AuthProvider's user data for consistency
         await _authProvider.updateUser(_profile!);
         return true;
       } else {
-        var request = http.MultipartRequest(
-          'POST',
-          Uri.parse('${ApiConfig.baseUrl}/auth/users/profile/picture'),
-        );
-
-        request.headers['Authorization'] = 'Bearer ${_authProvider.token}';
-        request.files.add(await http.MultipartFile.fromPath(
-          'profilePicture',
-          imagePath,
-        ));
-
-        final streamedResponse = await request.send();
-        final response = await http.Response.fromStream(streamedResponse);
-
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          _updateProfileData(data['profile']);
-          if (_disposed) return false;
-          // Update AuthProvider's user data for consistency
-          await _authProvider.updateUser(_profile!);
-          return true;
-        } else {
-          final data = json.decode(response.body);
-          _error = data['message'] ?? 'Failed to update profile picture';
-          notifyListeners();
-          if (_disposed) return false;
-          return false;
-        }
+        final data = json.decode(response.body);
+        _error = data['message'] ?? 'Failed to update profile picture';
+        notifyListeners();
+        if (_disposed) return false;
+        return false;
       }
     } catch (e) {
       _error = 'Network error occurred: ${e.toString()}';

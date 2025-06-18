@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import '../../providers/attendance_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../widgets/app_drawer.dart';
@@ -21,7 +22,14 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../widgets/user_avatar.dart';
 import 'package:flutter/widgets.dart';
 import '../../../main.dart';
+import '../../services/attendance_service.dart';
+import 'live_clock.dart';
 
+/// EmployeeDashboardScreen displays the main dashboard for employees.
+//
+/// - Shows user info, live clock, status, quick actions, and attendance summary.
+/// - Fetches backend data only on load, after check-in/out, or on user action.
+/// - Uses [LiveClock] widget to update the clock every second without rebuilding the parent widget tree.
 class EmployeeDashboardScreen extends StatefulWidget {
   const EmployeeDashboardScreen({super.key});
 
@@ -32,10 +40,16 @@ class EmployeeDashboardScreen extends StatefulWidget {
 
 class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     with RouteAware {
-  bool _isClockedIn = false;
   bool _isOnBreak = false;
   bool _profileDialogShown = false;
   String _lastSavedProfileJson = "";
+  DateTime? _startDate;
+  DateTime? _endDate;
+
+  // Track last fetched params to avoid duplicate fetches
+  String? _lastSummaryUserId;
+  DateTime? _lastSummaryStart;
+  DateTime? _lastSummaryEnd;
 
   @override
   void didChangeDependencies() {
@@ -46,28 +60,23 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       Provider.of<ProfileProvider>(context, listen: false);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _checkProfileCompletion();
-        // Sync _isClockedIn with AttendanceProvider's persisted state after navigation
+        // Fetch backend-driven attendance status for today
         final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
-        setState(() {
-          _isClockedIn = attendanceProvider.currentAttendance != null && 
-                       (attendanceProvider.currentAttendance?['clockOutTime'] == null && 
-                        attendanceProvider.currentAttendance?['checkOut'] == null);
-        });
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final userId = authProvider.user?['_id'];
+        if (userId != null) {
+          attendanceProvider.fetchTodayStatus(userId);
+        }
       });
     } catch (e) {
-      print('ERROR: ProfileProvider is not accessible in EmployeeDashboardScreen: \$e');
+      print('ERROR: ProfileProvider is not accessible in EmployeeDashboardScreen: $e');
     }
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?['_id'];
     if (userId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Provider.of<AttendanceProvider>(context, listen: false).fetchUserAttendance(userId).then((_) {
-          final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
-          setState(() {
-            _isClockedIn = attendanceProvider.currentAttendance != null && 
-                         (attendanceProvider.currentAttendance?['clockOutTime'] == null && 
-                          attendanceProvider.currentAttendance?['checkOut'] == null);
-          });
+          // No need to set _isClockedIn here; UI now uses provider state
         });
       });
     }
@@ -152,24 +161,26 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
   void _clockIn() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?['_id'];
-    if (userId != null) {
-      try {
-        final attendanceProvider =
-            Provider.of<AttendanceProvider>(context, listen: false);
-        await attendanceProvider.clockIn(userId);
-        setState(() {
-          _isClockedIn = true;
-          // Ensure the UI rebuilds after state change
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Clocked in successfully!')),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Failed to clock in. Please try again.')),
-        );
-      }
+    print('DEBUG: Attempting check-in with userId: ' + (userId?.toString() ?? 'null'));
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User not logged in. Please log in again.')),
+      );
+      return;
+    }
+    try {
+      final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+      final attendanceService = AttendanceService(authProvider);
+      await attendanceService.checkIn(userId);
+      await attendanceProvider.fetchTodayStatus(userId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Clocked in successfully!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Failed to clock in: \\${e.toString()}')),
+      );
     }
   }
 
@@ -178,19 +189,17 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     final userId = authProvider.user?['_id'];
     if (userId != null) {
       try {
-        final attendanceProvider =
-            Provider.of<AttendanceProvider>(context, listen: false);
-        await attendanceProvider.clockOut(userId);
-        setState(() {
-          _isClockedIn = false;
-        });
+        final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+        final attendanceService = AttendanceService(authProvider);
+        await attendanceService.checkOut(userId);
+        await attendanceProvider.fetchTodayStatus(userId);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Clocked out successfully!')),
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Failed to clock out. Please try again.')),
+          SnackBar(
+              content: Text('Failed to clock out: \\${e.toString()}')),
         );
       }
     }
@@ -364,6 +373,19 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
   void initState() {
     super.initState();
     _checkNetworkConnectivity();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userId = authProvider.user?['_id'];
+      if (userId != null && _startDate == null && _endDate == null) {
+        if (_lastSummaryUserId != userId || _lastSummaryStart != null || _lastSummaryEnd != null) {
+          _lastSummaryUserId = userId;
+          _lastSummaryStart = null;
+          _lastSummaryEnd = null;
+          Provider.of<AttendanceProvider>(context, listen: false)
+              .fetchAttendanceSummary(userId);
+        }
+      }
+    });
   }
 
   /// Checks the current network connectivity status using connectivity_plus.
@@ -375,11 +397,41 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     });
   }
 
+  void _pickDateRange(BuildContext context, String userId) async {
+    final initialStart = _startDate ?? DateTime.now().subtract(const Duration(days: 30));
+    final initialEnd = _endDate ?? DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: DateTimeRange(start: initialStart, end: initialEnd),
+    );
+    if (picked != null) {
+      if (_lastSummaryUserId != userId || _lastSummaryStart != picked.start || _lastSummaryEnd != picked.end) {
+        setState(() {
+          _startDate = picked.start;
+          _endDate = picked.end;
+          _lastSummaryUserId = userId;
+          _lastSummaryStart = picked.start;
+          _lastSummaryEnd = picked.end;
+        });
+        Provider.of<AttendanceProvider>(context, listen: false)
+            .fetchAttendanceSummary(userId, startDate: _startDate, endDate: _endDate);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final attendanceProvider = Provider.of<AttendanceProvider>(context);
     final profileProvider = Provider.of<ProfileProvider>(context);
     final profile = profileProvider.profile;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.user?['_id'];
+
+    // Always compute isClockedIn from provider state
+    // final isClockedIn = attendanceProvider.currentAttendance != null &&
+    //     attendanceProvider.currentAttendance?['checkOutTime'] == null;
 
     // Only save profile to SharedPreferences if it has changed
     if (profile != null) {
@@ -421,7 +473,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
                           BoxShadow(
                             color: Colors.blue.shade100.withOpacity(0.3),
                             blurRadius: 12,
-                            offset: Offset(0, 6),
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
@@ -513,64 +565,49 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
                                   style: Theme.of(context).textTheme.bodyMedium,
                                 ),
                                 const Spacer(),
-                                StreamBuilder(
-                                  stream: Stream.periodic(
-                                      const Duration(seconds: 1)),
-                                  builder: (context, snapshot) {
-                                    final now = TimeOfDay.now();
-                                    return Text(
-                                      now.format(context),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .headlineSmall
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.bold),
-                                    );
-                                  },
-                                ),
+                                const LiveClock(),
                               ],
                             ),
-                            const Divider(height: 24, thickness: 1),
-                            Row(
-                              children: [
-                                Text(
-                                  'Your Status',
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                                const Spacer(),
-                                Row(
+                            const SizedBox(height: 12),
+                            Consumer<AttendanceProvider>(
+                              builder: (context, attendanceProvider, _) {
+                                final summary = attendanceProvider.attendanceSummary;
+                                if (attendanceProvider.isLoading) {
+                                  return const Center(child: CircularProgressIndicator());
+                                }
+                                if (summary == null || (summary['totalDaysPresent'] == 0 && summary['totalHoursWorked'] == 0)) {
+                                  return const Text('No attendance records for this range.');
+                                }
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Icon(
-                                        _isClockedIn
-                                            ? Icons.check_circle
-                                            : Icons.cancel,
-                                        color: _isClockedIn
-                                            ? Colors.green
-                                            : Colors.red),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      _isClockedIn
-                                          ? 'Clocked In'
-                                          : 'Not Clocked In',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            color: _isClockedIn
-                                                ? Colors.green
-                                                : Colors.red,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                    ),
+                                    Text('Total Days Present: \\${summary['totalDaysPresent'] ?? '-'}'),
+                                    Text('Total Hours Worked: \\${summary['totalHoursWorked'] ?? '-'}'),
+                                    // Add more fields as needed
                                   ],
-                                ),
-                              ],
+                                );
+                              },
                             ),
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(height: 28),
+                    // Date Range Picker
+                    if (userId != null)
+                      Row(
+                        children: [
+                          Text(_startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : 'Start Date'),
+                          const SizedBox(width: 8),
+                          Text(_endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : 'End Date'),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () => _pickDateRange(context, userId),
+                            child: const Text('Select Range'),
+                          ),
+                        ],
+                      ),
+                    const SizedBox(height: 16),
                     // Redesigned Quick Actions
                     Text(
                       'Quick Actions',
@@ -590,49 +627,55 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
                         return Column(
                           children: [
                             // Clock In/Out Section (Always at top)
-                            if (!_isClockedIn)
-                              // Single Clock In button when not clocked in
-                              SizedBox(
-                                width: double.infinity,
-                                child: _buildQuickActionCard(
-                                  context,
-                                  icon: Icons.login,
-                                  label: 'Clock In',
-                                  color: const Color(0xFF38A169),
-                                  onPressed: _clockIn,
-                                  isFullWidth: true,
-                                ),
-                              )
-                            else
-                              // Clock Out and Break buttons when clocked in
-                              Row(
-                                children: [
-                                  Expanded(
+                            Consumer<AttendanceProvider>(
+                              builder: (context, attendanceProvider, _) {
+                                final status = attendanceProvider.todayStatus;
+                                if (attendanceProvider.isLoading) {
+                                  return const Center(child: CircularProgressIndicator());
+                                }
+                                if (status == 'clocked_in') {
+                                  // Show Clock Out and Break buttons
+                                  return Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildQuickActionCard(
+                                          context,
+                                          icon: Icons.logout,
+                                          label: 'Clock Out',
+                                          color: _isOnBreak
+                                              ? const Color(0xFFB0B0B0)
+                                              : const Color(0xFFE53E3E),
+                                          onPressed: _isOnBreak ? null : _clockOut,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: _buildQuickActionCard(
+                                          context,
+                                          icon: _isOnBreak ? Icons.stop_circle : Icons.free_breakfast,
+                                          label: _isOnBreak ? 'End Break' : 'Start Break',
+                                          color: _isOnBreak ? const Color(0xFFED8936) : const Color(0xFF718096),
+                                          onPressed: _isOnBreak ? _endBreak : _startBreak,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                } else {
+                                  // Show Clock In button
+                                  return SizedBox(
+                                    width: double.infinity,
                                     child: _buildQuickActionCard(
                                       context,
-                                      icon: Icons.logout,
-                                      label: 'Clock Out',
-                                      color: _isOnBreak
-                                          ? const Color(0xFFB0B0B0)
-                                          : const Color(0xFFE53E3E),
-                                      onPressed: _isOnBreak
-                                          ? null
-                                          : _clockOut, // Disable when on break
+                                      icon: Icons.login,
+                                      label: 'Clock In',
+                                      color: const Color(0xFF38A169),
+                                      onPressed: _clockIn,
+                                      isFullWidth: true,
                                     ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _buildQuickActionCard(
-                                      context,
-                                      icon: _isOnBreak ? Icons.stop_circle : Icons.free_breakfast,
-                                      label: _isOnBreak ? 'End Break' : 'Start Break',
-                                      color: _isOnBreak ? const Color(0xFFED8936) : const Color(0xFF718096),
-                                      onPressed: _isOnBreak ? _endBreak : _startBreak,
-                                    ),
-                                  ),
-                                ],
-                              ),
-
+                                  );
+                                }
+                              },
+                            ),
                             const SizedBox(height: 16),
 
                             // Other Actions Grid
