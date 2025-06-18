@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
-import '../services/mock_service.dart'; // Import the mock service
 import '../providers/profile_provider.dart';
 import '../config/api_config.dart';
 import '../main.dart'; // Import main.dart to access MyApp class
@@ -17,10 +16,6 @@ class AuthProvider with ChangeNotifier {
   String? _error;
   final bool _isLoggingOut = false;
   final _navigatorKey = GlobalKey<NavigatorState>();
-
-  // Instantiate the mock service (with useMock = true) so that we can simulate API responses.
-  final MockAuthService _mockAuthService = MockAuthService();
-  final bool useMock = false; // Switch to real API
 
   // Test credentials for developer convenience
   static const String devEmployeeEmail = 'employee2@snsrooster.com';
@@ -140,38 +135,31 @@ class AuthProvider with ChangeNotifier {
     notifyListeners(); // Notify listeners only for loading state change
 
     try {
-      if (useMock) {
-        final Map<String, dynamic>? response = await _mockAuthService
-            .registerUser(name, email, password, role, department, position);
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/auth/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'name': name,
+          'email': email,
+          'password': password,
+          'role': role,
+          'department': department,
+          'position': position,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 201) {
         // Do NOT modify _token, _user, or call _saveAuthToPrefs here for registration
-        return response;
+        return {
+          'success': true,
+          'user': data['user'],
+          'token': data['token']
+        };
       } else {
-        final response = await http.post(
-          Uri.parse('${ApiConfig.baseUrl}/auth/register'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'name': name,
-            'email': email,
-            'password': password,
-            'role': role,
-            'department': department,
-            'position': position,
-          }),
-        );
-
-        final data = jsonDecode(response.body);
-
-        if (response.statusCode == 201) {
-          // Do NOT modify _token, _user, or call _saveAuthToPrefs here for registration
-          return {
-            'success': true,
-            'user': data['user'],
-            'token': data['token']
-          };
-        } else {
-          _error = data['message'] ?? 'Failed to register user';
-          return {'success': false, 'message': _error};
-        }
+        _error = data['message'] ?? 'Failed to register user';
+        return {'success': false, 'message': _error};
       }
     } catch (e) {
       _error = e.toString();
@@ -241,27 +229,22 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      if (useMock) {
-        final success = await _mockAuthService.sendPasswordResetEmail(email);
-        return success;
-      } else {
-        // TODO: Replace with real API call (e.g., POST $_baseUrl/auth/forgot-password).
-        // Example:
-        // final response = await http.post(
-        //   Uri.parse('$_baseUrl/auth/forgot-password'),
-        //   headers: {'Content-Type': 'application/json'},
-        //   body: json.encode({'email': email}),
-        // );
-        // if (response.statusCode == 200) {
-        //   return true;
-        // } else {
-        //   final data = json.decode(response.body);
-        //   _error = data['message'] ?? 'Failed to send password reset email';
-        //   return false;
-        // }
-        throw UnimplementedError(
-            "Real API call for password reset not implemented.");
-      }
+      // TODO: Replace with real API call (e.g., POST $_baseUrl/auth/forgot-password).
+      // Example:
+      // final response = await http.post(
+      //   Uri.parse('$_baseUrl/auth/forgot-password'),
+      //   headers: {'Content-Type': 'application/json'},
+      //   body: json.encode({'email': email}),
+      // );
+      // if (response.statusCode == 200) {
+      //   return true;
+      // } else {
+      //   final data = json.decode(response.body);
+      //   _error = data['message'] ?? 'Failed to send password reset email';
+      //   return false;
+      // }
+      throw UnimplementedError(
+          "Real API call for password reset not implemented.");
     } catch (e) {
       _error = e.toString();
       return false;

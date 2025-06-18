@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/mock_service.dart';
 
 class HolidayProvider with ChangeNotifier {
-  final MockHolidayService _mockService = MockHolidayService();
   List<Map<String, dynamic>> _holidays = [];
   bool _isLoading = false;
   String? _error;
@@ -17,7 +15,12 @@ class HolidayProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      _holidays = await _mockService.getHolidays();
+      // Simulate a network call
+      await Future.delayed(Duration(seconds: 2));
+      _holidays = [
+        {'date': '2023-12-25', 'name': 'Christmas'},
+        {'date': '2024-01-01', 'name': 'New Year\'s Day'},
+      ];
       // Sort holidays by date
       _holidays.sort((a, b) => a['date'].compareTo(b['date']));
     } catch (e) {

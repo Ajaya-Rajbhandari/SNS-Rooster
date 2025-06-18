@@ -19,8 +19,8 @@ class _AttendanceManagementScreenState
     super.initState();
     // Fetch all attendance records when the screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AttendanceProvider>(context, listen: false)
-          .fetchAllAttendance();
+      // TODO: Implement admin fetch all attendance if needed
+      // Provider.of<AttendanceProvider>(context, listen: false).fetchAllAttendance();
     });
   }
 
@@ -60,7 +60,10 @@ class _AttendanceManagementScreenState
             );
           } else {
             return RefreshIndicator(
-              onRefresh: () => attendanceProvider.fetchAllAttendance(),
+              // onRefresh: () => attendanceProvider.fetchAllAttendance(),
+              onRefresh: () async {
+                // TODO: Implement admin fetch all attendance if needed
+              },
               child: ListView.builder(
                 padding: const EdgeInsets.all(16.0),
                 itemCount: attendanceProvider.attendanceRecords.length,

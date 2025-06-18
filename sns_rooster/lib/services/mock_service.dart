@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 // Mock data (simulating API responses) for SNS Rooster frontend.
 // Use this mock service (with useMock = true) to build and test your UI without a backend.
 // Later, replace with real HTTP calls (e.g., using http or dio).

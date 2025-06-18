@@ -7,8 +7,14 @@ const BreakType = require('../models/BreakType');
 
 // Check-in (User can check-in once per day)
 router.post('/check-in', auth, async (req, res) => {
+  console.log('DEBUG: /check-in req.body:', req.body);
+  console.log('DEBUG: /check-in req.user:', req.user);
   try {
-    const userId = req.user.userId;
+    // Prefer userId from token, fallback to body if needed
+    const userId = req.user && req.user.userId ? req.user.userId : req.body.userId;
+    if (!userId) {
+      return res.status(400).json({ message: 'userId is required' });
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -31,6 +37,9 @@ router.post('/check-in', auth, async (req, res) => {
     res.status(201).json({ message: 'Check-in successful', attendance });
   } catch (error) {
     console.error('Check-in error:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Duplicate check-in for today or missing userId.' });
+    }
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -194,6 +203,80 @@ router.get('/break-types', auth, async (req, res) => {
   } catch (error) {
     console.error('Error fetching break types:', error);
     res.status(500).json({ message: 'Failed to fetch break types' });
+  }
+});
+
+// Attendance summary for a user within a date range
+router.get('/summary/:userId', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { start, end } = req.query;
+
+    // Allow users to access their own data, or admin/manager to access any data
+    if (req.user.role !== 'admin' && req.user.role !== 'manager' && req.user.userId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized to view this attendance summary' });
+    }
+
+    // Parse date range
+    let startDate = start ? new Date(start) : new Date('1970-01-01');
+    let endDate = end ? new Date(end) : new Date();
+    endDate.setHours(23, 59, 59, 999); // Include the whole end day
+
+    // Find attendance records for user in range
+    const records = await Attendance.find({
+      user: userId,
+      date: { $gte: startDate, $lte: endDate },
+      status: 'present',
+    });
+
+    // Calculate summary
+    let totalDaysPresent = records.length;
+    let totalHoursWorked = 0;
+    records.forEach((rec) => {
+      if (rec.checkInTime && rec.checkOutTime) {
+        let workMs = rec.checkOutTime - rec.checkInTime - (rec.totalBreakDuration || 0);
+        totalHoursWorked += workMs > 0 ? workMs / (1000 * 60 * 60) : 0;
+      }
+    });
+
+    res.json({
+      userId,
+      totalDaysPresent,
+      totalHoursWorked: Number(totalHoursWorked.toFixed(2)),
+      startDate: startDate.toISOString().slice(0, 10),
+      endDate: endDate.toISOString().slice(0, 10),
+    });
+  } catch (error) {
+    console.error('Attendance summary error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Attendance status endpoint
+router.get('/status/:userId', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    // Find today's attendance for the user
+    const attendance = await Attendance.findOne({
+      user: userId,
+      date: { $gte: today, $lt: tomorrow },
+    });
+
+    if (!attendance) {
+      return res.json({ status: 'not_clocked_in' });
+    }
+    if (attendance.checkOutTime) {
+      return res.json({ status: 'clocked_out' });
+    }
+    return res.json({ status: 'clocked_in' });
+  } catch (error) {
+    console.error('Attendance status error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
