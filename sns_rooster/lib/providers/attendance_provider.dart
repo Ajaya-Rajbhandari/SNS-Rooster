@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 import '../providers/auth_provider.dart';
 import '../services/attendance_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class AttendanceProvider with ChangeNotifier {
   final AuthProvider _authProvider;
@@ -60,11 +60,14 @@ class AttendanceProvider with ChangeNotifier {
     notifyListeners();
     try {
       _todayStatus = await _attendanceService.getAttendanceStatus(userId);
+      print('DEBUG: Updating todayStatus to: $_todayStatus');
     } catch (e) {
+      print('DEBUG: Error while fetching todayStatus: $e');
       _error = e.toString();
       _todayStatus = null;
     } finally {
       _isLoading = false;
+      print('DEBUG: Notifying listeners after todayStatus update');
       notifyListeners();
     }
   }
@@ -106,5 +109,29 @@ class AttendanceProvider with ChangeNotifier {
     _attendanceRecords = [];
     _error = null;
     notifyListeners();
+  }
+
+  Future<void> fetchBreakTypes(BuildContext context) async {
+    try {
+      print('FETCH_BREAK_TYPES_DEBUG: Token being sent: ${_authProvider.authToken}');
+
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/attendance/break-types'),
+        headers: {
+          'Authorization': 'Bearer ${_authProvider.authToken}',
+        },
+      );
+
+      print('FETCH_BREAK_TYPES_DEBUG: Response status code: ${response.statusCode}');
+      print('FETCH_BREAK_TYPES_DEBUG: Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        // Handle successful response
+      } else {
+        // Handle error response
+      }
+    } catch (e) {
+      print('FETCH_BREAK_TYPES_DEBUG: Error during API call: $e');
+    }
   }
 }

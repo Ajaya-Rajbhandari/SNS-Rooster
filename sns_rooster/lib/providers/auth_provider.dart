@@ -11,6 +11,7 @@ import '../providers/attendance_provider.dart';
 
 class AuthProvider with ChangeNotifier {
   String? _token;
+  String? _authToken; // Nullable token
   Map<String, dynamic>? _user;
   bool _isLoading = false;
   String? _error;
@@ -31,6 +32,9 @@ class AuthProvider with ChangeNotifier {
   bool get isLoggingOut => _isLoggingOut;
   GlobalKey<NavigatorState> get navigatorKey => _navigatorKey;
 
+  // Getter for authToken
+  String? get authToken => _authToken;
+
   AuthProvider() {
     print('AUTH PROVIDER: Initialized');
     _loadStoredAuth(); // Add this back to load stored auth on initialization
@@ -47,31 +51,27 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> _loadStoredAuth() async {
     try {
-      print('Loading stored auth...');
+      print('LOAD_AUTH_DEBUG: Loading stored auth...');
       final prefs = await SharedPreferences.getInstance();
-      final storedToken = prefs.getString('token');
-      print('SharedPreferences retrieved token: $storedToken');
-      _token = storedToken;
 
-      if (_token == null) {
-        print('No token found in SharedPreferences after retrieval.');
-        _user = null;
-      } else {
-        final userStr = prefs.getString('user');
-        print('SharedPreferences retrieved user string: $userStr');
-        if (userStr != null) {
-          _user = json.decode(userStr);
-          print('User data loaded: $_user');
-        } else {
-          _user = null;
-        }
-      }
-      print(
-          'Stored auth loaded - Final _token: ${_token != null}, Final User: ${_user != null}');
+      final storedToken = prefs.getString('token');
+      print('LOAD_AUTH_DEBUG: Token retrieved from SharedPreferences: $storedToken');
+      _authToken = storedToken;
+
+      final storedUser = prefs.getString('user');
+      print('LOAD_AUTH_DEBUG: User data retrieved from SharedPreferences: $storedUser');
+      _user = storedUser != null ? json.decode(storedUser) : null;
+
+      _token = _authToken;
+      print('LOAD_AUTH_DEBUG: Assigned _authToken to _token: $_token');
+
+      print('LOAD_AUTH_DEBUG: Final _authToken: $_authToken, Final _user: $_user');
+      print('LOAD_AUTH_DEBUG: Token after loading: $_authToken'); // Debugging log
+      print('LOAD_AUTH_DEBUG: Token loaded from SharedPreferences: $_authToken'); // Debugging log
       notifyListeners();
     } catch (e) {
-      print('Error loading stored auth: $e');
-      _token = null;
+      print('LOAD_AUTH_DEBUG: Error loading stored auth: $e');
+      _authToken = null;
       _user = null;
       notifyListeners();
     }
@@ -171,18 +171,14 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<bool> login(String email, String password) async {
-    print('AUTH PROVIDER: Login called with email: $email');
     print('LOGIN_DEBUG: Starting login for email: $email');
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      print('LOGIN_DEBUG: Making real API call to: ${ApiConfig.baseUrl}/auth/login');
-      print('LOGIN_DEBUG: Sending request with email: $email');
-      print('LOGIN_DEBUG: Request body: ${jsonEncode({'email': email, 'password': password})}');
+      print('LOGIN_DEBUG: Making API call to ${ApiConfig.baseUrl}/auth/login');
 
-      // Real API call implementation
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/auth/login'),
         headers: {
@@ -194,32 +190,33 @@ class AuthProvider with ChangeNotifier {
         }),
       );
 
-      print('LOGIN_DEBUG: Response status: ${response.statusCode}');
+      print('LOGIN_DEBUG: Response status code: ${response.statusCode}');
       print('LOGIN_DEBUG: Response body: ${response.body}');
 
-      final data = jsonDecode(response.body);
+      final data = jsonDecode(response.body); // Define data here
 
       if (response.statusCode == 200) {
-        _token = data['token'];
+        _authToken = data['token'];
+        print('LOGIN_DEBUG: Token received: $_authToken');
+        print('LOGIN_DEBUG: Assigning token to _authToken: ${data['token']}');
         _user = data['user'];
-        print('LOGIN_DEBUG: Token received: $_token');
         print('LOGIN_DEBUG: User data received: $_user');
+        print('LOGIN_DEBUG: Backend token field: ${data['token']}');
+        print('LOGIN_DEBUG: Token received from backend response: $_authToken');
         await _saveAuthToPrefs();
-        print('LOGIN_DEBUG: Real API login successful');
         return true;
       } else {
         _error = data['message'] ?? 'Login failed';
-        print('LOGIN_DEBUG: Real API login failed: $_error');
+        print('LOGIN_DEBUG: Login failed: $_error');
         return false;
       }
     } catch (e) {
       _error = e.toString();
-      print('LOGIN_DEBUG: Login exception: $e');
+      print('LOGIN_DEBUG: Exception during login: $e');
       return false;
     } finally {
       _isLoading = false;
       notifyListeners();
-      print('LOGIN_DEBUG: Login completed, error: $_error');
     }
   }
 
@@ -381,12 +378,13 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  bool isTokenExpired() {
-    if (_token == null) {
+  bool isTokenExpired([String? token]) {
+    final t = token ?? _token;
+    if (t == null) {
       return true;
     }
     try {
-      final decodedToken = JwtDecoder.decode(_token!);
+      final decodedToken = JwtDecoder.decode(t);
       final exp = decodedToken['exp'];
       if (exp == null) {
         return true; // Token has no expiration, consider it expired or invalid
@@ -402,20 +400,23 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> _saveAuthToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    if (_token != null) {
-      await prefs.setString('token', _token!);
-      print('Token saved to SharedPreferences: $_token');
+    print('SAVE_AUTH_DEBUG: SharedPreferences instance obtained');
+
+    if (_authToken != null) {
+      print('SAVE_AUTH_DEBUG: Token before saving: $_authToken');
+      await prefs.setString('token', _authToken!);
+      print('SAVE_AUTH_DEBUG: Token saved to SharedPreferences: $_authToken');
     } else {
       await prefs.remove('token');
-      print('Token removed from SharedPreferences');
+      print('SAVE_AUTH_DEBUG: Token removed from SharedPreferences');
     }
 
     if (_user != null) {
       await prefs.setString('user', json.encode(_user));
-      print('User saved to SharedPreferences: $_user');
+      print('SAVE_AUTH_DEBUG: User saved to SharedPreferences: $_user');
     } else {
       await prefs.remove('user');
-      print('User removed from SharedPreferences');
+      print('SAVE_AUTH_DEBUG: User removed from SharedPreferences');
     }
   }
 
@@ -443,5 +444,50 @@ class AuthProvider with ChangeNotifier {
     _user = updatedUserData;
     await _saveAuthToPrefs(); // Save the updated user data
     notifyListeners();
+  }
+
+  Future<void> clearToken() async {
+    print('CLEAR_TOKEN_DEBUG: Clearing token from SharedPreferences');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('token');
+    await prefs.remove('user');
+    _token = null;
+    _user = null;
+    print('CLEAR_TOKEN_DEBUG: Token and user data cleared');
+    notifyListeners();
+  }
+
+  Future<void> forceRelogin(BuildContext context) async {
+    print('FORCE_RELOGIN_DEBUG: Forcing re-login');
+    clearToken();
+    notifyListeners();
+    Navigator.pushReplacementNamed(context, '/login');
+    print('FORCE_RELOGIN_DEBUG: Navigated to login screen');
+  }
+
+  void debugToken(String? token) {
+    if (token == null) {
+      print('TOKEN_DEBUG: No token provided');
+      return;
+    }
+
+    try {
+      Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
+      print('TOKEN_DEBUG: Decoded token payload: $decodedToken');
+    } catch (e) {
+      print('TOKEN_DEBUG: Error decoding token: $e');
+    }
+  }
+
+  Future<void> fetchBreakTypes(BuildContext context) async {
+    debugToken(_authToken);
+
+    if (_authToken == null || isTokenExpired(_authToken!)) {
+      print('TOKEN_EXPIRATION_CHECK_DEBUG: Token expired or null, forcing re-login');
+      await forceRelogin(context);
+      return;
+    }
+
+    // ...existing code for fetching break types...
   }
 }
