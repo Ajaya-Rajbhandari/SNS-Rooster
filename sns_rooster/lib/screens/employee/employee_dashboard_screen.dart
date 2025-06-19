@@ -293,7 +293,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
         Uri.parse('${ApiConfig.baseUrl}/attendance/break-types'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer \$token',
+          'Authorization': 'Bearer $token',
         },
       );
 
@@ -301,12 +301,28 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       print('FETCH_BREAK_TYPES_DEBUG: Response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final List<dynamic> data = json.decode(response.body);
         print('FETCH_BREAK_TYPES_DEBUG: Parsed data: $data');
-        return List<Map<String, dynamic>>.from(data['breakTypes']);
+        return List<Map<String, dynamic>>.from(data);
+      } else if (response.statusCode == 401) {
+        // Unauthorized: Token expired or invalid
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Session expired. Please log in again.'), backgroundColor: Colors.red),
+        );
+        // Optionally, navigate to login screen
+        Future.delayed(const Duration(seconds: 1), () {
+          Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to fetch break types: ${response.statusCode}')),
+        );
       }
     } catch (e) {
       print('FETCH_BREAK_TYPES_DEBUG: Error fetching break types: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching break types: $e')),
+      );
     }
     return [];
   }

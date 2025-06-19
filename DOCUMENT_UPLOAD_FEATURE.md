@@ -1,3 +1,10 @@
+# Document Upload & Break Types Feature Documentation
+
+## Overview
+This document covers both the document upload feature and the break types/attendance improvements, including recent bug fixes and backend/frontend integration notes.
+
+---
+
 # Document Upload Feature Documentation
 
 ## Overview
@@ -152,3 +159,44 @@ For technical issues or questions about this feature, please refer to:
 - Code comments in the implementation files
 - Flutter documentation for image_picker
 - HTTP package documentation for file uploads
+
+---
+
+# Attendance and Break Types Debugging & Improvements
+
+## Recent Fixes & Learnings (June 2025)
+
+### 1. Break Types Fetching (Frontend)
+- The break types API now expects a top-level JSON array, not an object with a `breakTypes` key.
+- Flutter code updated to parse the response as a list:
+  ```dart
+  final List<dynamic> data = json.decode(response.body);
+  return List<Map<String, dynamic>>.from(data);
+  ```
+- Added user-friendly error handling:
+  - If the token is expired/invalid (401), the user sees a red snackbar and is redirected to login.
+  - Other errors show a clear message.
+
+### 2. Backend JWT & Role Handling
+- The backend `auth.js` middleware now copies both `userId` and `role` from the decoded JWT to `req.user`:
+  ```js
+  req.user = { userId: decoded.userId, role: decoded.role };
+  ```
+- This ensures role-based access checks work for break types and other endpoints.
+
+### 3. Debugging Lessons
+- Always check the actual backend response structure before parsing in Flutter.
+- Use debug prints to inspect API responses and catch mismatches early.
+- Ensure backend and frontend JWT secret usage is consistent.
+
+### 4. User Experience
+- If no break types are available, the user is informed.
+- If the session is expired, the user is prompted to log in again.
+
+---
+
+# Changelog (June 2025)
+- Fixed: Break types fetch error due to response structure mismatch.
+- Fixed: Backend role missing in `req.user` causing forbidden errors.
+- Improved: User-friendly error handling for break type fetch failures.
+- Documented: Lessons learned and best practices for future debugging.
