@@ -25,7 +25,7 @@ class ApiConfig {
       // For physical devices, use the host machine's IP address
       String ip = const String.fromEnvironment('API_HOST',
           defaultValue: homeIP); // Use homeIP (10.0.2.2) for Android emulator
-      return 'http://$ip:$port/api'; // Added /api here
+      return 'http://$ip:$port/api'; // Ensure /api is included for Android emulator
     } else {
       // Default for other platforms (desktop, etc.)
       return 'http://localhost:$port/api';
