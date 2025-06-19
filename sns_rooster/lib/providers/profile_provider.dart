@@ -232,6 +232,40 @@ class ProfileProvider with ChangeNotifier {
     }
   }
 
+  Future<bool> uploadDocument(String filePath, String documentType) async {
+    _error = null;
+    if (!_authProvider.isAuthenticated || _authProvider.token == null) {
+      _error = 'User not authenticated';
+      return false;
+    }
+
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${ApiConfig.baseUrl}/auth/upload-document'), // Corrected URL
+      );
+      request.headers['Authorization'] = 'Bearer ${_authProvider.token}';
+      request.fields['documentType'] = documentType;
+      request.files.add(await http.MultipartFile.fromPath('file', filePath));
+
+      final response = await request.send();
+      if (response.statusCode == 200) {
+        final responseBody = await response.stream.bytesToString();
+        final data = json.decode(responseBody);
+        print('Upload successful: $data');
+        return true;
+      } else {
+        print('Upload failed with status code: ${response.statusCode}');
+        _error = 'Failed to upload document';
+        return false;
+      }
+    } catch (e) {
+      print('Error during document upload: $e');
+      _error = 'An error occurred during upload';
+      return false;
+    }
+  }
+
   // Clear profile data when logging out
   Future<void> clearProfile() async {
     _profile = null;

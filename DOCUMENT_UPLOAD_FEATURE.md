@@ -66,7 +66,7 @@ The document upload feature allows users to upload and manage their identificati
 
 ### Upload Endpoint
 ```
-POST /api/upload-document
+POST /api/auth/upload-document
 Content-Type: multipart/form-data
 
 Parameters:
@@ -200,3 +200,25 @@ For technical issues or questions about this feature, please refer to:
 - Fixed: Backend role missing in `req.user` causing forbidden errors.
 - Improved: User-friendly error handling for break type fetch failures.
 - Documented: Lessons learned and best practices for future debugging.
+
+---
+
+# Document Upload Feature Update (July 2025)
+
+## Overview
+This section documents the updates made to the document upload feature, including backend route changes, frontend configuration, and testing results.
+
+## Changes Made
+
+### Backend Route Update
+- The document upload endpoint was updated to `/api/auth/upload-document` to match the backend route configuration.
+
+### Frontend Update
+- The `ProfileProvider` was updated to use the corrected endpoint (`/auth/upload-document`) for document upload.
+
+### Testing
+- Verified successful document upload for ID Card and Passport using the updated endpoint.
+- Tested connectivity between the emulator and backend server (`10.0.2.2:5000`).
+
+### Result
+- Document upload feature is now fully functional and integrated with backend.

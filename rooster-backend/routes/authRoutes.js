@@ -404,6 +404,43 @@ router.post('/users/profile/picture', auth, upload.single('profilePicture'), asy
   }
 });
 
+// Upload document (admin and owner only)
+router.post('/upload-document', auth, upload.single('file'), async (req, res) => {
+  try {
+    const { documentType } = req.body;
+    const userId = req.user.userId;
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (req.user.role !== 'admin' && req.user.userId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized to upload document' });
+    }
+
+    const filePath = `/uploads/documents/${req.file.filename}`;
+    user.documents = user.documents || [];
+    user.documents.push({ type: documentType, path: filePath });
+    await user.save();
+
+    res.status(200).json({
+      message: 'Document uploaded successfully',
+      documentInfo: {
+        fileName: req.file.originalname,
+        filePath,
+      },
+    });
+  } catch (error) {
+    console.error('Document upload error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Debugging route to create a new user (for testing purposes)
 router.post('/debug-create-user', async (req, res) => {
   try {

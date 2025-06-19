@@ -100,10 +100,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _pickAndUploadDocument(String documentType) async {
-    // Placeholder for document picking and uploading logic
-    print('Attempting to upload \$documentType');
-    // TODO: Implement actual file picking and uploading
-    // TODO: Add file size and type validation
+    try {
+      print('Attempting to upload $documentType');
+
+      // File picking logic
+      final picker = ImagePicker();
+      final XFile? file = await picker.pickImage(source: ImageSource.gallery);
+
+      if (file == null) {
+        print('No file selected.');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No file selected.')),
+        );
+        return;
+      }
+
+      print('File selected: ${file.path}');
+
+      // File size validation
+      final fileSize = await file.length();
+      if (fileSize > 5 * 1024 * 1024) {
+        print('File size exceeds limit.');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('File size must be less than 5MB.')),
+        );
+        return;
+      }
+
+      // Upload logic
+      setState(() {
+        _isLoading = true;
+      });
+
+      final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+      final success = await profileProvider.uploadDocument(file.path, documentType);
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (success) {
+        print('Document uploaded successfully.');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Document uploaded successfully!')),
+        );
+      } else {
+        print('Failed to upload document.');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(profileProvider.error ?? 'Failed to upload document.')),
+        );
+      }
+    } catch (e) {
+      print('Error during document upload: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('An error occurred during upload. Please try again.')),
+      );
+    }
   }
 
   Future<void> _saveProfile() async {
@@ -152,8 +204,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         // Prepend imageBaseUrl if it's a relative path
         String fullUrl = (imageBaseUrl.endsWith('/') || avatarUrl.startsWith('/'))
-            ? "${imageBaseUrl}${avatarUrl.startsWith('/') ? avatarUrl.substring(1) : avatarUrl}"
-            : "${imageBaseUrl}/${avatarUrl}";
+            ? "$imageBaseUrl${avatarUrl.startsWith('/') ? avatarUrl.substring(1) : avatarUrl}"
+            : "$imageBaseUrl/$avatarUrl";
         
         // Ensure no double slashes, except for http://
         fullUrl = fullUrl.replaceFirst('//', '/').replaceFirst(':/', '://');
