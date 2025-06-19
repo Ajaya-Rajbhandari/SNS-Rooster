@@ -221,8 +221,8 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
             ),
           );
         },
-        child: const Icon(Icons.add),
         tooltip: 'New Leave Request',
+        child: const Icon(Icons.add),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),

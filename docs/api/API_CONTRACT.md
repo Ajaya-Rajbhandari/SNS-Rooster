@@ -8,15 +8,38 @@ This document defines the data models and API contract for the SNS Rooster Emplo
 ```json
 {
   "_id": "string",                // Unique user ID
-  "name": "string",               // Full name
+  "firstName": "string",          // First name
+  "lastName": "string",           // Last name
+  "name": "string",               // Full name (legacy field, auto-generated)
   "email": "string",              // Email address (unique)
   "role": "employee | admin",     // User role
   "department": "string",         // Department name
   "position": "string",           // Job title/position
+  "phone": "string",               // Phone number
+  "address": "string",             // Address
+  "emergencyContact": "string",    // Emergency contact name
+  "emergencyPhone": "string",      // Emergency contact phone
+  "passport": "string",            // Passport file path or URL
+  "education": [
+    {
+      "institution": "string",
+      "degree": "string",
+      "fieldOfStudy": "string",
+      "startDate": "YYYY-MM-DD",
+      "endDate": "YYYY-MM-DD",
+      "certificate": "string" // File path or URL
+    }
+  ],
+  "certificates": [
+    {
+      "name": "string",
+      "file": "string" // File path or URL
+    }
+  ],
   "isActive": true,                // Is the user active?
   "isProfileComplete": true,       // Has the user completed their profile?
   "lastLogin": "2023-10-01T12:00:00Z", // Last login (ISO8601)
-  "avatar": "assets/images/profile_placeholder.png" // Avatar URL or asset path
+  "avatar": "string"               // Profile image URL or base64 data
 }
 ```
 
@@ -100,4 +123,23 @@ This document defines the data models and API contract for the SNS Rooster Emplo
 
 ---
 
-_Last updated: 2024-06-09_ 
+---
+
+## API Endpoints
+
+### Profile Management
+
+#### Update Profile
+- **PATCH** `/auth/me`
+- **Description**: Update user profile information
+- **Accepted Fields**: `firstName`, `lastName`, `name` (legacy), `email`, `phone`, `address`, `emergencyContact`, `emergencyPhone`
+- **Note**: If `name` is provided, it will be split into `firstName` and `lastName` for backward compatibility
+
+#### Get Profile
+- **GET** `/auth/me`
+- **Description**: Retrieve current user's profile information
+- **Returns**: Complete user object with profile data
+
+---
+
+_Last updated: 2024-12-16_

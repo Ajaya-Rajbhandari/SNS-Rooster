@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import '../services/mock_service.dart'; // Assuming mock_service.dart contains analytics data
 import '../providers/auth_provider.dart'; // To get current user ID
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 
 class AnalyticsProvider with ChangeNotifier {
-  final MockAnalyticsService _mockService = MockAnalyticsService();
   Map<String, int> _attendanceData = {};
   List<double> _workHoursData = [];
   bool _isLoading = false;
@@ -24,16 +25,44 @@ class AnalyticsProvider with ChangeNotifier {
 
     try {
       final userId = _authProvider.user?['_id'];
-      if (userId == null) {
+      final token = _authProvider.token;
+      if (userId == null || token == null) {
         _error = 'User not logged in.';
         _isLoading = false;
         notifyListeners();
         return;
       }
-      // Fetch attendance analytics data
-      _attendanceData = await _mockService.getAttendanceAnalytics();
-      // Fetch work hours analytics data
-      _workHoursData = await _mockService.getWorkHoursAnalytics();
+      // Remove all mock code and use only real API logic
+      // Fetch attendance analytics from backend
+      final attendanceRes = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/analytics/attendance/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (attendanceRes.statusCode == 200) {
+        final data = json.decode(attendanceRes.body);
+        _attendanceData = Map<String, int>.from(data['attendance'] ?? {});
+      } else {
+        final data = json.decode(attendanceRes.body);
+        throw Exception(data['message'] ?? 'Failed to fetch attendance analytics');
+      }
+      // Fetch work hours analytics from backend
+      final workHoursRes = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/analytics/work-hours/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (workHoursRes.statusCode == 200) {
+        final data = json.decode(workHoursRes.body);
+        _workHoursData = List<double>.from(data['workHours'] ?? []);
+      } else {
+        final data = json.decode(workHoursRes.body);
+        throw Exception(data['message'] ?? 'Failed to fetch work hours analytics');
+      }
     } catch (e) {
       _error = e.toString();
       _attendanceData = {};

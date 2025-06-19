@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
-import '../services/mock_service.dart'; // Import the mock_service.dart where MockPayrollService is defined
-import '../providers/auth_provider.dart'; // To get current user ID
-// For groupBy
+import '../providers/auth_provider.dart';
+import '../services/payroll_service.dart';
 
 class PayrollProvider with ChangeNotifier {
-  final MockPayrollService _mockService =
-      MockPayrollService(); // Changed to MockPayrollService
+  final AuthProvider _authProvider;
+  late final PayrollService _payrollService;
   List<Map<String, dynamic>> _payrollSlips = [];
   bool _isLoading = false;
   String? _error;
-  final AuthProvider _authProvider;
 
-  PayrollProvider(this._authProvider);
+  PayrollProvider(this._authProvider) {
+    _payrollService = PayrollService(_authProvider);
+  }
 
   List<Map<String, dynamic>> get payrollSlips => _payrollSlips;
   bool get isLoading => _isLoading;
@@ -32,14 +32,11 @@ class PayrollProvider with ChangeNotifier {
     }
 
     try {
-      final allSlips = await _mockService.getPayrollSlips();
-      _payrollSlips =
-          allSlips.where((slip) => slip['userId'] == userId).toList();
-      _payrollSlips.sort((a, b) =>
-          b['issueDate'].compareTo(a['issueDate'])); // Sort by most recent
+      _payrollSlips = await _payrollService.getPayrollSlips(userId);
+      _payrollSlips.sort((a, b) => b['periodEnd'].compareTo(a['periodEnd']));
     } catch (e) {
       _error = e.toString();
-      _payrollSlips = []; // Clear data on error
+      _payrollSlips = [];
     } finally {
       _isLoading = false;
       notifyListeners();

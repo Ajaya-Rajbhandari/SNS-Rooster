@@ -1,25 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/profile_provider.dart';
 
 class UserInfoHeader extends StatelessWidget {
-  final String userName;
-  final String userRole;
-  final String userAvatar;
   final VoidCallback onNotificationTap;
 
   const UserInfoHeader({
     super.key,
-    required this.userName,
-    required this.userRole,
-    required this.userAvatar,
     required this.onNotificationTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+    final profile = profileProvider.profile;
+
     return Row(
       children: [
         CircleAvatar(
-          backgroundImage: AssetImage(userAvatar),
+          backgroundImage: profile != null && profile['avatar'] != null
+              ? NetworkImage(profile['avatar'])
+              : const AssetImage('assets/images/default_avatar.png') as ImageProvider,
           radius: 28,
         ),
         const SizedBox(width: 12),
@@ -27,8 +28,14 @@ class UserInfoHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Welcome Back, $userName', style: Theme.of(context).textTheme.titleMedium),
-              Text(userRole, style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                profile != null ? 'Welcome Back, ${profile['name']}' : 'Welcome Back',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              Text(
+                profile != null ? profile['role'] ?? '' : '',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ],
           ),
         ),

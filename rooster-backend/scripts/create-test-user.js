@@ -19,7 +19,8 @@ async function createTestUser() {
 
     // Create test user
     const testUser = new User({
-      name: 'Test User',
+      firstName: 'Test',
+      lastName: 'User',
       email: 'testuser@example.com',
       password: 'Test@123',
       role: 'employee',

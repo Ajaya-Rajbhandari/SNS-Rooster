@@ -1,9 +1,13 @@
 const express = require('express');
-const router = express.Router();
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const upload = require('../middleware/upload');
+const path = require('path');
+const fs = require('fs');
+const router = express.Router();
 
 // Login route
 router.post('/login', async (req, res) => {
@@ -32,22 +36,46 @@ router.post('/login', async (req, res) => {
     await user.save();
 
     // Generate JWT token
-    const token = jwt.sign(
-      { 
-        userId: user._id,
-        email: user.email,
-        role: user.role, 
-        isProfileComplete: user.isProfileComplete
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
-    // Send response
-    res.json({
-      token,
-      user: user.getPublicProfile()
+    console.log('DEBUG: Starting token generation');
+    console.log('DEBUG: User data for token:', {
+      userId: user._id,
+      email: user.email,
+      role: user.role,
+      isProfileComplete: user.isProfileComplete
     });
+    console.log('DEBUG: JWT_SECRET during token generation:', process.env.JWT_SECRET);
+    console.log('DEBUG: User data passed to jwt.sign:', {
+      userId: user._id,
+      email: user.email,
+      role: user.role,
+      isProfileComplete: user.isProfileComplete
+    });
+
+    if (!process.env.JWT_SECRET) {
+      console.error('ERROR: JWT_SECRET is not defined in environment variables');
+      return res.status(500).json({ message: 'Server configuration error: Missing JWT_SECRET' });
+    }
+
+    try {
+      const token = jwt.sign(
+        {
+          userId: user._id,
+          email: user.email,
+          role: user.role,
+          isProfileComplete: user.isProfileComplete
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+      console.log('DEBUG: Token generated successfully:', token);
+      res.json({
+        token,
+        user: user.getPublicProfile()
+      });
+    } catch (error) {
+      console.error('DEBUG: Error during token generation:', error);
+      res.status(500).json({ message: 'Server error during token generation' });
+    }
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -166,6 +194,58 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
+// Update current user profile
+router.patch('/me', auth, async (req, res) => {
+  try {
+    console.log('PATCH /me request body:', req.body);
+    console.log('Authenticated user:', req.user);
+
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      console.log('User not found');
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const updates = req.body;
+    const allowedUpdates = ['name', 'firstName', 'lastName', 'email', 'phone', 'address', 'emergencyContact', 'emergencyPhone'];
+    const isValidOperation = Object.keys(updates).every((update) => allowedUpdates.includes(update));
+
+    if (!isValidOperation) {
+      console.log('Invalid updates:', updates);
+      return res.status(400).json({ message: 'Invalid updates' });
+    }
+
+    // Prevent duplicate email errors
+    if (updates.email && updates.email !== user.email) {
+      const emailExists = await User.findOne({ email: updates.email });
+      if (emailExists) {
+        console.log('Duplicate email detected:', updates.email);
+        return res.status(400).json({ message: 'Email already exists' });
+      }
+    }
+
+    // Handle name field for backward compatibility
+    if (updates.name && !updates.firstName && !updates.lastName) {
+      const nameParts = updates.name.trim().split(' ');
+      updates.firstName = nameParts[0] || '';
+      updates.lastName = nameParts.slice(1).join(' ') || '';
+      delete updates.name;
+    }
+
+    Object.keys(updates).forEach((update) => {
+      user[update] = updates[update];
+    });
+
+    user.recalculateProfileComplete();
+    await user.save();
+    console.log('Updated user profile:', user);
+    res.json({ profile: user.getPublicProfile() });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get all users (admin/manager only, with optional role filter)
 router.get('/users', auth, async (req, res) => {
   try {
@@ -214,6 +294,7 @@ router.patch('/users/:id', auth, async (req, res) => {
     Object.keys(updates).forEach(update => {
       user[update] = updates[update];
     });
+    user.recalculateProfileComplete();
     await user.save();
 
     res.json({
@@ -245,6 +326,159 @@ router.delete('/users/:id', auth, async (req, res) => {
   } catch (error) {
     console.error('User deletion error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Upload profile picture
+router.post('/users/profile/picture', auth, upload.single('profilePicture'), async (req, res) => {
+  console.log('=== PROFILE PICTURE UPLOAD START ===');
+  console.log('Request received for profile picture upload');
+  console.log('User ID:', req.user?.userId);
+  console.log('File received:', req.file ? 'YES' : 'NO');
+  
+  if (req.file) {
+    console.log('File details:', {
+      filename: req.file.filename,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      path: req.file.path,
+      destination: req.file.destination
+    });
+  }
+  
+  try {
+    if (!req.file) {
+      console.log('ERROR: No file uploaded');
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      console.log('ERROR: User not found');
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    console.log('User found:', user.email);
+    console.log('Current avatar:', user.avatar);
+
+    // Store old avatar info before updating
+    const oldAvatarPath = user.avatar ? path.join(__dirname, '../uploads/avatars', path.basename(user.avatar)) : null;
+    
+    // Update user with new avatar path first
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    console.log('New avatar URL:', avatarUrl);
+    console.log('File saved to:', req.file.path);
+    
+    user.avatar = avatarUrl;
+    await user.save();
+    console.log('User avatar updated in database');
+
+    // Delete old avatar file if it exists (after successful database update)
+    if (oldAvatarPath) {
+      console.log('Checking old avatar path:', oldAvatarPath);
+      if (fs.existsSync(oldAvatarPath)) {
+        console.log('Deleting old avatar file');
+        fs.unlinkSync(oldAvatarPath);
+      } else {
+        console.log('Old avatar file does not exist');
+      }
+    }
+
+    console.log('=== PROFILE PICTURE UPLOAD SUCCESS ===');
+    res.json({
+      message: 'Profile picture updated successfully',
+      profile: user.getPublicProfile()
+    });
+  } catch (error) {
+    console.error('=== PROFILE PICTURE UPLOAD ERROR ===');
+    console.error('Profile picture upload error:', error);
+    
+    // Clean up uploaded file if there was an error
+    if (req.file && fs.existsSync(req.file.path)) {
+      console.log('Cleaning up uploaded file due to error');
+      fs.unlinkSync(req.file.path);
+    }
+    
+    res.status(500).json({ message: 'Server error during file upload' });
+  }
+});
+
+// Upload document (admin and owner only)
+router.post('/upload-document', auth, upload.single('file'), async (req, res) => {
+  try {
+    const { documentType } = req.body;
+    const userId = req.user.userId;
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (req.user.role !== 'admin' && req.user.userId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized to upload document' });
+    }
+
+    const filePath = `/uploads/documents/${req.file.filename}`;
+    user.documents = user.documents || [];
+    user.documents.push({ type: documentType, path: filePath });
+    await user.save();
+
+    res.status(200).json({
+      message: 'Document uploaded successfully',
+      documentInfo: {
+        fileName: req.file.originalname,
+        filePath,
+      },
+    });
+  } catch (error) {
+    console.error('Document upload error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Debugging route to create a new user (for testing purposes)
+router.post('/debug-create-user', async (req, res) => {
+  try {
+    const { email, password, firstName, lastName, role, department, position } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+
+    // Validate firstName and lastName
+    if (!firstName || !lastName) {
+      return res.status(400).json({ message: 'First name and last name are required' });
+    }
+
+    // Create new user
+    const user = new User({
+      email,
+      password,
+      firstName,
+      lastName,
+      role: role || 'employee',
+      department,
+      position,
+      isActive: true,
+      isProfileComplete: false,
+    });
+
+    await user.save();
+
+    res.status(201).json({
+      message: 'User created successfully',
+      user: user.getPublicProfile(),
+    });
+  } catch (error) {
+    console.error('Debug create user error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

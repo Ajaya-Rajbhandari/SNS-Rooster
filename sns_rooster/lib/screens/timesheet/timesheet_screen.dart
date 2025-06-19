@@ -34,65 +34,8 @@ class _TimesheetScreenState extends State<TimesheetScreen>
 
   final List<String> _filters = ['All', 'Approved', 'Pending', 'Rejected'];
 
-  // Mock data for employee view (only one user's data)
-  final List<Map<String, dynamic>> _mockTimesheetData = [
-    {
-      'date': DateTime.now().subtract(const Duration(days: 6)),
-      'checkIn': '09:00 AM',
-      'checkOut': '06:00 PM',
-      'totalHours': 9.0,
-      'status': 'Approved',
-      'breakDuration': '01:00',
-    },
-    {
-      'date': DateTime.now().subtract(const Duration(days: 5)),
-      'checkIn': '09:15 AM',
-      'checkOut': '06:15 PM',
-      'totalHours': 9.0,
-      'status': 'Pending',
-      'breakDuration': '00:45',
-    },
-    {
-      'date': DateTime.now().subtract(const Duration(days: 4)),
-      'checkIn': '09:00 AM',
-      'checkOut': '05:30 PM',
-      'totalHours': 8.5,
-      'status': 'Approved',
-      'breakDuration': '01:00',
-    },
-    {
-      'date': DateTime.now().subtract(const Duration(days: 3)),
-      'checkIn': '08:45 AM',
-      'checkOut': '05:45 PM',
-      'totalHours': 9.0,
-      'status': 'Approved',
-      'breakDuration': '00:30',
-    },
-    {
-      'date': DateTime.now().subtract(const Duration(days: 2)),
-      'checkIn': '09:00 AM',
-      'checkOut': '06:00 PM',
-      'totalHours': 9.0,
-      'status': 'Rejected',
-      'breakDuration': '01:15',
-    },
-    {
-      'date': DateTime.now().subtract(const Duration(days: 1)),
-      'checkIn': '09:00 AM',
-      'checkOut': '06:00 PM',
-      'totalHours': 9.0,
-      'status': 'Approved',
-      'breakDuration': '01:00',
-    },
-    {
-      'date': DateTime.now(),
-      'checkIn': '09:00 AM',
-      'checkOut': '--',
-      'totalHours': 0.0,
-      'status': 'Pending',
-      'breakDuration': '00:00',
-    },
-  ];
+  // TODO: Replace with real timesheet data from API
+  final List<Map<String, dynamic>> timesheetData = [];
 
   @override
   void initState() {
@@ -941,7 +884,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                 ).then((entry) {
                   if (entry != null) {
                     setState(() {
-                      _mockTimesheetData.add(entry);
+                      // Removed: _mockTimesheetData.add(entry);
                     });
                   }
                 });

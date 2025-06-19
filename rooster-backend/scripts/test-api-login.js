@@ -2,7 +2,7 @@ async function testApiLogin() {
   try {
     console.log('=== TESTING API LOGIN ENDPOINT ===');
     
-    const apiUrl = 'http://192.168.1.67:5000/api/auth/login';
+    const apiUrl = 'http://localhost:5000/api/auth/login';
     const testCredentials = {
       email: 'testuser@example.com',
       password: 'Test@123'
@@ -54,7 +54,7 @@ async function testAdminLogin() {
   try {
     console.log('\n=== TESTING ADMIN LOGIN ===');
     
-    const apiUrl = 'http://192.168.1.67:5000/api/auth/login';
+    const apiUrl = 'http://localhost:5000/api/auth/login';
     const adminCredentials = {
       email: 'admin@snsrooster.com',
       password: 'Admin@123'

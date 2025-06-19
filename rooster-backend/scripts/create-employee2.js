@@ -19,7 +19,8 @@ async function createEmployee2() {
 
     // Create employee2 user
     const employee2 = new User({
-      name: 'Employee Two',
+      firstName: 'Employee',
+      lastName: 'Two',
       email: 'employee2@snsrooster.com',
       password: 'Employee@456',
       role: 'employee',

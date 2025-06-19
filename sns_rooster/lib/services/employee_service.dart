@@ -118,4 +118,22 @@ class EmployeeService {
       throw Exception('Error deleting employee from database: $e');
     }
   }
+
+  Future<Map<String, dynamic>> getEmployeeById(String id) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/employees/$id'),
+        headers: getHeaders(),
+      );
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception(
+          'Failed to fetch employee by ID: ${response.statusCode} ${response.body}',
+        );
+      }
+    } catch (e) {
+      throw Exception('Error fetching employee by ID: $e');
+    }
+  }
 }
