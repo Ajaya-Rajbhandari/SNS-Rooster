@@ -24,7 +24,7 @@ const auth = async (req, res, next) => {
       return res.status(403).json({ error: 'Invalid token payload' });
     }
 
-    req.user = { userId: decoded.userId };
+    req.user = { userId: decoded.userId, role: decoded.role };
     console.log('DEBUG: req.user after assignment:', req.user);
 
     next();
