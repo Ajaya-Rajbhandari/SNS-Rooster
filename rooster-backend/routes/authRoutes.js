@@ -36,22 +36,46 @@ router.post('/login', async (req, res) => {
     await user.save();
 
     // Generate JWT token
-    const token = jwt.sign(
-      { 
-        userId: user._id,
-        email: user.email,
-        role: user.role, 
-        isProfileComplete: user.isProfileComplete
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
-    // Send response
-    res.json({
-      token,
-      user: user.getPublicProfile()
+    console.log('DEBUG: Starting token generation');
+    console.log('DEBUG: User data for token:', {
+      userId: user._id,
+      email: user.email,
+      role: user.role,
+      isProfileComplete: user.isProfileComplete
     });
+    console.log('DEBUG: JWT_SECRET during token generation:', process.env.JWT_SECRET);
+    console.log('DEBUG: User data passed to jwt.sign:', {
+      userId: user._id,
+      email: user.email,
+      role: user.role,
+      isProfileComplete: user.isProfileComplete
+    });
+
+    if (!process.env.JWT_SECRET) {
+      console.error('ERROR: JWT_SECRET is not defined in environment variables');
+      return res.status(500).json({ message: 'Server configuration error: Missing JWT_SECRET' });
+    }
+
+    try {
+      const token = jwt.sign(
+        {
+          userId: user._id,
+          email: user.email,
+          role: user.role,
+          isProfileComplete: user.isProfileComplete
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+      console.log('DEBUG: Token generated successfully:', token);
+      res.json({
+        token,
+        user: user.getPublicProfile()
+      });
+    } catch (error) {
+      console.error('DEBUG: Error during token generation:', error);
+      res.status(500).json({ message: 'Server error during token generation' });
+    }
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -377,6 +401,47 @@ router.post('/users/profile/picture', auth, upload.single('profilePicture'), asy
     }
     
     res.status(500).json({ message: 'Server error during file upload' });
+  }
+});
+
+// Debugging route to create a new user (for testing purposes)
+router.post('/debug-create-user', async (req, res) => {
+  try {
+    const { email, password, firstName, lastName, role, department, position } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+
+    // Validate firstName and lastName
+    if (!firstName || !lastName) {
+      return res.status(400).json({ message: 'First name and last name are required' });
+    }
+
+    // Create new user
+    const user = new User({
+      email,
+      password,
+      firstName,
+      lastName,
+      role: role || 'employee',
+      department,
+      position,
+      isActive: true,
+      isProfileComplete: false,
+    });
+
+    await user.save();
+
+    res.status(201).json({
+      message: 'User created successfully',
+      user: user.getPublicProfile(),
+    });
+  } catch (error) {
+    console.error('Debug create user error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

@@ -20,7 +20,6 @@ import '../../providers/auth_provider.dart';
 import '../../config/api_config.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../widgets/user_avatar.dart';
-import 'package:flutter/widgets.dart';
 import '../../../main.dart';
 import '../../services/attendance_service.dart';
 import 'live_clock.dart';
@@ -161,7 +160,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
   void _clockIn() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?['_id'];
-    print('DEBUG: Attempting check-in with userId: ' + (userId?.toString() ?? 'null'));
+    print('DEBUG: Attempting check-in with userId: ${userId?.toString() ?? 'null'}');
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('User not logged in. Please log in again.')),
@@ -171,15 +170,21 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     try {
       final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
       final attendanceService = AttendanceService(authProvider);
+      print('DEBUG: Fetched userId from AuthProvider: ${authProvider.user?['_id']?.toString() ?? 'null'}');
       await attendanceService.checkIn(userId);
       await attendanceProvider.fetchTodayStatus(userId);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Clocked in successfully!')),
       );
     } catch (e) {
+      String errorMessage = 'An error occurred while clocking in.';
+      if (e.toString().contains('Already checked in for today')) {
+        errorMessage = 'You have already clocked in for today.';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('Failed to clock in: \\${e.toString()}')),
+          content: Text(errorMessage),
+        ),
       );
     }
   }
@@ -281,20 +286,27 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
 
   Future<List<Map<String, dynamic>>> _fetchBreakTypes() async {
     try {
+      print('FETCH_BREAK_TYPES_DEBUG: Sending request to ${ApiConfig.baseUrl}/attendance/break-types');
+      final token = Provider.of<AuthProvider>(context, listen: false).token;
+      print('FETCH_BREAK_TYPES_DEBUG: Token being sent: $token');
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/break-types'),
+        Uri.parse('${ApiConfig.baseUrl}/attendance/break-types'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Provider.of<AuthProvider>(context, listen: false).token}',
+          'Authorization': 'Bearer \$token',
         },
       );
 
+      print('FETCH_BREAK_TYPES_DEBUG: Response status code: ${response.statusCode}');
+      print('FETCH_BREAK_TYPES_DEBUG: Response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        print('FETCH_BREAK_TYPES_DEBUG: Parsed data: $data');
         return List<Map<String, dynamic>>.from(data['breakTypes']);
       }
     } catch (e) {
-      print('Error fetching break types: $e');
+      print('FETCH_BREAK_TYPES_DEBUG: Error fetching break types: $e');
     }
     return [];
   }
@@ -423,15 +435,10 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    final attendanceProvider = Provider.of<AttendanceProvider>(context);
-    final profileProvider = Provider.of<ProfileProvider>(context);
-    final profile = profileProvider.profile;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?['_id'];
-
-    // Always compute isClockedIn from provider state
-    // final isClockedIn = attendanceProvider.currentAttendance != null &&
-    //     attendanceProvider.currentAttendance?['checkOutTime'] == null;
+    final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+    final profile = profileProvider.profile;
 
     // Only save profile to SharedPreferences if it has changed
     if (profile != null) {
@@ -456,266 +463,46 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
-          child: SingleChildScrollView(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                    // Redesigned Header
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.blue.shade500, Colors.blue.shade800],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blue.shade100.withOpacity(0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.all(20.0),
-                      child: Row(
-                        children: [
-                          UserAvatar(
-                            avatarUrl: profile?['avatar'],
-                            radius: 32,
-                          ),
-                          const SizedBox(width: 18),
-                          Expanded(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: <Widget>[
-                                Text(
-                                  'Welcome Back,',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
-                                        color: Colors.white70,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  profile != null
-                                      ? '${profile['firstName'] ?? ''} ${profile['lastName'] ?? ''}'
-                                          .trim()
-                                      : 'Guest',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineSmall
-                                      ?.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _capitalizeFirstLetter(
-                                      profile?['role'] ?? ''),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(
-                                        color: Colors.white70,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.notifications,
-                                color: Colors.white),
-                            onPressed: () {},
-                          ),
-                        ],
-                      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _DashboardHeader(profile: profile),
+              const SizedBox(height: 28),
+              const _StatusCard(),
+              const SizedBox(height: 28),
+              if (userId != null)
+                Row(
+                  children: [
+                    Text(_startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : 'Start Date'),
+                    const SizedBox(width: 8),
+                    Text(_endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : 'End Date'),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => _pickDateRange(context, userId),
+                      child: const Text('Select Range'),
                     ),
-                    const SizedBox(height: 28),
-                    // Redesigned Status Card
-                    Card(
-                      elevation: 6,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20.0, vertical: 18.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Today's Status",
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Text(
-                                  'Current Time',
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                                const Spacer(),
-                                const LiveClock(),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Consumer<AttendanceProvider>(
-                              builder: (context, attendanceProvider, _) {
-                                final summary = attendanceProvider.attendanceSummary;
-                                if (attendanceProvider.isLoading) {
-                                  return const Center(child: CircularProgressIndicator());
-                                }
-                                if (summary == null || (summary['totalDaysPresent'] == 0 && summary['totalHoursWorked'] == 0)) {
-                                  return const Text('No attendance records for this range.');
-                                }
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Total Days Present: \\${summary['totalDaysPresent'] ?? '-'}'),
-                                    Text('Total Hours Worked: \\${summary['totalHoursWorked'] ?? '-'}'),
-                                    // Add more fields as needed
-                                  ],
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    // Date Range Picker
-                    if (userId != null)
-                      Row(
-                        children: [
-                          Text(_startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : 'Start Date'),
-                          const SizedBox(width: 8),
-                          Text(_endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : 'End Date'),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: () => _pickDateRange(context, userId),
-                            child: const Text('Select Range'),
-                          ),
-                        ],
-                      ),
-                    const SizedBox(height: 16),
-                    // Redesigned Quick Actions
-                    Text(
-                      'Quick Actions',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 16),
-                    Builder(
-                      builder: (context) {
-                        final screenWidth = MediaQuery.of(context).size.width;
-                        final isTablet = screenWidth > 600;
-                        final crossAxisCount = isTablet ? 3 : 2;
-                        final childAspectRatio = isTablet ? 2.1 : 1.9;
-
-                        return Column(
-                          children: [
-                            // Clock In/Out Section (Always at top)
-                            Consumer<AttendanceProvider>(
-                              builder: (context, attendanceProvider, _) {
-                                final status = attendanceProvider.todayStatus;
-                                if (attendanceProvider.isLoading) {
-                                  return const Center(child: CircularProgressIndicator());
-                                }
-                                if (status == 'clocked_in') {
-                                  // Show Clock Out and Break buttons
-                                  return Row(
-                                    children: [
-                                      Expanded(
-                                        child: _buildQuickActionCard(
-                                          context,
-                                          icon: Icons.logout,
-                                          label: 'Clock Out',
-                                          color: _isOnBreak
-                                              ? const Color(0xFFB0B0B0)
-                                              : const Color(0xFFE53E3E),
-                                          onPressed: _isOnBreak ? null : _clockOut,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: _buildQuickActionCard(
-                                          context,
-                                          icon: _isOnBreak ? Icons.stop_circle : Icons.free_breakfast,
-                                          label: _isOnBreak ? 'End Break' : 'Start Break',
-                                          color: _isOnBreak ? const Color(0xFFED8936) : const Color(0xFF718096),
-                                          onPressed: _isOnBreak ? _endBreak : _startBreak,
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                } else {
-                                  // Show Clock In button
-                                  return SizedBox(
-                                    width: double.infinity,
-                                    child: _buildQuickActionCard(
-                                      context,
-                                      icon: Icons.login,
-                                      label: 'Clock In',
-                                      color: const Color(0xFF38A169),
-                                      onPressed: _clockIn,
-                                      isFullWidth: true,
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Other Actions Grid
-                            GridView.count(
-                              crossAxisCount: crossAxisCount,
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              mainAxisSpacing: 12,
-                              crossAxisSpacing: 12,
-                              childAspectRatio: childAspectRatio,
-                              children: [
-                                _buildQuickActionCard(
-                                  context,
-                                  icon: Icons.calendar_today,
-                                  label: 'Apply Leave',
-                                  color: const Color(0xFF3182CE),
-                                  onPressed: () => _applyLeave(context),
-                                ),
-                                _buildQuickActionCard(
-                                  context,
-                                  icon: Icons.access_time,
-                                  label: 'Timesheet',
-                                  color: const Color(0xFF805AD5),
-                                  onPressed: () => _openTimesheet(context),
-                                ),
-                                _buildQuickActionCard(
-                                  context,
-                                  icon: Icons.person,
-                                  label: 'Profile',
-                                  color: const Color(0xFF319795),
-                                  onPressed: () => _openProfile(context),
-                                ),
-                              ],
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                ],
-            ),
+                  ],
+                ),
+              const SizedBox(height: 16),
+              Text(
+                'Quick Actions',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              _QuickActions(
+                isOnBreak: _isOnBreak,
+                clockIn: _clockIn,
+                clockOut: _clockOut,
+                startBreak: _startBreak,
+                endBreak: _endBreak,
+                applyLeave: _applyLeave,
+                openTimesheet: _openTimesheet,
+                openProfile: _openProfile,
+              ),
+            ],
           ),
         ),
       ),
@@ -827,4 +614,309 @@ void _openProfile(BuildContext context) {
   );
 }
 
-// Remove duplicate declarations
+// --- Extracted Widgets ---
+
+class _DashboardHeader extends StatelessWidget {
+  final Map<String, dynamic>? profile;
+  const _DashboardHeader({this.profile});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade500, Colors.blue.shade800],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.shade100.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20.0),
+      child: Row(
+        children: [
+          UserAvatar(
+            avatarUrl: profile?['avatar'],
+            radius: 32,
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                Text(
+                  'Welcome Back,',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  profile != null
+                      ? '${profile?['firstName'] ?? ''} ${profile?['lastName'] ?? ''}'.trim()
+                      : 'Guest',
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineSmall
+                      ?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _capitalizeFirstLetter(profile?['role'] ?? ''),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications, color: Colors.white),
+            onPressed: () {},
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusCard extends StatelessWidget {
+  const _StatusCard();
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 18.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.notifications, color: Colors.blue),
+                const SizedBox(width: 8),
+                Text(
+                  "Today's Attendance Status",
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(Icons.access_time, color: Colors.grey),
+                const SizedBox(width: 8),
+                Text(
+                  'Current Time:',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const Spacer(),
+                const LiveClock(),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Consumer<AttendanceProvider>(
+              builder: (context, attendanceProvider, _) {
+                final summary = attendanceProvider.attendanceSummary;
+                if (attendanceProvider.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (summary == null || (summary['totalDaysPresent'] == 0 && summary['totalHoursWorked'] == 0)) {
+                  return const Text('No attendance records for this range.');
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Days Present:',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const Spacer(),
+                        Text(
+                          '${summary['totalDaysPresent']} Days',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(Icons.hourglass_bottom, color: Colors.orange),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Hours Worked:',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const Spacer(),
+                        Text(
+                          '${summary['totalHoursWorked']} Hours',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(Icons.sync, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Status:',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const Spacer(),
+                        Chip(
+                          label: Text(
+                            'Checked In',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          backgroundColor: Colors.green,
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActions extends StatelessWidget {
+  final bool isOnBreak;
+  final VoidCallback clockIn;
+  final VoidCallback clockOut;
+  final VoidCallback startBreak;
+  final VoidCallback endBreak;
+  final Function(BuildContext) applyLeave;
+  final Function(BuildContext) openTimesheet;
+  final Function(BuildContext) openProfile;
+  const _QuickActions({
+    required this.isOnBreak,
+    required this.clockIn,
+    required this.clockOut,
+    required this.startBreak,
+    required this.endBreak,
+    required this.applyLeave,
+    required this.openTimesheet,
+    required this.openProfile,
+  });
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+    final crossAxisCount = isTablet ? 3 : 2;
+    final childAspectRatio = isTablet ? 2.1 : 1.9;
+    return Column(
+      children: [
+        Consumer<AttendanceProvider>(
+          builder: (context, attendanceProvider, _) {
+            final status = attendanceProvider.todayStatus;
+            if (attendanceProvider.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (status == 'clocked_in') {
+              return Row(
+                children: [
+                  Expanded(
+                    child: _buildQuickActionCard(
+                      context,
+                      icon: Icons.logout,
+                      label: 'Clock Out',
+                      color: isOnBreak ? const Color(0xFFB0B0B0) : const Color(0xFFE53E3E),
+                      onPressed: isOnBreak ? null : clockOut,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildQuickActionCard(
+                      context,
+                      icon: isOnBreak ? Icons.stop_circle : Icons.free_breakfast,
+                      label: isOnBreak ? 'End Break' : 'Start Break',
+                      color: isOnBreak ? const Color(0xFFED8936) : const Color(0xFF718096),
+                      onPressed: isOnBreak ? endBreak : startBreak,
+                    ),
+                  ),
+                ],
+              );
+            } else {
+              return SizedBox(
+                width: double.infinity,
+                child: _buildQuickActionCard(
+                  context,
+                  icon: Icons.login,
+                  label: 'Clock In',
+                  color: const Color(0xFF38A169),
+                  onPressed: clockIn,
+                  isFullWidth: true,
+                ),
+              );
+            }
+          },
+        ),
+        const SizedBox(height: 16),
+        GridView.count(
+          crossAxisCount: crossAxisCount,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: childAspectRatio,
+          children: [
+            _buildQuickActionCard(
+              context,
+              icon: Icons.calendar_today,
+              label: 'Apply Leave',
+              color: const Color(0xFF3182CE),
+              onPressed: () => applyLeave(context),
+            ),
+            _buildQuickActionCard(
+              context,
+              icon: Icons.access_time,
+              label: 'Timesheet',
+              color: const Color(0xFF805AD5),
+              onPressed: () => openTimesheet(context),
+            ),
+            _buildQuickActionCard(
+              context,
+              icon: Icons.person,
+              label: 'Profile',
+              color: const Color(0xFF319795),
+              onPressed: () => openProfile(context),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}

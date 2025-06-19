@@ -11,6 +11,8 @@ const employeeRoutes = require('./routes/employeeRoutes');
 // Load environment variables
 dotenv.config();
 
+console.log('DEBUG: JWT_SECRET value from dotenv:', process.env.JWT_SECRET);
+
 const app = express();
 
 // Middleware

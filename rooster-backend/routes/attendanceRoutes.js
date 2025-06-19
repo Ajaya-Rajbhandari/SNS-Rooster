@@ -9,12 +9,28 @@ const BreakType = require('../models/BreakType');
 router.post('/check-in', auth, async (req, res) => {
   console.log('DEBUG: /check-in req.body:', req.body);
   console.log('DEBUG: /check-in req.user:', req.user);
+
+  // Add logs to trace Authorization header and req.user
+  console.log('DEBUG: Authorization header:', req.header('Authorization'));
+  console.log('DEBUG: req.user at start of /check-in:', req.user);
+
+  // Add logs to trace req.user before accessing userId
+  console.log('DEBUG: req.user before accessing userId:', req.user);
+  console.log('DEBUG: Type of req.user:', typeof req.user);
+
+  // Add defensive checks and logs to verify req.user structure
+  if (!req.user || typeof req.user !== 'object') {
+    console.error('ERROR: req.user is undefined or not an object in /check-in route');
+    return res.status(500).json({ message: 'Authentication error: req.user is invalid' });
+  }
+
   try {
-    // Prefer userId from token, fallback to body if needed
-    const userId = req.user && req.user.userId ? req.user.userId : req.body.userId;
+    const userId = req.user.userId;
     if (!userId) {
+      console.error('ERROR: userId is missing in req.user');
       return res.status(400).json({ message: 'userId is required' });
     }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -198,11 +214,20 @@ router.get('/', auth, async (req, res) => {
 // Get available break types (for employees)
 router.get('/break-types', auth, async (req, res) => {
   try {
-    const breakTypes = await BreakType.find({ isActive: true }).sort({ priority: 1 });
-    res.status(200).json({ breakTypes });
+    console.log('BACKEND_ROUTE_DEBUG: User accessing break-types', req.user);
+    console.log('BACKEND_ROUTE_DEBUG: Checking user role:', req.user.role);
+
+    if (req.user.role !== 'employee') {
+      console.log('BACKEND_ROUTE_DEBUG: Forbidden - User role is not employee');
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const breakTypes = await BreakType.find({});
+    console.log('BACKEND_ROUTE_DEBUG: Break types fetched successfully', breakTypes);
+    res.status(200).json(breakTypes);
   } catch (error) {
-    console.error('Error fetching break types:', error);
-    res.status(500).json({ message: 'Failed to fetch break types' });
+    console.log('BACKEND_ROUTE_DEBUG: Error fetching break types', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 
@@ -267,8 +292,19 @@ router.get('/status/:userId', auth, async (req, res) => {
       date: { $gte: today, $lt: tomorrow },
     });
 
+    console.log('DEBUG: Attendance status response:', { status: attendance ? 'clocked_in' : 'not_clocked_in', attendance });
+
     if (!attendance) {
-      return res.json({ status: 'not_clocked_in' });
+      console.log('No attendance record found for today. Creating a new record.');
+      const newAttendance = new Attendance({
+        user: userId,
+        date: today,
+        checkInTime: null,
+        status: 'not_clocked_in',
+      });
+      await newAttendance.save();
+      console.log('DEBUG: Attendance record created:', newAttendance);
+      return res.json({ status: 'not_clocked_in', attendance: newAttendance });
     }
     if (attendance.checkOutTime) {
       return res.json({ status: 'clocked_out' });
@@ -276,6 +312,40 @@ router.get('/status/:userId', auth, async (req, res) => {
     return res.json({ status: 'clocked_in' });
   } catch (error) {
     console.error('Attendance status error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Debug route for testing clock-in functionality
+router.post('/debug/clock-in/:userId', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    // Check if user has already clocked in today
+    const attendance = await Attendance.findOne({
+      user: userId,
+      date: { $gte: today, $lt: tomorrow },
+    });
+
+    if (attendance) {
+      return res.status(400).json({ message: 'Already clocked in for today.' });
+    }
+
+    // Simulate clock-in
+    const newAttendance = new Attendance({
+      user: userId,
+      date: new Date(),
+      checkInTime: new Date(),
+    });
+    await newAttendance.save();
+
+    return res.json({ message: 'Clock-in successful', attendance: newAttendance });
+  } catch (error) {
+    console.error('Debug clock-in error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
