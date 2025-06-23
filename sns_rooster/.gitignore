@@ -59,3 +59,4 @@ node_modules/
 .env.development
 .env.test
 .env.production
+rooster-backend/.env

@@ -106,7 +106,7 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen> {
                   print(
                       "Updated Employee from detail screen: \${updatedEmployee['name']}, \${updatedEmployee['position']}");
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
+                    const SnackBar(
                         content: Text(
                             "Employee updated: \${updatedEmployee['name']} - \${updatedEmployee['position']}")),
                   );
@@ -120,7 +120,7 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen> {
             if (_isLoading)
               const Center(child: CircularProgressIndicator()),
             if (_error != null)
-              Text(_error!, style: TextStyle(color: Colors.red)),
+              Text(_error!, style: const TextStyle(color: Colors.red)),
             if (!_isLoading && _error == null && _attendanceRecords.isEmpty)
               const Text('No attendance records found.'),
             if (_attendanceRecords.isNotEmpty)
@@ -135,13 +135,13 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           "Date: \${record['date'] != null ? DateFormat('yyyy-MM-dd').format(DateTime.parse(record['date'])) : 'N/A'}",
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        Text("Check-in: \${_formatDateTime(record['checkInTime'])}"),
-                        Text("Check-out: \${_formatDateTime(record['checkOutTime'])}"),
-                        Text("Status: \${record['status'] ?? 'N/A'}"),
+                        const Text("Check-in: \${_formatDateTime(record['checkInTime'])}"),
+                        const Text("Check-out: \${_formatDateTime(record['checkOutTime'])}"),
+                        const Text("Status: \${record['status'] ?? 'N/A'}"),
                         if (record['breaks'] != null && (record['breaks'] as List).isNotEmpty) ...[
                           const SizedBox(height: 8),
                           const Text('Breaks:', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -159,9 +159,9 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen> {
                             );
                           }).toList()),
                           if (record['totalBreakDuration'] != null)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 16.0, top: 4.0),
-                              child: Text("Total Break Time: \${(record['totalBreakDuration'] / (1000 * 60)).round()} minutes", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                            const Padding(
+                              padding: EdgeInsets.only(left: 16.0, top: 4.0),
+                              child: Text("Total Break Time: \${(record['totalBreakDuration'] / (1000 * 60)).round()} minutes", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                             ),
                         ],
                       ],

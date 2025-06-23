@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/profile_provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import '../../config/api_config.dart'; // Import ApiConfig
 import 'package:sns_rooster/widgets/app_drawer.dart'; // Add this import
 

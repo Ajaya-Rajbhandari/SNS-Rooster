@@ -16,7 +16,7 @@ class HolidayProvider with ChangeNotifier {
 
     try {
       // Simulate a network call
-      await Future.delayed(Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 2));
       _holidays = [
         {'date': '2023-12-25', 'name': 'Christmas'},
         {'date': '2024-01-01', 'name': 'New Year\'s Day'},
