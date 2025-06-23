@@ -2,6 +2,10 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
 const userSchema = new mongoose.Schema({
+  document: {
+    type: String, // File path or URL for uploaded document
+    trim: true,
+  },
   email: {
     type: String,
     required: true,
@@ -36,6 +40,46 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  phone: {
+    type: String,
+    trim: true,
+  },
+  address: {
+    type: String,
+    trim: true,
+  },
+  emergencyContact: {
+    type: String,
+    trim: true,
+  },
+  emergencyPhone: {
+    type: String,
+    trim: true,
+  },
+  avatar: {
+    type: String, // File path or URL
+    trim: true,
+  },
+  passport: {
+    type: String, // File path or URL
+    trim: true,
+  },
+  education: [
+    {
+      institution: { type: String, trim: true },
+      degree: { type: String, trim: true },
+      fieldOfStudy: { type: String, trim: true },
+      startDate: { type: Date },
+      endDate: { type: Date },
+      certificate: { type: String, trim: true } // File path or URL
+    }
+  ],
+  certificates: [
+    {
+      name: { type: String, trim: true },
+      file: { type: String, trim: true } // File path or URL
+    }
+  ],
   isProfileComplete: {
     type: Boolean,
     default: false,
@@ -83,9 +127,26 @@ userSchema.methods.getPublicProfile = function() {
   // Add firstName and lastName to the public profile
   userObject.firstName = this.firstName;
   userObject.lastName = this.lastName;
+  // Add combined name field for frontend compatibility
+  userObject.name = this.firstName && this.lastName ? `${this.firstName} ${this.lastName}` : (this.firstName || this.lastName || null);
   return userObject;
 };
 
+userSchema.methods.recalculateProfileComplete = function() {
+  // Only require fields employees can fill themselves
+  const requiredFields = [
+    'firstName',
+    'lastName',
+    'email',
+    'phone',
+    'address',
+    'emergencyContact',
+    'emergencyPhone'
+  ];
+  this.isProfileComplete = requiredFields.every(field => {
+    return this[field] && String(this[field]).trim().length > 0;
+  });
+};
 const User = mongoose.model('User', userSchema);
 
 module.exports = User;

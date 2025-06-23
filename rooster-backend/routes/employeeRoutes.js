@@ -1,87 +1,27 @@
 const express = require('express');
 const router = express.Router();
 
-const Employee = require('../models/Employee');
+const authMiddleware = require('../middleware/auth');
+const employeeController = require('../controllers/employee-controller');
 
-// Get all employees
-router.get('/', async (req, res) => {
-  try {
-    const employees = await Employee.find();
-    res.status(200).json(employees);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
+// Get all employees (admin/manager only)
+router.get('/', authMiddleware, employeeController.getAllEmployees);
 
-// Get a single employee by ID
-router.get('/:id', async (req, res) => {
-  try {
-    const employee = await Employee.findById(req.params.id);
-    if (!employee) {
-      return res.status(404).json({ message: 'Employee not found' });
-    }
-    res.status(200).json(employee);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
+// Get a single employee by ID (admin/manager or self)
+router.get('/:id', authMiddleware, employeeController.getEmployeeById);
 
-// Create a new employee
-router.post('/', async (req, res) => {
-  const employee = new Employee({
-    userId: req.body.userId,
-    firstName: req.body.firstName,
-    lastName: req.body.lastName,
-    email: req.body.email,
-    employeeId: req.body.employeeId,
-    hireDate: req.body.hireDate,
-    position: req.body.position,
-    department: req.body.department,
-  });
+// Create a new employee (admin only)
+router.post('/', authMiddleware, employeeController.createEmployee);
 
-  try {
-    const newEmployee = await employee.save();
-    res.status(201).json(newEmployee);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-});
+// Update an employee (admin/manager or self)
+router.put('/:id', authMiddleware, employeeController.updateEmployee);
 
-// Update an employee
-router.put('/:id', async (req, res) => {
-  try {
-    const employee = await Employee.findById(req.params.id);
-    if (!employee) {
-      return res.status(404).json({ message: 'Employee not found' });
-    }
+// Delete an employee (admin only)
+router.delete('/:id', authMiddleware, employeeController.deleteEmployee);
 
-    // Update fields
-    employee.firstName = req.body.firstName || employee.firstName;
-    employee.lastName = req.body.lastName || employee.lastName;
-    employee.email = req.body.email || employee.email;
-    employee.employeeId = req.body.employeeId || employee.employeeId;
-    employee.hireDate = req.body.hireDate || employee.hireDate;
-    employee.position = req.body.position || employee.position;
-    employee.department = req.body.department || employee.department;
+// Employee dashboard route (authenticated users only)
+router.get('/dashboard', authMiddleware, employeeController.getEmployeeDashboard);
 
-    const updatedEmployee = await employee.save();
-    res.status(200).json(updatedEmployee);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-});
+console.log('EMPLOYEE ROUTES: Registering /dashboard route');
 
-// Delete an employee
-router.delete('/:id', async (req, res) => {
-  try {
-    const employee = await Employee.findByIdAndDelete(req.params.id);
-    if (!employee) {
-      return res.status(404).json({ message: 'Employee not found' });
-    }
-    res.status(200).json({ message: 'Employee deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-module.exports = router; 
+module.exports = router;

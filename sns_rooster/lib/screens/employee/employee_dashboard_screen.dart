@@ -9,22 +9,26 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../widgets/dashboard/leave_balance_tile.dart';
-import '../../widgets/dashboard/leave_request_tile.dart';
-import '../../widgets/dashboard/dashboard_action_button.dart';
-import '../../widgets/dashboard/user_info_header.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/attendance_provider.dart';
-import '../../providers/leave_request_provider.dart'; // Import LeaveRequestProvider
-// Import SplashScreen
-import '../../widgets/dashboard/dashboard_overview_tile.dart'; // Import the new overview tile
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sns_rooster/widgets/user_avatar.dart';
-import '../../providers/notification_provider.dart'; // Import NotificationProvider
-import 'package:sns_rooster/widgets/app_drawer.dart'; // Import AppDrawer
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:sns_rooster/providers/holiday_provider.dart';
-
+import '../../providers/attendance_provider.dart';
+import '../../providers/profile_provider.dart';
+import '../../widgets/app_drawer.dart';
+import '../../providers/auth_provider.dart';
+import '../../config/api_config.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import '../../../widgets/user_avatar.dart';
+import '../../../main.dart';
+import '../../services/attendance_service.dart';
+import 'live_clock.dart';
+import 'package:sns_rooster/utils/color_utils.dart';
+/// EmployeeDashboardScreen displays the main dashboard for employees.
+//
+/// - Shows user info, live clock, status, quick actions, and attendance summary.
+/// - Fetches backend data only on load, after check-in/out, or on user action.
+/// - Uses [LiveClock] widget to update the clock every second without rebuilding the parent widget tree.
 class EmployeeDashboardScreen extends StatefulWidget {
   const EmployeeDashboardScreen({super.key});
 
@@ -33,840 +37,1011 @@ class EmployeeDashboardScreen extends StatefulWidget {
       _EmployeeDashboardScreenState();
 }
 
-class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
-  // Remove simulated employee
-  // final Employee employee = Employee(
-  //   id: '1',
-  //   name: 'John Doe',
-  //   role: 'Software Engineer',
-  //   avatar: 'assets/images/profile_placeholder.png',
-  // );
+class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
+    with RouteAware {
+  bool _isOnBreak = false;
+  bool _profileDialogShown = false;
+  String _lastSavedProfileJson = "";
+  DateTime? _startDate;
+  DateTime? _endDate;
 
-  bool isClockedIn = false;
-  bool isOnBreak = false;
-  DateTime? lastClockIn;
-  late final ValueNotifier<DateTime> _now;
-  bool isLoadingClock = false;
-  bool isLoadingBreak = false;
+  // Track last fetched params to avoid duplicate fetches
+  String? _lastSummaryUserId;
+  DateTime? _lastSummaryStart;
+  DateTime? _lastSummaryEnd;
 
   @override
-  void initState() {
-    super.initState();
-    _now = ValueNotifier(DateTime.now());
-    // Update clock every second
-    Future.doWhile(() async {
-      await Future.delayed(const Duration(seconds: 1));
-      if (!mounted) return false; // Stop the loop if widget is unmounted
-      _now.value = DateTime.now();
-      return true;
-    });
-    // Load saved clock state
-    _loadClockState();
-    // Schedule the initial fetch for after the first build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _fetchInitialAttendance();
-        _fetchLeaveData(); // Fetch leave data on init
-      }
-    });
-  }
-
-  Future<void> _loadClockState() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      isClockedIn = prefs.getBool('dashboard_isClockedIn') ?? false;
-      isOnBreak = prefs.getBool('dashboard_isOnBreak') ?? false;
-      final lastClockInStr = prefs.getString('dashboard_lastClockIn');
-      lastClockIn =
-          lastClockInStr != null ? DateTime.tryParse(lastClockInStr) : null;
-    });
-  }
-
-  Future<void> _saveClockState() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('dashboard_isClockedIn', isClockedIn);
-    await prefs.setBool('dashboard_isOnBreak', isOnBreak);
-    await prefs.setString(
-        'dashboard_lastClockIn', lastClockIn?.toIso8601String() ?? '');
-  }
-
-  Future<void> _fetchInitialAttendance() async {
-    if (!mounted) return;
-
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Subscribe to route changes using the global routeObserver
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final attendanceProvider =
-          Provider.of<AttendanceProvider>(context, listen: false);
-      final userId = authProvider.user?['_id'];
-
-      if (userId == null) {
-        print('User ID not found, cannot fetch initial attendance.');
-        return;
-      }
-
-      setState(() {
-        isLoadingClock = true;
+      Provider.of<ProfileProvider>(context, listen: false);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkProfileCompletion();
+        // Fetch backend-driven attendance status for today
+        final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final userId = authProvider.user?['_id'];
+        if (userId != null) {
+          attendanceProvider.fetchTodayStatus(userId);
+        }
       });
-
-      print('Fetching initial attendance for user: $userId');
-      await attendanceProvider.fetchUserAttendance(userId);
-      print('AttendanceProvider error: ${attendanceProvider.error}');
-      print(
-          'Current attendance fetched: ${attendanceProvider.currentAttendance}');
-
-      if (!mounted) return;
-
-      final currentAttendance = attendanceProvider.currentAttendance;
-
-      if (currentAttendance != null && currentAttendance.isNotEmpty) {
-        isClockedIn = currentAttendance['checkIn'] != null &&
-            currentAttendance['checkOut'] == null;
-        if (isClockedIn) {
-          lastClockIn = DateTime.parse(currentAttendance['checkIn']);
-        }
-        // Check if on break
-        final breaks =
-            List<Map<String, dynamic>>.from(currentAttendance['breaks'] ?? []);
-        if (breaks.isNotEmpty && breaks.last['end'] == null) {
-          isOnBreak = true;
-        }
-        print('isClockedIn: $isClockedIn, lastClockIn: $lastClockIn');
-      } else {
-        isClockedIn = false;
-        lastClockIn = null;
-        print(
-            'No active attendance record found or currentAttendance is null. Resetting state.');
-      }
     } catch (e) {
-      if (!mounted) return;
-      print('Error fetching initial attendance: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          isLoadingClock = false;
-        });
-      }
+      print('ERROR: ProfileProvider is not accessible in EmployeeDashboardScreen: $e');
     }
-  }
-
-  Future<void> _fetchLeaveData() async {
-    if (!mounted) return;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final leaveProvider =
-        Provider.of<LeaveRequestProvider>(context, listen: false);
     final userId = authProvider.user?['_id'];
+    if (userId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
 
-    if (userId == null) {
-      print('User ID not found, cannot fetch leave data.');
-      return;
-    }
-
-    try {
-      await leaveProvider.getUserLeaveRequests(userId);
-      if (!mounted) return;
-      // Data will be updated via Consumer in the build method
-    } catch (e) {
-      if (!mounted) return;
-      print('Error fetching leave data: $e');
+      });
     }
   }
 
   @override
   void dispose() {
-    _now.dispose();
-    // Cancel any active timers or subscriptions here
+    // Unsubscribe from route changes
+    final routeObserver =
+        Provider.of<RouteObserver<ModalRoute<void>>>(context, listen: false);
+    routeObserver.unsubscribe(this);
     super.dispose();
   }
 
-  void _toggleClockInOut() async {
-    if (isLoadingClock) return;
-    final attendanceProvider =
-        Provider.of<AttendanceProvider>(context, listen: false);
+  @override
+  void didPopNext() {
+    super.didPopNext();
+    // Called when coming back to this screen
+    // Refresh profile data when returning to check completion status
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
+    profileProvider.refreshProfile().then((_) {
+      // Only check profile completion, don't reset the dialog flag
+      _checkProfileCompletion();
+    });
+    setState(() {});
+  }
+
+  void _checkProfileCompletion() {
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
+    final profile = profileProvider.profile;
+    if (profile != null &&
+        profile['isProfileComplete'] == false &&
+        !_profileDialogShown) {
+      setState(() {
+        _profileDialogShown = true;
+      });
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Complete Your Profile'),
+          content: const Text(
+              'For your safety and to access all features, please complete your profile information.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                // Don't reset the flag when dismissing
+              },
+              child: const Text('Dismiss'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                Navigator.of(context).pushNamed('/profile').then((_) {
+                  // Reset the flag when returning from profile screen
+                  // so dialog can show again if profile is still incomplete
+                  _profileDialogShown = false;
+                });
+              },
+              child: const Text('Update Now'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  void _saveProfileToSharedPreferences(Map<String, dynamic> profile) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        'profile',
+        json.encode({
+          'name': profile['firstName'] + ' ' + profile['lastName'],
+          'role': profile['role'],
+          'avatar': profile['avatar'],
+        }));
+  }
+
+  void _clockIn() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
-    if (isClockedIn && isOnBreak) {
+    final userId = authProvider.user?['_id'];
+    print('DEBUG: Attempting check-in with userId: ${userId?.toString() ?? 'null'}');
+    if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('End your break before clocking out.'),
-            backgroundColor: Colors.orange),
+        const SnackBar(content: Text('User not logged in. Please log in again.')),
       );
       return;
     }
-
-    setState(() => isLoadingClock = true);
-
     try {
-      if (isClockedIn) {
-        await attendanceProvider.checkOut();
-        if (attendanceProvider.error == null) {
-          setState(() {
-            isClockedIn = false;
-            isOnBreak = false;
-            lastClockIn = null;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Clocked out successfully!')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(
-                    'Error clocking out: ${attendanceProvider.error.toString()}')),
-          );
-        }
-      } else {
-        await attendanceProvider.checkIn();
-        if (attendanceProvider.error == null) {
-          setState(() {
-            isClockedIn = true;
-            isOnBreak = false;
-            lastClockIn = DateTime.now();
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Clocked in successfully!')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(
-                    'Error clocking in: ${attendanceProvider.error.toString()}')),
-          );
-        }
-      }
-    } catch (e) {
+      final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+      final attendanceService = AttendanceService(authProvider);
+      print('DEBUG: Fetched userId from AuthProvider: ${authProvider.user?['_id']?.toString() ?? 'null'}');
+      await attendanceService.checkIn(userId);
+      await attendanceProvider.fetchTodayStatus(userId);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Network error: ${e.toString()}')),
+        const SnackBar(content: Text('Clocked in successfully!')),
       );
-    } finally {
-      await _saveClockState();
-      setState(() {
-        isLoadingClock = false;
-      });
+    } catch (e) {
+      String errorMessage = 'An error occurred while clocking in.';
+      if (e.toString().contains('Already checked in for today')) {
+        errorMessage = 'You have already clocked in for today.';
+      } else if (e.toString().contains('E11000 duplicate key error')) {
+        errorMessage = 'A duplicate entry was detected. You might have already checked in.';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+        ),
+      );
     }
   }
 
-  void _toggleBreak() async {
-    if (isLoadingBreak) return;
-    final attendanceProvider =
-        Provider.of<AttendanceProvider>(context, listen: false);
-    if (!isClockedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Clock in before starting/ending a break.'),
-          backgroundColor: Colors.orange));
-      return;
+  void _clockOut() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.user?['_id'];
+    if (userId != null) {
+      try {
+        final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+        final attendanceService = AttendanceService(authProvider);
+        await attendanceService.checkOut(userId);
+        await attendanceProvider.fetchTodayStatus(userId);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Clocked out successfully!')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Failed to clock out: \\${e.toString()}')),
+        );
+      }
     }
-    setState(() => isLoadingBreak = true);
+  }
+
+  Future<void> _startBreak() async {
+    final selected = await _pickBreakType(context);
+    if (selected == null) return;
+
+    final uid = context.read<AuthProvider>().user!['_id'] as String;
+    print('DEBUG: Calling startBreakWithType...');
+      await context.read<AttendanceProvider>().startBreakWithType(uid, selected);
+      print('DEBUG: startBreakWithType completed. Calling fetchTodayStatus...');
+      await context.read<AttendanceProvider>().fetchTodayStatus(uid);
+      print('DEBUG: After fetchTodayStatus, todayStatus is: ${context.read<AttendanceProvider>().todayStatus}');
+      print('DEBUG: fetchTodayStatus completed. Calling setState...');
+      setState(() {});
+      print('DEBUG: setState called.');
+  }
+
+  Future<Map<String, dynamic>?> _showBreakTypeSelectionDialog() async {
+    // Fetch available break types
+    final breakTypes = await _fetchBreakTypes();
+    if (breakTypes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No break types available')),
+      );
+      return null;
+    }
+
+    return showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select Break Type'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: breakTypes.length,
+              itemBuilder: (context, index) {
+                final breakType = breakTypes[index];
+                return ListTile(
+  leading: Icon(
+  _getIconFromString(breakType['icon']),
+  color: colorFromHex(breakType['color']),
+),
+
+                  title: Text(breakType['displayName']),
+                  subtitle: Text(breakType['description']),
+                  onTap: () {
+                    Navigator.of(context).pop(breakType);
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchBreakTypes() async {
     try {
-      if (isOnBreak) {
-        await attendanceProvider.endBreak();
-        if (attendanceProvider.error == null) {
-          setState(() {
-            isOnBreak = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Break ended successfully!')));
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(
-                  'Error ending break: ${attendanceProvider.error.toString()}')));
-        }
+      print('FETCH_BREAK_TYPES_DEBUG: Sending request to ${ApiConfig.baseUrl}/attendance/break-types');
+      final token = Provider.of<AuthProvider>(context, listen: false).token;
+      print('FETCH_BREAK_TYPES_DEBUG: Token being sent: $token');
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/attendance/break-types'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('FETCH_BREAK_TYPES_DEBUG: Response status code: ${response.statusCode}');
+      print('FETCH_BREAK_TYPES_DEBUG: Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        print('FETCH_BREAK_TYPES_DEBUG: Parsed data: $data');
+        return List<Map<String, dynamic>>.from(data);
+      } else if (response.statusCode == 401) {
+        // Unauthorized: Token expired or invalid
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Session expired. Please log in again.'), backgroundColor: Colors.red),
+        );
+        // Optionally, navigate to login screen
+        Future.delayed(const Duration(seconds: 1), () {
+          Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+        });
       } else {
-        await attendanceProvider.startBreak();
-        if (attendanceProvider.error == null) {
-          setState(() {
-            isOnBreak = true;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Break started successfully!')));
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(
-                  'Error starting break: ${attendanceProvider.error.toString()}')));
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to fetch break types: ${response.statusCode}')),
+        );
       }
     } catch (e) {
+      print('FETCH_BREAK_TYPES_DEBUG: Error fetching break types: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Network error: ${e.toString()}')));
-    } finally {
-      await _saveClockState();
-      setState(() {
-        isLoadingBreak = false;
-      });
+        SnackBar(content: Text('Error fetching break types: $e')),
+      );
+    }
+    return [];
+  }
+
+  IconData _getIconFromString(String iconName) {
+    switch (iconName) {
+      case 'restaurant':
+        return Icons.restaurant;
+      case 'coffee':
+        return Icons.coffee;
+      case 'person':
+        return Icons.person;
+      case 'medical_services':
+        return Icons.medical_services;
+      case 'smoking_rooms':
+        return Icons.smoking_rooms;
+      case 'more_horiz':
+        return Icons.more_horiz;
+      default:
+        return Icons.free_breakfast;
     }
   }
 
-  String _getStatusDisplay() {
-    if (isClockedIn) {
-      return 'Clocked In';
-    } else if (lastClockIn != null) {
-      return 'Clocked Out';
-    } else {
-      return 'Not Clocked In';
+  void _endBreak() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.user?['_id'];
+    if (userId != null) {
+      try {
+        final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+        await attendanceProvider.endBreak(userId);
+        await attendanceProvider.fetchTodayStatus(userId);
+        print('DEBUG: todayStatus after fetchTodayStatus in _endBreak: \\${attendanceProvider.todayStatus}');
+        setState(() {
+          _isOnBreak = false;
+        });
+        // Force rebuild of QuickActions by calling setState at parent level
+        // and ensure AttendanceProvider notifies listeners
+        // Optionally, you can also call context.read<AttendanceProvider>().notifyListeners();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Break ended successfully!')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to end break. Please try again.')),
+        );
+      }
     }
   }
 
-  String _getTimeDisplay() {
-    final attendanceProvider = Provider.of<AttendanceProvider>(context);
-    final currentAttendance = attendanceProvider.currentAttendance;
-
-    if (currentAttendance != null &&
-        currentAttendance['checkIn'] != null &&
-        currentAttendance['checkOut'] == null) {
-      final checkInTime = DateTime.parse(currentAttendance['checkIn']);
-      final currentTime = _now.value;
-      final duration = currentTime.difference(checkInTime);
-      final h = duration.inHours.toString().padLeft(2, '0');
-      final m = (duration.inMinutes % 60).toString().padLeft(2, '0');
-      final s = (duration.inSeconds % 60).toString().padLeft(2, '0');
-      return '$h:$m:$s';
-    } else {
-      return '00:00:00';
-    }
+  void _showConfirmationDialog(String action, VoidCallback onConfirm) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Confirm $action'),
+        content: Text('Are you sure you want to $action?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              onConfirm();
+            },
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
   }
 
-  String _getCheckoutTimeDisplay(AttendanceProvider attendanceProvider) {
-    final currentAttendance = attendanceProvider.currentAttendance;
+  // Add network connectivity check
+  /// Indicates whether the device is currently connected to a network.
+  /// This is updated by [_checkNetworkConnectivity] and reflected in the app bar icon.
+  bool _isConnected = true; // Assume connected by default
 
-    if (currentAttendance != null && currentAttendance['checkOut'] != null) {
-      final checkOutDateTime = DateTime.parse(currentAttendance['checkOut']);
-      return '${checkOutDateTime.hour.toString().padLeft(2, '0')}:${checkOutDateTime.minute.toString().padLeft(2, '0')}';
-    } else {
-      return 'N/A';
+  @override
+  void initState() {
+    super.initState();
+    _checkNetworkConnectivity();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userId = authProvider.user?['_id'];
+      if (userId != null) {
+        Provider.of<AttendanceProvider>(context, listen: false).fetchTodayStatus(userId);
+        if (_startDate == null && _endDate == null) {
+          if (_lastSummaryUserId != userId || _lastSummaryStart != null || _lastSummaryEnd != null) {
+            _lastSummaryUserId = userId;
+            _lastSummaryStart = null;
+            _lastSummaryEnd = null;
+            Provider.of<AttendanceProvider>(context, listen: false)
+                .fetchAttendanceSummary(userId);
+          }
+        }
+      }
+    });
+  }
+
+  /// Checks the current network connectivity status using connectivity_plus.
+  /// Updates [_isConnected] and triggers a UI update.
+  void _checkNetworkConnectivity() async {
+    var connectivityResult = await (Connectivity()).checkConnectivity();
+    setState(() {
+      _isConnected = connectivityResult != ConnectivityResult.none;
+    });
+  }
+
+  void _pickDateRange(BuildContext context, String userId) async {
+    final initialStart = _startDate ?? DateTime.now().subtract(const Duration(days: 30));
+    final initialEnd = _endDate ?? DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: DateTimeRange(start: initialStart, end: initialEnd),
+    );
+    if (picked != null) {
+      if (_lastSummaryUserId != userId || _lastSummaryStart != picked.start || _lastSummaryEnd != picked.end) {
+        setState(() {
+          _startDate = picked.start;
+          _endDate = picked.end;
+          _lastSummaryUserId = userId;
+          _lastSummaryStart = picked.start;
+          _lastSummaryEnd = picked.end;
+        });
+        Provider.of<AttendanceProvider>(context, listen: false)
+            .fetchAttendanceSummary(userId, startDate: _startDate, endDate: _endDate);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final authProvider = Provider.of<AuthProvider>(context);
-    final attendanceProvider = Provider.of<AttendanceProvider>(context);
-    final leaveProvider = Provider.of<LeaveRequestProvider>(
-        context); // Listen to LeaveRequestProvider
-    final notificationProvider = Provider.of<NotificationProvider>(
-        context); // Listen to NotificationProvider
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.user?['_id'];
+    final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+    final profile = profileProvider.profile;
 
-    // Calculate total annual leave days remaining (mock logic)
-    // This should ideally come from backend with specific leave types
-    const int totalAnnualLeaveDays = 20; // Example total
-    final int usedAnnualLeaveDays = leaveProvider.leaveRequests
-        .where((request) =>
-            (request['leaveType']?.toString().toLowerCase() == 'annual') &&
-            (request['status']?.toString().toLowerCase() == 'approved'))
-        .map((request) {
-      final startDateStr = request['startDate']?.toString();
-      final endDateStr = request['endDate']?.toString();
-      if (startDateStr == null || endDateStr == null) {
-        return 0; // Handle null dates
-      }
-      final startDate = DateTime.tryParse(startDateStr);
-      final endDate = DateTime.tryParse(endDateStr);
-      if (startDate == null || endDate == null) {
-        return 0; // Handle invalid date strings
-      }
-      return (endDate.difference(startDate).inDays + 1);
-    }).fold(0, (sum, days) => sum + days); // Ensure sum + days returns int
-
-    final int remainingAnnualLeaveDays =
-        totalAnnualLeaveDays - usedAnnualLeaveDays;
-
-    // Find the latest pending leave request for display
-    final latestPendingLeaveRequest = leaveProvider.leaveRequests
-            .where((request) =>
-                (request['status']?.toString().toLowerCase() == 'pending'))
-            .isNotEmpty
-        ? leaveProvider.leaveRequests
-            .where((request) =>
-                (request['status']?.toString().toLowerCase() == 'pending'))
-            .reduce((a, b) {
-            final aStartDateStr = a['startDate']?.toString();
-            final bStartDateStr = b['startDate']?.toString();
-
-            if (aStartDateStr == null || bStartDateStr == null) {
-              // Handle cases where a date is null, prioritize non-null dates or 'a' if both are null
-              return aStartDateStr == null ? b : a;
-            }
-
-            final aStartDate = DateTime.tryParse(aStartDateStr);
-            final bStartDate = DateTime.tryParse(bStartDateStr);
-
-            if (aStartDate == null || bStartDate == null) {
-              // Handle cases where date string is invalid, prioritize valid dates or 'a' if both are invalid
-              return aStartDate == null ? b : a;
-            }
-
-            return aStartDate.isAfter(bStartDate) ? a : b;
-          }) // Get the latest one
-        : null;
-
-    final currentAttendance = attendanceProvider.currentAttendance;
-    String? clockInTime;
-    String? clockOutTime;
-    String? breakStartTime;
-    if (currentAttendance != null) {
-      if (currentAttendance['checkIn'] != null) {
-        final dt = DateTime.parse(currentAttendance['checkIn']).toLocal();
-        clockInTime =
-            '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-      }
-      if (currentAttendance['checkOut'] != null) {
-        final dt = DateTime.parse(currentAttendance['checkOut']).toLocal();
-        clockOutTime =
-            '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-      }
-      final breaks =
-          List<Map<String, dynamic>>.from(currentAttendance['breaks'] ?? []);
-      if (breaks.isNotEmpty && breaks.last['end'] == null) {
-        final dt = DateTime.parse(breaks.last['start']).toLocal();
-        breakStartTime =
-            '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    // Only save profile to SharedPreferences if it has changed
+    if (profile != null) {
+      if (_lastSavedProfileJson != json.encode(profile)) {
+        _saveProfileToSharedPreferences(profile);
+        _lastSavedProfileJson = json.encode(profile);
       }
     }
 
     return Scaffold(
-      drawer: const AppDrawer(), // Use the reusable AppDrawer
       appBar: AppBar(
         title: const Text('Employee Dashboard'),
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
-        elevation: 0,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(context).openDrawer(),
+        actions: [
+          /// Shows a green WiFi icon if connected, red WiFi-off icon if not connected.
+          Icon(
+            _isConnected ? Icons.wifi : Icons.wifi_off,
+            color: _isConnected ? Colors.green : Colors.red,
+          ),
+        ],
+      ),
+      drawer: const AppDrawer(),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _DashboardHeader(profile: profile),
+              const SizedBox(height: 28),
+              const StatusCard(),
+              const SizedBox(height: 28),
+              if (userId != null)
+                Row(
+                  children: [
+                    Text(_startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : 'Start Date'),
+                    const SizedBox(width: 8),
+                    Text(_endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : 'End Date'),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => _pickDateRange(context, userId),
+                      child: const Text('Select Range'),
+                    ),
+                  ],
+                ),
+              const SizedBox(height: 16),
+              Text(
+                'Quick Actions',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              _QuickActions(
+                isOnBreak: _isOnBreak,
+                clockIn: _clockIn,
+                clockOut: _clockOut,
+                startBreak: _startBreak,
+                endBreak: _endBreak,
+                applyLeave: _applyLeave,
+                openTimesheet: _openTimesheet,
+                openProfile: _openProfile,
+              ),
+            ],
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header with user avatar, welcome message, and notification icons
-            Consumer<AuthProvider>(
-              builder: (context, authProvider, child) {
-                final user = authProvider.user;
-                return UserInfoHeader(
-                  userName: user?['name'] ?? 'User',
-                  userRole: user?['role'] ?? 'Employee',
-                  userAvatar: user?['avatar'] ?? '',
-                  onNotificationTap: () {
-                    // Handle notification tap
-                    Navigator.pushNamed(context, '/notification');
-                  },
-                );
-              },
-            ),
-            const SizedBox(height: 24.0), // Consistent spacing after header
-            // Today's Status & Live Clock Section
-            Card(
-              elevation: 8, // Increased elevation for more prominence
-              shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(18)), // More rounded corners
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  gradient: LinearGradient(
-                    colors: [
-                      theme.colorScheme.primary.withOpacity(0.8),
-                      theme.colorScheme.primary,
-                      theme.colorScheme.primary.withOpacity(0.9),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0), // Increased padding
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Today\'s Status',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color:
-                                Colors.white), // Text color white for contrast
-                      ),
-                      const Divider(
-                          height: 20, thickness: 1, color: Colors.white70),
-                      // Main status display: Time and Status (Stacked vertically and prominent)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Current Time Display
-                          Text(
-                            'Current Time',
-                            style: theme.textTheme.labelLarge
-                                ?.copyWith(color: Colors.white70),
-                          ),
-                          ValueListenableBuilder<DateTime>(
-                            valueListenable: _now,
-                            builder: (context, value, child) {
-                              return Text(
-                                '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}:${value.second.toString().padLeft(2, '0')}',
-                                style: theme.textTheme.displayMedium?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold),
-                              );
-                            },
-                          ),
-                          const SizedBox(
-                              height:
-                                  24), // Increased space between time and status blocks
-                          // Your Status Display
-                          Text(
-                            'Your Status',
-                            style: theme.textTheme.labelLarge
-                                ?.copyWith(color: Colors.white70),
-                          ),
-                          Row(
-                            // Keep Row for icon and status text
-                            children: [
-                              Icon(
-                                isClockedIn ? Icons.check_circle : Icons.cancel,
-                                color: isClockedIn
-                                    ? Colors.greenAccent
-                                    : Colors.redAccent,
-                                size:
-                                    28, // Reverting icon size for better visual balance
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                // Ensure text fills remaining space with ellipsis
-                                child: Text(
-                                  _getStatusDisplay(),
-                                  style: theme.textTheme.headlineSmall
-                                      ?.copyWith(
-                                          // Reverting to headlineSmall for prominence
-                                          color: isClockedIn
-                                              ? Colors.greenAccent
-                                              : Colors.redAccent,
-                                          fontWeight: FontWeight.bold),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20), // Space before detailed times
-                      // Detailed times (Clocked in/out, on break) - always aligned left within the card
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (isClockedIn && clockInTime != null)
-                            Row(
-                              children: [
-                                const Icon(Icons.login,
-                                    color: Colors.white70, size: 18),
-                                const SizedBox(width: 8),
-                                Text('Clocked in at: $clockInTime',
-                                    style: theme.textTheme.bodyMedium
-                                        ?.copyWith(color: Colors.white70)),
-                              ],
-                            ),
-                          if (isOnBreak && breakStartTime != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.pause_circle_outline,
-                                      color: Colors.yellowAccent, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text('On break since: $breakStartTime',
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(
-                                              color: Colors.yellowAccent)),
-                                ],
-                              ),
-                            ),
-                          if (!isClockedIn && clockOutTime != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.logout,
-                                      color: Colors.white70, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text('Clocked out at: $clockOutTime',
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(color: Colors.white70)),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24.0), // Consistent spacing
-            // Quick Actions Section
-            Text(
-              'Quick Actions',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 16),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: !isClockedIn
-                  ? SizedBox(
-                      key: const ValueKey('clockIn'),
-                      width: double.infinity,
-                      child: DashboardActionButton(
-                        icon: Icons.access_time,
-                        label: 'Clock In',
-                        onPressed: _toggleClockInOut,
-                        loading: isLoadingClock,
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                      ),
-                    )
-                  : Row(
-                      key: const ValueKey('clockedIn'),
+    );
+  }
+}
+
+// Correct the usage of context in methods
+void _applyLeave(BuildContext context) {
+  // Implement leave application logic here
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Leave application feature coming soon!')),
+  );
+}
+
+void _openTimesheet(BuildContext context) {
+  // Implement timesheet opening logic here
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Timesheet feature coming soon!')),
+  );
+}
+
+// Helper method to capitalize first letter
+String _capitalizeFirstLetter(String text) {
+  if (text.isEmpty) return text;
+  return text[0].toUpperCase() + text.substring(1).toLowerCase();
+}
+
+/// A widget that displays the user's current attendance status.
+/// It consumes [AttendanceProvider] to get the [todayStatus] and displays
+/// a relevant icon, label, and a refresh button.
+class StatusCard extends StatelessWidget {
+  const StatusCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AttendanceProvider>(
+      builder: (context, attendanceProvider, child) {
+        final todayStatus = attendanceProvider.todayStatus;
+        String statusLabel = 'Unknown Status';
+        IconData statusIcon = Icons.help_outline;
+        Color statusColor = Colors.grey;
+
+        switch (todayStatus) {
+          case 'not_clocked_in':
+            statusLabel = 'Not Clocked In';
+            statusIcon = Icons.highlight_off;
+            statusColor = Colors.red;
+            break;
+          case 'clocked_out':
+            statusLabel = 'Clocked Out';
+            statusIcon = Icons.check_circle_outline;
+            statusColor = Colors.green;
+            break;
+          case 'on_break':
+            statusLabel = 'On Break';
+            statusIcon = Icons.pause_circle_outline;
+            statusColor = Colors.orange;
+            break;
+          case 'clocked_in':
+            statusLabel = 'Clocked In';
+            statusIcon = Icons.access_time;
+            statusColor = Colors.blue;
+            break;
+          default:
+            statusLabel = 'Status Not Available';
+            statusIcon = Icons.info_outline;
+            statusColor = Colors.grey;
+            break;
+        }
+
+        return Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Today\'s Status',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
                       children: [
-                        Expanded(
-                          child: DashboardActionButton(
-                            icon: isOnBreak ? Icons.play_arrow : Icons.pause,
-                            label: isOnBreak ? 'End Break' : 'Start Break',
-                            onPressed: _toggleBreak,
-                            loading: isLoadingBreak,
-                            backgroundColor:
-                                isOnBreak ? Colors.orange : Colors.blueGrey,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: DashboardActionButton(
-                            icon: Icons.logout,
-                            label: 'Clock Out',
-                            onPressed: _toggleClockInOut,
-                            loading: isLoadingClock,
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
+                        Icon(statusIcon, color: statusColor, size: 30),
+                        const SizedBox(width: 10),
+                        Text(
+                          statusLabel,
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: statusColor,
                           ),
                         ),
                       ],
                     ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: 120,
-                  height: 110,
-                  child: DashboardActionButton(
-                    icon: Icons.event_note,
-                    label: 'Apply Leave',
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/leave_request');
-                    },
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                SizedBox(
-                  width: 120,
-                  height: 110,
-                  child: DashboardActionButton(
-                    icon: Icons.edit_document,
-                    label: 'Timesheet',
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/timesheet');
-                    },
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 30),
+                  onPressed: () {
+                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                    final userId = authProvider.user?['_id'];
+                    if (userId != null) {
+                      attendanceProvider.fetchTodayStatus(userId);
+                    }
+                  },
                 ),
               ],
             ),
-            const SizedBox(height: 24.0), // Consistent spacing
-            // My Leave Overview Section
-            Text(
-              'My Leave Overview',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface),
-            ),
-            const SizedBox(height: 16.0), // Consistent spacing
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    LeaveBalanceTile(
-                      type: 'Annual Leave',
-                      days: remainingAnnualLeaveDays,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Latest Pending Leave Request',
-                      style: theme.textTheme.titleMedium?.copyWith(
+          ),
+        );
+      },
+    );
+  }
+}
+
+// Helper method to capitalize first letter
+Widget _buildQuickActionCard(
+  BuildContext context, {
+  required IconData icon,
+  required String label,
+  required Color color,
+  VoidCallback? onPressed,
+  bool isFullWidth = false,
+}) {
+  final isDisabled = onPressed == null;
+  final cardColor = isDisabled ? color.withOpacity(0.5) : color;
+
+  return Card(
+    elevation: isDisabled ? 1 : 3,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        height: isFullWidth ? 80 : null,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [cardColor, cardColor.withOpacity(0.8)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: isFullWidth
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.primary),
-                    ),
-                    const Divider(height: 20, thickness: 1),
-                    latestPendingLeaveRequest != null
-                        ? LeaveRequestTile(
-                            type:
-                                latestPendingLeaveRequest['leaveType'] ?? 'N/A',
-                            date: latestPendingLeaveRequest['startDate'] != null
-                                ? '${DateTime.parse(latestPendingLeaveRequest['startDate']).year}-${DateTime.parse(latestPendingLeaveRequest['startDate']).month.toString().padLeft(2, '0')}-${DateTime.parse(latestPendingLeaveRequest['startDate']).day.toString().padLeft(2, '0')}'
-                                : 'N/A',
-                            status:
-                                latestPendingLeaveRequest['status'] ?? 'N/A',
-                          )
-                        : Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8.0),
-                            child: Text(
-                              'No pending leave requests.',
-                              style: theme.textTheme.bodyMedium
-                                  ?.copyWith(color: Colors.grey[700]),
-                            ),
-                          ),
-                  ],
+                        ),
+                  ),
+                ],
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+      ),
+    ),
+  );
+}
+
+void _openProfile(BuildContext context) {
+  // Implement profile opening logic here
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Profile feature coming soon!')),
+  );
+}
+
+// --- Extracted Widgets ---
+
+class _DashboardHeader extends StatelessWidget {
+  final Map<String, dynamic>? profile;
+  const _DashboardHeader({this.profile});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade500, Colors.blue.shade800],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.shade100.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20.0),
+      child: Row(
+        children: [
+          UserAvatar(
+            avatarUrl: profile?['avatar'],
+            radius: 32,
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                Text(
+                  'Welcome Back,',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w500,
+                      ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 24.0), // Consistent spacing
-            // Recent Notifications / Announcements Section (Placeholder)
-            Text(
-              'Recent Updates',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface),
-            ),
-            const SizedBox(height: 16.0), // Consistent spacing
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'No new announcements or notifications.',
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: Colors.grey[700]),
-                    ),
-                    // TODO: Implement actual recent notifications/announcements here
-                    // For example, a ListView.builder of the latest 2-3 items
-                  ],
+                const SizedBox(height: 4),
+                Text(
+                  profile != null
+                      ? '${profile?['firstName'] ?? ''} ${profile?['lastName'] ?? ''}'.trim()
+                      : 'Guest',
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineSmall
+                      ?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
-              ),
+                const SizedBox(height: 2),
+                Text(
+                  _capitalizeFirstLetter(profile?['role'] ?? ''),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+              ],
             ),
-            const SizedBox(height: 24.0), // Consistent spacing
-            // Upcoming Holidays & Events
-            const SizedBox(height: 24),
-            Text(
-              'Upcoming Holidays & Events',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
-              ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications, color: Colors.white),
+            onPressed: () {},
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusCard extends StatelessWidget {
+  const _StatusCard();
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 18.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.notifications, color: Colors.blue),
+                const SizedBox(width: 8),
+                Text(
+                  "Today's Attendance Status",
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
-            Consumer<HolidayProvider>(
-              builder: (context, holidayProvider, child) {
-                if (holidayProvider.isLoading) {
+            Row(
+              children: [
+                const Icon(Icons.access_time, color: Colors.grey),
+                const SizedBox(width: 8),
+                Text(
+                  'Current Time:',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const Spacer(),
+                const LiveClock(),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Consumer<AttendanceProvider>(
+              builder: (context, attendanceProvider, _) {
+                final status = attendanceProvider.todayStatus;
+                // print('DEBUG: Today Status in _StatusCard: $status');
+                 // print('DEBUG: Attendance Summary in _StatusCard: $summary');
+            if (attendanceProvider.isLoading) {
                   return const Center(child: CircularProgressIndicator());
-                } else if (holidayProvider.error != null) {
-                  return Center(
-                    child: Text('Error: ${holidayProvider.error}'),
-                  );
-                } else if (holidayProvider.holidays.isEmpty) {
-                  return const Center(
-                    child: Text('No upcoming holidays or events.'),
-                  );
-                } else {
-                  final upcomingHolidays = holidayProvider.holidays
-                      .where((holiday) => DateTime.parse(holiday['date'])
-                          .isAfter(DateTime.now().subtract(const Duration(
-                              days: 1)))) // Filter out past events
-                      .toList();
-
-                  if (upcomingHolidays.isEmpty) {
-                    return const Center(
-                      child: Text('No upcoming holidays or events.'),
-                    );
-                  }
-
-                  return Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: upcomingHolidays.length,
-                      itemBuilder: (context, index) {
-                        final holiday = upcomingHolidays[index];
-                        final holidayDate = DateTime.parse(holiday['date']);
-                        final formattedDate =
-                            DateFormat('MMM d, y').format(holidayDate);
-
-                        return Column(
-                          children: [
-                            ListTile(
-                              leading: Icon(
-                                holiday['type'] == 'public_holiday'
-                                    ? Icons.calendar_today
-                                    : Icons.event,
-                                color: theme.colorScheme.primary,
-                              ),
-                              title: Text(holiday['title']),
-                              subtitle: Text(
-                                  '$formattedDate - ${holiday['description']}'),
-                            ),
-                            if (index < upcomingHolidays.length - 1)
-                              const Divider(indent: 16, endIndent: 16),
-                          ],
-                        );
-                      },
-                    ),
-                  );
                 }
+                return Row(
+                  children: [
+                    const Icon(Icons.info, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Status:',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const Spacer(),
+                    Text(
+                      status != null
+                          ? status.replaceAll('_', ' ').toUpperCase()
+                          : 'N/A',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                );
               },
             ),
-            const SizedBox(height: 24.0), // Consistent spacing
-            // Attendance & Work Overview Section
-            const DashboardOverviewTile(),
-            const SizedBox(height: 32),
-            // User Info Section
-            // ... existing code ...
+            const SizedBox(height: 12),
+            const Row(
+              children: [
+                Icon(Icons.sync, color: Colors.blue),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildNotificationDot() {
-    // Implement logic to show/hide notification dot based on unread notifications
-    return Container(
-      width: 10,
-      height: 10,
-      decoration: const BoxDecoration(
-        color: Colors.red,
-        shape: BoxShape.circle,
-      ),
+class _QuickActions extends StatelessWidget {
+  final bool isOnBreak;
+  final VoidCallback clockIn;
+  final VoidCallback clockOut;
+  final VoidCallback startBreak;
+  final VoidCallback endBreak;
+  final Function(BuildContext) applyLeave;
+  final Function(BuildContext) openTimesheet;
+  final Function(BuildContext) openProfile;
+  const _QuickActions({
+    required this.isOnBreak,
+    required this.clockIn,
+    required this.clockOut,
+    required this.startBreak,
+    required this.endBreak,
+    required this.applyLeave,
+    required this.openTimesheet,
+    required this.openProfile,
+  });
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+    final crossAxisCount = isTablet ? 3 : 2;
+    final childAspectRatio = isTablet ? 2.1 : 1.9;
+    return Column(
+      children: [
+        Consumer<AttendanceProvider>(
+          builder: (context, attendanceProvider, _) {
+            final status = attendanceProvider.todayStatus;
+            if (attendanceProvider.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (status == 'clocked_in') {
+              return Row(
+                children: [
+                  Expanded(
+                    child: _buildQuickActionCard(
+                      context,
+                      icon: Icons.logout,
+                      label: 'Clock Out',
+                      color: isOnBreak ? const Color(0xFFB0B0B0) : const Color(0xFFE53E3E),
+                      onPressed: isOnBreak ? null : clockOut,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildQuickActionCard(
+                      context,
+                      icon: Icons.free_breakfast,
+                      label: 'Start Break',
+                      color: const Color(0xFF718096),
+                      onPressed: startBreak,
+                    ),
+                  ),
+                ],
+              );
+            } else if (status == 'on_break') {
+              return Row(
+                children: [
+                  Expanded(
+                    child: _buildQuickActionCard(
+                      context,
+                      icon: Icons.logout,
+                      label: 'Clock Out',
+                      color: const Color(0xFFB0B0B0),
+                      onPressed: null, // Optionally disable clock out during break
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildQuickActionCard(
+                      context,
+                      icon: Icons.stop_circle,
+                      label: 'End Break',
+                      color: const Color(0xFFED8936),
+                      onPressed: endBreak,
+                    ),
+                  ),
+                ],
+              );
+            } else {
+              return SizedBox(
+                width: double.infinity,
+                child: _buildQuickActionCard(
+                  context,
+                  icon: Icons.login,
+                  label: 'Clock In',
+                  color: const Color(0xFF38A169),
+                  onPressed: clockIn,
+                  isFullWidth: true,
+                ),
+              );
+            }
+          },
+        ),
+        const SizedBox(height: 16),
+        GridView.count(
+          crossAxisCount: crossAxisCount,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: childAspectRatio,
+          children: [
+            _buildQuickActionCard(
+              context,
+              icon: Icons.calendar_today,
+              label: 'Apply Leave',
+              color: const Color(0xFF3182CE),
+              onPressed: () => applyLeave(context),
+            ),
+            _buildQuickActionCard(
+              context,
+              icon: Icons.access_time,
+              label: 'Timesheet',
+              color: const Color(0xFF805AD5),
+              onPressed: () => openTimesheet(context),
+            ),
+            _buildQuickActionCard(
+              context,
+              icon: Icons.person,
+              label: 'Profile',
+              color: const Color(0xFF319795),
+              onPressed: () => openProfile(context),
+            ),
+          ],
+        ),
+      ],
     );
   }
+}
+
+
+Future<Map<String,dynamic>?> _pickBreakType(BuildContext ctx) async {
+  final resp = await http.get(Uri.parse('${ApiConfig.baseUrl}/attendance/break-types'),
+    headers: {'Authorization':'Bearer ${ctx.read<AuthProvider>().token}'});
+  final types = List<Map<String,dynamic>>.from(json.decode(resp.body));
+  return showDialog(
+    context: ctx,
+    builder: (_) => AlertDialog(
+      title: const Text('Select Break Type'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView(
+          children: types.map((t) {
+            return ListTile(
+              leading: Icon(Icons.work, color: Color(
+  int.parse(t['color'].substring(1), radix: 16) | 0xFF000000,
+),
+),
+              title: Text(t['displayName']),
+              onTap: () => Navigator.of(ctx).pop(t),
+            );
+          }).toList(),
+        ),
+      ),
+    ),
+  );
 }

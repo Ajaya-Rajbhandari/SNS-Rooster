@@ -48,7 +48,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
 
       // Fetch all users for total count and department stats
       final usersResponse = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/users'),
+        Uri.parse('${ApiConfig.baseUrl}/users'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -87,7 +87,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
 
       // Fetch leave requests for pending count
       final leaveRequestsResponse = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/leave-requests'),
+        Uri.parse('${ApiConfig.baseUrl}/leave-requests'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

@@ -1,0 +1,34 @@
+const Payroll = require('../models/Payroll');
+const Employee = require('../models/Employee');
+
+// Get all payrolls
+exports.getAllPayrolls = async (req, res) => {
+  try {
+    const payrolls = await Payroll.find().populate('employee');
+    res.json(payrolls);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Get payrolls for a specific employee
+exports.getEmployeePayrolls = async (req, res) => {
+  try {
+    const payrolls = await Payroll.find({ employee: req.params.employeeId }).populate('employee');
+    res.json(payrolls);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Create a new payroll record
+exports.createPayroll = async (req, res) => {
+  try {
+    const { employee, periodStart, periodEnd, totalHours, grossPay, netPay, deductions } = req.body;
+    const payroll = new Payroll({ employee, periodStart, periodEnd, totalHours, grossPay, netPay, deductions });
+    await payroll.save();
+    res.status(201).json(payroll);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};

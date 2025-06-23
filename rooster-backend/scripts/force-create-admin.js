@@ -13,7 +13,8 @@ async function forceCreateAdmin() {
 
     // Create admin user
     const admin = new User({
-      name: 'Admin User',
+      firstName: 'Admin',
+      lastName: 'User',
       email: 'admin@snsrooster.com',
       password: 'Admin@123',
       role: 'admin',

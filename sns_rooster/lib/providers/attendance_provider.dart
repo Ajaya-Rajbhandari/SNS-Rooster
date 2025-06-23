@@ -1,183 +1,90 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import '../providers/auth_provider.dart'; // Assuming AuthProvider is in this path
-import '../services/mock_service.dart'; // Import the mock service
 import '../config/api_config.dart';
+import '../providers/auth_provider.dart';
+import '../services/attendance_service.dart';
 
 class AttendanceProvider with ChangeNotifier {
   final AuthProvider _authProvider;
+  late final AttendanceService _attendanceService;
   List<Map<String, dynamic>> _attendanceRecords = [];
-  Map<String, dynamic>?
-      _currentAttendance; // New: to hold the active attendance record
   bool _isLoading = false;
   String? _error;
+  Map<String, dynamic>? _attendanceSummary;
+  String? _todayStatus;
 
-  // Instantiate the mock service (with useMock = true) so that we can simulate API responses.
-  final MockAttendanceService _mockAttendanceService = MockAttendanceService();
-
-  AttendanceProvider(this._authProvider);
+  AttendanceProvider(this._authProvider) {
+    _attendanceService = AttendanceService(_authProvider);
+  }
 
   List<Map<String, dynamic>> get attendanceRecords => _attendanceRecords;
-  Map<String, dynamic>? get currentAttendance =>
-      _currentAttendance; // New getter
   bool get isLoading => _isLoading;
   String? get error => _error;
-
-  Future<void> fetchAllAttendance() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    if (!_authProvider.isAuthenticated || _authProvider.token == null) {
-      _error = 'User not authenticated';
-      _isLoading = false;
-      notifyListeners();
-      return;
-    }
-
-    try {
-      if (useMock) {
-        final userId = _authProvider.user?['_id'] ?? 'mock_user_1';
-        final response =
-            await _mockAttendanceService.getAttendanceHistory(userId);
-        _attendanceRecords = response;
-      } else {
-        final response = await http.get(
-          Uri.parse('${ApiConfig.baseUrl}/attendance'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ${_authProvider.token}',
-          },
-        );
-
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          _attendanceRecords =
-              List<Map<String, dynamic>>.from(data['attendance']);
-          _error = null;
-        } else {
-          final data = json.decode(response.body);
-          _error = data['message'] ?? 'Failed to fetch attendance records';
-        }
-      }
-    } catch (e) {
-      _error = 'Network error occurred: ${e.toString()}';
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
+  Map<String, dynamic>? get attendanceSummary => _attendanceSummary;
+  String? get todayStatus => _todayStatus;
 
   Future<void> fetchUserAttendance(String userId) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
-
-    if (!_authProvider.isAuthenticated || _authProvider.token == null) {
-      _error = 'User not authenticated';
-      _isLoading = false;
-      notifyListeners();
-      return;
-    }
-
     try {
-      if (useMock) {
-        final response =
-            await _mockAttendanceService.getAttendanceHistory(userId);
-        _attendanceRecords = response;
-
-        // Get current attendance
-        _currentAttendance =
-            await _mockAttendanceService.getCurrentAttendance(userId);
-      } else {
-        final response = await http.get(
-          Uri.parse('${ApiConfig.baseUrl}/attendance/user/$userId'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ${_authProvider.token}',
-          },
-        );
-
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          _currentAttendance = data['attendance'];
-          _attendanceRecords =
-              List<Map<String, dynamic>>.from(data['history'] ?? []);
-          _error = null;
-        } else {
-          final data = json.decode(response.body);
-          _error = data['message'] ?? 'Failed to fetch user attendance records';
-        }
-      }
+      _attendanceRecords = await _attendanceService.getAttendanceHistory(userId);
+      _error = null;
     } catch (e) {
-      _error = 'Network error occurred: ${e.toString()}';
+      _error = 'Network error occurred: \\${e.toString()}';
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<bool> checkIn() async {
+  Future<void> fetchAttendanceSummary(String userId, {DateTime? startDate, DateTime? endDate}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
-      if (useMock) {
-        final userId = _authProvider.user?['_id'] ?? 'mock_user_1';
-        final response = await _mockAttendanceService.checkIn(userId);
-        _currentAttendance = response["attendance"];
-        return true;
-      } else {
-        // TODO: Replace with real API call
-        throw UnimplementedError("Real API call not implemented.");
-      }
+      _attendanceSummary = await _attendanceService.getAttendanceSummary(userId, startDate: startDate, endDate: endDate);
+      _error = null;
     } catch (e) {
-      _error = e.toString();
-      return false;
+      _error = 'Network error occurred: \\${e.toString()}';
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<bool> checkOut() async {
+  // Call this on dashboard load or after login to ensure correct state
+  Future<void> fetchTodayStatus(String userId) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
-      if (useMock) {
-        final userId = _authProvider.user?['_id'] ?? 'mock_user_1';
-        final response = await _mockAttendanceService.checkOut(userId);
-        _currentAttendance = response["attendance"];
-        return true;
+      final fetchedStatus = await _attendanceService.getAttendanceStatus(userId);
+      // Map backend status to UI status
+      if (fetchedStatus == 'No current attendance') {
+        _todayStatus = 'not_clocked_in';
       } else {
-        // TODO: Replace with real API call
-        throw UnimplementedError("Real API call not implemented.");
+        _todayStatus = fetchedStatus;
       }
+      print('DEBUG: _todayStatus after update in fetchTodayStatus: $_todayStatus');
     } catch (e) {
-      _error = e.toString();
-      return false;
+      print('DEBUG: Error while fetching todayStatus: $e');
+      _error = 'Failed to fetch attendance status.';
+      _todayStatus = null;
     } finally {
       _isLoading = false;
+      print('DEBUG: Notifying listeners after todayStatus update');
       notifyListeners();
     }
   }
 
-  Future<void> getAttendanceHistory() async {
+  // Break actions: these should call real backend endpoints if available
+  Future<void> startBreakWithType(String userId, Map<String, dynamic> breakType) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
-      if (useMock) {
-        final userId = _authProvider.user?['_id'] ?? 'mock_user_1';
-        final response =
-            await _mockAttendanceService.getAttendanceHistory(userId);
-        _attendanceRecords = response;
-      } else {
-        // TODO: Replace with real API call
-        throw UnimplementedError("Real API call not implemented.");
-      }
+      await _attendanceService.startBreakWithType(userId, breakType);
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -186,49 +93,47 @@ class AttendanceProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> startBreak() async {
+  Future<void> endBreak(String userId) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
-      if (useMock) {
-        final userId = _authProvider.user?['_id'] ?? 'mock_user_1';
-        final response = await _mockAttendanceService.startBreak(userId);
-        _currentAttendance = response["attendance"];
-        return true;
-      } else {
-        throw UnimplementedError("Real API call not implemented.");
-      }
+      await _attendanceService.endBreak(userId);
     } catch (e) {
       _error = e.toString();
-      return false;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<bool> endBreak() async {
-    _isLoading = true;
+  void clearAttendance() {
+    _attendanceRecords = [];
     _error = null;
     notifyListeners();
-    try {
-      if (useMock) {
-        final userId = _authProvider.user?['_id'] ?? 'mock_user_1';
-        final response = await _mockAttendanceService.endBreak(userId);
-        _currentAttendance = response["attendance"];
-        return true;
-      } else {
-        throw UnimplementedError("Real API call not implemented.");
-      }
-    } catch (e) {
-      _error = e.toString();
-      return false;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
   }
 
-  // Methods for check-in/check-out can be added here if needed for employee-side
+  Future<void> fetchBreakTypes(BuildContext context) async {
+    try {
+      print('FETCH_BREAK_TYPES_DEBUG: Token being sent: ${_authProvider.authToken}');
+
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/attendance/break-types'),
+        headers: {
+          'Authorization': 'Bearer ${_authProvider.authToken}',
+        },
+      );
+
+      print('FETCH_BREAK_TYPES_DEBUG: Response status code: ${response.statusCode}');
+      print('FETCH_BREAK_TYPES_DEBUG: Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        // Handle successful response
+      } else {
+        // Handle error response
+      }
+    } catch (e) {
+      print('FETCH_BREAK_TYPES_DEBUG: Error during API call: $e');
+    }
+  }
 }
