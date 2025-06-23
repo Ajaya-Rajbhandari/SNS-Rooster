@@ -33,6 +33,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _fetchDashboardData();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Listen for user changes and refresh dashboard data
+    final authProvider = Provider.of<AuthProvider>(context);
+    if (authProvider.user != null) {
+      // If the user has changed, re-fetch dashboard data
+      _fetchDashboardData();
+    }
+  }
+
   Future<void> _fetchDashboardData() async {
     setState(() {
       _isLoading = true;
@@ -105,7 +116,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print('ADMIN DASHBOARD: Building AdminDashboardScreen');
+    // Always get latest user info from provider
+    final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.user;
+    final userName = user?['name'] ?? 'Admin';
+
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -781,39 +796,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
     );
   }
-}
-
-// Keep _buildActionCard as it is, or refactor if needed for dynamic data
-Widget _buildActionCard(BuildContext context, {
-  required IconData icon,
-  required String title,
-  required VoidCallback onTap,
-}) {
-  final theme = Theme.of(context);
-  return InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(12),
-    child: Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: theme.colorScheme.primary),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
 }
 
 class _PayrollInsightsSection extends StatelessWidget {

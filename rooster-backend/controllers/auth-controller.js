@@ -164,7 +164,7 @@ exports.getCurrentUserProfile = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.json({ user: user.getPublicProfile() });
+    res.json({ profile: user.getPublicProfile() });
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -196,7 +196,9 @@ exports.updateCurrentUserProfile = async (req, res) => {
     // Handle profile picture upload
     if (req.file) {
       const oldProfilePicture = user.profilePicture;
-      user.profilePicture = `/uploads/avatars/${req.file.filename}`;
+      const newAvatarPath = `/uploads/avatars/${req.file.filename}`;
+      user.profilePicture = newAvatarPath;
+      user.avatar = newAvatarPath; // Always set both fields
       // Delete old profile picture if it exists and is not the default
       if (oldProfilePicture && oldProfilePicture !== '/uploads/avatars/default-avatar.png') {
         const oldPath = path.join(__dirname, '..', oldProfilePicture);
@@ -206,6 +208,14 @@ exports.updateCurrentUserProfile = async (req, res) => {
       }
     }
 
+    // Sanity check: ensure avatar/profilePicture never include '/api/uploads/'
+    if (user.avatar && user.avatar.startsWith('/api/uploads/')) {
+      user.avatar = user.avatar.replace('/api/uploads/', '/uploads/');
+    }
+    if (user.profilePicture && user.profilePicture.startsWith('/api/uploads/')) {
+      user.profilePicture = user.profilePicture.replace('/api/uploads/', '/uploads/');
+    }
+
     updates.forEach((update) => {
       if (update !== 'password' && update !== 'profilePicture') {
         user[update] = req.body[update];
@@ -213,11 +223,16 @@ exports.updateCurrentUserProfile = async (req, res) => {
     });
 
     // Recalculate profile completeness after updates
-    user.isProfileComplete = user.checkProfileCompleteness();
+    user.recalculateProfileComplete();
 
     await user.save();
+    // Debug log after save
+    console.log('DEBUG: Saved user.avatar:', user.avatar);
+    console.log('DEBUG: Saved user.profilePicture:', user.profilePicture);
 
-    res.json({ message: 'Profile updated successfully', user: user.getPublicProfile() });
+    // Fetch the updated user from the database to ensure fresh data is returned
+    const updatedUser = await User.findById(user._id);
+    res.json({ profile: updatedUser.getPublicProfile() });
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -253,7 +268,9 @@ exports.updateUserProfileByAdmin = async (req, res) => {
     // Handle profile picture upload (if admin is updating it)
     if (req.file) {
       const oldProfilePicture = user.profilePicture;
-      user.profilePicture = `/uploads/avatars/${req.file.filename}`;
+      const newAvatarPath = `/uploads/avatars/${req.file.filename}`;
+      user.profilePicture = newAvatarPath;
+      user.avatar = newAvatarPath; // Always set both fields
       // Delete old profile picture if it exists and is not the default
       if (oldProfilePicture && oldProfilePicture !== '/uploads/avatars/default-avatar.png') {
         const oldPath = path.join(__dirname, '..', oldProfilePicture);
@@ -263,6 +280,14 @@ exports.updateUserProfileByAdmin = async (req, res) => {
       }
     }
 
+    // Sanity check: ensure avatar/profilePicture never include '/api/uploads/'
+    if (user.avatar && user.avatar.startsWith('/api/uploads/')) {
+      user.avatar = user.avatar.replace('/api/uploads/', '/uploads/');
+    }
+    if (user.profilePicture && user.profilePicture.startsWith('/api/uploads/')) {
+      user.profilePicture = user.profilePicture.replace('/api/uploads/', '/uploads/');
+    }
+
     updates.forEach((update) => {
       if (update !== 'password' && update !== 'profilePicture') {
         user[update] = req.body[update];
@@ -270,7 +295,7 @@ exports.updateUserProfileByAdmin = async (req, res) => {
     });
 
     // Recalculate profile completeness after updates
-    user.isProfileComplete = user.checkProfileCompleteness();
+    user.recalculateProfileComplete();
 
     await user.save();
 
@@ -303,7 +328,7 @@ exports.getUserById = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.json(user.getPublicProfile());
+    res.json({ profile: user.getPublicProfile() });
   } catch (error) {
     console.error('Get user by ID error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -319,6 +344,37 @@ exports.deleteUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+    // Delete avatar if not default
+    if (user.avatar && user.avatar !== '/uploads/avatars/default-avatar.png') {
+      const avatarPath = path.join(__dirname, '..', user.avatar);
+      fs.unlink(avatarPath, (err) => {
+        if (err) console.error('Error deleting avatar:', err);
+      });
+    }
+    // Delete idCard and passport files
+    if (user.idCard) {
+      const idCardPath = path.join(__dirname, '..', user.idCard);
+      fs.unlink(idCardPath, (err) => {
+        if (err) console.error('Error deleting idCard:', err);
+      });
+    }
+    if (user.passport) {
+      const passportPath = path.join(__dirname, '..', user.passport);
+      fs.unlink(passportPath, (err) => {
+        if (err) console.error('Error deleting passport:', err);
+      });
+    }
+    // Delete all files in documents array
+    if (user.documents && Array.isArray(user.documents)) {
+      user.documents.forEach(doc => {
+        if (doc.path) {
+          const docPath = path.join(__dirname, '..', doc.path);
+          fs.unlink(docPath, (err) => {
+            if (err) console.error('Error deleting document:', err);
+          });
+        }
+      });
+    }
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Delete user error:', error);
@@ -331,6 +387,9 @@ exports.uploadDocument = async (req, res) => {
     const { documentType } = req.body;
     const userId = req.user.userId;
 
+    console.log('UPLOAD DEBUG: documentType:', documentType);
+    console.log('UPLOAD DEBUG: req.file:', req.file);
+
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
     }
@@ -340,13 +399,44 @@ exports.uploadDocument = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    console.log('UPLOAD DEBUG: user.idCard before:', user.idCard);
+    console.log('UPLOAD DEBUG: user.passport before:', user.passport);
+
     if (req.user.role !== 'admin' && req.user.userId !== userId) {
       return res.status(403).json({ message: 'Unauthorized to upload document' });
     }
 
     const filePath = `/uploads/documents/${req.file.filename}`;
+    // Remove old file if updating same document type
+    if (documentType === 'idCard' && user.idCard) {
+      const oldPath = path.join(__dirname, '..', user.idCard);
+      fs.unlink(oldPath, (err) => {
+        if (err) console.error('Error deleting old ID card:', err);
+        else console.log('UPLOAD DEBUG: Deleted old ID card:', oldPath);
+      });
+    }
+    if (documentType === 'passport' && user.passport) {
+      const oldPath = path.join(__dirname, '..', user.passport);
+      fs.unlink(oldPath, (err) => {
+        if (err) console.error('Error deleting old passport:', err);
+        else console.log('UPLOAD DEBUG: Deleted old passport:', oldPath);
+      });
+    }
+    // Save new file path
+    if (documentType === 'idCard') user.idCard = filePath;
+    if (documentType === 'passport') user.passport = filePath;
+    // Update documents array (replace or add)
     user.documents = user.documents || [];
-    user.documents.push({ type: documentType, path: filePath });
+    const docIndex = user.documents.findIndex(doc => doc.type === documentType);
+    if (docIndex !== -1) {
+      user.documents[docIndex].path = filePath;
+    } else {
+      user.documents.push({ type: documentType, path: filePath });
+    }
+
+    console.log('UPLOAD DEBUG: user.idCard after:', user.idCard);
+    console.log('UPLOAD DEBUG: user.passport after:', user.passport);
+
     await user.save();
 
     res.status(200).json({

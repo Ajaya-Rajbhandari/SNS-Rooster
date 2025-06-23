@@ -177,7 +177,7 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      print('LOGIN_DEBUG: Making API call to ${ApiConfig.baseUrl}/auth/login');
+      print('LOGIN_DEBUG: Making API call to [36m${ApiConfig.baseUrl}/auth/login[0m');
 
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/auth/login'),
@@ -198,13 +198,28 @@ class AuthProvider with ChangeNotifier {
       if (response.statusCode == 200) {
         _authToken = data['token'];
         _token = _authToken; // Assign to _token for consistency
-        print('LOGIN_DEBUG: Token received: $_authToken');
-        print('LOGIN_DEBUG: Assigning token to _authToken: ${data['token']}');
+        print('LOGIN_DEBUG: Token received: \\_authToken');
+        print('LOGIN_DEBUG: Assigning token to _authToken: \\${data['token']}');
         _user = data['user'];
-        print('LOGIN_DEBUG: User data received: $_user');
-        print('LOGIN_DEBUG: Backend token field: ${data['token']}');
-        print('LOGIN_DEBUG: Token received from backend response: $_authToken');
+        print('LOGIN_DEBUG: User data received: \\_user');
+        print('LOGIN_DEBUG: Backend token field: \\${data['token']}');
+        print('LOGIN_DEBUG: Token received from backend response: \\_authToken');
         await _saveAuthToPrefs();
+        // --- Ensure profile is refreshed after login ---
+        if (_profileProvider != null) {
+          print('LOGIN_DEBUG: Refreshing profile after login');
+          await _profileProvider!.fetchProfile();
+        } else {
+          print('LOGIN_DEBUG: ProfileProvider is not set, cannot refresh profile');
+        }
+        // --- Wait for profile to be loaded before returning ---
+        if (_profileProvider != null) {
+          int tries = 0;
+          while ((_profileProvider!.profile == null || _profileProvider!.isLoading) && tries < 20) {
+            await Future.delayed(const Duration(milliseconds: 100));
+            tries++;
+          }
+        }
         return true;
       } else {
         _error = data['message'] ?? 'Login failed';

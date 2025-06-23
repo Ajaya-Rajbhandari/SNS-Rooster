@@ -41,6 +41,30 @@ final childAspectRatio = isTablet ? 2.1 : 1.9;
 - Solution is responsive and works across all screen sizes
 - No impact on other dashboard components
 
+# Fix: Employee Dashboard & Profile Always Show Current User Data
+
+## Problem
+After login or user switch, the Employee Dashboard and Profile screens sometimes displayed stale (previous/cached) user data, while the side navigation always showed the correct user. This was because the dashboard and profile screens did not always fetch the latest data from the provider, and the provider was not refreshed after login.
+
+## Solution
+- **Provider Usage:** Updated the Employee Dashboard header (`_DashboardHeader`) and Profile page to use `Consumer<ProfileProvider>`, ensuring they always display the latest user info from the provider.
+- **Provider Refresh:** Modified the login logic in `login_screen.dart` to call `refreshProfile()` on the `ProfileProvider` after a successful login and before navigating to the dashboard.
+- **Debugging:** Added debug print statements in the dashboard header to log the profile data every time the widget builds, confirming that the latest data is always shown.
+- **Result:** Now, the side navigation, dashboard, and profile page are always in sync and display the current user's data after login or user switch.
+
+## Files Changed
+- `sns_rooster/lib/screens/login/login_screen.dart`: Refreshes profile after login.
+- `sns_rooster/lib/screens/employee/employee_dashboard_screen.dart`: Dashboard header uses `Consumer<ProfileProvider>` and logs profile data.
+- `sns_rooster/lib/screens/profile/profile_screen.dart`: Profile header uses `Consumer<ProfileProvider>`.
+
+## How to Test
+1. Log in as a user and verify the dashboard, profile, and side navigation all show the correct user info.
+2. Log out and log in as a different user; all widgets should update to the new user's info.
+3. Switch users without restarting the app; all widgets should update accordingly.
+
+---
+*Last updated: 2025-06-23*
+
 ## Date: 2024
 ## Author: AI Assistant
 ## Status: Completed

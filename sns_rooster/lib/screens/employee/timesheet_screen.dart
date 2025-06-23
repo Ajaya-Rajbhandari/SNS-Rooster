@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../widgets/dashboard/quick_actions.dart';
+//import '../../widgets/dashboard/quick_actions.dart';
 import '../../widgets/app_drawer.dart';
 
 class TimesheetScreen extends StatefulWidget {
@@ -44,7 +44,7 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const QuickActions(),
+
                   ],
                 ),
               ),

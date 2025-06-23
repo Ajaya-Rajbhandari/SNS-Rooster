@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/profile_provider.dart';
 import '../employee/employee_dashboard_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
 
@@ -72,6 +73,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (success) {
         print('LOGIN SCREEN: Login successful');
+        // Ensure ProfileProvider is refreshed for the new user
+        final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+        await profileProvider.refreshProfile();
+        // Add a short delay to ensure providers are updated before navigation
+        await Future.delayed(const Duration(milliseconds: 1200));
         if (authProvider.user?['role'] == 'admin') {
           print('LOGIN SCREEN: Navigating to AdminDashboardScreen');
           Navigator.of(context).pushReplacement(

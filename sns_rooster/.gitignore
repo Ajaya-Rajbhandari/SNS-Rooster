@@ -60,3 +60,6 @@ node_modules/
 .env.test
 .env.production
 rooster-backend/.env
+rooster-backend/generateToken.js
+rooster-backend/.env
+test-user-api.js

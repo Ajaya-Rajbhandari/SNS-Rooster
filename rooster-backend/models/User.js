@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
+const fs = require('fs');
+const path = require('path');
 
 const userSchema = new mongoose.Schema({
   document: {
@@ -64,6 +66,16 @@ const userSchema = new mongoose.Schema({
     type: String, // File path or URL
     trim: true,
   },
+  idCard: {
+    type: String, // File path or URL for uploaded ID card
+    trim: true,
+  },
+  documents: [
+    {
+      type: { type: String, trim: true }, // e.g., 'idCard', 'passport'
+      path: { type: String, trim: true },
+    }
+  ],
   education: [
     {
       institution: { type: String, trim: true },
@@ -121,14 +133,17 @@ userSchema.methods.getPublicProfile = function() {
   delete userObject.password;
   delete userObject.resetPasswordToken;
   delete userObject.resetPasswordExpires;
-  // Ensure name is not sent if it was part of the old schema and not cleaned up
-  delete userObject.name; 
+  delete userObject.name;
+
   userObject.isProfileComplete = this.isProfileComplete;
-  // Add firstName and lastName to the public profile
   userObject.firstName = this.firstName;
   userObject.lastName = this.lastName;
-  // Add combined name field for frontend compatibility
   userObject.name = this.firstName && this.lastName ? `${this.firstName} ${this.lastName}` : (this.firstName || this.lastName || null);
+
+  // Always use the DB value, fallback only if missing
+  userObject.avatar = this.avatar && this.avatar.trim() !== '' ? this.avatar : '/uploads/avatars/default-avatar.png';
+  userObject.profilePicture = this.profilePicture && this.profilePicture.trim() !== '' ? this.profilePicture : '/uploads/avatars/default-avatar.png';
+
   return userObject;
 };
 
