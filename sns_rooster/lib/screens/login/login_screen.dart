@@ -35,20 +35,17 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _updateAutoFillFields() {
-    assert(() {
-      if (_autoFill) {
-        _emailController.text =
-            _selectedRole == 'admin' ? _devAdminEmail : _devEmployeeEmail;
-        _passwordController.text =
-            _selectedRole == 'admin' ? _devAdminPassword : _devEmployeePassword;
-        if (_autoLogin) {
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (mounted) _login();
-          });
-        }
+    if (_autoFill) {
+      _emailController.text =
+          _selectedRole == 'admin' ? _devAdminEmail : _devEmployeeEmail;
+      _passwordController.text =
+          _selectedRole == 'admin' ? _devAdminPassword : _devEmployeePassword;
+      if (_autoLogin) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) _login();
+        });
       }
-      return true;
-    }());
+    }
   }
 
   @override
@@ -59,6 +56,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    print('LOGIN SCREEN: Initiating login process');
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -73,16 +71,20 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (success) {
+        print('LOGIN SCREEN: Login successful');
         if (authProvider.user?['role'] == 'admin') {
+          print('LOGIN SCREEN: Navigating to AdminDashboardScreen');
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
           );
         } else {
+          print('LOGIN SCREEN: Navigating to EmployeeDashboardScreen');
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const EmployeeDashboardScreen()),
           );
         }
       } else {
+        print('LOGIN SCREEN: Login failed');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(authProvider.error ?? 'Login failed'),
@@ -91,6 +93,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
+      print('LOGIN SCREEN: Error during login: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -99,14 +102,16 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    print('LOGIN SCREEN: BuildContext is ${context.hashCode}');
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    print('LOGIN SCREEN: AuthProvider user data: ${authProvider.user}');
+
     final theme = Theme.of(context);
     return Scaffold(
       body: Container(

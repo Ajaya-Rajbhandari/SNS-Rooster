@@ -10,7 +10,8 @@ import 'package:sns_rooster/screens/admin/leave_management_screen.dart';
 import 'package:sns_rooster/screens/admin/notification_alert_screen.dart';
 import 'package:sns_rooster/screens/admin/settings_screen.dart';
 import 'package:sns_rooster/screens/admin/help_support_screen.dart';
-import 'package:sns_rooster/screens/admin/user_management_screen.dart';
+import 'package:sns_rooster/screens/admin/attendance_management_screen.dart';
+import 'package:sns_rooster/screens/admin/break_management_screen.dart';
 import '../../widgets/admin_side_navigation.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -45,7 +46,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       int totalEmployees = 0;
       try {
         final response = await http.get(
-          Uri.parse('${ApiConfig.baseUrl}/api/users'),
+          Uri.parse('${ApiConfig.baseUrl}/auth/users'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ${authProvider.token}',
@@ -104,6 +105,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print('ADMIN DASHBOARD: Building AdminDashboardScreen');
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -166,6 +168,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           icon: Icons.payments,
                           title: 'Payroll',
                           onTap: () {
+                            print('ADMIN DASHBOARD: Navigating to PayrollManagementScreen');
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -178,8 +181,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         _buildActionCard(
                           context,
                           icon: Icons.people,
-                          title: 'Employees',
+                          title: 'Employee Management',
                           onTap: () {
+                            print('ADMIN DASHBOARD: Navigating to EmployeeManagementScreen');
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -226,6 +230,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const SettingsScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        _buildActionCard(
+                          context,
+                          icon: Icons.access_time,
+                          title: 'Attendance',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const AttendanceManagementScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                        _buildActionCard(
+                          context,
+                          icon: Icons.free_breakfast,
+                          title: 'Break Management',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const BreakManagementScreen(),
                               ),
                             );
                           },
