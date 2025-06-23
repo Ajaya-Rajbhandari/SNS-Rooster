@@ -59,11 +59,17 @@ class AttendanceProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      _todayStatus = await _attendanceService.getAttendanceStatus(userId);
-      print('DEBUG: Updating todayStatus to: $_todayStatus');
+      final fetchedStatus = await _attendanceService.getAttendanceStatus(userId);
+      // Map backend status to UI status
+      if (fetchedStatus == 'No current attendance') {
+        _todayStatus = 'not_clocked_in';
+      } else {
+        _todayStatus = fetchedStatus;
+      }
+      print('DEBUG: _todayStatus after update in fetchTodayStatus: $_todayStatus');
     } catch (e) {
       print('DEBUG: Error while fetching todayStatus: $e');
-      _error = e.toString();
+      _error = 'Failed to fetch attendance status.';
       _todayStatus = null;
     } finally {
       _isLoading = false;
@@ -78,9 +84,7 @@ class AttendanceProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      // TODO: Replace with real backend call for starting break
-      // await _attendanceService.startBreakWithType(userId, breakType);
-      throw UnimplementedError('Break start endpoint not implemented');
+      await _attendanceService.startBreakWithType(userId, breakType);
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -94,9 +98,7 @@ class AttendanceProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      // TODO: Replace with real backend call for ending break
-      // await _attendanceService.endBreak(userId);
-      throw UnimplementedError('Break end endpoint not implemented');
+      await _attendanceService.endBreak(userId);
     } catch (e) {
       _error = e.toString();
     } finally {

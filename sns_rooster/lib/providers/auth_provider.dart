@@ -197,6 +197,7 @@ class AuthProvider with ChangeNotifier {
 
       if (response.statusCode == 200) {
         _authToken = data['token'];
+        _token = _authToken; // Assign to _token for consistency
         print('LOGIN_DEBUG: Token received: $_authToken');
         print('LOGIN_DEBUG: Assigning token to _authToken: ${data['token']}');
         _user = data['user'];
