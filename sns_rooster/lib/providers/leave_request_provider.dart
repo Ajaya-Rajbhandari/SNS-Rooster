@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 class LeaveRequestProvider with ChangeNotifier {
-  List<Map<String, dynamic>> _leaveRequests = [];
-  Map<String, dynamic> _leaveBalances = {};
+  final List<Map<String, dynamic>> _leaveRequests = [];
+  final Map<String, dynamic> _leaveBalances = {};
   String? _error;
   bool _isLoading = false;
 

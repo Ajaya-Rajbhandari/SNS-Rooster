@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import '../config/api_config.dart';
 
