@@ -167,3 +167,53 @@ For issues and questions:
 - Updated `auth.js` middleware for better token validation
 - Enhanced error handling for profile fetching
 - Verified API endpoints with comprehensive testing
+
+# Attendance & Break Logic Fixes (June 2025)
+
+## Overview
+This update documents the major fixes and improvements made to the attendance and break logic in the SNS Rooster backend and frontend, including:
+- Consistent UTC date handling for attendance records
+- Proper unique index usage in MongoDB
+- Robust status and button logic in the Flutter UI
+- Debug logging for backend diagnosis
+
+## Key Fixes
+
+### 1. UTC Date Handling for Attendance
+- All attendance queries and document creation now use **UTC midnight** for the `date` field.
+- This prevents duplicate key errors and ensures correct attendance tracking for all users, regardless of timezone.
+- Example:
+  ```js
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+  ```
+
+### 2. MongoDB Index Correction
+- Removed the unique index on `date` alone (`date_1`).
+- Kept only the compound unique index on `{ user, date }` (`user_1_date_1`).
+- This allows each user to have one attendance per day, but multiple users can clock in on the same day.
+
+### 3. Backend Controller Improvements
+- All attendance-related controllers (`checkIn`, `checkOut`, `startBreak`, `endBreak`, `getAttendanceStatus`) now use UTC date logic.
+- Added debug logging for all major actions and error cases.
+- Improved error messages for duplicate and invalid actions.
+
+### 4. Frontend UI Logic
+- The Flutter dashboard now correctly reflects all attendance states:
+  - Not Clocked In: Only "Clock In" enabled
+  - Clocked In: "Clock Out" and "Start Break" enabled
+  - On Break: "End Break" enabled, "Clock Out" disabled
+  - Clocked Out: Only "Clock In" enabled
+- Status and quick actions update immediately after each action.
+
+### 5. How to Fix for Future Issues
+- Always use UTC for all date fields in backend logic.
+- Ensure only the `{ user, date }` index is unique in MongoDB.
+- If you see duplicate key errors, check your indexes with `db.attendances.getIndexes()` and remove any unique `date_1` index.
+
+## References
+- See also: `docs/api/API_DOCUMENTATION.md`, `SECURITY_ACCESS_CONTROL_DOCUMENTATION.md`, `LAYOUT_FIX_DOCUMENTATION.md`, `CLOCK_IN_RESET_FIX.md`
+
+---
+
+_Last updated: June 23, 2025_

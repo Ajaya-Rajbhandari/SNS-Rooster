@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import '../config/api_config.dart';
 
@@ -127,6 +128,47 @@ class AttendanceService {
     }
   }
 
+  Future<void> startBreakWithType(String userId, Map<String, dynamic> breakType) async {
+    final token = authProvider.token;
+    if (token == null) {
+      throw Exception('No valid token found');
+    }
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+    final url = '${ApiConfig.baseUrl}/attendance/start-break';
+    final body = json.encode({
+      'userId': userId,
+      'breakTypeId': breakType['_id'],
+    });
+    print('DEBUG: Sending break start API call for userId: $userId with breakTypeId: ${breakType['_id']}');
+    final response = await http.post(Uri.parse(url), headers: headers, body: body);
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Failed to start break: ${response.statusCode} ${response.body}');
+    }
+  }
+
+  Future<void> endBreak(String userId) async {
+    final token = authProvider.token;
+    if (token == null) {
+      throw Exception('No valid token found');
+    }
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+    final url = '${ApiConfig.baseUrl}/attendance/end-break';
+    final body = json.encode({
+      'userId': userId,
+    });
+    print('DEBUG: Sending break end API call for userId: $userId');
+    final response = await http.patch(Uri.parse(url), headers: headers, body: body);
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Failed to end break: ${response.statusCode} ${response.body}');
+    }
+  }
+
   Future<String> getAttendanceStatus(String userId) async {
     final token = authProvider.token;
     if (token == null) {
@@ -138,14 +180,16 @@ class AttendanceService {
     };
     final url = '${ApiConfig.baseUrl}/attendance/status/$userId';
     final response = await http.get(Uri.parse(url), headers: headers);
-    print('DEBUG: Response from attendance status endpoint: ${response.body}');
     if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      print('DEBUG: Parsed attendance status data: $data');
+      print('DEBUG: Raw response body from getAttendanceStatus: ${response.body}');
+      final Map<String, dynamic> data = json.decode(response.body);
       return data['status'] as String;
+    } else if (response.statusCode == 404) {
+      return 'No current attendance';
     } else {
-      print('DEBUG: Failed to fetch attendance status: ${response.statusCode} ${response.body}');
-      throw Exception('Failed to fetch attendance status: \${response.statusCode} \${response.body}');
+      throw Exception('Failed to fetch attendance status: ${response.statusCode} ${response.body}');
     }
   }
+
+
 }

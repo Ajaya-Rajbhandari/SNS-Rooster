@@ -23,7 +23,7 @@ import '../../../widgets/user_avatar.dart';
 import '../../../main.dart';
 import '../../services/attendance_service.dart';
 import 'live_clock.dart';
-
+import 'package:sns_rooster/utils/color_utils.dart';
 /// EmployeeDashboardScreen displays the main dashboard for employees.
 //
 /// - Shows user info, live clock, status, quick actions, and attendance summary.
@@ -74,9 +74,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     final userId = authProvider.user?['_id'];
     if (userId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Provider.of<AttendanceProvider>(context, listen: false).fetchUserAttendance(userId).then((_) {
-          // No need to set _isClockedIn here; UI now uses provider state
-        });
+
       });
     }
   }
@@ -180,6 +178,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       String errorMessage = 'An error occurred while clocking in.';
       if (e.toString().contains('Already checked in for today')) {
         errorMessage = 'You have already clocked in for today.';
+      } else if (e.toString().contains('E11000 duplicate key error')) {
+        errorMessage = 'A duplicate entry was detected. You might have already checked in.';
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -210,31 +210,19 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     }
   }
 
-  void _startBreak() async {
-    // Show break type selection dialog
-    final selectedBreakType = await _showBreakTypeSelectionDialog();
-    if (selectedBreakType == null) return;
+  Future<void> _startBreak() async {
+    final selected = await _pickBreakType(context);
+    if (selected == null) return;
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.user?['_id'];
-    if (userId != null) {
-      try {
-        final attendanceProvider =
-            Provider.of<AttendanceProvider>(context, listen: false);
-        await attendanceProvider.startBreakWithType(userId, selectedBreakType);
-        setState(() {
-          _isOnBreak = true;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${selectedBreakType['displayName']} started successfully!')),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Failed to start break. Please try again.')),
-        );
-      }
-    }
+    final uid = context.read<AuthProvider>().user!['_id'] as String;
+    print('DEBUG: Calling startBreakWithType...');
+      await context.read<AttendanceProvider>().startBreakWithType(uid, selected);
+      print('DEBUG: startBreakWithType completed. Calling fetchTodayStatus...');
+      await context.read<AttendanceProvider>().fetchTodayStatus(uid);
+      print('DEBUG: After fetchTodayStatus, todayStatus is: ${context.read<AttendanceProvider>().todayStatus}');
+      print('DEBUG: fetchTodayStatus completed. Calling setState...');
+      setState(() {});
+      print('DEBUG: setState called.');
   }
 
   Future<Map<String, dynamic>?> _showBreakTypeSelectionDialog() async {
@@ -260,10 +248,11 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
               itemBuilder: (context, index) {
                 final breakType = breakTypes[index];
                 return ListTile(
-                  leading: Icon(
-                    _getIconFromString(breakType['icon']),
-                    color: Color(int.parse(breakType['color'].replaceFirst('#', '0xFF'))),
-                  ),
+  leading: Icon(
+  _getIconFromString(breakType['icon']),
+  color: colorFromHex(breakType['color']),
+),
+
                   title: Text(breakType['displayName']),
                   subtitle: Text(breakType['description']),
                   onTap: () {
@@ -351,19 +340,22 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     final userId = authProvider.user?['_id'];
     if (userId != null) {
       try {
-        final attendanceProvider =
-            Provider.of<AttendanceProvider>(context, listen: false);
+        final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
         await attendanceProvider.endBreak(userId);
+        await attendanceProvider.fetchTodayStatus(userId);
+        print('DEBUG: todayStatus after fetchTodayStatus in _endBreak: \\${attendanceProvider.todayStatus}');
         setState(() {
           _isOnBreak = false;
         });
+        // Force rebuild of QuickActions by calling setState at parent level
+        // and ensure AttendanceProvider notifies listeners
+        // Optionally, you can also call context.read<AttendanceProvider>().notifyListeners();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Break ended successfully!')),
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Failed to end break. Please try again.')),
+          const SnackBar(content: Text('Failed to end break. Please try again.')),
         );
       }
     }
@@ -404,13 +396,16 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final userId = authProvider.user?['_id'];
-      if (userId != null && _startDate == null && _endDate == null) {
-        if (_lastSummaryUserId != userId || _lastSummaryStart != null || _lastSummaryEnd != null) {
-          _lastSummaryUserId = userId;
-          _lastSummaryStart = null;
-          _lastSummaryEnd = null;
-          Provider.of<AttendanceProvider>(context, listen: false)
-              .fetchAttendanceSummary(userId);
+      if (userId != null) {
+        Provider.of<AttendanceProvider>(context, listen: false).fetchTodayStatus(userId);
+        if (_startDate == null && _endDate == null) {
+          if (_lastSummaryUserId != userId || _lastSummaryStart != null || _lastSummaryEnd != null) {
+            _lastSummaryUserId = userId;
+            _lastSummaryStart = null;
+            _lastSummaryEnd = null;
+            Provider.of<AttendanceProvider>(context, listen: false)
+                .fetchAttendanceSummary(userId);
+          }
         }
       }
     });
@@ -484,7 +479,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
             children: [
               _DashboardHeader(profile: profile),
               const SizedBox(height: 28),
-              const _StatusCard(),
+              const StatusCard(),
               const SizedBox(height: 28),
               if (userId != null)
                 Row(
@@ -547,7 +542,102 @@ String _capitalizeFirstLetter(String text) {
   return text[0].toUpperCase() + text.substring(1).toLowerCase();
 }
 
-// Helper method to build quick action cards
+/// A widget that displays the user's current attendance status.
+/// It consumes [AttendanceProvider] to get the [todayStatus] and displays
+/// a relevant icon, label, and a refresh button.
+class StatusCard extends StatelessWidget {
+  const StatusCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AttendanceProvider>(
+      builder: (context, attendanceProvider, child) {
+        final todayStatus = attendanceProvider.todayStatus;
+        String statusLabel = 'Unknown Status';
+        IconData statusIcon = Icons.help_outline;
+        Color statusColor = Colors.grey;
+
+        switch (todayStatus) {
+          case 'not_clocked_in':
+            statusLabel = 'Not Clocked In';
+            statusIcon = Icons.highlight_off;
+            statusColor = Colors.red;
+            break;
+          case 'clocked_out':
+            statusLabel = 'Clocked Out';
+            statusIcon = Icons.check_circle_outline;
+            statusColor = Colors.green;
+            break;
+          case 'on_break':
+            statusLabel = 'On Break';
+            statusIcon = Icons.pause_circle_outline;
+            statusColor = Colors.orange;
+            break;
+          case 'clocked_in':
+            statusLabel = 'Clocked In';
+            statusIcon = Icons.access_time;
+            statusColor = Colors.blue;
+            break;
+          default:
+            statusLabel = 'Status Not Available';
+            statusIcon = Icons.info_outline;
+            statusColor = Colors.grey;
+            break;
+        }
+
+        return Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Today\'s Status',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(statusIcon, color: statusColor, size: 30),
+                        const SizedBox(width: 10),
+                        Text(
+                          statusLabel,
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: statusColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 30),
+                  onPressed: () {
+                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                    final userId = authProvider.user?['_id'];
+                    if (userId != null) {
+                      attendanceProvider.fetchTodayStatus(userId);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// Helper method to capitalize first letter
 Widget _buildQuickActionCard(
   BuildContext context, {
   required IconData icon,
@@ -730,7 +820,7 @@ class _StatusCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.notifications, color: Colors.blue),
+                const Icon(Icons.notifications, color: Colors.blue),
                 const SizedBox(width: 8),
                 Text(
                   "Today's Attendance Status",
@@ -744,7 +834,7 @@ class _StatusCard extends StatelessWidget {
             const SizedBox(height: 16),
             Row(
               children: [
-                Icon(Icons.access_time, color: Colors.grey),
+                const Icon(Icons.access_time, color: Colors.grey),
                 const SizedBox(width: 8),
                 Text(
                   'Current Time:',
@@ -757,69 +847,36 @@ class _StatusCard extends StatelessWidget {
             const SizedBox(height: 12),
             Consumer<AttendanceProvider>(
               builder: (context, attendanceProvider, _) {
-                final summary = attendanceProvider.attendanceSummary;
-                if (attendanceProvider.isLoading) {
+                final status = attendanceProvider.todayStatus;
+                // print('DEBUG: Today Status in _StatusCard: $status');
+                 // print('DEBUG: Attendance Summary in _StatusCard: $summary');
+            if (attendanceProvider.isLoading) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                if (summary == null || (summary['totalDaysPresent'] == 0 && summary['totalHoursWorked'] == 0)) {
-                  return const Text('No attendance records for this range.');
-                }
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                return Row(
                   children: [
-                    Row(
-                      children: [
-                        Icon(Icons.check_circle, color: Colors.green),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Days Present:',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        const Spacer(),
-                        Text(
-                          '${summary['totalDaysPresent']} Days',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                      ],
+                    const Icon(Icons.info, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Status:',
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Icon(Icons.hourglass_bottom, color: Colors.orange),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Hours Worked:',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        const Spacer(),
-                        Text(
-                          '${summary['totalHoursWorked']} Hours',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Icon(Icons.sync, color: Colors.blue),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Status:',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        const Spacer(),
-                        Chip(
-                          label: Text(
-                            'Checked In',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          backgroundColor: Colors.green,
-                        ),
-                      ],
+                    const Spacer(),
+                    Text(
+                      status != null
+                          ? status.replaceAll('_', ' ').toUpperCase()
+                          : 'N/A',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ],
                 );
               },
+            ),
+            const SizedBox(height: 12),
+            const Row(
+              children: [
+                Icon(Icons.sync, color: Colors.blue),
+              ],
             ),
           ],
         ),
@@ -877,10 +934,34 @@ class _QuickActions extends StatelessWidget {
                   Expanded(
                     child: _buildQuickActionCard(
                       context,
-                      icon: isOnBreak ? Icons.stop_circle : Icons.free_breakfast,
-                      label: isOnBreak ? 'End Break' : 'Start Break',
-                      color: isOnBreak ? const Color(0xFFED8936) : const Color(0xFF718096),
-                      onPressed: isOnBreak ? endBreak : startBreak,
+                      icon: Icons.free_breakfast,
+                      label: 'Start Break',
+                      color: const Color(0xFF718096),
+                      onPressed: startBreak,
+                    ),
+                  ),
+                ],
+              );
+            } else if (status == 'on_break') {
+              return Row(
+                children: [
+                  Expanded(
+                    child: _buildQuickActionCard(
+                      context,
+                      icon: Icons.logout,
+                      label: 'Clock Out',
+                      color: const Color(0xFFB0B0B0),
+                      onPressed: null, // Optionally disable clock out during break
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildQuickActionCard(
+                      context,
+                      icon: Icons.stop_circle,
+                      label: 'End Break',
+                      color: const Color(0xFFED8936),
+                      onPressed: endBreak,
                     ),
                   ),
                 ],
@@ -935,4 +1016,32 @@ class _QuickActions extends StatelessWidget {
       ],
     );
   }
+}
+
+
+Future<Map<String,dynamic>?> _pickBreakType(BuildContext ctx) async {
+  final resp = await http.get(Uri.parse('${ApiConfig.baseUrl}/attendance/break-types'),
+    headers: {'Authorization':'Bearer ${ctx.read<AuthProvider>().token}'});
+  final types = List<Map<String,dynamic>>.from(json.decode(resp.body));
+  return showDialog(
+    context: ctx,
+    builder: (_) => AlertDialog(
+      title: const Text('Select Break Type'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView(
+          children: types.map((t) {
+            return ListTile(
+              leading: Icon(Icons.work, color: Color(
+  int.parse(t['color'].substring(1), radix: 16) | 0xFF000000,
+),
+),
+              title: Text(t['displayName']),
+              onTap: () => Navigator.of(ctx).pop(t),
+            );
+          }).toList(),
+        ),
+      ),
+    ),
+  );
 }
