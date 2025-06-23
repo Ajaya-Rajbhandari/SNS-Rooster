@@ -74,7 +74,7 @@ class ProfileProvider with ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        _updateProfileData(data['user']);
+        _updateProfileData(data['profile']); // Use 'profile' instead of 'user'
       } else {
         final data = json.decode(response.body);
         _error = data['message'] ?? 'Failed to fetch profile';
@@ -119,6 +119,13 @@ class ProfileProvider with ChangeNotifier {
       if (_disposed) return;
       notifyListeners();
     }
+  }
+
+  /// Public method to fetch and refresh the profile.
+  /// This is an alias for refreshProfile for clarity in UI code.
+  Future<void> fetchProfile() async {
+    print('fetchProfile called');
+    await refreshProfile();
   }
 
   Future<bool> updateProfile(Map<String, dynamic> updates) async {
@@ -195,8 +202,8 @@ class ProfileProvider with ChangeNotifier {
 
     try {
       var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('${ApiConfig.baseUrl}/auth/users/profile/picture'),
+        'PATCH',
+        Uri.parse('${ApiConfig.baseUrl}/auth/me'),
       );
 
       request.headers['Authorization'] = 'Bearer ${_authProvider.token}';
@@ -210,11 +217,20 @@ class ProfileProvider with ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        _updateProfileData(data['profile']);
-        if (_disposed) return false;
-        // Update AuthProvider's user data for consistency
-        await _authProvider.updateUser(_profile!);
-        return true;
+        if (data['profile'] != null && data['profile'] is Map<String, dynamic>) {
+          _updateProfileData(data['profile']);
+          // Debug print for avatar troubleshooting
+          print('DEBUG: Avatar field after upload: \\${_profile?['avatar']}');
+          print('DEBUG: ProfilePicture field after upload: \\${_profile?['profilePicture']}');
+          if (_disposed) return false;
+          // Update AuthProvider's user data for consistency
+          await _authProvider.updateUser(_profile!);
+          return true;
+        } else {
+          _error = 'Unexpected response format: missing profile data';
+          notifyListeners();
+          return false;
+        }
       } else {
         final data = json.decode(response.body);
         _error = data['message'] ?? 'Failed to update profile picture';

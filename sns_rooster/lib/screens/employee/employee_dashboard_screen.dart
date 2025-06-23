@@ -112,35 +112,38 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       setState(() {
         _profileDialogShown = true;
       });
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Complete Your Profile'),
-          content: const Text(
-              'For your safety and to access all features, please complete your profile information.'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                // Don't reset the flag when dismissing
-              },
-              child: const Text('Dismiss'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                Navigator.of(context).pushNamed('/profile').then((_) {
-                  // Reset the flag when returning from profile screen
-                  // so dialog can show again if profile is still incomplete
-                  _profileDialogShown = false;
-                });
-              },
-              child: const Text('Update Now'),
-            ),
-          ],
-        ),
-      );
+      // Delay the dialog until after the first frame to ensure the latest profile is shown
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Complete Your Profile'),
+            content: const Text(
+                'For your safety and to access all features, please complete your profile information.'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  // Don't reset the flag when dismissing
+                },
+                child: const Text('Dismiss'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  Navigator.of(context).pushNamed('/profile').then((_) {
+                    // Reset the flag when returning from profile screen
+                    // so dialog can show again if profile is still incomplete
+                    _profileDialogShown = false;
+                  });
+                },
+                child: const Text('Update Now'),
+              ),
+            ],
+          ),
+        );
+      });
     }
   }
 
@@ -446,24 +449,14 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    // Always get latest user info from provider
+    final authProvider = Provider.of<AuthProvider>(context);
     final userId = authProvider.user?['_id'];
-    final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
-    final profile = profileProvider.profile;
-
-    // Only save profile to SharedPreferences if it has changed
-    if (profile != null) {
-      if (_lastSavedProfileJson != json.encode(profile)) {
-        _saveProfileToSharedPreferences(profile);
-        _lastSavedProfileJson = json.encode(profile);
-      }
-    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Employee Dashboard'),
         actions: [
-          /// Shows a green WiFi icon if connected, red WiFi-off icon if not connected.
           Icon(
             _isConnected ? Icons.wifi : Icons.wifi_off,
             color: _isConnected ? Colors.green : Colors.red,
@@ -471,51 +464,73 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
         ],
       ),
       drawer: const AppDrawer(),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _DashboardHeader(profile: profile),
-              const SizedBox(height: 28),
-              const StatusCard(),
-              const SizedBox(height: 28),
-              if (userId != null)
-                Row(
-                  children: [
-                    Text(_startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : 'Start Date'),
-                    const SizedBox(width: 8),
-                    Text(_endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : 'End Date'),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () => _pickDateRange(context, userId),
-                      child: const Text('Select Range'),
+      body: Consumer<ProfileProvider>(
+        builder: (context, profileProvider, _) {
+          if (profileProvider.isLoading || profileProvider.profile == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final profile = profileProvider.profile;
+          if (profile == null) {
+            return const Center(child: Text('No profile data available.'));
+          }
+          // Only save profile to SharedPreferences if it has changed
+          if (_lastSavedProfileJson != json.encode(profile)) {
+            _saveProfileToSharedPreferences(profile);
+            _lastSavedProfileJson = json.encode(profile);
+          }
+          return SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Use Consumer to always get latest profile data
+                  Consumer<ProfileProvider>(
+                    builder: (context, profileProvider, _) {
+                      final profile = profileProvider.profile;
+                      return _DashboardHeader(profile: profile);
+                    },
+                  ),
+                  const SizedBox(height: 28),
+                  const StatusCard(),
+                  const SizedBox(height: 28),
+                  if (userId != null)
+                    Row(
+                      children: [
+                        Text(_startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : 'Start Date'),
+                        const SizedBox(width: 8),
+                        Text(_endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : 'End Date'),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () => _pickDateRange(context, userId),
+                          child: const Text('Select Range'),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              const SizedBox(height: 16),
-              Text(
-                'Quick Actions',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Quick Actions',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  _QuickActions(
+                    isOnBreak: _isOnBreak,
+                    clockIn: _clockIn,
+                    clockOut: _clockOut,
+                    startBreak: _startBreak,
+                    endBreak: _endBreak,
+                    applyLeave: _applyLeave,
+                    openTimesheet: _openTimesheet,
+                    openProfile: _openProfile,
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              _QuickActions(
-                isOnBreak: _isOnBreak,
-                clockIn: _clockIn,
-                clockOut: _clockOut,
-                startBreak: _startBreak,
-                endBreak: _endBreak,
-                applyLeave: _applyLeave,
-                openTimesheet: _openTimesheet,
-                openProfile: _openProfile,
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -728,6 +743,9 @@ class _DashboardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Debug: Print profile data every time the widget builds
+    print('[DASHBOARD HEADER] Profile data:');
+    print(profile);
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(

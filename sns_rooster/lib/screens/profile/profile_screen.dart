@@ -4,6 +4,7 @@ import '../../providers/profile_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/api_config.dart'; // Import ApiConfig
 import 'package:sns_rooster/widgets/app_drawer.dart'; // Add this import
+import 'package:url_launcher/url_launcher.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -42,6 +43,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _loadUserDataInternal(profileProvider);
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Always reload user data from provider when dependencies change
+    final profileProvider = Provider.of<ProfileProvider>(context);
+    _loadUserDataInternal(profileProvider);
   }
 
   void _loadUserDataInternal(ProfileProvider profileProvider) {
@@ -187,322 +196,377 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final profileProvider = Provider.of<ProfileProvider>(context);
-
-    String? avatarUrl = profileProvider.profile?['avatar'];
-    ImageProvider? backgroundImage;
-    if (avatarUrl != null && avatarUrl.isNotEmpty) {
-      if (avatarUrl.startsWith('http')) {
-        backgroundImage = NetworkImage(avatarUrl);
-      } else {
-        // Construct a base URL for images, removing '/api' if present
-        String imageBaseUrl = ApiConfig.baseUrl;
-        if (imageBaseUrl.endsWith('/api')) {
-          imageBaseUrl = imageBaseUrl.substring(0, imageBaseUrl.length - '/api'.length);
+    return Consumer<ProfileProvider>(
+      builder: (context, profileProvider, _) {
+        if (profileProvider.isLoading || profileProvider.profile == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Profile')),
+            body: const Center(child: CircularProgressIndicator()),
+          );
         }
-
-        // Prepend imageBaseUrl if it's a relative path
-        String fullUrl = (imageBaseUrl.endsWith('/') || avatarUrl.startsWith('/'))
-            ? "$imageBaseUrl${avatarUrl.startsWith('/') ? avatarUrl.substring(1) : avatarUrl}"
-            : "$imageBaseUrl/$avatarUrl";
-        
-        // Ensure no double slashes, except for http://
-        fullUrl = fullUrl.replaceFirst('//', '/').replaceFirst(':/', '://');
-        // Correct common issue: if avatarUrl starts with /uploads and imageBaseUrl ends with /, remove one slash
-        if (avatarUrl.startsWith('/uploads') && imageBaseUrl.endsWith('/')) {
-            fullUrl = "${imageBaseUrl.substring(0, imageBaseUrl.length -1)}$avatarUrl";
-        } else if (!avatarUrl.startsWith('/') && !imageBaseUrl.endsWith('/')) {
-            fullUrl = "$imageBaseUrl/$avatarUrl";
-        } else {
-            // Default concatenation, then clean up double slashes
-            fullUrl = "$imageBaseUrl$avatarUrl".replaceAll(RegExp(r'(?<!:)/{2,}'), '/');
+        // Always update text fields with latest profile data
+        _loadUserDataInternal(profileProvider);
+        String? avatarUrl = profileProvider.profile?['avatar'];
+        ImageProvider? backgroundImage;
+        if (avatarUrl != null && avatarUrl.isNotEmpty) {
+          if (avatarUrl.startsWith('http')) {
+            backgroundImage = NetworkImage(avatarUrl);
+          } else {
+            String imageBaseUrl = ApiConfig.baseUrl;
+            if (imageBaseUrl.endsWith('/api')) {
+              imageBaseUrl = imageBaseUrl.substring(0, imageBaseUrl.length - '/api'.length);
+            }
+            String fullUrl = (imageBaseUrl.endsWith('/') || avatarUrl.startsWith('/'))
+                ? "$imageBaseUrl${avatarUrl.startsWith('/') ? avatarUrl.substring(1) : avatarUrl}"
+                : "$imageBaseUrl/$avatarUrl";
+            fullUrl = fullUrl.replaceFirst('//', '/').replaceFirst(':/', '://');
+            if (avatarUrl.startsWith('/uploads') && imageBaseUrl.endsWith('/')) {
+                fullUrl = "${imageBaseUrl.substring(0, imageBaseUrl.length -1)}$avatarUrl";
+            } else if (!avatarUrl.startsWith('/') && !imageBaseUrl.endsWith('/')) {
+                fullUrl = "$imageBaseUrl/$avatarUrl";
+            } else {
+                fullUrl = "$imageBaseUrl$avatarUrl".replaceAll(RegExp(r'(?<!:)/{2,}'), '/');
+            }
+            backgroundImage = NetworkImage(fullUrl);
+            print('Constructed Avatar URL for Profile: $fullUrl');
+          }
         }
-
-        backgroundImage = NetworkImage(fullUrl);
-        print('Constructed Avatar URL for Profile: $fullUrl'); // For debugging
-      }
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        actions: [
-          IconButton(
-            icon: Icon(_isEditing ? Icons.check : Icons.edit),
-            onPressed: () {
-              setState(() {
-                _isEditing = !_isEditing;
-                if (!_isEditing) {
-                  _isEditingPersonal = false;
-                  _isEditingEmergency = false;
-                  _saveProfile();
-                } else {
-                  // When entering edit mode, load current data into controllers
-                  final currentProfileProvider = Provider.of<ProfileProvider>(context, listen: false);
-                  _loadUserDataInternal(currentProfileProvider); // Use the internal loader
-                }
-              });
-            },
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Profile'),
+            actions: [
+              IconButton(
+                icon: Icon(_isEditing ? Icons.check : Icons.edit),
+                onPressed: () {
+                  setState(() {
+                    _isEditing = !_isEditing;
+                    if (!_isEditing) {
+                      _isEditingPersonal = false;
+                      _isEditingEmergency = false;
+                      _saveProfile();
+                    } else {
+                      final currentProfileProvider = Provider.of<ProfileProvider>(context, listen: false);
+                      _loadUserDataInternal(currentProfileProvider);
+                    }
+                  });
+                },
+              ),
+            ],
           ),
-        ],
-      ),
-      drawer: const AppDrawer(),
-      body: profileProvider.isLoading && !_isLoading // Show main loader if profileProvider is loading AND local op isn't active
-          ? const Center(child: CircularProgressIndicator())
-          : Stack(
-              children: [
-                SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Profile Header
-                      Center(
-                        child: Column(
-                          children: [
-                            CircleAvatar(
-                              radius: 48,
-                              backgroundImage: backgroundImage,
-                              child: backgroundImage == null
-                                  ? const Icon(Icons.person, size: 48)
-                                  : null,
+          drawer: const AppDrawer(),
+          body: profileProvider.isLoading && !_isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Stack(
+                  children: [
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Profile Header
+                          Center(
+                            child: Consumer<ProfileProvider>(
+                              builder: (context, profileProvider, _) {
+                                final profile = profileProvider.profile;
+                                return Column(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 48,
+                                      backgroundImage: backgroundImage,
+                                      child: backgroundImage == null
+                                          ? const Icon(Icons.person, size: 48)
+                                          : null,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      profile?['fullName'] ?? profile?['firstName'] ?? '',
+                                      style: theme.textTheme.titleLarge,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      profile?['email'] ?? '',
+                                      style: theme.textTheme.bodyMedium,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    ElevatedButton.icon(
+                                      onPressed: _isEditing ? _pickAndUploadImage : null,
+                                      icon: const Icon(Icons.camera_alt),
+                                      label: const Text('Change Photo'),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
-                            const SizedBox(height: 12),
-                            Text(
-                              profileProvider.profile?['fullName'] ?? profileProvider.profile?['firstName'] ?? '', // Fallback to firstName if fullName is not available
-                              style: theme.textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              profileProvider.profile?['email'] ?? '',
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            ElevatedButton.icon(
-                              onPressed: _isEditing ? _pickAndUploadImage : null,
-                              icon: const Icon(Icons.camera_alt),
-                              label: const Text('Change Photo'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      // Personal Information Section
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
-                              spreadRadius: 0,
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Personal Information',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 24),
+                          // Personal Information Section
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surface,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 10,
+                                  spreadRadius: 0,
                                 ),
-                                IconButton(
-                                  icon: Icon(_isEditingPersonal ? Icons.check : Icons.edit, color: Colors.blueAccent),
-                                  onPressed: () {
-                                    if (_isEditing) { // Only allow toggling section edit if main edit is active
-                                      setState(() {
-                                        _isEditingPersonal = !_isEditingPersonal;
-                                      });
-                                    }
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Personal Information',
+                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(_isEditingPersonal ? Icons.check : Icons.edit, color: Colors.blueAccent),
+                                      onPressed: () {
+                                        if (_isEditing) { // Only allow toggling section edit if main edit is active
+                                          setState(() {
+                                            _isEditingPersonal = !_isEditingPersonal;
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  controller: _firstNameController,
+                                  label: 'First Name',
+                                  icon: Icons.person,
+                                  enabled: _isEditing && _isEditingPersonal, // Modified
+                                ),
+                                _buildTextField(
+                                  controller: _lastNameController,
+                                  label: 'Last Name',
+                                  icon: Icons.person,
+                                  enabled: _isEditing && _isEditingPersonal, // Modified
+                                ),
+                                _buildTextField(
+                                  controller: _emailController,
+                                  label: 'Email',
+                                  icon: Icons.email,
+                                  enabled: false, // Email usually not editable by user directly
+                                ),
+                                _buildTextField(
+                                  controller: _phoneController,
+                                  label: 'Phone',
+                                  icon: Icons.phone,
+                                  enabled: _isEditing && _isEditingPersonal, // Modified
+                                ),
+                                _buildTextField(
+                                  controller: _addressController,
+                                  label: 'Address',
+                                  icon: Icons.home,
+                                  enabled: _isEditing && _isEditingPersonal, // Modified
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Card(
+                            elevation: 2,
+                            margin: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text(
+                                        'Emergency Contact',
+                                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(_isEditingEmergency ? Icons.check : Icons.edit, color: Colors.blueAccent),
+                                        onPressed: () {
+                                          if (_isEditing) { // Only allow toggling section edit if main edit is active
+                                            setState(() {
+                                              _isEditingEmergency = !_isEditingEmergency;
+                                            });
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildTextField(
+                                    controller: _emergencyContactController,
+                                    label: 'Contact Name',
+                                    icon: Icons.person_pin_rounded,
+                                    enabled: _isEditing && _isEditingEmergency, // Modified
+                                  ),
+                                  _buildTextField(
+                                    controller: _emergencyPhoneController,
+                                    label: 'Contact Phone',
+                                    icon: Icons.phone_iphone,
+                                    enabled: _isEditing && _isEditingEmergency, // Modified
+                                  ),
+                                  _buildTextField(
+                                    controller: _emergencyContactRelationshipController,
+                                    label: 'Relationship',
+                                    icon: Icons.people,
+                                    enabled: _isEditing && _isEditingEmergency, // Modified
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          // Document Upload Section
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surface,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 10,
+                                  spreadRadius: 0,
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.file_present,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Document Upload',
+                                      style: theme.textTheme.titleLarge?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        icon: const Icon(Icons.file_present),
+                                        label: const Text('Upload ID Card'),
+                                        onPressed: () async {
+                                          await _pickAndUploadDocument('idCard');
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        icon: const Icon(Icons.file_present),
+                                        label: const Text('Upload Passport'),
+                                        onPressed: () async {
+                                          await _pickAndUploadDocument('passport');
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                const Text('Accepted formats: PDF, JPG, PNG', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                const SizedBox(height: 16),
+                                // Document status display
+                                Consumer<ProfileProvider>(
+                                  builder: (context, profileProvider, _) {
+                                    final profile = profileProvider.profile;
+                                    final idCardPath = profile?['idCard'];
+                                    final passportPath = profile?['passport'];
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        ListTile(
+                                          leading: Icon(Icons.credit_card, color: Colors.blue),
+                                          title: Text('ID Card'),
+                                          subtitle: idCardPath != null && idCardPath.isNotEmpty
+                                              ? Text('Uploaded: \\${idCardPath.split('/').last}')
+                                              : const Text('No ID Card uploaded'),
+                                          trailing: idCardPath != null && idCardPath.isNotEmpty
+                                              ? IconButton(
+                                                  icon: Icon(Icons.visibility),
+                                                  onPressed: () async {
+                                                    final url = '${ApiConfig.baseUrl.replaceAll('/api', '')}'+idCardPath;
+                                                    if (await canLaunchUrl(Uri.parse(url))) {
+                                                      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                                                    }
+                                                  },
+                                                )
+                                              : null,
+                                        ),
+                                        ListTile(
+                                          leading: Icon(Icons.book, color: Colors.green),
+                                          title: Text('Passport'),
+                                          subtitle: passportPath != null && passportPath.isNotEmpty
+                                              ? Text('Uploaded: \\${passportPath.split('/').last}')
+                                              : const Text('No Passport uploaded'),
+                                          trailing: passportPath != null && passportPath.isNotEmpty
+                                              ? IconButton(
+                                                  icon: Icon(Icons.visibility),
+                                                  onPressed: () async {
+                                                    final url = '${ApiConfig.baseUrl.replaceAll('/api', '')}'+passportPath;
+                                                    if (await canLaunchUrl(Uri.parse(url))) {
+                                                      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                                                    }
+                                                  },
+                                                )
+                                              : null,
+                                        ),
+                                      ],
+                                    );
                                   },
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 16),
-                            _buildTextField(
-                              controller: _firstNameController,
-                              label: 'First Name',
-                              icon: Icons.person,
-                              enabled: _isEditing && _isEditingPersonal, // Modified
-                            ),
-                            _buildTextField(
-                              controller: _lastNameController,
-                              label: 'Last Name',
-                              icon: Icons.person,
-                              enabled: _isEditing && _isEditingPersonal, // Modified
-                            ),
-                            _buildTextField(
-                              controller: _emailController,
-                              label: 'Email',
-                              icon: Icons.email,
-                              enabled: false, // Email usually not editable by user directly
-                            ),
-                            _buildTextField(
-                              controller: _phoneController,
-                              label: 'Phone',
-                              icon: Icons.phone,
-                              enabled: _isEditing && _isEditingPersonal, // Modified
-                            ),
-                            _buildTextField(
-                              controller: _addressController,
-                              label: 'Address',
-                              icon: Icons.home,
-                              enabled: _isEditing && _isEditingPersonal, // Modified
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Card(
-                        elevation: 2,
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Emergency Contact',
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                  ),
-                                  IconButton(
-                                    icon: Icon(_isEditingEmergency ? Icons.check : Icons.edit, color: Colors.blueAccent),
-                                    onPressed: () {
-                                      if (_isEditing) { // Only allow toggling section edit if main edit is active
-                                        setState(() {
-                                          _isEditingEmergency = !_isEditingEmergency;
-                                        });
-                                      }
-                                    },
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              _buildTextField(
-                                controller: _emergencyContactController,
-                                label: 'Contact Name',
-                                icon: Icons.person_pin_rounded,
-                                enabled: _isEditing && _isEditingEmergency, // Modified
-                              ),
-                              _buildTextField(
-                                controller: _emergencyPhoneController,
-                                label: 'Contact Phone',
-                                icon: Icons.phone_iphone,
-                                enabled: _isEditing && _isEditingEmergency, // Modified
-                              ),
-                              _buildTextField(
-                                controller: _emergencyContactRelationshipController,
-                                label: 'Relationship',
-                                icon: Icons.people,
-                                enabled: _isEditing && _isEditingEmergency, // Modified
-                              ),
-                            ],
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      // Document Upload Section
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
-                              spreadRadius: 0,
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.file_present,
-                                  color: theme.colorScheme.primary,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Document Upload',
-                                  style: theme.textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
+                          const SizedBox(height: 32),
+                          // Save Button
+                          if (_isEditing)
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _isLoading ? null : _saveProfile,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: theme.colorScheme.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
+                                  elevation: 2,
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    icon: const Icon(Icons.file_present),
-                                    label: const Text('Upload ID Card'),
-                                    onPressed: () async {
-                                      await _pickAndUploadDocument('idCard');
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    icon: const Icon(Icons.file_present),
-                                    label: const Text('Upload Passport'),
-                                    onPressed: () async {
-                                      await _pickAndUploadDocument('passport');
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            const Text('Accepted formats: PDF, JPG, PNG', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      // Save Button
-                      if (_isEditing)
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _saveProfile,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: theme.colorScheme.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                child: _isLoading
+                                    ? const CircularProgressIndicator()
+                                    : const Text('Save Changes'),
                               ),
-                              elevation: 2,
                             ),
-                            child: _isLoading
-                                ? const CircularProgressIndicator()
-                                : const Text('Save Changes'),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                if (_isLoading)
-                  Positioned.fill(
-                    child: Container(
-                      color: Colors.black.withOpacity(0.3),
-                      child: const Center(child: CircularProgressIndicator()),
+                        ],
+                      ),
                     ),
-                  ),
-        ],
-      ),
+                    if (_isLoading)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black.withOpacity(0.3),
+                          child: const Center(child: CircularProgressIndicator()),
+                        ),
+                      ),
+                ],
+              ),
+        );
+      },
     );
   }
 

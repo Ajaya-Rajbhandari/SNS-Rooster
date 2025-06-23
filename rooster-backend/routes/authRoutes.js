@@ -1,6 +1,6 @@
 const express = require("express");
 const auth = require("../middleware/auth");
-const upload = require("../middleware/upload");
+const { avatarUpload, documentUpload } = require("../middleware/upload");
 const authController = require("../controllers/auth-controller");
 const router = express.Router();
 
@@ -23,14 +23,14 @@ router.get("/me", auth, authController.getCurrentUserProfile);
 router.patch(
   "/me",
   auth,
-  upload.single("profilePicture"),
+  avatarUpload.single("profilePicture"),
   authController.updateCurrentUserProfile
 );
 // Upload document (admin and owner only)
 router.post(
   "/upload-document",
   auth,
-  upload.single("file"),
+  documentUpload.single("file"),
   authController.uploadDocument
 );
 
