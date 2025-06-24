@@ -80,7 +80,7 @@ class ApiService {
   }
 
   Future<Map<String, String>> _getHeaders() async {
-    final token = prefs.getString('auth_token');
+    final token = prefs.getString('token'); // Changed from 'auth_token' to 'token'
     return {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
@@ -119,4 +119,4 @@ class ApiResponse {
     required this.message,
     this.data,
   });
-} 
+}

@@ -224,12 +224,12 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                               IconButton(
                                 icon: const Icon(Icons.delete),
                                 onPressed: () {
-                                  final userId = employee['userId'];
-                                  if (userId != null && userId is String) {
-                                    _confirmDeleteEmployee(userId);
+                                  final employeeId = employee['_id'];
+                                  if (employeeId != null && employeeId is String) {
+                                    _confirmDeleteEmployee(employeeId);
                                   } else {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Cannot delete employee: User ID is missing.')),
+                                      const SnackBar(content: Text('Cannot delete employee: Employee ID is missing.')),
                                     );
                                   }
                                 },
@@ -264,7 +264,7 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
     );
   }
 
-  // Added method to confirm and delete employee from database
+  // Updated method to confirm and delete employee from database using provider
   Future<void> _confirmDeleteEmployee(String employeeId) async {
     if (!mounted) return;
 
@@ -293,12 +293,23 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
         _isLoading = true;
       });
       try {
-        // Assuming EmployeeService will have a method to delete user from DB
-        await _employeeService.deleteEmployeeFromDatabase(employeeId);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Employee deleted successfully')),
-        );
-        _loadEmployees(); // Refresh list
+        // Use provider to delete and update UI
+        final provider = Provider.of<EmployeeProvider>(context, listen: false);
+        final success = await provider.deleteEmployee(employeeId);
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Employee deleted successfully')),
+          );
+          // Update local lists to reflect deletion
+          setState(() {
+            _employees.removeWhere((emp) => emp['userId'] == employeeId || emp['_id'] == employeeId || emp['id'] == employeeId);
+            _filteredEmployees.removeWhere((emp) => emp['userId'] == employeeId || emp['_id'] == employeeId || emp['id'] == employeeId);
+          });
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete employee: ${provider.error ?? 'Unknown error'}')),
+          );
+        }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

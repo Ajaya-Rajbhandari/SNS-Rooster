@@ -681,7 +681,7 @@ class _EducationSection extends StatelessWidget {
                     final endDate = edu['endDate'] != null && edu['endDate'].toString().isNotEmpty ? edu['endDate'].toString().substring(0, 10) : null;
                     final dateRange = (startDate != null && endDate != null)
                         ? '$startDate to $endDate'
-                        : (startDate != null ? startDate : (endDate ?? ''));
+                        : (startDate ?? (endDate ?? ''));
                     return ListTile(
                       leading: const Icon(Icons.school, color: Colors.blue),
                       title: Text(edu['degree'] ?? ''),

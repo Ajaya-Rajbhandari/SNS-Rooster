@@ -324,11 +324,10 @@ exports.getAllUsers = async (req, res) => {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Only admins can view all users' });
     }
-    const users = await User.find({}).select('-password'); // Exclude passwords
-    res.json(users.map(user => user.getPublicProfile()));
+    const users = await User.find({}, '-password'); // Exclude password
+    res.status(200).json(users);
   } catch (error) {
-    console.error('Get all users error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -361,20 +360,44 @@ exports.deleteUser = async (req, res) => {
     if (user.avatar && user.avatar !== '/uploads/avatars/default-avatar.png') {
       const avatarPath = path.join(__dirname, '..', user.avatar);
       fs.unlink(avatarPath, (err) => {
-        if (err) console.error('Error deleting avatar:', err);
+        if (err) {
+          if (err.code === 'ENOENT') {
+            // File already deleted or never existed, ignore
+          } else if (err.code === 'EPERM') {
+            console.warn('Warning: Could not delete avatar due to permission error:', err);
+          } else {
+            console.error('Error deleting avatar:', err);
+          }
+        }
       });
     }
     // Delete idCard and passport files
     if (user.idCard) {
       const idCardPath = path.join(__dirname, '..', user.idCard);
       fs.unlink(idCardPath, (err) => {
-        if (err) console.error('Error deleting idCard:', err);
+        if (err) {
+          if (err.code === 'ENOENT') {
+            // File already deleted or never existed, ignore
+          } else if (err.code === 'EPERM') {
+            console.warn('Warning: Could not delete idCard due to permission error:', err);
+          } else {
+            console.error('Error deleting idCard:', err);
+          }
+        }
       });
     }
     if (user.passport) {
       const passportPath = path.join(__dirname, '..', user.passport);
       fs.unlink(passportPath, (err) => {
-        if (err) console.error('Error deleting passport:', err);
+        if (err) {
+          if (err.code === 'ENOENT') {
+            // File already deleted or never existed, ignore
+          } else if (err.code === 'EPERM') {
+            console.warn('Warning: Could not delete passport due to permission error:', err);
+          } else {
+            console.error('Error deleting passport:', err);
+          }
+        }
       });
     }
     // Delete all files in documents array
@@ -383,7 +406,15 @@ exports.deleteUser = async (req, res) => {
         if (doc.path) {
           const docPath = path.join(__dirname, '..', doc.path);
           fs.unlink(docPath, (err) => {
-            if (err) console.error('Error deleting document:', err);
+            if (err) {
+              if (err.code === 'ENOENT') {
+                // File already deleted or never existed, ignore
+              } else if (err.code === 'EPERM') {
+                console.warn('Warning: Could not delete document due to permission error:', err);
+              } else {
+                console.error('Error deleting document:', err);
+              }
+            }
           });
         }
       });

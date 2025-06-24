@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/leave_request_provider.dart';
+import '../../providers/profile_provider.dart';
 import '../../widgets/leave_request_modal.dart';
 import 'package:sns_rooster/widgets/app_drawer.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -100,9 +101,27 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final leaveProvider =
           Provider.of<LeaveRequestProvider>(context, listen: false);
-
+      final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+      print('DEBUG: profileProvider.profile = ' + profileProvider.profile.toString());
+      print('DEBUG: authProvider.user = ' + authProvider.user.toString());
+      // Always fetch the Employee document for the current user
+      final userId = authProvider.user?['_id'];
+      String? employeeId;
+      if (userId != null) {
+        final fetchedEmployeeId = await leaveProvider.fetchEmployeeIdByUserId(userId);
+        if (fetchedEmployeeId != null) {
+          employeeId = fetchedEmployeeId;
+        }
+      }
+      if (employeeId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Employee record not found. Please contact admin.')),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
       final success = await leaveProvider.createLeaveRequest({
-        'userId': authProvider.user!['_id'],
+        'employee': employeeId, // Use Employee document _id
         'employeeName': authProvider.user?['name'] ?? 'Unknown',
         'leaveType': _selectedLeaveType,
         'startDate': _startDate!.toIso8601String(),
