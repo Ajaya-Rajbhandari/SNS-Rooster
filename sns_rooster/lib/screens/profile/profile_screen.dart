@@ -4,7 +4,7 @@ import '../../providers/profile_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/api_config.dart'; // Import ApiConfig
 import 'package:sns_rooster/widgets/app_drawer.dart'; // Add this import
-import 'package:url_launcher/url_launcher.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -490,37 +490,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         ListTile(
-                                          leading: Icon(Icons.credit_card, color: Colors.blue),
-                                          title: Text('ID Card'),
+                                          leading: const Icon(Icons.credit_card, color: Colors.blue),
+                                          title: const Text('ID Card'),
                                           subtitle: idCardPath != null && idCardPath.isNotEmpty
                                               ? Text('Uploaded: \\${idCardPath.split('/').last}')
                                               : const Text('No ID Card uploaded'),
                                           trailing: idCardPath != null && idCardPath.isNotEmpty
                                               ? IconButton(
-                                                  icon: Icon(Icons.visibility),
+                                                  icon: const Icon(Icons.visibility),
                                                   onPressed: () async {
-                                                    final url = '${ApiConfig.baseUrl.replaceAll('/api', '')}'+idCardPath;
-                                                    if (await canLaunchUrl(Uri.parse(url))) {
-                                                      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-                                                    }
+                                                    final url = ApiConfig.baseUrl.replaceAll('/api', '')+idCardPath;
+                                                    _showDocumentDialog(context, url);
                                                   },
                                                 )
                                               : null,
                                         ),
                                         ListTile(
-                                          leading: Icon(Icons.book, color: Colors.green),
-                                          title: Text('Passport'),
+                                          leading: const Icon(Icons.book, color: Colors.green),
+                                          title: const Text('Passport'),
                                           subtitle: passportPath != null && passportPath.isNotEmpty
                                               ? Text('Uploaded: \\${passportPath.split('/').last}')
                                               : const Text('No Passport uploaded'),
                                           trailing: passportPath != null && passportPath.isNotEmpty
                                               ? IconButton(
-                                                  icon: Icon(Icons.visibility),
+                                                  icon: const Icon(Icons.visibility),
                                                   onPressed: () async {
-                                                    final url = '${ApiConfig.baseUrl.replaceAll('/api', '')}'+passportPath;
-                                                    if (await canLaunchUrl(Uri.parse(url))) {
-                                                      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-                                                    }
+                                                    final url = ApiConfig.baseUrl.replaceAll('/api', '')+passportPath;
+                                                    _showDocumentDialog(context, url);
                                                   },
                                                 )
                                               : null,
@@ -591,6 +587,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
           fillColor: enabled ? Colors.white : Colors.grey[100],
         ),
       ),
+    );
+  }
+
+  void _showDocumentDialog(BuildContext context, String url) {
+    final isPdf = url.toLowerCase().endsWith('.pdf');
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(16),
+          child: Container(
+            width: 350,
+            height: 500,
+            child: isPdf
+                ? SfPdfViewer.network(url)
+                : InteractiveViewer(
+                    child: Image.network(url, fit: BoxFit.contain, errorBuilder: (ctx, error, stack) => const Center(child: Text('Failed to load image'))),
+                  ),
+          ),
+        );
+      },
     );
   }
 

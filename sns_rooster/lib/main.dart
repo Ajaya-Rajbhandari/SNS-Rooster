@@ -29,11 +29,15 @@ import 'package:sns_rooster/services/employee_service.dart';
 void main() {
   print('MAIN: Initializing navigatorKey');
   print('MAIN: Starting MyApp with AuthProvider');
-  runApp(const MyApp());
+  runApp(
+    Provider<RouteObserver<ModalRoute<void>>>(
+      create: (_) => RouteObserver<ModalRoute<void>>(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -95,7 +99,7 @@ class MyApp extends StatelessWidget {
                   colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
                   useMaterial3: true,
                 ),
-                navigatorObservers: [routeObserver],
+                navigatorObservers: [Provider.of<RouteObserver<ModalRoute<void>>>(context)],
                 initialRoute: '/splash',
                 routes: {
                   '/splash': (context) => const SplashScreen(),
