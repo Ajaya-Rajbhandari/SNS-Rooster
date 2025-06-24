@@ -20,10 +20,10 @@ import '../../providers/auth_provider.dart';
 import '../../config/api_config.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../widgets/user_avatar.dart';
-import '../../../main.dart';
 import '../../services/attendance_service.dart';
 import 'live_clock.dart';
 import 'package:sns_rooster/utils/color_utils.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 /// EmployeeDashboardScreen displays the main dashboard for employees.
 //
 /// - Shows user info, live clock, status, quick actions, and attendance summary.
@@ -50,11 +50,13 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
   DateTime? _lastSummaryStart;
   DateTime? _lastSummaryEnd;
 
+  RouteObserver<ModalRoute<void>>? _routeObserver;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Subscribe to route changes using the global routeObserver
-    routeObserver.subscribe(this, ModalRoute.of(context)!);
+    _routeObserver = Provider.of<RouteObserver<ModalRoute<void>>>(context, listen: false);
+    _routeObserver?.subscribe(this, ModalRoute.of(context)!);
     try {
       Provider.of<ProfileProvider>(context, listen: false);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -81,10 +83,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
 
   @override
   void dispose() {
-    // Unsubscribe from route changes
-    final routeObserver =
-        Provider.of<RouteObserver<ModalRoute<void>>>(context, listen: false);
-    routeObserver.unsubscribe(this);
+    _routeObserver?.unsubscribe(this);
     super.dispose();
   }
 
@@ -214,18 +213,17 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
   }
 
   Future<void> _startBreak() async {
-    final selected = await _pickBreakType(context);
+    final selected = await _showBreakTypeSelectionDialog();
     if (selected == null) return;
-
     final uid = context.read<AuthProvider>().user!['_id'] as String;
     print('DEBUG: Calling startBreakWithType...');
-      await context.read<AttendanceProvider>().startBreakWithType(uid, selected);
-      print('DEBUG: startBreakWithType completed. Calling fetchTodayStatus...');
-      await context.read<AttendanceProvider>().fetchTodayStatus(uid);
-      print('DEBUG: After fetchTodayStatus, todayStatus is: ${context.read<AttendanceProvider>().todayStatus}');
-      print('DEBUG: fetchTodayStatus completed. Calling setState...');
-      setState(() {});
-      print('DEBUG: setState called.');
+    await context.read<AttendanceProvider>().startBreakWithType(uid, selected);
+    print('DEBUG: startBreakWithType completed. Calling fetchTodayStatus...');
+    await context.read<AttendanceProvider>().fetchTodayStatus(uid);
+    print('DEBUG: After fetchTodayStatus, todayStatus is: \\${context.read<AttendanceProvider>().todayStatus}');
+    print('DEBUG: fetchTodayStatus completed. Calling setState...');
+    setState(() {});
+    print('DEBUG: setState called.');
   }
 
   Future<Map<String, dynamic>?> _showBreakTypeSelectionDialog() async {
@@ -362,29 +360,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
         );
       }
     }
-  }
-
-  void _showConfirmationDialog(String action, VoidCallback onConfirm) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Confirm $action'),
-        content: Text('Are you sure you want to $action?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              onConfirm();
-            },
-            child: const Text('Confirm'),
-          ),
-        ],
-      ),
-    );
   }
 
   // Add network connectivity check
@@ -526,6 +501,11 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
                     openTimesheet: _openTimesheet,
                     openProfile: _openProfile,
                   ),
+                  const SizedBox(height: 28),
+                  // Remove DocumentListItem widgets from dashboard
+                  // DocumentListItem(label: 'ID Card', filePath: 'https://example.com/id_card.png', fileType: 'image'),
+                  // DocumentListItem(label: 'Passport', filePath: 'https://example.com/passport.png', fileType: 'image'),
+                  // DocumentListItem(label: 'Resume', filePath: 'https://example.com/resume.pdf', fileType: 'pdf'),
                 ],
               ),
             ),
@@ -551,188 +531,17 @@ void _openTimesheet(BuildContext context) {
   );
 }
 
+// Add _openProfile method to _EmployeeDashboardScreenState
+void _openProfile(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Profile feature coming soon!')),
+  );
+}
+
 // Helper method to capitalize first letter
 String _capitalizeFirstLetter(String text) {
   if (text.isEmpty) return text;
   return text[0].toUpperCase() + text.substring(1).toLowerCase();
-}
-
-/// A widget that displays the user's current attendance status.
-/// It consumes [AttendanceProvider] to get the [todayStatus] and displays
-/// a relevant icon, label, and a refresh button.
-class StatusCard extends StatelessWidget {
-  const StatusCard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<AttendanceProvider>(
-      builder: (context, attendanceProvider, child) {
-        final todayStatus = attendanceProvider.todayStatus;
-        String statusLabel = 'Unknown Status';
-        IconData statusIcon = Icons.help_outline;
-        Color statusColor = Colors.grey;
-
-        switch (todayStatus) {
-          case 'not_clocked_in':
-            statusLabel = 'Not Clocked In';
-            statusIcon = Icons.highlight_off;
-            statusColor = Colors.red;
-            break;
-          case 'clocked_out':
-            statusLabel = 'Clocked Out';
-            statusIcon = Icons.check_circle_outline;
-            statusColor = Colors.green;
-            break;
-          case 'on_break':
-            statusLabel = 'On Break';
-            statusIcon = Icons.pause_circle_outline;
-            statusColor = Colors.orange;
-            break;
-          case 'clocked_in':
-            statusLabel = 'Clocked In';
-            statusIcon = Icons.access_time;
-            statusColor = Colors.blue;
-            break;
-          default:
-            statusLabel = 'Status Not Available';
-            statusIcon = Icons.info_outline;
-            statusColor = Colors.grey;
-            break;
-        }
-
-        return Card(
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Today\'s Status',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(statusIcon, color: statusColor, size: 30),
-                        const SizedBox(width: 10),
-                        Text(
-                          statusLabel,
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: statusColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                IconButton(
-                  icon: const Icon(Icons.refresh, size: 30),
-                  onPressed: () {
-                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                    final userId = authProvider.user?['_id'];
-                    if (userId != null) {
-                      attendanceProvider.fetchTodayStatus(userId);
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// Helper method to capitalize first letter
-Widget _buildQuickActionCard(
-  BuildContext context, {
-  required IconData icon,
-  required String label,
-  required Color color,
-  VoidCallback? onPressed,
-  bool isFullWidth = false,
-}) {
-  final isDisabled = onPressed == null;
-  final cardColor = isDisabled ? color.withOpacity(0.5) : color;
-
-  return Card(
-    elevation: isDisabled ? 1 : 3,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        height: isFullWidth ? 80 : null,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [cardColor, cardColor.withOpacity(0.8)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: isFullWidth
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    icon,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    label,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                ],
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    icon,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    label,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-      ),
-    ),
-  );
-}
-
-void _openProfile(BuildContext context) {
-  // Implement profile opening logic here
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Profile feature coming soon!')),
-  );
 }
 
 // --- Extracted Widgets ---
@@ -822,83 +631,94 @@ class _DashboardHeader extends StatelessWidget {
   }
 }
 
-class _StatusCard extends StatelessWidget {
-  const _StatusCard();
+class StatusCard extends StatelessWidget {
+  const StatusCard({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 8,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 18.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return Consumer<AttendanceProvider>(
+      builder: (context, attendanceProvider, child) {
+        final todayStatus = attendanceProvider.todayStatus;
+        String statusLabel = 'Unknown Status';
+        IconData statusIcon = Icons.help_outline;
+        Color statusColor = Colors.grey;
+
+        switch (todayStatus) {
+          case 'not_clocked_in':
+            statusLabel = 'Not Clocked In';
+            statusIcon = Icons.highlight_off;
+            statusColor = Colors.red;
+            break;
+          case 'clocked_out':
+            statusLabel = 'Clocked Out';
+            statusIcon = Icons.check_circle_outline;
+            statusColor = Colors.green;
+            break;
+          case 'on_break':
+            statusLabel = 'On Break';
+            statusIcon = Icons.pause_circle_outline;
+            statusColor = Colors.orange;
+            break;
+          case 'clocked_in':
+            statusLabel = 'Clocked In';
+            statusIcon = Icons.access_time;
+            statusColor = Colors.blue;
+            break;
+          default:
+            statusLabel = 'Status Not Available';
+            statusIcon = Icons.info_outline;
+            statusColor = Colors.grey;
+            break;
+        }
+
+        return Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Icon(Icons.notifications, color: Colors.blue),
-                const SizedBox(width: 8),
-                Text(
-                  "Today's Attendance Status",
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                const Icon(Icons.access_time, color: Colors.grey),
-                const SizedBox(width: 8),
-                Text(
-                  'Current Time:',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const Spacer(),
-                const LiveClock(),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Consumer<AttendanceProvider>(
-              builder: (context, attendanceProvider, _) {
-                final status = attendanceProvider.todayStatus;
-                // print('DEBUG: Today Status in _StatusCard: $status');
-                 // print('DEBUG: Attendance Summary in _StatusCard: $summary');
-            if (attendanceProvider.isLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                return Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info, color: Colors.blue),
-                    const SizedBox(width: 8),
                     Text(
-                      'Status:',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      'Today\'s Status',
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    const Spacer(),
-                    Text(
-                      status != null
-                          ? status.replaceAll('_', ' ').toUpperCase()
-                          : 'N/A',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(statusIcon, color: statusColor, size: 30),
+                        const SizedBox(width: 10),
+                        Text(
+                          statusLabel,
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: statusColor,
+                              ),
+                        ),
+                      ],
                     ),
                   ],
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            const Row(
-              children: [
-                Icon(Icons.sync, color: Colors.blue),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 30),
+                  onPressed: () {
+                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                    final userId = authProvider.user?['_id'];
+                    if (userId != null) {
+                      attendanceProvider.fetchTodayStatus(userId);
+                    }
+                  },
+                ),
               ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1034,32 +854,81 @@ class _QuickActions extends StatelessWidget {
       ],
     );
   }
-}
 
+  Widget _buildQuickActionCard(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required Color color,
+    VoidCallback? onPressed,
+    bool isFullWidth = false,
+  }) {
+    final isDisabled = onPressed == null;
+    final cardColor = isDisabled ? color.withOpacity(0.5) : color;
 
-Future<Map<String,dynamic>?> _pickBreakType(BuildContext ctx) async {
-  final resp = await http.get(Uri.parse('${ApiConfig.baseUrl}/attendance/break-types'),
-    headers: {'Authorization':'Bearer ${ctx.read<AuthProvider>().token}'});
-  final types = List<Map<String,dynamic>>.from(json.decode(resp.body));
-  return showDialog(
-    context: ctx,
-    builder: (_) => AlertDialog(
-      title: const Text('Select Break Type'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: ListView(
-          children: types.map((t) {
-            return ListTile(
-              leading: Icon(Icons.work, color: Color(
-  int.parse(t['color'].substring(1), radix: 16) | 0xFF000000,
-),
-),
-              title: Text(t['displayName']),
-              onTap: () => Navigator.of(ctx).pop(t),
-            );
-          }).toList(),
+    return Card(
+      elevation: isDisabled ? 1 : 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: isFullWidth ? 80 : null,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [cardColor, cardColor.withOpacity(0.8)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: isFullWidth
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ],
+                )
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
+
+// NOTE: All document viewing actions must use in-app dialogs (see DocumentListItem), not url_launcher or external apps.
