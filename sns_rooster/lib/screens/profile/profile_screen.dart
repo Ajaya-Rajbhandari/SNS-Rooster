@@ -5,6 +5,39 @@ import 'package:image_picker/image_picker.dart';
 import '../../config/api_config.dart'; // Import ApiConfig
 import 'package:sns_rooster/widgets/app_drawer.dart'; // Add this import
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:intl/intl.dart';
+
+void showDocumentDialog(BuildContext context, String? url) {
+  if (url == null || url.isEmpty) return;
+  final isPdf = url.toLowerCase().endsWith('.pdf');
+  showDialog(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        child: SizedBox(
+          width: 350,
+          height: 500,
+          child: isPdf
+              ? SfPdfViewer.network(url)
+              : InteractiveViewer(
+                  child: Image.network(url, fit: BoxFit.contain, errorBuilder: (ctx, error, stack) => const Center(child: Text('Failed to load image'))),
+                ),
+        ),
+      );
+    },
+  );
+}
+
+String formatDate(String? isoString) {
+  if (isoString == null || isoString.isEmpty) return '';
+  try {
+    final date = DateTime.parse(isoString);
+    return DateFormat('yyyy-MM-dd').format(date);
+  } catch (_) {
+    return isoString;
+  }
+}
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -67,9 +100,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _emergencyContactController.text = emergencyContactData['name'] ?? '';
         _emergencyPhoneController.text = emergencyContactData['phone'] ?? '';
         _emergencyContactRelationshipController.text = emergencyContactData['relationship'] ?? '';
+      } else if (emergencyContactData is String) {
+        _emergencyContactController.text = emergencyContactData;
+        _emergencyPhoneController.text = userProfile['emergencyPhone'] ?? '';
+        _emergencyContactRelationshipController.text = userProfile['emergencyRelationship'] ?? '';
       } else {
-        // Fallback for potentially flat structure if 'emergencyContact' is not a map
-        // This matches how _saveProfile is structured if it sends flat properties
         _emergencyContactController.text = userProfile['emergencyContactName'] ?? '';
         _emergencyPhoneController.text = userProfile['emergencyContactPhone'] ?? '';
         _emergencyContactRelationshipController.text = userProfile['emergencyContactRelationship'] ?? '';
@@ -178,10 +213,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // 'email': _emailController.text, // Email is not editable, so don't send for update
       'phone': _phoneController.text,
       'address': _addressController.text,
-      // Assuming backend expects these as top-level properties for now
-      'emergencyContactName': _emergencyContactController.text,
-      'emergencyContactPhone': _emergencyPhoneController.text,
-      'emergencyContactRelationship': _emergencyContactRelationshipController.text, // Added
+      // Use backend field names for emergency contact
+      'emergencyContact': _emergencyContactController.text,
+      'emergencyPhone': _emergencyPhoneController.text,
+      // For relationship, add 'emergencyRelationship' for future backend support
+      'emergencyRelationship': _emergencyContactRelationshipController.text,
     };
 
     await profileProvider.updateProfile(updates);
@@ -324,14 +360,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                                     ),
                                     IconButton(
-                                      icon: Icon(_isEditingPersonal ? Icons.check : Icons.edit, color: Colors.blueAccent),
-                                      onPressed: () {
-                                        if (_isEditing) { // Only allow toggling section edit if main edit is active
-                                          setState(() {
-                                            _isEditingPersonal = !_isEditingPersonal;
-                                          });
-                                        }
-                                      },
+                                      icon: Icon(_isEditingPersonal ? Icons.check : Icons.edit, color: _isEditing ? Colors.blueAccent : Colors.grey),
+                                      onPressed: _isEditing
+                                          ? () {
+                                              setState(() {
+                                                _isEditingPersonal = !_isEditingPersonal;
+                                              });
+                                            }
+                                          : null,
+                                      tooltip: _isEditing ? (_isEditingPersonal ? 'Done editing section' : 'Edit section') : 'Enable main edit mode to edit',
                                     ),
                                   ],
                                 ),
@@ -386,14 +423,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                                       ),
                                       IconButton(
-                                        icon: Icon(_isEditingEmergency ? Icons.check : Icons.edit, color: Colors.blueAccent),
-                                        onPressed: () {
-                                          if (_isEditing) { // Only allow toggling section edit if main edit is active
-                                            setState(() {
-                                              _isEditingEmergency = !_isEditingEmergency;
-                                            });
-                                          }
-                                        },
+                                        icon: Icon(_isEditingEmergency ? Icons.check : Icons.edit, color: _isEditing ? Colors.blueAccent : Colors.grey),
+                                        onPressed: _isEditing
+                                            ? () {
+                                                setState(() {
+                                                  _isEditingEmergency = !_isEditingEmergency;
+                                                });
+                                              }
+                                            : null,
+                                        tooltip: _isEditing ? (_isEditingEmergency ? 'Done editing section' : 'Edit section') : 'Enable main edit mode to edit',
                                       ),
                                     ],
                                   ),
@@ -493,14 +531,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           leading: const Icon(Icons.credit_card, color: Colors.blue),
                                           title: const Text('ID Card'),
                                           subtitle: idCardPath != null && idCardPath.isNotEmpty
-                                              ? Text('Uploaded: \\${idCardPath.split('/').last}')
+                                              ? Text('Uploaded: ${idCardPath.split('/').last}')
                                               : const Text('No ID Card uploaded'),
                                           trailing: idCardPath != null && idCardPath.isNotEmpty
                                               ? IconButton(
                                                   icon: const Icon(Icons.visibility),
                                                   onPressed: () async {
                                                     final url = ApiConfig.baseUrl.replaceAll('/api', '')+idCardPath;
-                                                    _showDocumentDialog(context, url);
+                                                    showDocumentDialog(context, url);
                                                   },
                                                 )
                                               : null,
@@ -509,14 +547,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           leading: const Icon(Icons.book, color: Colors.green),
                                           title: const Text('Passport'),
                                           subtitle: passportPath != null && passportPath.isNotEmpty
-                                              ? Text('Uploaded: \\${passportPath.split('/').last}')
+                                              ? Text('Uploaded: ${passportPath.split('/').last}')
                                               : const Text('No Passport uploaded'),
                                           trailing: passportPath != null && passportPath.isNotEmpty
                                               ? IconButton(
                                                   icon: const Icon(Icons.visibility),
                                                   onPressed: () async {
                                                     final url = ApiConfig.baseUrl.replaceAll('/api', '')+passportPath;
-                                                    _showDocumentDialog(context, url);
+                                                    showDocumentDialog(context, url);
                                                   },
                                                 )
                                               : null,
@@ -529,6 +567,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           const SizedBox(height: 32),
+                          // Education Section
+                          _EducationSection(),
+                          const SizedBox(height: 32),
+                          // Certificates Section
+                          _CertificateSection(),
                           // Save Button
                           if (_isEditing)
                             SizedBox(
@@ -590,27 +633,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showDocumentDialog(BuildContext context, String url) {
-    final isPdf = url.toLowerCase().endsWith('.pdf');
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          insetPadding: const EdgeInsets.all(16),
-          child: Container(
-            width: 350,
-            height: 500,
-            child: isPdf
-                ? SfPdfViewer.network(url)
-                : InteractiveViewer(
-                    child: Image.network(url, fit: BoxFit.contain, errorBuilder: (ctx, error, stack) => const Center(child: Text('Failed to load image'))),
-                  ),
-          ),
-        );
-      },
-    );
-  }
-
   @override
   void dispose() {
     _firstNameController.dispose();
@@ -622,5 +644,448 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _emergencyPhoneController.dispose();
     _emergencyContactRelationshipController.dispose();
     super.dispose();
+  }
+}
+
+
+// --- Education Section Widget ---
+class _EducationSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final profileProvider = Provider.of<ProfileProvider>(context);
+    final educationList = List<Map<String, dynamic>>.from(profileProvider.profile?['education'] ?? []);
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Education', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                IconButton(
+                  icon: const Icon(Icons.add, color: Colors.blueAccent),
+                  onPressed: () => _showEducationDialog(context, null, null),
+                ),
+              ],
+            ),
+            ...educationList.isEmpty
+                ? [const Text('No education added.', style: TextStyle(color: Colors.grey))]
+                : educationList.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final edu = entry.value;
+                    final startDate = edu['startDate'] != null && edu['startDate'].toString().isNotEmpty ? edu['startDate'].toString().substring(0, 10) : null;
+                    final endDate = edu['endDate'] != null && edu['endDate'].toString().isNotEmpty ? edu['endDate'].toString().substring(0, 10) : null;
+                    final dateRange = (startDate != null && endDate != null)
+                        ? '$startDate to $endDate'
+                        : (startDate != null ? startDate : (endDate ?? ''));
+                    return ListTile(
+                      leading: const Icon(Icons.school, color: Colors.blue),
+                      title: Text(edu['degree'] ?? ''),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text([
+                            edu['institution'] ?? '',
+                            edu['fieldOfStudy'] ?? '',
+                            if (dateRange.isNotEmpty) dateRange
+                          ].where((e) => e != null && e.toString().isNotEmpty).join(' • ')),
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if ((edu['certificate'] ?? '').toString().isNotEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.remove_red_eye, color: Colors.blueAccent),
+                              tooltip: 'View Certificate',
+                              onPressed: () => showDocumentDialog(context, edu['certificate']),
+                            ),
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.orange),
+                            onPressed: () => _showEducationDialog(context, edu, idx),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => _deleteEducation(context, idx),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+          ],
+        ),
+      ),
+    ); // <-- closes the Card widget
+  }
+
+  void _showEducationDialog(BuildContext context, Map<String, dynamic>? edu, int? idx) {
+  final degreeController = TextEditingController(text: edu?['degree'] ?? '');
+  final institutionController = TextEditingController(text: edu?['institution'] ?? '');
+  final fieldOfStudyController = TextEditingController(text: edu?['fieldOfStudy'] ?? '');
+  final startDateController = TextEditingController(text: formatDate(edu?['startDate']));
+  final endDateController = TextEditingController(text: formatDate(edu?['endDate']));
+  String? documentPath = edu?['certificate'] ?? edu?['document'];
+  ValueNotifier<bool> isUploading = ValueNotifier(false);
+  ValueNotifier<bool> isSaving = ValueNotifier(false);
+  ValueNotifier<String?> errorText = ValueNotifier(null);
+  showDialog(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: Text(idx == null ? 'Add Education' : 'Edit Education'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: degreeController, decoration: const InputDecoration(labelText: 'Degree')),
+              TextField(controller: institutionController, decoration: const InputDecoration(labelText: 'Institution')),
+              TextField(controller: fieldOfStudyController, decoration: const InputDecoration(labelText: 'Field of Study')),
+              TextField(controller: startDateController, decoration: const InputDecoration(labelText: 'Start Date (YYYY-MM-DD)')),
+              TextField(controller: endDateController, decoration: const InputDecoration(labelText: 'End Date (YYYY-MM-DD)')),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('Upload Certificate'),
+                    onPressed: isUploading.value
+                        ? null
+                        : () async {
+                            final picker = ImagePicker();
+                            final XFile? file = await picker.pickImage(source: ImageSource.gallery);
+                            if (file != null) {
+                              setState(() => isUploading.value = true);
+                              final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+                              final success = await profileProvider.uploadDocument(file.path, 'education');
+                              if (success) {
+                                await profileProvider.refreshProfile();
+                                final updatedProfile = profileProvider.profile;
+                                final updatedList = List<Map<String, dynamic>>.from(updatedProfile?['education'] ?? []);
+                                if (idx != null && idx < updatedList.length) {
+                                  documentPath = updatedList[idx]['certificate'] ?? updatedList[idx]['document'];
+                                } else if (updatedList.isNotEmpty) {
+                                  documentPath = updatedList.last['certificate'] ?? updatedList.last['document'];
+                                }
+                              }
+                              setState(() => isUploading.value = false);
+                            }
+                          },
+                  ),
+                  if ((documentPath?.isNotEmpty ?? false))
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: Text(documentPath!.split('/').last, style: const TextStyle(fontSize: 12)),
+                    ),
+                ],
+              ),
+              ValueListenableBuilder<String?>(
+                valueListenable: errorText,
+                builder: (context, value, _) => value == null
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(value, style: const TextStyle(color: Colors.red)),
+                      ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ValueListenableBuilder<bool>(
+            valueListenable: isSaving,
+            builder: (context, saving, _) => TextButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      if (degreeController.text.trim().isEmpty || institutionController.text.trim().isEmpty || fieldOfStudyController.text.trim().isEmpty) {
+                        setState(() => errorText.value = 'Degree, Institution, and Field of Study are required.');
+                        return;
+                      }
+                      final startDate = startDateController.text.trim();
+                      final endDate = endDateController.text.trim();
+                      final dateRegex = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+                      if (!dateRegex.hasMatch(startDate) || !dateRegex.hasMatch(endDate)) {
+                        setState(() => errorText.value = 'Start and End Date must be in YYYY-MM-DD format.');
+                        return;
+                      }
+                      setState(() {
+                        errorText.value = null;
+                        isSaving.value = true;
+                      });
+                      final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+                      final educationList = List<Map<String, dynamic>>.from(profileProvider.profile?['education'] ?? []);
+                      final newEdu = <String, dynamic>{
+                        'degree': degreeController.text.trim(),
+                        'institution': institutionController.text.trim(),
+                        'fieldOfStudy': fieldOfStudyController.text.trim(),
+                        'startDate': startDate,
+                        'endDate': endDate,
+                      };
+                      if (documentPath?.isNotEmpty == true) {
+                        newEdu['certificate'] = documentPath;
+                      }
+                      // Remove any keys with empty string values
+                      newEdu.removeWhere((k, v) => v == null || (v is String && v.trim().isEmpty));
+                      if (idx == null) {
+                        educationList.add(newEdu);
+                      } else {
+                        educationList[idx] = newEdu;
+                      }
+                      // Optionally log the payload for debugging
+                      // print({'education': educationList});
+                      final success = await profileProvider.updateProfile({'education': educationList});
+                      setState(() => isSaving.value = false);
+                      if (success) {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Education saved.')));
+                      } else {
+                        setState(() => errorText.value = profileProvider.error ?? 'Failed to save.');
+                      }
+                    },
+              child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save'),
+            ),
+          ),
+        ],
+      ),
+    ),
+  ); // showDialog
+  }
+
+  void _deleteEducation(BuildContext context, int idx) async {
+    final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+    final educationList = List<Map<String, dynamic>>.from(profileProvider.profile?['education'] ?? []);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Education'),
+        content: const Text('Are you sure you want to delete this education entry?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              educationList.removeAt(idx);
+              await profileProvider.updateProfile({'education': educationList});
+              Navigator.pop(ctx);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- Certificate Section Widget ---
+class _CertificateSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final profileProvider = Provider.of<ProfileProvider>(context);
+    final certList = List<Map<String, dynamic>>.from(profileProvider.profile?['certificates'] ?? []);
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Certificates', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                IconButton(
+                  icon: const Icon(Icons.add, color: Colors.blueAccent),
+                  onPressed: () => _showCertificateDialog(context, null, null),
+                ),
+              ],
+            ),
+            if (certList.isEmpty)
+              const Text('No certificates added.', style: TextStyle(color: Colors.grey))
+            else
+              ...certList.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final cert = entry.value;
+                final issuer = cert['issuer'] ?? '';
+                final date = cert['date'] ?? '';
+                return ListTile(
+                  leading: const Icon(Icons.workspace_premium, color: Colors.green),
+                  title: Text(cert['name'] ?? ''),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text([
+                        issuer,
+                        date
+                      ].where((e) => e != null && e.toString().isNotEmpty).join(' • ')),
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if ((cert['document'] ?? cert['file'] ?? '').toString().isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.remove_red_eye, color: Colors.blueAccent),
+                          tooltip: 'View Document',
+                          onPressed: () => showDocumentDialog(context, cert['document'] ?? cert['file']),
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.orange),
+                        onPressed: () => _showCertificateDialog(context, cert, idx),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _deleteCertificate(context, idx),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+    ); // <-- closes the Card widget
+  }
+
+  void _showCertificateDialog(BuildContext context, Map<String, dynamic>? cert, int? idx) {
+    final nameController = TextEditingController(text: cert?['name'] ?? '');
+    final issuerController = TextEditingController(text: cert?['issuer'] ?? '');
+    final dateController = TextEditingController(text: cert?['date']?.toString() ?? '');
+    String? documentPath = cert?['document'];
+    ValueNotifier<bool> isUploading = ValueNotifier(false);
+    ValueNotifier<bool> isSaving = ValueNotifier(false);
+    ValueNotifier<String?> errorText = ValueNotifier(null);
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) {
+          return AlertDialog(
+            title: Text(idx == null ? 'Add Certificate' : 'Edit Certificate'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Certificate Name')),
+                TextField(controller: issuerController, decoration: const InputDecoration(labelText: 'Issuer')),
+                TextField(controller: dateController, decoration: const InputDecoration(labelText: 'Date')),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.upload_file),
+                      label: const Text('Upload Document'),
+                      onPressed: isUploading.value
+                          ? null
+                          : () async {
+                              final picker = ImagePicker();
+                              final XFile? file = await picker.pickImage(source: ImageSource.gallery);
+                              if (file != null) {
+                                setState(() => isUploading.value = true);
+                                final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+                                final success = await profileProvider.uploadDocument(file.path, 'certificates');
+                                if (success) {
+                                  await profileProvider.refreshProfile();
+                                  final updatedProfile = profileProvider.profile;
+                                  final updatedList = List<Map<String, dynamic>>.from(updatedProfile?['certificates'] ?? []);
+                                  if (idx != null && idx < updatedList.length) {
+                                    documentPath = updatedList[idx]['document'];
+                                  } else if (updatedList.isNotEmpty) {
+                                    documentPath = updatedList.last['document'];
+                                  }
+                                }
+                                setState(() => isUploading.value = false);
+                              }
+                            },
+                    ),
+                    if ((documentPath?.isNotEmpty ?? false))
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: Text(documentPath!.split('/').last, style: const TextStyle(fontSize: 12)),
+                      ),
+                  ],
+                ),
+                ValueListenableBuilder<String?>(
+                  valueListenable: errorText,
+                  builder: (context, value, _) => value == null
+                      ? const SizedBox.shrink()
+                      : Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(value, style: const TextStyle(color: Colors.red)),
+                        ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ValueListenableBuilder<bool>(
+                valueListenable: isSaving,
+                builder: (context, saving, _) => TextButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          if (nameController.text.trim().isEmpty || issuerController.text.trim().isEmpty) {
+                            setState(() => errorText.value = 'Certificate Name and Issuer are required.');
+                            return;
+                          }
+                          setState(() {
+                            errorText.value = null;
+                            isSaving.value = true;
+                          });
+                          final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+                          final certList = List<Map<String, dynamic>>.from(profileProvider.profile?['certificates'] ?? []);
+                          final newCert = {
+                            'name': nameController.text,
+                            'issuer': issuerController.text,
+                            'date': dateController.text,
+                            'document': documentPath ?? '',
+                          };
+                          if (idx == null) {
+                            certList.add(newCert);
+                          } else {
+                            certList[idx] = newCert;
+                          }
+                          final success = await profileProvider.updateProfile({'certificates': certList});
+                          setState(() => isSaving.value = false);
+                          if (success) {
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Certificate saved.')));
+                          } else {
+                            setState(() => errorText.value = profileProvider.error ?? 'Failed to save.');
+                          }
+                        },
+                  child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save'),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    ); // showDialog
+  }
+
+  void _deleteCertificate(BuildContext context, int idx) async {
+    final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+    final certList = List<Map<String, dynamic>>.from(profileProvider.profile?['certificates'] ?? []);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Certificate'),
+        content: const Text('Are you sure you want to delete this certificate?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              certList.removeAt(idx);
+              await profileProvider.updateProfile({'certificates': certList});
+              Navigator.pop(ctx);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 }

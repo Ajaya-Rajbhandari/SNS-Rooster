@@ -58,7 +58,7 @@ class AppDrawer extends StatelessWidget {
           if (avatarUrl.contains('/api/uploads/')) {
             avatarUrl = avatarUrl.replaceFirst('/api/uploads/', '/uploads/');
           }
-          print('APP_DRAWER: avatarUrl = ' + avatarUrl);
+          print('APP_DRAWER: avatarUrl = $avatarUrl');
           return ListView(
             padding: EdgeInsets.zero,
             children: <Widget>[
