@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import 'package:intl/intl.dart';
-import 'package:table_calendar/table_calendar.dart';
 import 'package:sns_rooster/widgets/app_drawer.dart';
 import '../../providers/attendance_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,21 +20,13 @@ class _TimesheetScreenState extends State<TimesheetScreen>
       DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime get _lastDayOfMonth =>
       DateTime(DateTime.now().year, DateTime.now().month + 1, 0);
-
   late DateTimeRange _selectedDateRange;
 
-  final DateTime _selectedDate = DateTime.now();
-  final CalendarFormat _calendarFormat = CalendarFormat.week;
   String _selectedFilter = 'All';
   String _selectedView = 'List'; // 'List' or 'Daily'
-  bool _isLoading = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-
   final List<String> _filters = ['All', 'Approved', 'Pending', 'Rejected'];
-
-  // TODO: Replace with real timesheet data from API
-  final List<Map<String, dynamic>> timesheetData = [];
 
   @override
   void initState() {
@@ -59,15 +50,11 @@ class _TimesheetScreenState extends State<TimesheetScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final attendanceProvider =
-          Provider.of<AttendanceProvider>(context, listen: false);
-      if (authProvider.user != null) {
+          Provider.of<AttendanceProvider>(context, listen: false);      if (authProvider.user != null) {
         // Use _id field from MongoDB instead of id
         final userId = authProvider.user!['_id']?.toString() ?? authProvider.user!['id']?.toString();
         if (userId != null) {
-          print('DEBUG TIMESHEET: Fetching attendance for userId: $userId');
           attendanceProvider.fetchUserAttendance(userId);
-        } else {
-          print('DEBUG TIMESHEET: No valid userId found in user object: ${authProvider.user}');
         }
       }
     });
@@ -134,32 +121,15 @@ class _TimesheetScreenState extends State<TimesheetScreen>
           child: child!,
         );
       },
-    );
-    if (picked != null && picked != _selectedDateRange) {
+    );    if (picked != null && picked != _selectedDateRange) {
       setState(() {
         _selectedDateRange = picked;
-        _isLoading = true;
       });
       await _saveQuickActionState();
-      await Future.delayed(const Duration(seconds: 1));
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'approved':
-        return Colors.green;
-      case 'pending':
-        return Colors.orange;
-      case 'rejected':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }  // Helper method to calculate total hours from attendance data
+  // Helper method to calculate total hours from attendance data
   double _calculateTotalHours(Map<String, dynamic> entry) {
     try {
       // Parse check-in time
@@ -201,21 +171,9 @@ class _TimesheetScreenState extends State<TimesheetScreen>
             }
           }
         }
-      }
-
-      final netWorkHours = totalHours - totalBreakHours;
+      }      final netWorkHours = totalHours - totalBreakHours;
       
-      // Debug logging
-      print('DEBUG TIMESHEET CALC: Entry ${entry['_id']}');
-      print('  checkInTime: $checkInTime');
-      print('  checkOutTime: $checkOutTime');
-      print('  totalWorkHours: $totalHours');
-      print('  totalBreakHours: $totalBreakHours');
-      print('  netWorkHours: $netWorkHours');
-
-      return netWorkHours > 0 ? netWorkHours : 0.0;
-    } catch (e) {
-      print('DEBUG: Error calculating total hours for entry: $e');
+      return netWorkHours > 0 ? netWorkHours : 0.0;    } catch (e) {
       return 0.0;
     }
   }
