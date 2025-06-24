@@ -451,24 +451,19 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
 
 // Correct the usage of context in methods
 void _applyLeave(BuildContext context) {
-  // Implement leave application logic here
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Leave application feature coming soon!')),
-  );
+  print('EMPLOYEE DASHBOARD: Navigating to Leave Request Screen');
+  Navigator.pushNamed(context, '/leave_request');
 }
 
 void _openTimesheet(BuildContext context) {
-  // Implement timesheet opening logic here
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Timesheet feature coming soon!')),
-  );
+  print('EMPLOYEE DASHBOARD: Navigating to Timesheet Screen');
+  Navigator.pushNamed(context, '/timesheet');
 }
 
 // Add _openProfile method to _EmployeeDashboardScreenState
 void _openProfile(BuildContext context) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Profile feature coming soon!')),
-  );
+  print('EMPLOYEE DASHBOARD: Navigating to Profile Screen');
+  Navigator.pushNamed(context, '/profile');
 }
 
 // Helper method to capitalize first letter

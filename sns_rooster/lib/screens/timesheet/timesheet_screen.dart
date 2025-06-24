@@ -26,8 +26,8 @@ class _TimesheetScreenState extends State<TimesheetScreen>
 
   final DateTime _selectedDate = DateTime.now();
   final CalendarFormat _calendarFormat = CalendarFormat.week;
-
   String _selectedFilter = 'All';
+  String _selectedView = 'List'; // 'List' or 'Daily'
   bool _isLoading = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -55,16 +55,20 @@ class _TimesheetScreenState extends State<TimesheetScreen>
     );
 
     // Then try to load saved state (which will override if present)
-    _loadQuickActionState();
-
-    // Fetch attendance for current user
+    _loadQuickActionState();    // Fetch attendance for current user
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final attendanceProvider =
           Provider.of<AttendanceProvider>(context, listen: false);
       if (authProvider.user != null) {
-        attendanceProvider
-            .fetchUserAttendance(authProvider.user!['id'].toString());
+        // Use _id field from MongoDB instead of id
+        final userId = authProvider.user!['_id']?.toString() ?? authProvider.user!['id']?.toString();
+        if (userId != null) {
+          print('DEBUG TIMESHEET: Fetching attendance for userId: $userId');
+          attendanceProvider.fetchUserAttendance(userId);
+        } else {
+          print('DEBUG TIMESHEET: No valid userId found in user object: ${authProvider.user}');
+        }
       }
     });
   }
@@ -155,18 +159,89 @@ class _TimesheetScreenState extends State<TimesheetScreen>
       default:
         return Colors.grey;
     }
-  }
+  }  // Helper method to calculate total hours from attendance data
+  double _calculateTotalHours(Map<String, dynamic> entry) {
+    try {
+      // Parse check-in time
+      DateTime? checkInTime;
+      final checkInField = entry['checkInTime'] ?? entry['checkIn'];
+      if (checkInField != null) {
+        checkInTime = DateTime.tryParse(checkInField.toString());
+      }
 
+      // Parse check-out time
+      DateTime? checkOutTime;
+      final checkOutField = entry['checkOutTime'] ?? entry['checkOut'];
+      if (checkOutField != null && checkOutField.toString() != 'null') {
+        checkOutTime = DateTime.tryParse(checkOutField.toString());
+      }
+
+      // If not clocked out yet, use current time
+      if (checkInTime != null && checkOutTime == null) {
+        checkOutTime = DateTime.now();
+      }
+
+      // Calculate base hours worked
+      double totalHours = 0.0;
+      if (checkInTime != null && checkOutTime != null) {
+        final workDuration = checkOutTime.difference(checkInTime);
+        totalHours = workDuration.inMinutes / 60.0;
+      }
+
+      // Subtract break time
+      double totalBreakHours = 0.0;
+      final breaks = entry['breaks'];
+      if (breaks is List) {
+        for (var breakItem in breaks) {
+          if (breakItem is Map<String, dynamic>) {
+            final breakDuration = breakItem['duration'];
+            if (breakDuration is num) {
+              // Duration is in milliseconds, convert to hours
+              totalBreakHours += (breakDuration / (1000 * 60 * 60));
+            }
+          }
+        }
+      }
+
+      final netWorkHours = totalHours - totalBreakHours;
+      
+      // Debug logging
+      print('DEBUG TIMESHEET CALC: Entry ${entry['_id']}');
+      print('  checkInTime: $checkInTime');
+      print('  checkOutTime: $checkOutTime');
+      print('  totalWorkHours: $totalHours');
+      print('  totalBreakHours: $totalBreakHours');
+      print('  netWorkHours: $netWorkHours');
+
+      return netWorkHours > 0 ? netWorkHours : 0.0;
+    } catch (e) {
+      print('DEBUG: Error calculating total hours for entry: $e');
+      return 0.0;
+    }
+  }
   List<Map<String, dynamic>> get _filteredData {
     final attendanceProvider = Provider.of<AttendanceProvider>(context);
     final List<Map<String, dynamic>> records = attendanceProvider
         .attendanceRecords
-        .where((e) => e != null)
         .cast<Map<String, dynamic>>()
         .toList();
+    
+    // Process records and add calculated totalHours
+    final List<Map<String, dynamic>> processedRecords = records.map((entry) {
+      final processedEntry = Map<String, dynamic>.from(entry);
+      processedEntry['totalHours'] = _calculateTotalHours(entry);
+      
+      // Ensure status field exists (default to 'Approved' for existing records)
+      if (processedEntry['status'] == null) {
+        processedEntry['status'] = 'Approved';
+      }
+      
+      return processedEntry;
+    }).toList();
+    
     // Group by date (yyyy-MM-dd) and only keep the latest open record per day
     final Map<String, Map<String, dynamic>> latestOpenPerDay = {};
-    for (final entry in records) {
+    for (final entry in processedRecords) {
       DateTime? entryDate;
       try {
         entryDate = entry['date'] is DateTime
@@ -174,6 +249,9 @@ class _TimesheetScreenState extends State<TimesheetScreen>
             : DateTime.tryParse(entry['date']?.toString() ?? '');
         if (entryDate == null && entry['checkIn'] != null) {
           entryDate = DateTime.tryParse(entry['checkIn'].toString());
+        }
+        if (entryDate == null && entry['checkInTime'] != null) {
+          entryDate = DateTime.tryParse(entry['checkInTime'].toString());
         }
       } catch (_) {}
       if (entryDate == null) continue;
@@ -181,21 +259,25 @@ class _TimesheetScreenState extends State<TimesheetScreen>
       // Only keep the latest open record (no checkOut) per day
       if ((entry['checkOut'] == null ||
           entry['checkOut'].toString() == 'null' ||
-          entry['checkOut'].toString().isEmpty)) {
+          entry['checkOut'].toString().isEmpty) &&
+          (entry['checkOutTime'] == null ||
+          entry['checkOutTime'].toString() == 'null' ||
+          entry['checkOutTime'].toString().isEmpty)) {
         DateTime? currentCheckIn =
-            DateTime.tryParse(entry['checkIn']?.toString() ?? '');
+            DateTime.tryParse(entry['checkIn']?.toString() ?? '') ??
+            DateTime.tryParse(entry['checkInTime']?.toString() ?? '');
         DateTime? previousCheckIn = DateTime.tryParse(
-            latestOpenPerDay[dateKey]?['checkIn']?.toString() ?? '');
+            latestOpenPerDay[dateKey]?['checkIn']?.toString() ?? '') ??
+            DateTime.tryParse(latestOpenPerDay[dateKey]?['checkInTime']?.toString() ?? '');
         if (!latestOpenPerDay.containsKey(dateKey) ||
             (currentCheckIn != null &&
                 previousCheckIn != null &&
                 previousCheckIn.isBefore(currentCheckIn))) {
           latestOpenPerDay[dateKey] = entry;
         }
-      }
-    }
+      }    }
     // Remove all but the latest open record for each day
-    final List<Map<String, dynamic>> filteredRecords = records.where((entry) {
+    final List<Map<String, dynamic>> filteredRecords = processedRecords.where((entry) {
       DateTime? entryDate;
       try {
         entryDate = entry['date'] is DateTime
@@ -204,19 +286,24 @@ class _TimesheetScreenState extends State<TimesheetScreen>
         if (entryDate == null && entry['checkIn'] != null) {
           entryDate = DateTime.tryParse(entry['checkIn'].toString());
         }
+        if (entryDate == null && entry['checkInTime'] != null) {
+          entryDate = DateTime.tryParse(entry['checkInTime'].toString());
+        }
       } catch (_) {}
       if (entryDate == null) return false;
       final dateKey = DateFormat('yyyy-MM-dd').format(entryDate);
       // If open, only keep the latest open record for the day
       if ((entry['checkOut'] == null ||
           entry['checkOut'].toString() == 'null' ||
-          entry['checkOut'].toString().isEmpty)) {
+          entry['checkOut'].toString().isEmpty) &&
+          (entry['checkOutTime'] == null ||
+          entry['checkOutTime'].toString() == 'null' ||
+          entry['checkOutTime'].toString().isEmpty)) {
         return latestOpenPerDay[dateKey] == entry;
       }
       // Otherwise, keep all closed records
       return true;
-    }).toList();
-    final List<Map<String, dynamic>> dateFilteredData =
+    }).toList();    final List<Map<String, dynamic>> dateFilteredData =
         filteredRecords.where((entry) {
       DateTime? entryDate;
       try {
@@ -225,6 +312,9 @@ class _TimesheetScreenState extends State<TimesheetScreen>
             : DateTime.tryParse(entry['date']?.toString() ?? '');
         if (entryDate == null && entry['checkIn'] != null) {
           entryDate = DateTime.tryParse(entry['checkIn'].toString());
+        }
+        if (entryDate == null && entry['checkInTime'] != null) {
+          entryDate = DateTime.tryParse(entry['checkInTime'].toString());
         }
       } catch (_) {}
       if (entryDate == null) return false;
@@ -240,7 +330,6 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                 _selectedFilter.trim().toLowerCase()))
         .toList();
   }
-
   double get _totalHoursFiltered {
     return _filteredData.fold<double>(
       0,
@@ -250,6 +339,74 @@ class _TimesheetScreenState extends State<TimesheetScreen>
               ? (entry['totalHours'] as num).toDouble()
               : 0.0),
     );
+  }
+
+  // Get weekly summary for the selected date range
+  Map<String, double> get _weeklySummary {
+    Map<String, double> weeklySummary = {};
+      for (var entry in _filteredData) {
+      DateTime? entryDate;
+      try {
+        entryDate = entry['date'] is DateTime
+            ? entry['date']
+            : DateTime.tryParse(entry['date']?.toString() ?? '');
+        if (entryDate == null && entry['checkIn'] != null) {
+          entryDate = DateTime.tryParse(entry['checkIn'].toString());
+        }
+        if (entryDate == null && entry['checkInTime'] != null) {
+          entryDate = DateTime.tryParse(entry['checkInTime'].toString());
+        }
+      } catch (_) {}
+      
+      if (entryDate != null) {
+        // Get the start of the week (Monday)
+        final startOfWeek = entryDate.subtract(Duration(days: entryDate.weekday - 1));
+        final weekKey = 'Week of ${DateFormat('MMM dd').format(startOfWeek)}';
+        
+        final hours = (entry['totalHours'] is num) 
+            ? (entry['totalHours'] as num).toDouble() 
+            : 0.0;
+        weeklySummary[weekKey] = (weeklySummary[weekKey] ?? 0.0) + hours;
+      }
+    }
+    
+    return weeklySummary;
+  }
+  double get _totalOvertimeHours {
+    double overtime = 0.0;
+    Map<String, double> dailyTotals = {};
+      // Group entries by date and calculate daily totals
+    for (var entry in _filteredData) {
+      DateTime? entryDate;
+      try {
+        entryDate = entry['date'] is DateTime
+            ? entry['date']
+            : DateTime.tryParse(entry['date']?.toString() ?? '');
+        if (entryDate == null && entry['checkIn'] != null) {
+          entryDate = DateTime.tryParse(entry['checkIn'].toString());
+        }
+        if (entryDate == null && entry['checkInTime'] != null) {
+          entryDate = DateTime.tryParse(entry['checkInTime'].toString());
+        }
+      } catch (_) {}
+      
+      if (entryDate != null) {
+        final dateKey = DateFormat('yyyy-MM-dd').format(entryDate);
+        final hours = (entry['totalHours'] is num) 
+            ? (entry['totalHours'] as num).toDouble() 
+            : 0.0;
+        dailyTotals[dateKey] = (dailyTotals[dateKey] ?? 0.0) + hours;
+      }
+    }
+    
+    // Calculate overtime (hours over 8 per day)
+    for (var dailyHours in dailyTotals.values) {
+      if (dailyHours > 8.0) {
+        overtime += dailyHours - 8.0;
+      }
+    }
+    
+    return overtime;
   }
 
   // Helper to parse time string (e.g., "09:00 AM") into DateTime
@@ -265,7 +422,6 @@ class _TimesheetScreenState extends State<TimesheetScreen>
       parsedTime.minute,
     );
   }
-
   // Add helper for week range
   DateTimeRange get _thisWeekRange {
     final now = DateTime.now();
@@ -274,10 +430,146 @@ class _TimesheetScreenState extends State<TimesheetScreen>
     return DateTimeRange(start: startOfWeek, end: endOfWeek);
   }
 
+  // Build list view (original implementation)
+  Widget _buildListView(List<Map<String, dynamic>> data) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: data.length,
+      itemBuilder: (context, index) {
+        final entry = data[index];
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: TimesheetRow(entry: entry),
+        );
+      },
+    );
+  }
+
+  // Build daily view with grouped entries
+  Widget _buildDailyView(List<Map<String, dynamic>> data) {
+    // Group entries by date
+    Map<String, List<Map<String, dynamic>>> groupedData = {};
+      for (var entry in data) {
+      DateTime? entryDate;
+      try {
+        entryDate = entry['date'] is DateTime
+            ? entry['date']
+            : DateTime.tryParse(entry['date']?.toString() ?? '');
+        if (entryDate == null && entry['checkIn'] != null) {
+          entryDate = DateTime.tryParse(entry['checkIn'].toString());
+        }
+        if (entryDate == null && entry['checkInTime'] != null) {
+          entryDate = DateTime.tryParse(entry['checkInTime'].toString());
+        }
+      } catch (_) {}
+      
+      if (entryDate != null) {
+        final dateKey = DateFormat('yyyy-MM-dd').format(entryDate);
+        groupedData[dateKey] = groupedData[dateKey] ?? [];
+        groupedData[dateKey]!.add(entry);
+      }
+    }
+
+    // Sort dates in descending order (most recent first)
+    final sortedDates = groupedData.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: sortedDates.length,
+      itemBuilder: (context, index) {
+        final dateKey = sortedDates[index];
+        final entriesForDay = groupedData[dateKey]!;
+        final date = DateTime.parse(dateKey);
+        
+        // Calculate daily totals
+        double dailyHours = 0.0;
+        int dailyBreaks = 0;
+        for (var entry in entriesForDay) {
+          final hours = (entry['totalHours'] is num) 
+              ? (entry['totalHours'] as num).toDouble() 
+              : 0.0;
+          dailyHours += hours;
+          
+          // Count breaks
+          if (entry['breakDuration'] != null && 
+              entry['breakDuration'].toString() != '--' &&
+              entry['breakDuration'].toString().isNotEmpty) {
+            dailyBreaks++;
+          }
+        }
+        
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 8.0),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Date header with daily summary
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          DateFormat('EEEE, MMM dd, yyyy').format(date),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                        ),
+                        Text(
+                          '${entriesForDay.length} entries • $dailyBreaks breaks',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: dailyHours > 8 
+                            ? Colors.orange.withOpacity(0.2)
+                            : Theme.of(context).primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        '${dailyHours.toStringAsFixed(1)} hrs',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: dailyHours > 8 
+                              ? Colors.orange[700]
+                              : Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Individual entries for the day
+                ...entriesForDay.map((entry) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: TimesheetRow(entry: entry),
+                )),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    final attendanceProvider = Provider.of<AttendanceProvider>(context);
     final theme = Theme.of(context);
     final dateFormat = DateFormat('MMM dd, yyyy');
 
@@ -421,10 +713,57 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                       .where((e) =>
                           e['status'] == 'Absent' || e['status'] == 'Rejected')
                       .length,
-                  overtimeHours: 2.5, // Mock overtime
-                ),
-              ),
+                  overtimeHours: _totalOvertimeHours, // Use calculated overtime
+                ),              ),
               const SizedBox(height: 16),
+
+              // Weekly Summary Section
+              if (_weeklySummary.isNotEmpty) ...[
+                Text(
+                  'Weekly Summary',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: _weeklySummary.entries.map((entry) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                entry.key,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              Text(
+                                '${entry.value.toStringAsFixed(1)} hrs',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.primaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
               Text(
                 'Your Timesheet Entries',
                 style: theme.textTheme.titleMedium
@@ -461,7 +800,34 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                       ),
                     );
                   }).toList(),
-                ),
+                ),              ),
+              const SizedBox(height: 16),
+
+              // View Toggle Buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(
+                        value: 'List',
+                        label: Text('List View'),
+                        icon: Icon(Icons.list),
+                      ),
+                      ButtonSegment(
+                        value: 'Daily',
+                        label: Text('Daily View'),
+                        icon: Icon(Icons.calendar_view_day),
+                      ),
+                    ],
+                    selected: {_selectedView},
+                    onSelectionChanged: (Set<String> selection) {
+                      setState(() {
+                        _selectedView = selection.first;
+                      });
+                    },
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 
@@ -483,21 +849,11 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                       padding: EdgeInsets.all(16.0),
                       child: Text('No timesheet entries for this range.'),
                     );
-                  }
-                  return Padding(
+                  }                  return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _filteredData.length,
-                      itemBuilder: (context, index) {
-                        final entry = _filteredData[index];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: TimesheetRow(entry: entry),
-                        );
-                      },
-                    ),
+                    child: _selectedView == 'Daily'
+                        ? _buildDailyView(_filteredData)
+                        : _buildListView(_filteredData),
                   );
                 },
               ),
@@ -914,10 +1270,8 @@ class TimesheetSummary extends StatelessWidget {
     required this.absentCount,
     required this.overtimeHours,
   });
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 2,
@@ -925,15 +1279,14 @@ class TimesheetSummary extends StatelessWidget {
         padding: const EdgeInsets.all(18.0),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _SummaryTile(
+          children: [            _SummaryTile(
                 label: 'Total Hours',
-                value: '${(totalHours ?? 0.0).toStringAsFixed(1)} hrs'),
-            _SummaryTile(label: 'Present', value: '${presentCount ?? 0}'),
-            _SummaryTile(label: 'Absent', value: '${absentCount ?? 0}'),
+                value: '${totalHours.toStringAsFixed(1)} hrs'),
+            _SummaryTile(label: 'Present', value: '$presentCount'),
+            _SummaryTile(label: 'Absent', value: '$absentCount'),
             _SummaryTile(
                 label: 'Overtime',
-                value: '${(overtimeHours ?? 0.0).toStringAsFixed(1)} hrs'),
+                value: '${overtimeHours.toStringAsFixed(1)} hrs'),
           ],
         ),
       ),
