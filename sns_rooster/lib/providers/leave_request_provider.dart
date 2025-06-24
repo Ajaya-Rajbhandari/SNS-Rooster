@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:sns_rooster/services/api_service.dart';
+import 'package:sns_rooster/config/api_config.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/leave_request.dart';
 
 class LeaveRequestProvider with ChangeNotifier {
   final List<Map<String, dynamic>> _leaveRequests = [];
@@ -33,8 +37,17 @@ class LeaveRequestProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      // TODO: Replace with real API call (e.g., GET /api/users/:userId/leave-requests).
-      throw UnimplementedError("Real API call not implemented.");
+      final prefs = await SharedPreferences.getInstance();
+      final api = ApiService(baseUrl: ApiConfig.baseUrl, prefs: prefs);
+      final response = await api.get('/leave/history');
+      if (response.success && response.data != null) {
+        _leaveRequests.clear();
+        for (final item in response.data) {
+          _leaveRequests.add(item);
+        }
+      } else {
+        _error = response.message;
+      }
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -66,8 +79,17 @@ class LeaveRequestProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      // TODO: Replace with real API call (e.g., POST /api/leave-requests).
-      throw UnimplementedError("Real API call not implemented.");
+      final prefs = await SharedPreferences.getInstance();
+      final api = ApiService(baseUrl: ApiConfig.baseUrl, prefs: prefs);
+      final response = await api.post('/leave/apply', requestData);
+      if (response.success) {
+        // Optionally refresh leave requests after successful application
+        await getUserLeaveRequests(requestData['userId'] ?? '');
+        return true;
+      } else {
+        _error = response.message;
+        return false;
+      }
     } catch (e) {
       _error = e.toString();
       return false;
@@ -139,6 +161,25 @@ class LeaveRequestProvider with ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  // --- Fetch Employee ID by User ID ---
+  Future<String?> fetchEmployeeIdByUserId(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final api = ApiService(baseUrl: ApiConfig.baseUrl, prefs: prefs);
+      final response = await api.get('/employees');
+      if (response.success && response.data != null) {
+        for (final emp in response.data) {
+          if (emp['userId'] == userId) {
+            return emp['_id'];
+          }
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
     }
   }
 }

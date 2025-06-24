@@ -59,6 +59,9 @@ class EmployeeProvider with ChangeNotifier {
     notifyListeners();
     try {
       await _employeeService.deleteEmployee(employeeId);
+      // Remove from local list and notify listeners
+      _employees.removeWhere((emp) => emp['userId'] == employeeId || emp['_id'] == employeeId || emp['id'] == employeeId);
+      notifyListeners();
       return true;
     } catch (e) {
       _error = e.toString();

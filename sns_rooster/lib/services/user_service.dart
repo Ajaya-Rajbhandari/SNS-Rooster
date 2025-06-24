@@ -29,19 +29,13 @@ class UserService {
     );
 
     if (response.statusCode == 200) {
-      // Assuming the structure from user_management_screen.dart: { "users": [...] }
-      Map<String, dynamic> responseData = jsonDecode(response.body);
-      List<dynamic>? usersJson = responseData['users'] as List<dynamic>?;
-      if (usersJson != null) {
-        List<UserModel> users = usersJson.map((dynamic item) => UserModel.fromJson(item)).toList();
-        return users;
-      } else {
-        // Handle cases where 'users' key might be missing or null, though API should be consistent
-        return []; // Or throw an exception
-      }
+      // The backend returns a list, not a map
+      List<dynamic> usersJson = jsonDecode(response.body);
+      List<UserModel> users = usersJson.map((dynamic item) => UserModel.fromJson(item)).toList();
+      return users;
     } else {
       // Consider more specific error handling based on status code
-      throw Exception('Failed to load users: ${response.statusCode} ${response.body}');
+      throw Exception('Failed to load users: \\${response.statusCode} \\${response.body}');
     }
   }
 

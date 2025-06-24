@@ -37,4 +37,10 @@ router.post(
 // Debugging route to create a new user (for testing purposes)
 router.post("/debug-create-user", authController.debugCreateUser);
 
+// Add route to get all users (admin only)
+router.get("/users", auth, authController.getAllUsers);
+
+// Add route to delete a user by id (admin only)
+router.delete("/users/:id", auth, authController.deleteUser);
+
 module.exports = router;

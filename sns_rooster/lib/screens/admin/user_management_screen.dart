@@ -75,26 +75,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       print('Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = json.decode(response.body);
-        final List<dynamic>? usersJson = responseData['users'] as List<dynamic>?;
-        if (usersJson != null) {
-          setState(() {
-            _users = usersJson.cast<Map<String, dynamic>>();
-            _isLoading = false;
-          });
-        } else {
-          if (showErrors) {
-            setState(() {
-              _error = 'Invalid response format: users array not found';
-              _isLoading = false;
-            });
-          } else {
-            setState(() {
-              _isLoading = false;
-            });
-          }
-        }
-        print('Users loaded successfully: ${_users.length} users');
+        // Backend returns a list, not a map
+        final List<dynamic> usersJson = json.decode(response.body);
+        setState(() {
+          _users = usersJson.cast<Map<String, dynamic>>();
+          _isLoading = false;
+        });
+        print('Users loaded successfully: \\${_users.length} users');
       } else if (response.statusCode == 401) {
         setState(() {
           _error = 'Failed to load users: Unauthorized access. Please log in again.';
@@ -143,17 +130,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/auth/register'), // Ensure this endpoint doesn't require role, department, position or can handle their absence
+        Uri.parse('${ApiConfig.baseUrl}/auth/register'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${authProvider.token}',
+          'Authorization': 'Bearer \\${authProvider.token}',
         },
         body: json.encode({
           'email': _emailController.text,
           'password': _passwordController.text,
-          'firstName': _firstNameController.text, // Changed 'name' to 'firstName'
-          'lastName': _lastNameController.text, // Added 'lastName'
-          // Removed: 'role': _selectedRole, 'department': _selectedDepartment, 'position': _selectedPosition,
+          'firstName': _firstNameController.text,
+          'lastName': _lastNameController.text,
         }),
       );
 
@@ -168,12 +154,18 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         _emailController.clear();
         _passwordController.clear();
         _firstNameController.clear();
-        _lastNameController.clear(); // Clear last name controller
-        // Clear any previous errors before reloading users
+        _lastNameController.clear();
         setState(() {
           _error = null;
+          _isLoading = true; // Show loading while reloading users
         });
-        await _loadUsers(showErrors: false);
+        try {
+          await _loadUsers(showErrors: true);
+        } catch (e) {
+          setState(() {
+            _error = 'User created, but failed to reload user list: $e';
+          });
+        }
       } else {
         setState(() {
           _error = data['message'] ?? 'Failed to create user';
@@ -403,39 +395,60 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              ListView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: _users.length,
-                                itemBuilder: (context, index) {
-                                  final user = _users[index];
-                                  return ListTile(
-                                    title: Text(user['name'] ?? ''),
-                                    subtitle: Text(user['email'] ?? ''),
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        // Removed: Text(user['role'] ?? ''),
-                                        // Removed: const SizedBox(width: 8),
-                                        Switch(
-                                          value: user['isActive'] ?? false,
-                                          onChanged: (value) =>
-                                              _toggleUserStatus(
-                                            user['_id'],
-                                            user['isActive'],
+                              if (_users.isEmpty)
+                                const Center(
+                                  child: Text(
+                                    'No users found.',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                )
+                              else
+                                ListView.separated(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: _users.length,
+                                  separatorBuilder: (context, index) => const Divider(height: 1),
+                                  itemBuilder: (context, index) {
+                                    final user = _users[index];
+                                    return ListTile(
+                                      leading: CircleAvatar(
+                                        child: Text(
+                                          (user['firstName'] != null && user['firstName'].isNotEmpty)
+                                              ? user['firstName'][0].toUpperCase()
+                                              : '?',
+                                        ),
+                                      ),
+                                      title: Text(
+                                        (user['firstName'] ?? '') +
+                                            (user['lastName'] != null && user['lastName'].isNotEmpty
+                                                ? ' ' + user['lastName']
+                                                : ''),
+                                        style: const TextStyle(fontWeight: FontWeight.w500),
+                                      ),
+                                      subtitle: Text(user['email'] ?? ''),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Switch(
+                                            value: user['isActive'] ?? false,
+                                            onChanged: (value) => _toggleUserStatus(
+                                              user['_id'],
+                                              user['isActive'],
+                                            ),
+                                            activeColor: Colors.green,
+                                            inactiveThumbColor: Colors.red,
                                           ),
-                                        ),
-                                        const SizedBox(width: 8), // Added spacing
-                                        IconButton(
-                                          icon: const Icon(Icons.delete, color: Colors.red),
-                                          onPressed: () => _deleteUser(user['_id']),
-                                          tooltip: 'Delete User',
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
+                                          const SizedBox(width: 8),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete, color: Colors.red),
+                                            onPressed: () => _deleteUser(user['_id']),
+                                            tooltip: 'Delete User',
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
                             ],
                           ),
                         ),
