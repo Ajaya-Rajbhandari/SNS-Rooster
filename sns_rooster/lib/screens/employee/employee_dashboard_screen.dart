@@ -23,7 +23,6 @@ import '../../../widgets/user_avatar.dart';
 import '../../services/attendance_service.dart';
 import 'live_clock.dart';
 import 'package:sns_rooster/utils/color_utils.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 /// EmployeeDashboardScreen displays the main dashboard for employees.
 //
 /// - Shows user info, live clock, status, quick actions, and attendance summary.
@@ -38,17 +37,9 @@ class EmployeeDashboardScreen extends StatefulWidget {
 }
 
 class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
-    with RouteAware {
-  bool _isOnBreak = false;
+    with RouteAware {  bool _isOnBreak = false;
   bool _profileDialogShown = false;
   String _lastSavedProfileJson = "";
-  DateTime? _startDate;
-  DateTime? _endDate;
-
-  // Track last fetched params to avoid duplicate fetches
-  String? _lastSummaryUserId;
-  DateTime? _lastSummaryStart;
-  DateTime? _lastSummaryEnd;
 
   RouteObserver<ModalRoute<void>>? _routeObserver;
 
@@ -62,11 +53,10 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _checkProfileCompletion();
         // Fetch backend-driven attendance status for today
-        final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
-        final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        final userId = authProvider.user?['_id'];
-        if (userId != null) {
+        final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final userId = authProvider.user?['_id'];        if (userId != null) {
           attendanceProvider.fetchTodayStatus(userId);
+          // Note: fetchTodayStatus now also fetches currentAttendance data
         }
       });
     } catch (e) {
@@ -168,11 +158,10 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       return;
     }
     try {
-      final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
-      final attendanceService = AttendanceService(authProvider);
-      print('DEBUG: Fetched userId from AuthProvider: ${authProvider.user?['_id']?.toString() ?? 'null'}');
-      await attendanceService.checkIn(userId);
+      final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);      final attendanceService = AttendanceService(authProvider);
+      print('DEBUG: Fetched userId from AuthProvider: ${authProvider.user?['_id']?.toString() ?? 'null'}');      await attendanceService.checkIn(userId);
       await attendanceProvider.fetchTodayStatus(userId);
+      // Note: fetchTodayStatus now also fetches currentAttendance data
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Clocked in successfully!')),
       );
@@ -196,10 +185,9 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     final userId = authProvider.user?['_id'];
     if (userId != null) {
       try {
-        final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
-        final attendanceService = AttendanceService(authProvider);
-        await attendanceService.checkOut(userId);
+        final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);        final attendanceService = AttendanceService(authProvider);        await attendanceService.checkOut(userId);
         await attendanceProvider.fetchTodayStatus(userId);
+        // Note: fetchTodayStatus now also fetches currentAttendance data
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Clocked out successfully!')),
         );
@@ -215,11 +203,10 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
   Future<void> _startBreak() async {
     final selected = await _showBreakTypeSelectionDialog();
     if (selected == null) return;
-    final uid = context.read<AuthProvider>().user!['_id'] as String;
-    print('DEBUG: Calling startBreakWithType...');
-    await context.read<AttendanceProvider>().startBreakWithType(uid, selected);
+    final uid = context.read<AuthProvider>().user!['_id'] as String;    print('DEBUG: Calling startBreakWithType...');    await context.read<AttendanceProvider>().startBreakWithType(uid, selected);
     print('DEBUG: startBreakWithType completed. Calling fetchTodayStatus...');
     await context.read<AttendanceProvider>().fetchTodayStatus(uid);
+    // Note: fetchTodayStatus now also fetches currentAttendance data
     print('DEBUG: After fetchTodayStatus, todayStatus is: \\${context.read<AttendanceProvider>().todayStatus}');
     print('DEBUG: fetchTodayStatus completed. Calling setState...');
     setState(() {});
@@ -340,10 +327,9 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?['_id'];
     if (userId != null) {
-      try {
-        final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
-        await attendanceProvider.endBreak(userId);
+      try {        final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);        await attendanceProvider.endBreak(userId);
         await attendanceProvider.fetchTodayStatus(userId);
+        // Note: fetchTodayStatus now also fetches currentAttendance data
         print('DEBUG: todayStatus after fetchTodayStatus in _endBreak: \\${attendanceProvider.todayStatus}');
         setState(() {
           _isOnBreak = false;
@@ -373,18 +359,10 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     _checkNetworkConnectivity();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final userId = authProvider.user?['_id'];
-      if (userId != null) {
+      final userId = authProvider.user?['_id'];      if (userId != null) {
         Provider.of<AttendanceProvider>(context, listen: false).fetchTodayStatus(userId);
-        if (_startDate == null && _endDate == null) {
-          if (_lastSummaryUserId != userId || _lastSummaryStart != null || _lastSummaryEnd != null) {
-            _lastSummaryUserId = userId;
-            _lastSummaryStart = null;
-            _lastSummaryEnd = null;
-            Provider.of<AttendanceProvider>(context, listen: false)
-                .fetchAttendanceSummary(userId);
-          }
-        }
+        // Fetch attendance summary without date range
+        Provider.of<AttendanceProvider>(context, listen: false).fetchAttendanceSummary(userId);
       }
     });
   }
@@ -393,41 +371,11 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
   /// Updates [_isConnected] and triggers a UI update.
   void _checkNetworkConnectivity() async {
     var connectivityResult = await (Connectivity()).checkConnectivity();
-    setState(() {
-      _isConnected = connectivityResult != ConnectivityResult.none;
+    setState(() {      _isConnected = connectivityResult != ConnectivityResult.none;
     });
   }
-
-  void _pickDateRange(BuildContext context, String userId) async {
-    final initialStart = _startDate ?? DateTime.now().subtract(const Duration(days: 30));
-    final initialEnd = _endDate ?? DateTime.now();
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      initialDateRange: DateTimeRange(start: initialStart, end: initialEnd),
-    );
-    if (picked != null) {
-      if (_lastSummaryUserId != userId || _lastSummaryStart != picked.start || _lastSummaryEnd != picked.end) {
-        setState(() {
-          _startDate = picked.start;
-          _endDate = picked.end;
-          _lastSummaryUserId = userId;
-          _lastSummaryStart = picked.start;
-          _lastSummaryEnd = picked.end;
-        });
-        Provider.of<AttendanceProvider>(context, listen: false)
-            .fetchAttendanceSummary(userId, startDate: _startDate, endDate: _endDate);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Always get latest user info from provider
-    final authProvider = Provider.of<AuthProvider>(context);
-    final userId = authProvider.user?['_id'];
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Employee Dashboard'),
@@ -467,22 +415,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
                     },
                   ),
                   const SizedBox(height: 28),
-                  const StatusCard(),
-                  const SizedBox(height: 28),
-                  if (userId != null)
-                    Row(
-                      children: [
-                        Text(_startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : 'Start Date'),
-                        const SizedBox(width: 8),
-                        Text(_endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : 'End Date'),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () => _pickDateRange(context, userId),
-                          child: const Text('Select Range'),
-                        ),
-                      ],
-                    ),
-                  const SizedBox(height: 16),
+                  const StatusCard(),                  const SizedBox(height: 28),
                   Text(
                     'Quick Actions',
                     style: Theme.of(context)
@@ -633,36 +566,453 @@ class _DashboardHeader extends StatelessWidget {
 
 class StatusCard extends StatelessWidget {
   const StatusCard({super.key});
-
   @override
   Widget build(BuildContext context) {
     return Consumer<AttendanceProvider>(
       builder: (context, attendanceProvider, child) {
         final todayStatus = attendanceProvider.todayStatus;
+        final currentAttendance = attendanceProvider.currentAttendance;
+        
         String statusLabel = 'Unknown Status';
         IconData statusIcon = Icons.help_outline;
         Color statusColor = Colors.grey;
+        List<Widget> statusDetails = [];
 
         switch (todayStatus) {
           case 'not_clocked_in':
             statusLabel = 'Not Clocked In';
             statusIcon = Icons.highlight_off;
             statusColor = Colors.red;
-            break;
-          case 'clocked_out':
+            statusDetails.add(
+              Text(
+                'Tap Clock In to start your day',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+              ),
+            );
+            break;          case 'clocked_out':
             statusLabel = 'Clocked Out';
             statusIcon = Icons.check_circle_outline;
             statusColor = Colors.green;
-            break;
-          case 'on_break':
+            if (currentAttendance != null) {
+              final checkInTime = currentAttendance['checkInTime'];
+              final checkOutTime = currentAttendance['checkOutTime'];
+              final breaks = currentAttendance['breaks'] as List?;
+                if (checkOutTime != null) {
+                // Parse and convert to local time to handle timezone issues
+                final checkOutDateTime = DateTime.parse(checkOutTime).toLocal();
+                statusDetails.add(
+                  Text(
+                    'Clocked out at ${DateFormat('hh:mm a').format(checkOutDateTime)}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                  ),
+                );
+              }
+                // Show comprehensive daily summary
+              if (checkInTime != null && checkOutTime != null) {
+                // Parse and convert to local time to handle timezone issues
+                final checkInDateTime = DateTime.parse(checkInTime).toLocal();
+                final checkOutDateTime = DateTime.parse(checkOutTime).toLocal();
+                final totalWorkTime = checkOutDateTime.difference(checkInDateTime);
+                
+                // Calculate total break time
+                int totalBreakMinutes = 0;
+                int breakCount = 0;
+                if (breaks != null) {                  for (final breakEntry in breaks) {
+                    if (breakEntry['startTime'] != null && breakEntry['endTime'] != null) {
+                      // Parse and convert to local time to handle timezone issues
+                      final breakStart = DateTime.parse(breakEntry['startTime']).toLocal();
+                      final breakEnd = DateTime.parse(breakEntry['endTime']).toLocal();
+                      totalBreakMinutes += breakEnd.difference(breakStart).inMinutes;
+                      breakCount++;
+                    }
+                  }
+                }
+                
+                final totalBreakDuration = Duration(minutes: totalBreakMinutes);
+                final netWorkTime = totalWorkTime - totalBreakDuration;
+                
+                statusDetails.addAll([
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.withOpacity(0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Today\'s Summary',
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green[700],
+                              ),
+                        ),
+                        const SizedBox(height: 6),                        Row(
+                          children: [
+                            Icon(Icons.login, size: 16, color: Colors.green[600]),
+                            const SizedBox(width: 8),
+                            Text('Started: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+                            Text(DateFormat('hh:mm a').format(checkInDateTime), style: Theme.of(context).textTheme.bodySmall),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.logout, size: 16, color: Colors.green[600]),
+                            const SizedBox(width: 8),
+                            Text('Finished: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+                            Text(DateFormat('hh:mm a').format(checkOutDateTime), style: Theme.of(context).textTheme.bodySmall),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.timer, size: 16, color: Colors.green[600]),
+                            const SizedBox(width: 8),
+                            Text('Total Time: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+                            Text('${totalWorkTime.inHours}h ${totalWorkTime.inMinutes % 60}m', style: Theme.of(context).textTheme.bodySmall),
+                          ],
+                        ),
+                        if (breakCount > 0) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(Icons.coffee, size: 16, color: Colors.green[600]),
+                              const SizedBox(width: 8),
+                              Text('Break Time: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+                              Text('${totalBreakDuration.inHours}h ${totalBreakDuration.inMinutes % 60}m', style: Theme.of(context).textTheme.bodySmall),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(Icons.pause_circle, size: 16, color: Colors.green[600]),
+                              const SizedBox(width: 8),
+                              Text('Breaks Taken: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+                              Text('$breakCount', style: Theme.of(context).textTheme.bodySmall),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.work, size: 16, color: Colors.green[600]),
+                            const SizedBox(width: 8),
+                            Text('Net Work: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+                            Text('${netWorkTime.inHours}h ${netWorkTime.inMinutes % 60}m', style: Theme.of(context).textTheme.bodySmall),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ]);
+              }
+            }
+            break;          case 'on_break':
             statusLabel = 'On Break';
             statusIcon = Icons.pause_circle_outline;
             statusColor = Colors.orange;
-            break;
-          case 'clocked_in':
+            if (currentAttendance != null) {
+              final breaks = currentAttendance['breaks'] as List?;
+              if (breaks != null && breaks.isNotEmpty) {
+                final currentBreak = breaks.lastWhere(
+                  (b) => b['end'] == null, // Note: it's 'end', not 'endTime'
+                  orElse: () => null,
+                );
+                
+                // Count total breaks today (including current one)
+                final totalBreaksToday = breaks.length;
+                if (currentBreak != null) {
+                  final breakTypeId = currentBreak['type']; // Note: it's 'type', not 'breakType'
+                  final startTime = currentBreak['start']; // Note: it's 'start', not 'startTime'
+                  if (breakTypeId != null && startTime != null) {
+                    // Parse and convert to local time to handle timezone issues
+                    final breakStartTime = DateTime.parse(startTime).toLocal();
+                    final duration = DateTime.now().difference(breakStartTime);
+                    
+                    // Default break type name (fallback)
+                    String breakTypeName = 'Break';
+                    
+                    // Try to map break type ID to name
+                    // For now, we'll use a simple mapping based on common IDs
+                    // In a real app, you'd fetch break types and match them
+                    if (breakTypeId == '68506da352d98bd74a976ea7') {
+                      breakTypeName = 'Medical Break';
+                    } else if (breakTypeId == '68506da352d98bd74a976ea6') {
+                      breakTypeName = 'Break';
+                    } else if (breakTypeId == '68506da352d98bd74a976ea5') {
+                      breakTypeName = 'Coffee Break';
+                    } else if (breakTypeId == '68506da352d98bd74a976ea4') {
+                      breakTypeName = 'Lunch Break';
+                    }
+                    
+                    statusDetails.addAll([
+                      Text(
+                        '$breakTypeName since ${DateFormat('hh:mm a').format(breakStartTime)}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey[700],
+                              fontWeight: FontWeight.w500,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Duration: ${duration.inMinutes} minutes',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.info_outline, size: 16, color: Colors.orange[700]),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Break Details',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange[700],
+                                      ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(Icons.label, size: 14, color: Colors.orange[600]),
+                                const SizedBox(width: 6),
+                                Text('Type: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+                                Text(breakTypeName, style: Theme.of(context).textTheme.bodySmall),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                Icon(Icons.schedule, size: 14, color: Colors.orange[600]),
+                                const SizedBox(width: 6),
+                                Text('Started: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+                                Text(DateFormat('hh:mm a').format(breakStartTime), style: Theme.of(context).textTheme.bodySmall),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                Icon(Icons.numbers, size: 14, color: Colors.orange[600]),
+                                const SizedBox(width: 6),
+                                Text('Breaks today: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+                                Text('$totalBreaksToday', style: Theme.of(context).textTheme.bodySmall),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ]);
+                  }
+                }
+              }
+            }
+            break;          case 'clocked_in':
             statusLabel = 'Clocked In';
             statusIcon = Icons.access_time;
             statusColor = Colors.blue;
+            if (currentAttendance != null) {
+              print('DEBUG StatusCard: currentAttendance keys = ${currentAttendance.keys.toList()}');
+              final checkInTime = currentAttendance['checkInTime'];
+              final breaks = currentAttendance['breaks'] as List?;
+              print('DEBUG StatusCard: checkInTime value = $checkInTime (type: ${checkInTime.runtimeType})');
+              
+              if (checkInTime != null) {
+                try {
+                  // Parse and convert to local time to handle timezone issues
+                  final checkInDateTime = DateTime.parse(checkInTime).toLocal();
+                  final workDuration = DateTime.now().difference(checkInDateTime);
+                  statusDetails.addAll([
+                    Text(
+                      'Since ${DateFormat('hh:mm a').format(checkInDateTime)}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                    ),
+                    Text(
+                      'Work time: ${workDuration.inHours}h ${workDuration.inMinutes % 60}m',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                    ),
+                  ]);
+                  
+                  // Add break status information
+                  if (breaks != null && breaks.isNotEmpty) {
+                    // Find the most recent completed break
+                    final completedBreaks = breaks.where((b) => b['end'] != null).toList();
+                    final totalBreaksToday = completedBreaks.length;
+                    
+                    if (totalBreaksToday > 0) {
+                      final mostRecentBreak = completedBreaks.last;
+                      final breakTypeId = mostRecentBreak['type'];
+                      final breakStartTime = mostRecentBreak['start'];
+                      final breakEndTime = mostRecentBreak['end'];
+                      
+                      if (breakStartTime != null && breakEndTime != null) {
+                        // Parse and convert to local time to handle timezone issues
+                        final breakStart = DateTime.parse(breakStartTime).toLocal();
+                        final breakEnd = DateTime.parse(breakEndTime).toLocal();
+                        final breakDuration = breakEnd.difference(breakStart);
+                        
+                        // Map break type ID to name
+                        String breakTypeName = 'Break';
+                        if (breakTypeId == '68506da352d98bd74a976ea7') {
+                          breakTypeName = 'Medical Break';
+                        } else if (breakTypeId == '68506da352d98bd74a976ea6') {
+                          breakTypeName = 'Break';
+                        } else if (breakTypeId == '68506da352d98bd74a976ea5') {
+                          breakTypeName = 'Coffee Break';
+                        } else if (breakTypeId == '68506da352d98bd74a976ea4') {
+                          breakTypeName = 'Lunch Break';
+                        }
+                        
+                        statusDetails.addAll([
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.coffee, size: 16, color: Colors.blue[700]),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Break Status',
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.blue[700],
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Icon(Icons.check_circle, size: 14, color: Colors.blue[600]),
+                                    const SizedBox(width: 6),
+                                    Text('Breaks taken: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+                                    Text('$totalBreaksToday', style: Theme.of(context).textTheme.bodySmall),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    Icon(Icons.label, size: 14, color: Colors.blue[600]),
+                                    const SizedBox(width: 6),
+                                    Text('Last break: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+                                    Text(breakTypeName, style: Theme.of(context).textTheme.bodySmall),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    Icon(Icons.schedule, size: 14, color: Colors.blue[600]),
+                                    const SizedBox(width: 6),
+                                    Text('Time: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+                                    Text('${DateFormat('hh:mm a').format(breakStart)} - ${DateFormat('hh:mm a').format(breakEnd)}', style: Theme.of(context).textTheme.bodySmall),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    Icon(Icons.timer, size: 14, color: Colors.blue[600]),
+                                    const SizedBox(width: 6),
+                                    Text('Duration: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+                                    Text('${breakDuration.inMinutes} minutes', style: Theme.of(context).textTheme.bodySmall),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ]);
+                      }
+                    } else {
+                      // No breaks taken today
+                      statusDetails.addAll([
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+                              const SizedBox(width: 6),
+                              Text(
+                                'No breaks taken today',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey[600],
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ]);
+                    }
+                  } else {
+                    // No breaks data available
+                    statusDetails.addAll([
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+                            const SizedBox(width: 6),
+                            Text(
+                              'No breaks taken today',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey[600],
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ]);
+                  }
+                } catch (e) {
+                  print('DEBUG StatusCard: Error parsing checkInTime: $e');
+                }
+              }
+            }
             break;
           default:
             statusLabel = 'Status Not Available';
@@ -670,7 +1020,7 @@ class StatusCard extends StatelessWidget {
             statusColor = Colors.grey;
             break;
         }
-
+        
         return Card(
           elevation: 4,
           shape: RoundedRectangleBorder(
@@ -681,36 +1031,47 @@ class StatusCard extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Today\'s Status',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(statusIcon, color: statusColor, size: 30),
-                        const SizedBox(width: 10),
-                        Text(
-                          statusLabel,
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: statusColor,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Today\'s Status',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(statusIcon, color: statusColor, size: 30),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  statusLabel,
+                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: statusColor,
+                                      ),
+                                ),
+                                const SizedBox(height: 4),
+                                ...statusDetails,
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh, size: 30),
-                  onPressed: () {
-                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                  onPressed: () {                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
                     final userId = authProvider.user?['_id'];
                     if (userId != null) {
                       attendanceProvider.fetchTodayStatus(userId);
+                      // Note: fetchTodayStatus now also fetches currentAttendance data
                     }
                   },
                 ),
@@ -884,7 +1245,7 @@ class _QuickActions extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(16),
           ),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14), // Reduced padding to prevent overflow
           child: isFullWidth
               ? Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -903,25 +1264,28 @@ class _QuickActions extends StatelessWidget {
                           ),
                     ),
                   ],
-                )
-              : Column(
+                )              : Column(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min, // Prevent overflow
                   children: [
                     Icon(
                       icon,
                       color: Colors.white,
-                      size: 24,
+                      size: 22, // Slightly smaller icon
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      label,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    const SizedBox(height: 6), // Reduced spacing
+                    Flexible( // Make text flexible
+                      child: Text(
+                        label,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13, // Slightly smaller font
+                            ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
