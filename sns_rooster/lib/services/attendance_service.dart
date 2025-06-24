@@ -167,7 +167,6 @@ class AttendanceService {
       throw Exception('Failed to end break: ${response.statusCode} ${response.body}');
     }
   }
-
   Future<String> getAttendanceStatus(String userId) async {
     final token = authProvider.token;
     if (token == null) {
@@ -185,6 +184,29 @@ class AttendanceService {
       return data['status'] as String;
     } else if (response.statusCode == 404) {
       return 'No current attendance';
+    } else {
+      throw Exception('Failed to fetch attendance status: ${response.statusCode} ${response.body}');
+    }
+  }
+
+  // New method to get both status and attendance data
+  Future<Map<String, dynamic>> getAttendanceStatusWithData(String userId) async {
+    final token = authProvider.token;
+    if (token == null) {
+      throw Exception('No valid token found');
+    }
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+    final url = '${ApiConfig.baseUrl}/attendance/status/$userId';
+    final response = await http.get(Uri.parse(url), headers: headers);
+    if (response.statusCode == 200) {
+      print('DEBUG: Raw response body from getAttendanceStatusWithData: ${response.body}');
+      final Map<String, dynamic> data = json.decode(response.body);
+      return data;
+    } else if (response.statusCode == 404) {
+      return {'status': 'No current attendance', 'attendance': null};
     } else {
       throw Exception('Failed to fetch attendance status: ${response.statusCode} ${response.body}');
     }

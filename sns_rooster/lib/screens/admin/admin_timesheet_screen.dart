@@ -720,23 +720,35 @@ class _SummaryTile extends StatelessWidget {
   final String label;
   final String value;
   const _SummaryTile({required this.label, required this.value});
-
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(value,
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text(label,
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: Colors.grey[700])),
-      ],
+    return Flexible( // Wrap Column with Flexible
+      child: Column(
+        mainAxisSize: MainAxisSize.min, // Prevent overflow
+        children: [
+          Flexible( // Make text flexible
+            child: Text(value,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2), // Allow wrapping to 2 lines
+          ),
+          const SizedBox(height: 4),
+          Flexible( // Make text flexible
+            child: Text(label,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.grey[700]),
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2), // Allow wrapping to 2 lines
+          ),
+        ],
+      ),
     );
   }
 }

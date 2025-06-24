@@ -5,27 +5,30 @@ import 'package:flutter/foundation.dart';
 ///
 /// This class manages API endpoints for different environments and platforms.
 /// It automatically detects the platform and provides the appropriate base URL.
-class ApiConfig {
-  // Network Configuration - Update these IPs based on your setup
+class ApiConfig {  // Network Configuration - Update these IPs based on your setup
   static const String homeIP =
       '10.0.2.2'; // Android emulator maps to host localhost
   static const String fallbackIP =
-      '192.168.1.72'; // Actual machine IP as fallback
+      '192.168.1.80'; // Actual machine IP as fallback (updated to current IP)
   static const String officeIP =
       '10.0.0.45'; // Your office network IP (update this!)
   static const String port = '5000';
-
   /// Get the appropriate base URL based on platform and environment
   static String get baseUrl {
     if (kIsWeb) {
       // Web platform always uses localhost
       return 'http://localhost:$port/api';
     } else if (Platform.isAndroid || Platform.isIOS) {
-      // For emulator, try fallback IP if 10.0.2.2 doesn't work
-      // For physical devices, use the host machine's IP address
-      String ip = const String.fromEnvironment('API_HOST',
-          defaultValue: homeIP); // Use homeIP (10.0.2.2) for Android emulator
-      return 'http://$ip:$port/api'; // Ensure /api is included for Android emulator
+      // Check if running on emulator or physical device
+      String ip = const String.fromEnvironment('API_HOST', defaultValue: '');
+      
+      if (ip.isEmpty) {
+        // No API_HOST defined, use fallback IP for physical devices
+        // For physical devices, always use the actual machine IP
+        ip = fallbackIP; // 192.168.1.80 - works for physical devices
+      }
+      
+      return 'http://$ip:$port/api';
     } else {
       // Default for other platforms (desktop, etc.)
       return 'http://localhost:$port/api';

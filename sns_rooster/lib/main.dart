@@ -29,12 +29,7 @@ import 'package:sns_rooster/services/employee_service.dart';
 void main() {
   print('MAIN: Initializing navigatorKey');
   print('MAIN: Starting MyApp with AuthProvider');
-  runApp(
-    Provider<RouteObserver<ModalRoute<void>>>(
-      create: (_) => RouteObserver<ModalRoute<void>>(),
-      child: const MyApp(),
-    ),
-  );
+  runApp(const MyApp());
 }
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -44,9 +39,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('MAIN: Building MaterialApp with navigatorKey');
-    return MultiProvider(
+    print('MAIN: Building MaterialApp with navigatorKey');    return MultiProvider(
       providers: [
+        Provider<RouteObserver<ModalRoute<void>>>(
+          create: (_) => RouteObserver<ModalRoute<void>>(),
+        ),
         ChangeNotifierProvider(create: (context) {
           final authProvider = AuthProvider();
           final profileProvider = ProfileProvider(authProvider);

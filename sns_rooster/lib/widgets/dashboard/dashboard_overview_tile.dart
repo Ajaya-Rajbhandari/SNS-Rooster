@@ -53,10 +53,10 @@ class DashboardOverviewTile extends StatelessWidget {
 
     final double avgDailyWorkHours = recentAttendance.isNotEmpty
         ? totalWeeklyWorkDuration.inMinutes / recentAttendance.length / 60
-        : 0.0;
-
-    // Calculate break statistics for today
-    final todayAttendance = attendanceProvider.currentAttendance;
+        : 0.0;    // Calculate break statistics for today
+    final todayAttendance = attendanceProvider.attendanceRecords.isNotEmpty 
+        ? attendanceProvider.attendanceRecords.first 
+        : null;
     int totalBreaksToday = 0;
     Duration totalBreakDurationToday = Duration.zero;
     if (todayAttendance != null && todayAttendance['breaks'] != null) {
@@ -438,10 +438,10 @@ class DashboardOverviewTile extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(18),
-              ),
-              child: Column(
+              ),              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min, // Add this to prevent overflow
                 children: [
                   Container(
                     width: 38,
@@ -452,26 +452,34 @@ class DashboardOverviewTile extends StatelessWidget {
                     ),
                     child: Icon(icon, size: 24, color: color),
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    value,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                      fontSize: 20,
+                  const SizedBox(height: 8), // Reduced spacing
+                  Flexible( // Wrap with Flexible to prevent overflow
+                    child: Text(
+                      value,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                        fontSize: 18, // Reduced font size
+                      ),
+                      softWrap: true, // Allow text wrapping
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      maxLines: 2, // Allow up to 2 lines for value
                     ),
-                    softWrap: false,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
-                      fontWeight: FontWeight.w500,
-                      fontSize: 13,
+                  const SizedBox(height: 4), // Reduced spacing
+                  Flexible( // Wrap with Flexible to prevent overflow
+                    child: Text(
+                      label,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12, // Reduced font size
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2, // Allow up to 2 lines for label
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
