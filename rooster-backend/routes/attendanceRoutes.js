@@ -20,9 +20,7 @@ router.patch("/end-break", auth, attendanceController.endBreak);
 router.get("/my-attendance", auth, attendanceController.getMyAttendance);
 
 // Get attendance for a specific user (Admin/Manager only, or self)
-
-
-// Otherwise they must be checked in
+router.get("/user/:userId", auth, attendanceController.getUserAttendance);
 
 // Get all attendance records (Admin only)
 router.get("/", auth, async (req, res) => {

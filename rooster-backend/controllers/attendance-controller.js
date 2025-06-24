@@ -331,6 +331,34 @@ exports.getMyAttendance = async (req, res) => {
   }
 };
 
+// Get attendance records for a specific user (Admin/Manager only, or self)
+exports.getUserAttendance = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const requestingUserId = req.user.userId;
+
+    // Allow users to access their own data, or admin/manager to access any data
+    if (
+      req.user.role !== "admin" &&
+      req.user.role !== "manager" &&
+      requestingUserId !== userId
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to view this attendance data" });
+    }
+
+    const attendanceRecords = await Attendance.find({ user: userId })
+      .populate("user", "name email role")
+      .sort({ date: -1 }); // Sort by date, newest first
+
+    res.json(attendanceRecords);
+  } catch (error) {
+    console.error("Get user attendance error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 exports.getBreakTypes = async (req, res) => {
   try {
     const types = await BreakType.find().sort("displayName");
