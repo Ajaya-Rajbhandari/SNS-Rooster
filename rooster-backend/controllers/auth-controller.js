@@ -175,7 +175,10 @@ exports.updateCurrentUserProfile = async (req, res) => {
   try {
     console.log('PATCH /me request body:', req.body);
     const updates = Object.keys(req.body);
-    const allowedUpdates = ['firstName', 'lastName', 'email', 'department', 'position', 'phoneNumber', 'address', 'dateOfBirth', 'gender', 'profilePicture', 'password'];
+    const allowedUpdates = [
+      'firstName', 'lastName', 'email', 'department', 'position', 'phone', 'address', 'dateOfBirth', 'gender', 'profilePicture', 'password',
+      'education', 'certificates', 'emergencyContact', 'emergencyPhone', 'emergencyRelationship'
+    ];
     const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
 
     if (!isValidOperation) {
@@ -208,6 +211,29 @@ exports.updateCurrentUserProfile = async (req, res) => {
       }
     }
 
+    // --- BEGIN: Ensure education/certificates document fields are mapped correctly ---
+    if (req.body.education && Array.isArray(req.body.education)) {
+      req.body.education = req.body.education.map((edu, idx) => {
+        // If a document was uploaded for this education entry, ensure it is mapped to 'certificate'
+        if (edu.uploadedFilePath) {
+          edu.certificate = edu.uploadedFilePath;
+          delete edu.uploadedFilePath;
+        }
+        return edu;
+      });
+    }
+    if (req.body.certificates && Array.isArray(req.body.certificates)) {
+      req.body.certificates = req.body.certificates.map((cert, idx) => {
+        // If a document was uploaded for this certificate entry, ensure it is mapped to 'document'
+        if (cert.uploadedFilePath) {
+          cert.document = cert.uploadedFilePath;
+          delete cert.uploadedFilePath;
+        }
+        return cert;
+      });
+    }
+    // --- END: Ensure education/certificates document fields are mapped correctly ---
+
     // Sanity check: ensure avatar/profilePicture never include '/api/uploads/'
     if (user.avatar && user.avatar.startsWith('/api/uploads/')) {
       user.avatar = user.avatar.replace('/api/uploads/', '/uploads/');
@@ -221,6 +247,12 @@ exports.updateCurrentUserProfile = async (req, res) => {
         user[update] = req.body[update];
       }
     });
+
+    // Map frontend field to backend schema if needed
+    if (req.body.emergencyContactRelationship && !req.body.emergencyRelationship) {
+      req.body.emergencyRelationship = req.body.emergencyContactRelationship;
+      delete req.body.emergencyContactRelationship;
+    }
 
     // Recalculate profile completeness after updates
     user.recalculateProfileComplete();
@@ -247,7 +279,10 @@ exports.updateUserProfileByAdmin = async (req, res) => {
 
     const { id } = req.params;
     const updates = Object.keys(req.body);
-    const allowedUpdates = ['firstName', 'lastName', 'email', 'role', 'department', 'position', 'isActive', 'phoneNumber', 'address', 'dateOfBirth', 'gender', 'profilePicture', 'password'];
+    const allowedUpdates = [
+      'firstName', 'lastName', 'email', 'role', 'department', 'position', 'isActive', 'phoneNumber', 'address', 'dateOfBirth', 'gender', 'profilePicture', 'password',
+      'education', 'certificates'
+    ];
     const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
 
     if (!isValidOperation) {
