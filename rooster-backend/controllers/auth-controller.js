@@ -21,25 +21,8 @@ exports.login = async (req, res) => {
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid email or password' });
-    }
-
-    user.lastLogin = new Date();
+    }    user.lastLogin = new Date();
     await user.save();
-
-    console.log('DEBUG: Starting token generation');
-    console.log('DEBUG: User data for token:', {
-      userId: user._id,
-      email: user.email,
-      role: user.role,
-      isProfileComplete: user.isProfileComplete
-    });
-    console.log('DEBUG: JWT_SECRET during token generation:', process.env.JWT_SECRET);
-    console.log('DEBUG: User data passed to jwt.sign:', {
-      userId: user._id,
-      email: user.email,
-      role: user.role,
-      isProfileComplete: user.isProfileComplete
-    });
 
     if (!process.env.JWT_SECRET) {
       console.error('ERROR: JWT_SECRET is not defined in environment variables');
@@ -57,13 +40,12 @@ exports.login = async (req, res) => {
         process.env.JWT_SECRET,
         { expiresIn: '24h' }
       );
-      console.log('DEBUG: Token generated successfully:', token);
       res.json({
         token,
         user: user.getPublicProfile()
       });
     } catch (error) {
-      console.error('DEBUG: Error during token generation:', error);
+      console.error('Error during token generation:', error);
       res.status(500).json({ message: 'Server error during token generation' });
     }
   } catch (error) {
@@ -254,13 +236,9 @@ exports.updateCurrentUserProfile = async (req, res) => {
       delete req.body.emergencyContactRelationship;
     }
 
-    // Recalculate profile completeness after updates
-    user.recalculateProfileComplete();
+    // Recalculate profile completeness after updates    user.recalculateProfileComplete();
 
     await user.save();
-    // Debug log after save
-    console.log('DEBUG: Saved user.avatar:', user.avatar);
-    console.log('DEBUG: Saved user.profilePicture:', user.profilePicture);
 
     // Fetch the updated user from the database to ensure fresh data is returned
     const updatedUser = await User.findById(user._id);
@@ -418,12 +396,8 @@ exports.deleteUser = async (req, res) => {
 };
 
 exports.uploadDocument = async (req, res) => {
-  try {
-    const { documentType } = req.body;
+  try {    const { documentType } = req.body;
     const userId = req.user.userId;
-
-    console.log('UPLOAD DEBUG: documentType:', documentType);
-    console.log('UPLOAD DEBUG: req.file:', req.file);
 
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
@@ -434,9 +408,6 @@ exports.uploadDocument = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    console.log('UPLOAD DEBUG: user.idCard before:', user.idCard);
-    console.log('UPLOAD DEBUG: user.passport before:', user.passport);
-
     if (req.user.role !== 'admin' && req.user.userId !== userId) {
       return res.status(403).json({ message: 'Unauthorized to upload document' });
     }
@@ -445,16 +416,13 @@ exports.uploadDocument = async (req, res) => {
     // Remove old file if updating same document type
     if (documentType === 'idCard' && user.idCard) {
       const oldPath = path.join(__dirname, '..', user.idCard);
-      fs.unlink(oldPath, (err) => {
-        if (err) console.error('Error deleting old ID card:', err);
-        else console.log('UPLOAD DEBUG: Deleted old ID card:', oldPath);
+      fs.unlink(oldPath, (err) => {        if (err) console.error('Error deleting old ID card:', err);
       });
     }
     if (documentType === 'passport' && user.passport) {
       const oldPath = path.join(__dirname, '..', user.passport);
       fs.unlink(oldPath, (err) => {
         if (err) console.error('Error deleting old passport:', err);
-        else console.log('UPLOAD DEBUG: Deleted old passport:', oldPath);
       });
     }
     // Save new file path
@@ -467,12 +435,7 @@ exports.uploadDocument = async (req, res) => {
       user.documents[docIndex].path = filePath;
     } else {
       user.documents.push({ type: documentType, path: filePath });
-    }
-
-    console.log('UPLOAD DEBUG: user.idCard after:', user.idCard);
-    console.log('UPLOAD DEBUG: user.passport after:', user.passport);
-
-    await user.save();
+    }    await user.save();
 
     res.status(200).json({
       message: 'Document uploaded successfully',

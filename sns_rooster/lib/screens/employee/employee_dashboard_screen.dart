@@ -146,11 +146,9 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
           'avatar': profile['avatar'],
         }));
   }
-
   void _clockIn() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?['_id'];
-    print('DEBUG: Attempting check-in with userId: ${userId?.toString() ?? 'null'}');
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('User not logged in. Please log in again.')),
@@ -158,8 +156,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       return;
     }
     try {
-      final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);      final attendanceService = AttendanceService(authProvider);
-      print('DEBUG: Fetched userId from AuthProvider: ${authProvider.user?['_id']?.toString() ?? 'null'}');      await attendanceService.checkIn(userId);
+      final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);      final attendanceService = AttendanceService(authProvider);      await attendanceService.checkIn(userId);
       await attendanceProvider.fetchTodayStatus(userId);
       // Note: fetchTodayStatus now also fetches currentAttendance data
       ScaffoldMessenger.of(context).showSnackBar(
@@ -202,15 +199,11 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
 
   Future<void> _startBreak() async {
     final selected = await _showBreakTypeSelectionDialog();
-    if (selected == null) return;
-    final uid = context.read<AuthProvider>().user!['_id'] as String;    print('DEBUG: Calling startBreakWithType...');    await context.read<AttendanceProvider>().startBreakWithType(uid, selected);
-    print('DEBUG: startBreakWithType completed. Calling fetchTodayStatus...');
+    if (selected == null) return;    final uid = context.read<AuthProvider>().user!['_id'] as String;
+    await context.read<AttendanceProvider>().startBreakWithType(uid, selected);
     await context.read<AttendanceProvider>().fetchTodayStatus(uid);
     // Note: fetchTodayStatus now also fetches currentAttendance data
-    print('DEBUG: After fetchTodayStatus, todayStatus is: \\${context.read<AttendanceProvider>().todayStatus}');
-    print('DEBUG: fetchTodayStatus completed. Calling setState...');
     setState(() {});
-    print('DEBUG: setState called.');
   }
 
   Future<Map<String, dynamic>?> _showBreakTypeSelectionDialog() async {
@@ -260,12 +253,9 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       },
     );
   }
-
   Future<List<Map<String, dynamic>>> _fetchBreakTypes() async {
     try {
-      print('FETCH_BREAK_TYPES_DEBUG: Sending request to ${ApiConfig.baseUrl}/attendance/break-types');
       final token = Provider.of<AuthProvider>(context, listen: false).token;
-      print('FETCH_BREAK_TYPES_DEBUG: Token being sent: $token');
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/attendance/break-types'),
         headers: {
@@ -274,12 +264,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
         },
       );
 
-      print('FETCH_BREAK_TYPES_DEBUG: Response status code: ${response.statusCode}');
-      print('FETCH_BREAK_TYPES_DEBUG: Response body: ${response.body}');
-
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        print('FETCH_BREAK_TYPES_DEBUG: Parsed data: $data');
         return List<Map<String, dynamic>>.from(data);
       } else if (response.statusCode == 401) {
         // Unauthorized: Token expired or invalid
@@ -294,9 +280,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to fetch break types: ${response.statusCode}')),
         );
-      }
-    } catch (e) {
-      print('FETCH_BREAK_TYPES_DEBUG: Error fetching break types: $e');
+      }    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error fetching break types: $e')),
       );
@@ -327,10 +311,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?['_id'];
     if (userId != null) {
-      try {        final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);        await attendanceProvider.endBreak(userId);
-        await attendanceProvider.fetchTodayStatus(userId);
+      try {        final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);        await attendanceProvider.endBreak(userId);        await attendanceProvider.fetchTodayStatus(userId);
         // Note: fetchTodayStatus now also fetches currentAttendance data
-        print('DEBUG: todayStatus after fetchTodayStatus in _endBreak: \\${attendanceProvider.todayStatus}');
         setState(() {
           _isOnBreak = false;
         });
@@ -477,12 +459,8 @@ String _capitalizeFirstLetter(String text) {
 class _DashboardHeader extends StatelessWidget {
   final Map<String, dynamic>? profile;
   const _DashboardHeader({this.profile});
-
   @override
   Widget build(BuildContext context) {
-    // Debug: Print profile data every time the widget builds
-    print('[DASHBOARD HEADER] Profile data:');
-    print(profile);
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -826,12 +804,9 @@ class StatusCard extends StatelessWidget {
             break;          case 'clocked_in':
             statusLabel = 'Clocked In';
             statusIcon = Icons.access_time;
-            statusColor = Colors.blue;
-            if (currentAttendance != null) {
-              print('DEBUG StatusCard: currentAttendance keys = ${currentAttendance.keys.toList()}');
+            statusColor = Colors.blue;            if (currentAttendance != null) {
               final checkInTime = currentAttendance['checkInTime'];
               final breaks = currentAttendance['breaks'] as List?;
-              print('DEBUG StatusCard: checkInTime value = $checkInTime (type: ${checkInTime.runtimeType})');
               
               if (checkInTime != null) {
                 try {
@@ -1002,9 +977,8 @@ class StatusCard extends StatelessWidget {
                         ),
                       ),
                     ]);
-                  }
-                } catch (e) {
-                  print('DEBUG StatusCard: Error parsing checkInTime: $e');
+                  }                } catch (e) {
+                  // Error parsing checkInTime - continue without showing additional details
                 }
               }
             }
