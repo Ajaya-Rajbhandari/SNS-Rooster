@@ -32,14 +32,14 @@ class LeaveRequestProvider with ChangeNotifier {
   }
 
   // --- Get User Leave Requests (Employee) ---
-  Future<void> getUserLeaveRequests(String userId) async {
+  Future<void> getUserLeaveRequests(String employeeId) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
       final prefs = await SharedPreferences.getInstance();
       final api = ApiService(baseUrl: ApiConfig.baseUrl, prefs: prefs);
-      final response = await api.get('/leave/history');
+      final response = await api.get('/leave/history?employeeId=$employeeId');
       if (response.success && response.data != null) {
         _leaveRequests.clear();
         for (final item in response.data) {
@@ -169,16 +169,14 @@ class LeaveRequestProvider with ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final api = ApiService(baseUrl: ApiConfig.baseUrl, prefs: prefs);
-      final response = await api.get('/employees');
+      final response = await api.get('/employees/user/$userId');
+      print('DEBUG: employee API response: success=${response.success}, data=${response.data}, message=${response.message}');
       if (response.success && response.data != null) {
-        for (final emp in response.data) {
-          if (emp['userId'] == userId) {
-            return emp['_id'];
-          }
-        }
+        return response.data['_id'];
       }
       return null;
     } catch (e) {
+      print('DEBUG: fetchEmployeeIdByUserId error: $e');
       return null;
     }
   }

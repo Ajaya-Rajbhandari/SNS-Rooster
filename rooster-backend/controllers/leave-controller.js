@@ -27,11 +27,24 @@ exports.applyLeave = async (req, res) => {
 // (Optional) Get leave history for employee
 exports.getLeaveHistory = async (req, res) => {
   try {
-    const employeeId = req.user && req.user.id ? req.user.id : req.query.employeeId;
+    // Always prefer query param if provided
+    const employeeId = req.query.employeeId || (req.user && req.user.id);
+    console.log('Leave history requested for employeeId:', employeeId);
     if (!employeeId) return res.status(400).json({ message: 'Employee ID is required.' });
     const leaves = await Leave.find({ employee: employeeId }).sort({ appliedAt: -1 });
-    res.json(leaves);
+    console.log('Found leaves:', leaves);
+    res.json({ success: true, data: leaves });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching leave history.', error: error.message });
+  }
+};
+
+// Get all leave requests for admin
+exports.getAllLeaveRequests = async (req, res) => {
+  try {
+    const leaveRequests = await Leave.find().populate('employee', 'name department');
+    res.json({ leaveRequests });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching leave requests.', error: error.message });
   }
 };

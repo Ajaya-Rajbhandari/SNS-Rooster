@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
 
 exports.getAllEmployees = async (req, res) => {
@@ -110,5 +111,35 @@ exports.getEmployeeDashboard = async (req, res) => {
   } catch (error) {
     console.error('DASHBOARD ROUTE: Error processing request:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.getEmployeeByUserId = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    console.log('Fetching employee with userId:', userId);
+    console.log('typeof userId:', typeof userId, 'value:', userId);
+
+    // Debug: print all employees and their userId fields
+    const allEmployees = await Employee.find({});
+    console.log('All employees:', allEmployees.map(e => ({_id: e._id, userId: e.userId, email: e.email})));
+
+    // Compare as strings for robustness
+    const employee = allEmployees.find(e => e.userId && e.userId.toString() === userId);
+
+    if (!employee) {
+      console.log('No employee found for userId:', userId);
+      return res.status(404).json({ message: 'Employee record not found' });
+    }
+
+    const employeeObj = employee.toObject();
+    if (employeeObj.userId && typeof employeeObj.userId === 'object' && employeeObj.userId.toString) {
+      employeeObj.userId = employeeObj.userId.toString();
+    }
+    // Return under { data: employeeObj } for frontend compatibility
+    res.status(200).json({ data: employeeObj });
+  } catch (error) {
+    console.error('Error fetching employee by userId:', error);
+    res.status(500).json({ message: error.message });
   }
 };

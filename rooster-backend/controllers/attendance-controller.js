@@ -368,3 +368,68 @@ exports.getBreakTypes = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+// AGGREGATE: Get today's attendance stats for all employees
+exports.getTodayAttendanceStats = async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    // Get all employees
+    const employees = await User.find({ role: "employee" });
+    const employeeIds = employees.map((u) => u._id);
+    const totalEmployees = employeeIds.length;
+
+    // Get today's date at UTC midnight
+    const now = new Date();
+    const today = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        0,
+        0,
+        0,
+        0
+      )
+    );
+    const tomorrow = new Date(today);
+    tomorrow.setUTCDate(today.getUTCDate() + 1);
+
+    // Find all attendance records for today
+    const attendanceToday = await Attendance.find({
+      user: { $in: employeeIds },
+      date: { $gte: today, $lt: tomorrow },
+    });
+    const presentIds = attendanceToday.map((a) => String(a.user));
+    const present = presentIds.length;
+
+    // Find all leave requests for today (approved only)
+    // (Assumes you have a LeaveRequest model with user, startDate, endDate, status)
+    let onLeave = 0;
+    try {
+      const LeaveRequest = require("../models/LeaveRequest");
+      const leaveToday = await LeaveRequest.find({
+        user: { $in: employeeIds },
+        status: "approved",
+        startDate: { $lte: today },
+        endDate: { $gte: today },
+      });
+      // Only count unique users on leave
+      const leaveIds = new Set(leaveToday.map((lr) => String(lr.user)));
+      onLeave = leaveIds.size;
+    } catch (e) {
+      // If LeaveRequest model missing, just skip
+      onLeave = 0;
+    }
+
+    // Absent = total - present - onLeave
+    const absent = Math.max(totalEmployees - present - onLeave, 0);
+
+    res.json({ present, absent, onLeave });
+  } catch (error) {
+    console.error("getTodayAttendanceStats error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

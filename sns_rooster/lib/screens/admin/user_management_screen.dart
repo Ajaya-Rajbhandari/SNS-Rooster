@@ -18,8 +18,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _firstNameController = TextEditingController();
-  final _lastNameController = TextEditingController(); // Added for last name
-  // Removed: _selectedRole, _selectedDepartment, _selectedPosition
+  final _lastNameController = TextEditingController();
+
   bool _isLoading = false;
   String? _error;
   List<Map<String, dynamic>> _users = [];
@@ -35,7 +35,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _firstNameController.dispose();
-    _lastNameController.dispose(); // Dispose last name controller
+    _lastNameController.dispose();
     super.dispose();
   }
 
@@ -135,6 +135,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     _passwordController.clear();
     _firstNameController.clear();
     _lastNameController.clear();
+    // _generateEmployeeId(); // Also, auto-generate Employee ID after form reset
   }
 
   Future<void> _createUser() async {
@@ -354,9 +355,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                   },
                                 ),
                                 TextFormField(
-                                  controller: _firstNameController, // Changed to _firstNameController
+                                  controller: _firstNameController,
                                   decoration: const InputDecoration(
-                                    labelText: 'First Name', // Changed label to 'First Name'
+                                    labelText: 'First Name',
                                   ),
                                   validator: (value) {
                                     if (value == null || value.isEmpty) {
@@ -364,20 +365,25 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                     }
                                     return null;
                                   },
+                                  onChanged: (value) {
+                                    // _generateEmployeeId();
+                                  },
                                 ),
-                                TextFormField( // Added TextFormField for Last Name
+                                TextFormField(
                                   controller: _lastNameController,
                                   decoration: const InputDecoration(
                                     labelText: 'Last Name',
                                   ),
                                   validator: (value) {
                                     if (value == null || value.isEmpty) {
-                                      return 'Please enter a last name'; // Corrected validation message
+                                      return 'Please enter a last name';
                                     }
                                     return null;
                                   },
+                                  onChanged: (value) {
+                                    // _generateEmployeeId();
+                                  },
                                 ),
-                                // Removed DropdownButtonFormField for Role, Department, and Position
                                 const SizedBox(height: 16),
                                 ElevatedButton(
                                   onPressed: _isLoading ? null : _createUser,
