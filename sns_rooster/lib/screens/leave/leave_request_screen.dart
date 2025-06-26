@@ -36,21 +36,34 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     'Unpaid Leave',
   ];
 
+  String? _employeeId;
+
   @override
   void initState() {
     super.initState();
-    _loadLeaveRequests();
+    _loadEmployeeAndLeaveRequests();
     _loadLeaveBalances();
     _selectedDay = _focusedDay; // Initialize selectedDay
   }
 
-  Future<void> _loadLeaveRequests() async {
+  Future<void> _loadEmployeeAndLeaveRequests() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final leaveProvider =
-        Provider.of<LeaveRequestProvider>(context, listen: false);
-
+    final leaveProvider = Provider.of<LeaveRequestProvider>(context, listen: false);
     if (authProvider.user?['_id'] != null) {
-      await leaveProvider.getUserLeaveRequests(authProvider.user!['_id']);
+      final employeeId = await leaveProvider.fetchEmployeeIdByUserId(authProvider.user!['_id']);
+      setState(() {
+        _employeeId = employeeId;
+      });
+      if (employeeId != null) {
+        await leaveProvider.getUserLeaveRequests(employeeId);
+      }
+    }
+  }
+
+  Future<void> _loadLeaveRequests() async {
+    final leaveProvider = Provider.of<LeaveRequestProvider>(context, listen: false);
+    if (_employeeId != null) {
+      await leaveProvider.getUserLeaveRequests(_employeeId!);
     }
   }
 
@@ -109,6 +122,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       String? employeeId;
       if (userId != null) {
         final fetchedEmployeeId = await leaveProvider.fetchEmployeeIdByUserId(userId);
+        print('DEBUG: fetchEmployeeIdByUserId($userId) returned: $fetchedEmployeeId');
         if (fetchedEmployeeId != null) {
           employeeId = fetchedEmployeeId;
         }
@@ -121,7 +135,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         return;
       }
       final success = await leaveProvider.createLeaveRequest({
-        'employee': employeeId, // Use Employee document _id
+        'employeeId': employeeId, // Use Employee document _id (backend expects 'employeeId')
         'employeeName': authProvider.user?['name'] ?? 'Unknown',
         'leaveType': _selectedLeaveType,
         'startDate': _startDate!.toIso8601String(),

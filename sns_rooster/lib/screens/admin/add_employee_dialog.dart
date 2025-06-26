@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:sns_rooster/services/employee_service.dart';
 import 'package:sns_rooster/models/user_model.dart';
 import 'package:sns_rooster/services/user_service.dart';
-import 'package:sns_rooster/utils/constants.dart';
 
 class AddEmployeeDialog extends StatefulWidget {
   final EmployeeService employeeService;
@@ -16,14 +15,10 @@ class AddEmployeeDialog extends StatefulWidget {
 class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _employeeIdController = TextEditingController();
-  final TextEditingController _positionController = TextEditingController();
-  final TextEditingController _departmentController = TextEditingController();
 
   final UserService _userService = UserService();
   List<UserModel> _users = [];
   UserModel? _selectedUser;
-  String? _selectedPosition;
-  String? _selectedDepartment;
   String? _selectedRole;
   bool _isLoadingUsers = true;
 
@@ -35,6 +30,13 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
 
   List<Map<String, dynamic>> _employees = [];
 
+  // Added Position and Department dropdowns
+  final List<String> positions = ['Manager', 'Developer', 'Designer', 'QA', 'HR', 'Support', 'Intern', 'Other'];
+  final List<String> departments = ['Engineering', 'Design', 'HR', 'Support', 'Sales', 'Marketing', 'Finance', 'Other'];
+
+  String? _selectedPosition;
+  String? _selectedDepartment;
+
   @override
   void initState() {
     super.initState();
@@ -45,8 +47,6 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
   @override
   void dispose() {
     _employeeIdController.dispose();
-    _positionController.dispose();
-    _departmentController.dispose();
     super.dispose();
   }
 
@@ -56,8 +56,13 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
     });
     try {
       final users = await _userService.getUsers();
+      // Filter out admin/test users
+      final filtered = users.where((user) {
+        final email = user.email.toLowerCase();
+        return !email.contains('admin') && !email.contains('test');
+      }).toList();
       setState(() {
-        _users = users;
+        _users = filtered;
         _isLoadingUsers = false;
       });
     } catch (e) {
@@ -66,7 +71,7 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load users: ${e.toString()}')),
+          SnackBar(content: Text('Failed to load users: {e.toString()}')),
         );
       }
     }
@@ -103,18 +108,6 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
       });
       return;
     }
-    if (_selectedPosition == null) {
-      setState(() {
-        _error = 'Please select a position.';
-      });
-      return;
-    }
-    if (_selectedDepartment == null) {
-      setState(() {
-        _error = 'Please select a department.';
-      });
-      return;
-    }
 
     // Extra validation: check if this user is already an employee
     final alreadyEmployee = _employees.any((emp) => emp['userId'] == _selectedUser!.id);
@@ -137,9 +130,9 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
         'lastName': _selectedUser!.lastName,
         'email': _selectedUser!.email,
         'employeeId': _employeeIdController.text.trim(),
+        'role': _selectedRole,
         'position': _selectedPosition,
         'department': _selectedDepartment,
-        'role': _selectedRole,
       };
 
       await widget.employeeService.addEmployee(newEmployeeData);
@@ -162,6 +155,17 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
         }
       }
     }
+  }
+
+  // Fixed Employee ID generation logic
+  String _generateEmployeeIdFromUser(UserModel user) {
+    final first = user.firstName.trim();
+    final last = user.lastName.trim();
+    String initials = '';
+    if (first.isNotEmpty) initials += first[0].toUpperCase();
+    if (last.isNotEmpty) initials += last[0].toUpperCase();
+    final ts = DateTime.now().millisecondsSinceEpoch % 100000;
+    return initials.isNotEmpty ? '$initials$ts' : 'EMP$ts';
   }
 
   @override
@@ -197,25 +201,28 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                                     border: OutlineInputBorder(),
                                   ),
                                   value: _selectedUser,
-                                  isExpanded: true, // Allow the dropdown to expand
+                                  isExpanded: true,
                                   items: _users.map((UserModel user) {
                                     return DropdownMenuItem<UserModel>(
                                       value: user,
-                                      child: Expanded(
-                                        child: Text(
-                                          user.displayName,
-                                          overflow: TextOverflow.ellipsis, // Handle long text
-                                        ),
+                                      child: Text(
+                                        user.displayName,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     );
                                   }).toList(),
                                   onChanged: (UserModel? newValue) {
                                     setState(() {
                                       _selectedUser = newValue;
+                                      // Auto-fill and generate Employee ID when user is selected
+                                      if (newValue != null) {
+                                        _employeeIdController.text = _generateEmployeeIdFromUser(newValue);
+                                      } else {
+                                        _employeeIdController.clear();
+                                      }
                                     });
                                   },
-                                  validator: (value) =>
-                                      value == null ? 'Please select a user' : null,
+                                  validator: (value) => value == null ? 'Please select a user' : null,
                                 ),
                                 if (_selectedUser != null) ...[
                                   const SizedBox(height: 8),
@@ -266,7 +273,7 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
               ),
               const SizedBox(height: 16),
 
-              // Employee Details Section
+              // Employee ID Section
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
@@ -274,7 +281,7 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Employee Details',
+                        'Employee ID',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
@@ -287,14 +294,29 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                         validator: (v) =>
                             v == null || v.isEmpty ? 'Required' : null,
                       ),
-                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Position Dropdown
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Select Position',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         decoration: const InputDecoration(
-                          labelText: 'Position',
+                          hintText: 'Select position',
                           border: OutlineInputBorder(),
                         ),
-                        value: _selectedPosition,
-                        items: EmployeeConstants.positions.map((String position) {
+                        items: positions.map((String position) {
                           return DropdownMenuItem<String>(
                             value: position,
                             child: Text(position),
@@ -305,17 +327,31 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                             _selectedPosition = newValue;
                           });
                         },
-                        validator: (value) =>
-                            value == null ? 'Please select a position' : null,
+                        validator: (value) => value == null ? 'Please select a position' : null,
                       ),
-                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Department Dropdown
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Select Department',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         decoration: const InputDecoration(
-                          labelText: 'Department',
+                          hintText: 'Select department',
                           border: OutlineInputBorder(),
                         ),
-                        value: _selectedDepartment,
-                        items: EmployeeConstants.departments.map((String department) {
+                        items: departments.map((String department) {
                           return DropdownMenuItem<String>(
                             value: department,
                             child: Text(department),
@@ -326,8 +362,7 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                             _selectedDepartment = newValue;
                           });
                         },
-                        validator: (value) =>
-                            value == null ? 'Please select a department' : null,
+                        validator: (value) => value == null ? 'Please select a department' : null,
                       ),
                     ],
                   ),

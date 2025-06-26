@@ -34,6 +34,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
     _loadDashboardData();
   }
 
+  // Updated _loadDashboardData to fetch real data from backend
   Future<void> _loadDashboardData() async {
     if (!mounted) return;
 
@@ -46,9 +47,9 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final token = authProvider.token;
 
-      // Fetch all users for total count and department stats
+      // Fetch total employees and department stats
       final usersResponse = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/users'),
+        Uri.parse('${ApiConfig.baseUrl}/auth/users'), // Updated endpoint
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -60,34 +61,71 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
 
       if (usersResponse.statusCode == 200) {
         final usersData = jsonDecode(usersResponse.body);
-        if (usersData['users'] is List) {
-          final usersList = usersData['users'] as List;
+        if (usersData is List) { // Updated parsing logic
+          // Filter only users with role 'employee'
+          final usersList = usersData.where((user) => user['role'] == 'employee').toList();
           totalEmployees = usersList.length;
-          // Calculate department stats (total per department)
           for (var user in usersList) {
             final department = user['department'] ?? 'Unknown';
             if (departmentStats.containsKey(department)) {
               departmentStats[department]['total'] =
                   (departmentStats[department]['total'] ?? 0) + 1;
-              // TODO: Need attendance data to calculate 'present' per department
-              departmentStats[department]['present'] =
-                  departmentStats[department]['present'] ?? 0;
             } else {
               departmentStats[department] = {
                 'total': 1,
-                'present': 0
-              }; // Present count needs real data
+                'present': 0,
+              };
             }
           }
+        } else {
+          throw Exception('Unexpected data format for users');
         }
       } else {
-        print('Failed to load users: ${usersResponse.statusCode}');
-        // Handle error or set default/error state for totalEmployees and departmentStats
+        print('Failed to load users: \\${usersResponse.statusCode} \\${usersResponse.body}');
+        throw Exception('Failed to load users');
       }
 
-      // Fetch leave requests for pending count
+      // Fetch attendance stats (try only /attendance/today, since baseUrl already includes /api)
+      int presentToday = 0;
+      int absentToday = 0;
+      int onLeaveToday = 0;
+      bool attendanceLoaded = false;
+      final attendanceEndpoints = [
+        '/attendance/today',
+      ];
+      for (final endpoint in attendanceEndpoints) {
+        final attendanceResponse = await http.get(
+          Uri.parse('${ApiConfig.baseUrl}$endpoint'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        );
+        if (attendanceResponse.statusCode == 200) {
+          final attendanceData = jsonDecode(attendanceResponse.body);
+          if (attendanceData is Map &&
+              attendanceData.containsKey('present') &&
+              attendanceData.containsKey('absent') &&
+              attendanceData.containsKey('onLeave')) {
+            presentToday = attendanceData['present'] ?? 0;
+            absentToday = attendanceData['absent'] ?? 0;
+            onLeaveToday = attendanceData['onLeave'] ?? 0;
+            attendanceLoaded = true;
+            break;
+          }
+        } else {
+          print('Attendance endpoint $endpoint failed: '
+                '${attendanceResponse.statusCode} ${attendanceResponse.body}');
+        }
+      }
+      if (!attendanceLoaded) {
+        print('Attendance stats unavailable from all tried endpoints.');
+        // Do not throw; just leave stats as 0
+      }
+
+      // Fetch leave requests
       final leaveRequestsResponse = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/leave-requests'),
+        Uri.parse('${ApiConfig.baseUrl}/leave/history'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -97,42 +135,38 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
       int pendingLeaveRequests = 0;
       if (leaveRequestsResponse.statusCode == 200) {
         final leaveRequestsData = jsonDecode(leaveRequestsResponse.body);
-        if (leaveRequestsData['leaveRequests'] is List) {
-          pendingLeaveRequests = (leaveRequestsData['leaveRequests'] as List)
-              .where((req) => req['status'] == 'pending')
-              .length;
+        if (leaveRequestsData is Map && leaveRequestsData.containsKey('leaveRequests')) {
+          final leaveRequestsList = leaveRequestsData['leaveRequests'];
+          if (leaveRequestsList is List) {
+            pendingLeaveRequests = leaveRequestsList
+                .where((req) => req['status'] == 'pending')
+                .length;
+          } else {
+            throw Exception('Unexpected data format for leaveRequests');
+          }
+        } else {
+          throw Exception('Missing leaveRequests key in response');
         }
       } else {
-        print(
-            'Failed to load leave requests: ${leaveRequestsResponse.statusCode}');
+        print('Failed to load leave requests: ${leaveRequestsResponse.statusCode} ${leaveRequestsResponse.body}');
+        throw Exception('Failed to load leave requests');
       }
-
-      // TODO: Fetch actual data for these from dedicated API endpoints when available
-      int presentToday =
-          0; // Placeholder - API needed (e.g., from /api/attendance/today)
-      int absentToday = 0; // Placeholder - API needed
-      int onLeaveToday =
-          0; // Placeholder - API needed (derive from approved leave requests for today)
-      int upcomingHolidays =
-          0; // Placeholder - API needed (e.g., from /api/holidays)
 
       if (!mounted) return;
       setState(() {
         _stats = {
           'totalEmployees': totalEmployees,
-          'presentToday': presentToday, // TODO: Replace with real data
-          'absentToday': absentToday, // TODO: Replace with real data
-          'onLeaveToday': onLeaveToday, // TODO: Replace with real data
+          'presentToday': presentToday,
+          'absentToday': absentToday,
+          'onLeaveToday': onLeaveToday,
           'pendingLeaveRequests': pendingLeaveRequests,
-          'upcomingHolidays': upcomingHolidays, // TODO: Replace with real data
-          'departmentStats':
-              departmentStats, // Partially real, 'present' count is placeholder
+          'departmentStats': departmentStats,
         };
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Failed to load dashboard data';
+        _error = e.toString();
       });
     } finally {
       if (!mounted) return;
@@ -144,13 +178,10 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      // Added Scaffold
       appBar: AppBar(
-        // Added AppBar
         title: const Text('Overview'),
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
@@ -178,6 +209,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
               ),
             );
           }
+
           return RefreshIndicator(
             onRefresh: _loadDashboardData,
             child: SingleChildScrollView(
@@ -209,23 +241,22 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
     final user = Provider.of<AuthProvider>(context).user;
     final now = DateTime.now();
     final greeting = _getGreeting(now.hour);
-    final theme = Theme.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           '$greeting, ${user?['name'] ?? 'Admin'}!',
-          style: theme.textTheme.headlineMedium?.copyWith(
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onSurface,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 8),
         Text(
           DateFormat('EEEE, MMMM d, y').format(now),
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: theme.colorScheme.onSurface.withOpacity(0.7),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
           ),
         ),
       ],
@@ -239,7 +270,6 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
   }
 
   Widget _buildQuickStats(BuildContext context) {
-    final theme = Theme.of(context);
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
@@ -249,28 +279,24 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
       childAspectRatio: 1.2, // Adjusted for better fit
       children: [
         _buildStatCard(
-          context,
           'Total Employees',
           _stats['totalEmployees'].toString(),
           Icons.people,
-          theme.colorScheme.primary,
+          Theme.of(context).colorScheme.primary,
         ),
         _buildStatCard(
-          context,
           'Present Today',
           _stats['presentToday'].toString(),
           Icons.check_circle,
           Colors.green,
         ),
         _buildStatCard(
-          context,
           'On Leave',
           _stats['onLeaveToday'].toString(),
           Icons.event_busy,
-          theme.colorScheme.secondary,
+          Theme.of(context).colorScheme.secondary,
         ),
         _buildStatCard(
-          context,
           'Pending Requests',
           _stats['pendingLeaveRequests'].toString(),
           Icons.pending_actions,
@@ -281,67 +307,57 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
   }
 
   Widget _buildStatCard(
-    BuildContext context,
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    final theme = Theme.of(context);
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: LinearGradient(
-            colors: [
-              color.withOpacity(0.1),
-              color.withOpacity(0.05),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+        String title,
+        String value,
+        IconData icon,
+        Color color,
+      ) {
+        return Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [color.withOpacity(0.7), color],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  icon,
-                  color: color,
-                  size: 24,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: theme.textTheme.titleSmall?.copyWith( // Changed from titleMedium to titleSmall
-                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                Row(
+                  children: [
+                    Icon(icon, color: Colors.white, size: 28),
+                    const SizedBox(width: 8),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
-                    overflow: TextOverflow.ellipsis, // Added ellipsis for long text
-                    maxLines: 2, // Allow up to 2 lines for the title
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 24,
                   ),
                 ),
               ],
             ),
-            const Spacer(),
-            Text(
-              value,
-              style: theme.textTheme.headlineMedium?.copyWith(
-                color: theme.colorScheme.onSurface,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+          ),
+        );
+      }
 
   Widget _buildAttendanceChart(BuildContext context) {
     return Card(

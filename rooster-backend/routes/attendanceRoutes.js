@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require("../middleware/auth");
 const attendanceController = require("../controllers/attendance-controller");
 const BreakType = require("../models/BreakType");
+const Attendance = require('../models/Attendance');
 
 // Check-in (User can check-in once per day)
 router.post("/check-in", auth, attendanceController.checkIn);
@@ -136,5 +137,8 @@ router.post("/debug/clock-in/:userId", auth, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+// Aggregate attendance stats for today (admin only)
+router.get("/today", auth, attendanceController.getTodayAttendanceStats);
 
 module.exports = router;

@@ -22,6 +22,9 @@ router.delete('/:id', authMiddleware, employeeController.deleteEmployee);
 // Employee dashboard route (authenticated users only)
 router.get('/dashboard', authMiddleware, employeeController.getEmployeeDashboard);
 
+// Get a single employee by User ID (admin/manager or self)
+router.get('/user/:userId', authMiddleware, employeeController.getEmployeeByUserId);
+
 console.log('EMPLOYEE ROUTES: Registering /dashboard route');
 
 module.exports = router;
