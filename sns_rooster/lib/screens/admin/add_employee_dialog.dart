@@ -33,10 +33,13 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
   String? _error;
   bool _dialogResult = false;
 
+  List<Map<String, dynamic>> _employees = [];
+
   @override
   void initState() {
     super.initState();
     _fetchUsers();
+    _fetchEmployees();
   }
 
   @override
@@ -69,6 +72,20 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
     }
   }
 
+  Future<void> _fetchEmployees() async {
+    try {
+      final employees = await widget.employeeService.getEmployees();
+      setState(() {
+        _employees = employees;
+      });
+    } catch (e) {
+      // Optionally show a warning, but don't block the dialog
+      setState(() {
+        _employees = [];
+      });
+    }
+  }
+
   Future<void> _addEmployee() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -95,6 +112,15 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
     if (_selectedDepartment == null) {
       setState(() {
         _error = 'Please select a department.';
+      });
+      return;
+    }
+
+    // Extra validation: check if this user is already an employee
+    final alreadyEmployee = _employees.any((emp) => emp['userId'] == _selectedUser!.id);
+    if (alreadyEmployee) {
+      setState(() {
+        _error = 'This user is already assigned as an employee.';
       });
       return;
     }

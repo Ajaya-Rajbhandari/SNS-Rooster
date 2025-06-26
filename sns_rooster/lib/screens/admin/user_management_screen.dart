@@ -42,7 +42,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   Future<void> _loadUsers({bool showErrors = true}) async {
     setState(() {
       _isLoading = true;
-      if (showErrors) _error = null;
+      _error = null; // Always clear error at the start of loading
     });
 
     print('Attempting to load users...');
@@ -50,6 +50,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     try {
       final token = Provider.of<AuthProvider>(context, listen: false).token;
       print('Auth Token: $token');
+
+      print('DEBUG: ApiConfig.baseUrl = \'${ApiConfig.baseUrl}\'' );
+      print('DEBUG: Auth Token = $token');
 
       if (token == null || token.isEmpty) {
         print('Authentication token is missing or empty.');
@@ -80,13 +83,20 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         setState(() {
           _users = usersJson.cast<Map<String, dynamic>>();
           _isLoading = false;
+          _error = null; // Clear error on successful load
         });
         print('Users loaded successfully: \\${_users.length} users');
       } else if (response.statusCode == 401) {
         setState(() {
-          _error = 'Failed to load users: Unauthorized access. Please log in again.';
+          _error = 'Session expired or invalid token. Please log in again.';
           _isLoading = false;
         });
+        // Show a snackbar for better UX
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Session expired. Please log in again.')),
+          );
+        }
         // Navigate to login screen
         Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
       } else {
@@ -103,6 +113,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         }
       }
     } catch (e, stackTrace) {
+      print('NETWORK ERROR during user list reload: $e');
       print('Error loading users: $e');
       print('Stack trace: $stackTrace');
       if (showErrors) {
@@ -116,6 +127,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         });
       }
     }
+  }
+
+  void _resetFormFields() {
+    _formKey.currentState?.reset();
+    _emailController.clear();
+    _passwordController.clear();
+    _firstNameController.clear();
+    _lastNameController.clear();
   }
 
   Future<void> _createUser() async {
@@ -133,7 +152,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         Uri.parse('${ApiConfig.baseUrl}/auth/register'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer \\${authProvider.token}',
+          'Authorization': 'Bearer ${authProvider.token}',
         },
         body: json.encode({
           'email': _emailController.text,
@@ -143,6 +162,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         }),
       );
 
+      print('Create user response status: \\${response.statusCode}');
+      print('Create user response body: \\${response.body}');
+
       if (!mounted) return;
       final data = json.decode(response.body);
 
@@ -150,38 +172,28 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User created successfully')),
         );
-        _formKey.currentState!.reset();
-        _emailController.clear();
-        _passwordController.clear();
-        _firstNameController.clear();
-        _lastNameController.clear();
-        setState(() {
-          _error = null;
-          _isLoading = true; // Show loading while reloading users
-        });
-        try {
-          await _loadUsers(showErrors: true);
-        } catch (e) {
-          setState(() {
-            _error = 'User created, but failed to reload user list: $e';
-          });
-        }
+        _resetFormFields();
+        // Await user list reload before finishing
+        await _loadUsers(showErrors: true);
+        // Do NOT call setState here; _loadUsers handles _isLoading and _error
       } else {
         setState(() {
           _error = data['message'] ?? 'Failed to create user';
+          _isLoading = false;
         });
+        // Show error in a SnackBar for visibility
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_error ?? 'Failed to create user')),
+          );
+        }
       }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = 'Network error occurred';
+        _isLoading = false;
       });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
   }
 
@@ -295,12 +307,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       drawer: const AdminSideNavigation(currentRoute: '/user_management'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child:
-                      Text(_error!, style: const TextStyle(color: Colors.red)),
-                )
-              : SingleChildScrollView(
+          : (_users.isNotEmpty)
+              ? SingleChildScrollView(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -381,6 +389,24 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'User List',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.refresh),
+                            tooltip: 'Reload User List',
+                            onPressed: _isLoading ? null : () => _loadUsers(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
                       Card(
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
@@ -455,7 +481,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       ),
                     ],
                   ),
-                ),
+                )
+              : (_error != null)
+                  ? Center(
+                      child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                    )
+                  : const Center(
+                      child: Text('No users found.', style: TextStyle(color: Colors.grey)),
+                    ),
     );
   }
 }
