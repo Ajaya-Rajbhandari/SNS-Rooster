@@ -21,7 +21,8 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
   late final EmployeeService _employeeService;
   late final EmployeeProvider _employeeProvider;
   List<Map<String, dynamic>> _employees = []; // Master list of all employees
-  List<Map<String, dynamic>> _filteredEmployees = []; // List of employees to display (after filtering)
+  List<Map<String, dynamic>> _filteredEmployees =
+      []; // List of employees to display (after filtering)
   bool _isLoading = false;
   String? _error;
 
@@ -32,7 +33,8 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _employeeService =
           EmployeeService(Provider.of<AuthProvider>(context, listen: false));
-      _employeeProvider = Provider.of<EmployeeProvider>(context, listen: false); // Initialize EmployeeProvider
+      _employeeProvider = Provider.of<EmployeeProvider>(context,
+          listen: false); // Initialize EmployeeProvider
       _loadEmployees();
     });
   }
@@ -86,7 +88,8 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
     } else {
       setState(() {
         _filteredEmployees = _employees.where((employee) {
-          final firstName = employee['firstName']?.toString().toLowerCase() ?? '';
+          final firstName =
+              employee['firstName']?.toString().toLowerCase() ?? '';
           final lastName = employee['lastName']?.toString().toLowerCase() ?? '';
           final email = employee['email']?.toString().toLowerCase() ?? '';
           final position = employee['position']?.toString().toLowerCase() ?? '';
@@ -134,21 +137,24 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
               Center(
                   child: Text(_error!,
                       style: TextStyle(color: theme.colorScheme.error)))
-            else if (_filteredEmployees.isEmpty && _searchController.text.isEmpty)
+            else if (_filteredEmployees.isEmpty &&
+                _searchController.text.isEmpty)
               Center(
                 child: Text(
                   'No employees found.',
                   style: theme.textTheme.bodyLarge,
                 ),
               )
-            else if (_filteredEmployees.isEmpty && _searchController.text.isNotEmpty)
-               Center(
+            else if (_filteredEmployees.isEmpty &&
+                _searchController.text.isNotEmpty)
+              Center(
                 child: Text(
                   'No employees match your search.',
                   style: theme.textTheme.bodyLarge,
                 ),
               )
-            else if (_employees.isEmpty) // This case might be redundant now but kept for safety
+            else if (_employees
+                .isEmpty) // This case might be redundant now but kept for safety
               Center(
                 child: Text(
                   'No employees found.',
@@ -174,7 +180,9 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                               insetPadding: const EdgeInsets.all(24),
                               child: SizedBox(
                                 width: 500,
-                                child: EmployeeDetailScreen(employee: employee, employeeProvider: _employeeProvider),
+                                child: EmployeeDetailScreen(
+                                    employee: employee,
+                                    employeeProvider: _employeeProvider),
                               ),
                             ),
                           );
@@ -185,7 +193,11 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                             children: [
                               CircleAvatar(
                                 backgroundColor: theme.colorScheme.primary,
-                                child: Text((employee['firstName'] != null && employee['firstName'].isNotEmpty) ? employee['firstName'][0] : '?',
+                                child: Text(
+                                    (employee['firstName'] != null &&
+                                            employee['firstName'].isNotEmpty)
+                                        ? employee['firstName'][0]
+                                        : '?',
                                     style: TextStyle(
                                         color: theme.colorScheme.onPrimary)),
                               ),
@@ -194,7 +206,9 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text("${employee['firstName'] ?? 'N/A'} ${employee['lastName'] ?? 'N/A'}", style: theme.textTheme.titleMedium),
+                                    Text(
+                                        "${employee['firstName'] ?? 'N/A'} ${employee['lastName'] ?? 'N/A'}",
+                                        style: theme.textTheme.titleMedium),
                                     Text(employee['position'] ?? 'N/A',
                                         style: theme.textTheme.bodyMedium),
                                     Text(employee['email'] ?? 'N/A',
@@ -225,11 +239,14 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                                 icon: const Icon(Icons.delete),
                                 onPressed: () {
                                   final employeeId = employee['_id'];
-                                  if (employeeId != null && employeeId is String) {
+                                  if (employeeId != null &&
+                                      employeeId is String) {
                                     _confirmDeleteEmployee(employeeId);
                                   } else {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Cannot delete employee: Employee ID is missing.')),
+                                      const SnackBar(
+                                          content: Text(
+                                              'Cannot delete employee: Employee ID is missing.')),
                                     );
                                   }
                                 },
@@ -273,7 +290,8 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Confirm Delete Employee'),
-          content: const Text('Are you sure you want to permanently delete this employee? This action cannot be undone.'),
+          content: const Text(
+              'Are you sure you want to permanently delete this employee? This action cannot be undone.'),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -300,15 +318,31 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Employee deleted successfully')),
           );
-          // Update local lists to reflect deletion
           setState(() {
-            _employees.removeWhere((emp) => emp['userId'] == employeeId || emp['_id'] == employeeId || emp['id'] == employeeId);
-            _filteredEmployees.removeWhere((emp) => emp['userId'] == employeeId || emp['_id'] == employeeId || emp['id'] == employeeId);
+            _employees.removeWhere((emp) =>
+                emp['userId'] == employeeId ||
+                emp['_id'] == employeeId ||
+                emp['id'] == employeeId);
+            _filteredEmployees.removeWhere((emp) =>
+                emp['userId'] == employeeId ||
+                emp['_id'] == employeeId ||
+                emp['id'] == employeeId);
           });
+          _loadEmployees(); // Always refresh the list after deletion
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to delete employee: ${provider.error ?? 'Unknown error'}')),
-          );
+          // If the error is a 404, treat as success
+          if ((provider.error ?? '').contains('404')) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Employee already deleted.')),
+            );
+            _loadEmployees();
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                  content: Text(
+                      'Failed to delete employee: \\${provider.error ?? 'Unknown error'}')),
+            );
+          }
         }
       } catch (e) {
         if (mounted) {

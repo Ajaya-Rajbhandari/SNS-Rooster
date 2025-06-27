@@ -13,6 +13,9 @@ const employeeController = require('../controllers/employee-controller');
 // Get all employees (admin/manager only)
 router.get('/', authMiddleware, employeeController.getAllEmployees);
 
+// Get unassigned users (users not already assigned as employees)
+router.get('/unassigned-users', authMiddleware, employeeController.getUnassignedUsers);
+
 // Get leave balance for an employee by ID
 router.get('/:id/leave-balance', authMiddleware, employeeController.getLeaveBalance);
 

@@ -38,6 +38,10 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
 
   String? _employeeId;
 
+  // Add for PageView
+  final PageController _balancePageController = PageController();
+  int _currentBalancePage = 0;
+
   final Map<String, Color> leaveTypeColors = {
     'Annual Leave': Colors.blue,
     'Sick Leave': Colors.red,
@@ -158,6 +162,13 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
           const SnackBar(content: Text('Leave request submitted successfully')),
         );
         _resetForm();
+
+        // Reload leave requests and balances
+        if (_employeeId != null) {
+          await leaveProvider.getUserLeaveRequests(_employeeId!);
+          await leaveProvider.fetchLeaveBalances(_employeeId!);
+          setState(() {}); // Force UI update
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -264,52 +275,75 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildLeaveBalanceItem(
-                          'Annual Leave',
-                          annualLeave['used']?.toString() ?? '-',
-                          annualLeave['total']?.toString() ?? '-',
-                          theme.colorScheme.primary,
-                        ),
-                        _buildLeaveBalanceItem(
-                          'Sick Leave',
-                          sickLeave['used']?.toString() ?? '-',
-                          sickLeave['total']?.toString() ?? '-',
-                          theme.colorScheme.secondary,
-                        ),
-                        _buildLeaveBalanceItem(
-                          'Casual Leave',
-                          casualLeave['used']?.toString() ?? '-',
-                          casualLeave['total']?.toString() ?? '-',
-                          theme.colorScheme.tertiary,
-                        ),
-                      ],
+                    SizedBox(
+                      height: 70,
+                      child: PageView(
+                        controller: _balancePageController,
+                        onPageChanged: (index) {
+                          setState(() {
+                            _currentBalancePage = index;
+                          });
+                        },
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _buildLeaveBalanceItem(
+                                'Annual Leave',
+                                annualLeave['used']?.toString() ?? '-',
+                                annualLeave['total']?.toString() ?? '-',
+                              ),
+                              _buildLeaveBalanceItem(
+                                'Sick Leave',
+                                sickLeave['used']?.toString() ?? '-',
+                                sickLeave['total']?.toString() ?? '-',
+                              ),
+                              _buildLeaveBalanceItem(
+                                'Casual Leave',
+                                casualLeave['used']?.toString() ?? '-',
+                                casualLeave['total']?.toString() ?? '-',
+                              ),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _buildLeaveBalanceItem(
+                                'Maternity Leave',
+                                maternityLeave['used']?.toString() ?? '-',
+                                maternityLeave['total']?.toString() ?? '-',
+                              ),
+                              _buildLeaveBalanceItem(
+                                'Paternity Leave',
+                                paternityLeave['used']?.toString() ?? '-',
+                                paternityLeave['total']?.toString() ?? '-',
+                              ),
+                              _buildLeaveBalanceItem(
+                                'Unpaid Leave',
+                                unpaidLeave['used']?.toString() ?? '-',
+                                unpaidLeave['total']?.toString() ?? '-',
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 12),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildLeaveBalanceItem(
-                          'Maternity Leave',
-                          maternityLeave['used']?.toString() ?? '-',
-                          maternityLeave['total']?.toString() ?? '-',
-                          Colors.pinkAccent,
-                        ),
-                        _buildLeaveBalanceItem(
-                          'Paternity Leave',
-                          paternityLeave['used']?.toString() ?? '-',
-                          paternityLeave['total']?.toString() ?? '-',
-                          Colors.blueAccent,
-                        ),
-                        _buildLeaveBalanceItem(
-                          'Unpaid Leave',
-                          unpaidLeave['used']?.toString() ?? '-',
-                          unpaidLeave['total']?.toString() ?? '-',
-                          Colors.grey,
-                        ),
-                      ],
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                          2,
+                          (index) => Container(
+                                margin: const EdgeInsets.symmetric(
+                                    horizontal: 4, vertical: 8),
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: _currentBalancePage == index
+                                      ? Colors.black
+                                      : Colors.grey[400],
+                                ),
+                              )),
                     ),
                   ],
                 ),
@@ -328,37 +362,11 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          'Leave Calendar',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        IconButton(
-                          icon:
-                              Icon(Icons.help_outline, color: Colors.grey[700]),
-                          tooltip: 'Show leave type legend',
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text('Leave Type Legend'),
-                                content: buildLeaveTypeLegend(),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(),
-                                    child: Text('Close'),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ],
+                    Text(
+                      'Leave Calendar',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     TableCalendar(
@@ -615,15 +623,15 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     String type,
     String used,
     String total,
-    Color color,
   ) {
     return Column(
       children: [
         Text(
           type,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
+            color: leaveTypeColors[type] ?? Colors.black,
           ),
         ),
         const SizedBox(height: 4),
@@ -632,7 +640,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: color,
+            color: leaveTypeColors[type] ?? Colors.black,
           ),
         ),
         Text(
@@ -657,31 +665,5 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       default:
         return Colors.grey;
     }
-  }
-
-  Widget buildLeaveTypeLegend() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Wrap(
-        spacing: 12,
-        children: leaveTypeColors.entries.map((entry) {
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: entry.value,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              SizedBox(width: 4),
-              Text(entry.key, style: TextStyle(fontSize: 12)),
-            ],
-          );
-        }).toList(),
-      ),
-    );
   }
 }

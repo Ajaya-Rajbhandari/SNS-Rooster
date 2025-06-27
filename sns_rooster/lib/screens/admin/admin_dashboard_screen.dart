@@ -1099,76 +1099,106 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     const itemsPerPage = 4;
     final totalPages = (actions.length / itemsPerPage).ceil();
+    final PageController _pageController = PageController();
+    int _currentPage = 0;
+
+    List<Widget> buildPageActions(int page) {
+      final startIndex = page * itemsPerPage;
+      final endIndex = (startIndex + itemsPerPage).clamp(0, actions.length);
+      return actions.sublist(startIndex, endIndex).map((action) {
+        return _buildActionCard(
+          context,
+          icon: action['icon'] as IconData,
+          title: action['title'] as String,
+          onTap: action['onTap'] as VoidCallback,
+        );
+      }).toList();
+    }
 
     return StatefulBuilder(
       builder: (context, setState) {
-        int currentPage = 0;
-
-        List<Widget> buildPageActions(int page) {
-          final startIndex = page * itemsPerPage;
-          final endIndex = (startIndex + itemsPerPage).clamp(0, actions.length);
-          return actions.sublist(startIndex, endIndex).map((action) {
-            return _buildActionCard(
-              context,
-              icon: action['icon'] as IconData,
-              title: action['title'] as String,
-              onTap: action['onTap'] as VoidCallback,
-            );
-          }).toList();
-        }
-
-        return GestureDetector(
-          onHorizontalDragEnd: (details) {
-            if (details.primaryVelocity != null) {
-              setState(() {
-                if (details.primaryVelocity! < 0 &&
-                    currentPage < totalPages - 1) {
-                  currentPage++;
-                } else if (details.primaryVelocity! > 0 && currentPage > 0) {
-                  currentPage--;
-                }
-              });
-            }
-          },
-          child: Column(
-            children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: GridView.count(
-                  key: ValueKey<int>(currentPage),
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  children: buildPageActions(currentPage),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(totalPages, (index) {
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        currentPage = index;
-                      });
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: index == currentPage ? 12 : 8,
-                      height: index == currentPage ? 12 : 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: index == currentPage ? Colors.blue : Colors.grey,
+        return Column(
+          children: [
+            SizedBox(
+              height: 360, // Increased for better layout
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: totalPages,
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentPage = index;
+                  });
+                },
+                itemBuilder: (context, page) {
+                  final pageActions = buildPageActions(page);
+                  // Ensure we always have 4 items (fill with empty containers if needed)
+                  while (pageActions.length < 4) {
+                    pageActions.add(Container());
+                  }
+                  return Column(
+                    children: [
+                      Row(
+                        children: pageActions
+                            .sublist(0, 2)
+                            .map((card) => Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: AspectRatio(
+                                      aspectRatio: 1.2,
+                                      child: card,
+                                    ),
+                                  ),
+                                ))
+                            .toList(),
                       ),
-                    ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: pageActions
+                            .sublist(2, 4)
+                            .map((card) => Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: AspectRatio(
+                                      aspectRatio: 1.2,
+                                      child: card,
+                                    ),
+                                  ),
+                                ))
+                            .toList(),
+                      ),
+                    ],
                   );
-                }),
+                },
               ),
-            ],
-          ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(totalPages, (index) {
+                return GestureDetector(
+                  onTap: () {
+                    _pageController.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                    setState(() {
+                      _currentPage = index;
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: index == _currentPage ? 12 : 8,
+                    height: index == _currentPage ? 12 : 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: index == _currentPage ? Colors.blue : Colors.grey,
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ],
         );
       },
     );

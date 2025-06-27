@@ -82,9 +82,11 @@ class EmployeeService {
       final response = await http.delete(
           Uri.parse('${ApiConfig.baseUrl}/employees/$id'),
           headers: getHeaders());
-      if (response.statusCode != 204) {
+      if (response.statusCode != 204 &&
+          response.statusCode != 200 &&
+          response.statusCode != 404) {
         throw Exception(
-            'Failed to delete employee: ${response.statusCode} ${response.body}');
+            'Failed to delete employee: \\${response.statusCode} \\${response.body}');
       }
     } catch (e) {
       throw Exception('Error deleting employee: $e');
@@ -95,14 +97,17 @@ class EmployeeService {
   Future<void> deleteEmployeeFromDatabase(String userId) async {
     try {
       final response = await http.delete(
-        Uri.parse('${ApiConfig.baseUrl}/auth/users/$userId'), // Correct endpoint for permanent deletion
+        Uri.parse(
+            '${ApiConfig.baseUrl}/auth/users/$userId'), // Correct endpoint for permanent deletion
         headers: getHeaders(),
       );
-      if (response.statusCode == 200 || response.statusCode == 204) { // 200 or 204 for successful deletion
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        // 200 or 204 for successful deletion
         // Successfully deleted
       } else {
         // Attempt to parse error message from response body
-        String errorMessage = 'Failed to delete employee from database: ${response.statusCode}';
+        String errorMessage =
+            'Failed to delete employee from database: ${response.statusCode}';
         try {
           final errorBody = json.decode(response.body);
           if (errorBody != null && errorBody['message'] != null) {
