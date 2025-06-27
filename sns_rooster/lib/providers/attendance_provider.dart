@@ -30,22 +30,31 @@ class AttendanceProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      _attendanceRecords = await _attendanceService.getAttendanceHistory(userId);
+      print('DEBUG: Fetching attendance for userId: $userId');
+      _attendanceRecords =
+          await _attendanceService.getAttendanceHistory(userId);
+      print('DEBUG: Attendance records received: ${_attendanceRecords.length}');
+      if (_attendanceRecords.isNotEmpty) {
+        print('DEBUG: Sample attendance record: ${_attendanceRecords.first}');
+      }
       _error = null;
     } catch (e) {
-      _error = 'Network error occurred: \\${e.toString()}';
+      print('DEBUG: Error fetching attendance: $e');
+      _error = 'Network error occurred: ${e.toString()}';
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> fetchAttendanceSummary(String userId, {DateTime? startDate, DateTime? endDate}) async {
+  Future<void> fetchAttendanceSummary(String userId,
+      {DateTime? startDate, DateTime? endDate}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
-      _attendanceSummary = await _attendanceService.getAttendanceSummary(userId, startDate: startDate, endDate: endDate);
+      _attendanceSummary = await _attendanceService.getAttendanceSummary(userId,
+          startDate: startDate, endDate: endDate);
       _error = null;
     } catch (e) {
       _error = 'Network error occurred: \\${e.toString()}';
@@ -53,16 +62,18 @@ class AttendanceProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
-  }  // Call this on dashboard load or after login to ensure correct state
+  } // Call this on dashboard load or after login to ensure correct state
+
   Future<void> fetchTodayStatus(String userId) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
-      final statusData = await _attendanceService.getAttendanceStatusWithData(userId);
+      final statusData =
+          await _attendanceService.getAttendanceStatusWithData(userId);
       final fetchedStatus = statusData['status'] as String;
       final attendanceData = statusData['attendance'] as Map<String, dynamic>?;
-      
+
       // Map backend status to UI status
       if (fetchedStatus == 'No current attendance') {
         _todayStatus = 'not_clocked_in';
@@ -71,8 +82,10 @@ class AttendanceProvider with ChangeNotifier {
         _todayStatus = fetchedStatus;
         _currentAttendance = attendanceData;
       }
-      print('DEBUG: _todayStatus after update in fetchTodayStatus: $_todayStatus');
-      print('DEBUG: _currentAttendance after update in fetchTodayStatus: $_currentAttendance');
+      print(
+          'DEBUG: _todayStatus after update in fetchTodayStatus: $_todayStatus');
+      print(
+          'DEBUG: _currentAttendance after update in fetchTodayStatus: $_currentAttendance');
     } catch (e) {
       print('DEBUG: Error while fetching todayStatus: $e');
       _error = 'Failed to fetch attendance status.';
@@ -91,7 +104,8 @@ class AttendanceProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      _currentAttendance = await _attendanceService.getCurrentAttendance(userId);
+      _currentAttendance =
+          await _attendanceService.getCurrentAttendance(userId);
       print('DEBUG: Current attendance details: $_currentAttendance');
       _error = null;
     } catch (e) {
@@ -105,7 +119,8 @@ class AttendanceProvider with ChangeNotifier {
   }
 
   // Break actions: these should call real backend endpoints if available
-  Future<void> startBreakWithType(String userId, Map<String, dynamic> breakType) async {
+  Future<void> startBreakWithType(
+      String userId, Map<String, dynamic> breakType) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -141,7 +156,8 @@ class AttendanceProvider with ChangeNotifier {
 
   Future<void> fetchBreakTypes(BuildContext context) async {
     try {
-      print('FETCH_BREAK_TYPES_DEBUG: Token being sent: ${_authProvider.authToken}');
+      print(
+          'FETCH_BREAK_TYPES_DEBUG: Token being sent: ${_authProvider.authToken}');
 
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/attendance/break-types'),
@@ -150,7 +166,8 @@ class AttendanceProvider with ChangeNotifier {
         },
       );
 
-      print('FETCH_BREAK_TYPES_DEBUG: Response status code: ${response.statusCode}');
+      print(
+          'FETCH_BREAK_TYPES_DEBUG: Response status code: ${response.statusCode}');
       print('FETCH_BREAK_TYPES_DEBUG: Response body: ${response.body}');
 
       if (response.statusCode == 200) {

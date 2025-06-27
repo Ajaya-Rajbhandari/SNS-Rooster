@@ -31,6 +31,54 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
     if (authProvider.user != null) {
       await attendanceProvider.fetchUserAttendance(authProvider.user!['_id']);
+
+      // Debug: Print the attendance records to see what we're getting
+      print(
+          'DEBUG: Attendance records fetched: ${attendanceProvider.attendanceRecords.length}');
+      if (attendanceProvider.attendanceRecords.isNotEmpty) {
+        print(
+            'DEBUG: First attendance record: ${attendanceProvider.attendanceRecords.first}');
+      }
+    }
+  }
+
+  // Helper method to calculate attendance status from backend data
+  String _calculateStatus(Map<String, dynamic> attendance) {
+    if (attendance['checkOutTime'] != null) {
+      return 'completed';
+    } else if (attendance['checkInTime'] != null) {
+      // Check if currently on break
+      final breaks = attendance['breaks'] as List<dynamic>?;
+      if (breaks != null && breaks.isNotEmpty) {
+        final lastBreak = breaks.last;
+        if (lastBreak['end'] == null) {
+          return 'on_break';
+        }
+      }
+      return 'clocked_in';
+    }
+    return 'not_clocked_in';
+  }
+
+  // Helper method to format date from backend
+  String _formatDate(dynamic dateField) {
+    if (dateField == null) return 'N/A';
+    try {
+      final date = DateTime.parse(dateField.toString());
+      return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return 'N/A';
+    }
+  }
+
+  // Helper method to format time from backend
+  String _formatTime(dynamic timeField) {
+    if (timeField == null) return 'N/A';
+    try {
+      final time = DateTime.parse(timeField.toString());
+      return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return 'N/A';
     }
   }
 
@@ -42,13 +90,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       final path = '${directory.path}/attendance_data.csv';
 
       final csvData = [
-        ['Date', 'Status', 'Check In', 'Check Out', 'Notes'],
+        ['Date', 'Status', 'Check In', 'Check Out', 'Total Break Duration'],
         ...attendanceProvider.attendanceRecords.map((item) => [
-              item['createdAt']?.toString().split('T')[0] ?? '',
-              item['status']?.toString() ?? '',
-              item['checkIn']?.toString() ?? '',
-              item['checkOut']?.toString() ?? '',
-              item['notes']?.toString() ?? '',
+              _formatDate(item['date']),
+              _calculateStatus(item),
+              _formatTime(item['checkInTime']),
+              _formatTime(item['checkOutTime']),
+              '${((item['totalBreakDuration'] ?? 0) / 60000).toStringAsFixed(1)} min',
             ]),
       ];
 
@@ -96,11 +144,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              filter == 'present'
+              filter == 'completed'
                   ? Icons.check_circle
-                  : filter == 'absent'
+                  : filter == 'not_clocked_in'
                       ? Icons.cancel
-                      : Icons.list,
+                      : filter == 'on_break'
+                          ? Icons.coffee
+                          : Icons.access_time,
               color: Colors.white,
               size: 36,
             ),
@@ -137,26 +187,26 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           _buildInteractiveSummaryCard(
               'Total', attendanceRecords.length, Colors.blue, 'All'),
           _buildInteractiveSummaryCard(
-              'Present',
+              'Completed',
               attendanceRecords
-                  .where((item) => item['status'] == 'present')
+                  .where((item) => _calculateStatus(item) == 'completed')
                   .length,
               Colors.green,
-              'present'),
+              'completed'),
           _buildInteractiveSummaryCard(
-              'Absent',
+              'Not Clocked In',
               attendanceRecords
-                  .where((item) => item['status'] == 'absent')
+                  .where((item) => _calculateStatus(item) == 'not_clocked_in')
                   .length,
               Colors.red,
-              'absent'),
+              'not_clocked_in'),
           _buildInteractiveSummaryCard(
-              'Late',
+              'On Break',
               attendanceRecords
-                  .where((item) => item['status'] == 'late')
+                  .where((item) => _calculateStatus(item) == 'on_break')
                   .length,
               Colors.orange,
-              'late'),
+              'on_break'),
         ],
       ),
     );
@@ -170,7 +220,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final filteredData = filterStatus == 'All'
         ? attendanceRecords
         : attendanceRecords
-            .where((item) => item['status'] == filterStatus)
+            .where((item) => _calculateStatus(item) == filterStatus)
             .toList();
 
     return Scaffold(
@@ -244,44 +294,44 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     separatorBuilder: (context, index) => const Divider(),
                     itemBuilder: (context, index) {
                       final item = filteredData[index];
-                      final date = item['createdAt'] != null
-                          ? DateTime.parse(item['createdAt']).toLocal()
-                          : null;
+                      final status = _calculateStatus(item);
+                      final date = _formatDate(item['date']);
+
                       return Card(
                         margin: const EdgeInsets.symmetric(vertical: 8.0),
                         child: ListTile(
                           leading: Icon(
-                            item['status'] == 'present'
+                            status == 'completed'
                                 ? Icons.check_circle_outline
-                                : item['status'] == 'absent'
+                                : status == 'not_clocked_in'
                                     ? Icons.cancel_outlined
-                                    : item['status'] == 'late'
-                                        ? Icons.access_time
-                                        : Icons.info_outline,
-                            color: item['status'] == 'present'
+                                    : status == 'on_break'
+                                        ? Icons.coffee
+                                        : Icons.access_time,
+                            color: status == 'completed'
                                 ? Colors.green
-                                : item['status'] == 'absent'
+                                : status == 'not_clocked_in'
                                     ? Colors.red
-                                    : item['status'] == 'late'
+                                    : status == 'on_break'
                                         ? Colors.orange
-                                        : Colors.blueGrey,
+                                        : Colors.blue,
                           ),
-                          title: Text(date != null
-                              ? 'Date: ${date.toString().split(' ')[0]}'
-                              : 'Date: N/A'),
+                          title: Text('Date: $date'),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Status: ${item['status']}'),
-                              if (item['checkIn'] != null)
+                              Text(
+                                  'Status: ${status.replaceAll('_', ' ').toUpperCase()}'),
+                              if (item['checkInTime'] != null)
                                 Text(
-                                    'Check In: ${DateTime.parse(item['checkIn']).toLocal().toString().split(' ')[1]}'),
-                              if (item['checkOut'] != null)
+                                    'Check In: ${_formatTime(item['checkInTime'])}'),
+                              if (item['checkOutTime'] != null)
                                 Text(
-                                    'Check Out: ${DateTime.parse(item['checkOut']).toLocal().toString().split(' ')[1]}'),
-                              if (item['notes'] != null &&
-                                  item['notes'].toString().isNotEmpty)
-                                Text('Notes: ${item['notes']}'),
+                                    'Check Out: ${_formatTime(item['checkOutTime'])}'),
+                              if (item['totalBreakDuration'] != null &&
+                                  item['totalBreakDuration'] > 0)
+                                Text(
+                                    'Break Duration: ${((item['totalBreakDuration'] as int) / 60000).toStringAsFixed(1)} min'),
                             ],
                           ),
                         ),
