@@ -16,4 +16,10 @@ router.get('/user/:userId', payrollController.getUserPayrollsByUserId);
 // Create a new payroll record
 router.post('/', payrollController.createPayroll);
 
+// Download payslip PDF
+router.get('/:payslipId/pdf', payrollController.downloadPayslipPdf);
+
+// Update payslip status and comment
+router.patch('/:payslipId/status', payrollController.updatePayslipStatus);
+
 module.exports = router;
