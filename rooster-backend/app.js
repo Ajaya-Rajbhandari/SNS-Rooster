@@ -1,3 +1,6 @@
+// app.js: Defines and exports the Express app, routes, and middleware.
+// Do NOT run this file directly. Use server.js as the entry point for the backend.
+
 const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/payroll_provider.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/app_drawer.dart';
+// Import to access the RouteObserver
 
 class PayrollScreen extends StatefulWidget {
   const PayrollScreen({super.key});
@@ -11,14 +12,39 @@ class PayrollScreen extends StatefulWidget {
   State<PayrollScreen> createState() => _PayrollScreenState();
 }
 
-class _PayrollScreenState extends State<PayrollScreen> {
+class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
+  RouteObserver<ModalRoute<void>>? _routeObserver;
+
+  void _refreshPayroll() {
+    print('PayrollScreen: _refreshPayroll called');
+    final provider = Provider.of<PayrollProvider>(context, listen: false);
+    provider.clearPayrollData();
+    provider.fetchPayrollSlips();
+  }
+
   @override
-  void initState() {
-    super.initState();
-    // Fetch payroll slips when the screen initializes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<PayrollProvider>(context, listen: false).fetchPayrollSlips();
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _routeObserver = Provider.of<RouteObserver<ModalRoute<void>>>(context);
+    _routeObserver?.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  @override
+  void dispose() {
+    _routeObserver?.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPush() {
+    print('PayrollScreen: didPush called');
+    _refreshPayroll();
+  }
+
+  @override
+  void didPopNext() {
+    print('PayrollScreen: didPopNext called');
+    _refreshPayroll();
   }
 
   @override
