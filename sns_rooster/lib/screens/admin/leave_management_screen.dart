@@ -19,6 +19,7 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
   final int _pageSize = 10;
   final List<String> _filters = ['Pending', 'Approved', 'Rejected', 'All'];
   final Completer<void> _apiServiceCompleter = Completer<void>();
+  int? _processingRequestIndex;
 
   @override
   void initState() {
@@ -77,6 +78,20 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
     }
   }
 
+  void _onFilterChanged(String value) {
+    setState(() {
+      _selectedFilter = value;
+      _currentPage = 1;
+    });
+  }
+
+  void _onSearchChanged(String query) {
+    setState(() {
+      _searchQuery = query;
+      _currentPage = 1;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -92,21 +107,22 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
             onPressed: () async {
               final query = await showSearch(
                 context: context,
-                delegate: LeaveSearchDelegate(),
+                delegate: LeaveSearchDelegate(initialQuery: _searchQuery),
               );
               if (query != null) {
-                setState(() {
-                  _searchQuery = query;
-                });
+                _onSearchChanged(query);
               }
             },
           ),
+          if (_searchQuery.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.clear),
+              onPressed: () {
+                _onSearchChanged('');
+              },
+            ),
           PopupMenuButton<String>(
-            onSelected: (value) {
-              setState(() {
-                _selectedFilter = value;
-              });
-            },
+            onSelected: _onFilterChanged,
             itemBuilder: (context) => _filters
                 .map((filter) => PopupMenuItem(
                       value: filter,
@@ -134,15 +150,15 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
 
           final leaveRequests = provider.leaveRequests
               .where((request) {
+                final statusStr = request.status.toString().split('.').last;
                 if (_selectedFilter != 'All' &&
-                    request.status.toString().split('.').last !=
-                        _selectedFilter) {
+                    statusStr.toLowerCase() != _selectedFilter.toLowerCase()) {
                   return false;
                 }
                 if (_searchQuery.isNotEmpty &&
-                    !request.employeeName
+                    !('${request.employeeName} ${request.department}'
                         .toLowerCase()
-                        .contains(_searchQuery.toLowerCase())) {
+                        .contains(_searchQuery.toLowerCase()))) {
                   return false;
                 }
                 return true;
@@ -178,6 +194,7 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                   itemCount: leaveRequests.length,
                   itemBuilder: (context, index) {
                     final request = leaveRequests[index];
+                    final isProcessing = _processingRequestIndex == index;
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),
                       child: Padding(
@@ -253,9 +270,36 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                                 children: [
                                   Expanded(
                                     child: OutlinedButton(
-                                      onPressed: () {
-                                        provider.rejectLeaveRequest(request.id);
-                                      },
+                                      onPressed: isProcessing
+                                          ? null
+                                          : () async {
+                                              setState(() {
+                                                _processingRequestIndex = index;
+                                              });
+                                              try {
+                                                await provider
+                                                    .rejectLeaveRequest(
+                                                        request.id);
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                      content: Text(
+                                                          'Leave request rejected.')),
+                                                );
+                                              } catch (e) {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  SnackBar(
+                                                      content: Text(
+                                                          'Error rejecting leave request: $e')),
+                                                );
+                                              } finally {
+                                                setState(() {
+                                                  _processingRequestIndex =
+                                                      null;
+                                                });
+                                              }
+                                            },
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor: Colors.red,
                                       ),
@@ -265,10 +309,36 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: ElevatedButton(
-                                      onPressed: () {
-                                        provider
-                                            .approveLeaveRequest(request.id);
-                                      },
+                                      onPressed: isProcessing
+                                          ? null
+                                          : () async {
+                                              setState(() {
+                                                _processingRequestIndex = index;
+                                              });
+                                              try {
+                                                await provider
+                                                    .approveLeaveRequest(
+                                                        request.id);
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                      content: Text(
+                                                          'Leave request approved.')),
+                                                );
+                                              } catch (e) {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  SnackBar(
+                                                      content: Text(
+                                                          'Error approving leave request: $e')),
+                                                );
+                                              } finally {
+                                                setState(() {
+                                                  _processingRequestIndex =
+                                                      null;
+                                                });
+                                              }
+                                            },
                                       child: const Text('Approve'),
                                     ),
                                   ),
@@ -385,15 +455,26 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
 }
 
 class LeaveSearchDelegate extends SearchDelegate<String> {
+  LeaveSearchDelegate({String initialQuery = ''})
+      : super(
+          searchFieldLabel: 'Search by name or department',
+          searchFieldStyle: const TextStyle(),
+          textInputAction: TextInputAction.search,
+        ) {
+    query = initialQuery;
+  }
+
   @override
   List<Widget> buildActions(BuildContext context) {
     return [
-      IconButton(
-        icon: const Icon(Icons.clear),
-        onPressed: () {
-          query = '';
-        },
-      ),
+      if (query.isNotEmpty)
+        IconButton(
+          icon: const Icon(Icons.clear),
+          onPressed: () {
+            query = '';
+            showSuggestions(context);
+          },
+        ),
     ];
   }
 
@@ -409,6 +490,7 @@ class LeaveSearchDelegate extends SearchDelegate<String> {
 
   @override
   Widget buildResults(BuildContext context) {
+    close(context, query);
     return Container();
   }
 

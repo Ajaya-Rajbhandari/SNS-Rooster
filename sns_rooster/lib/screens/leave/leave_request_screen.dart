@@ -38,42 +38,39 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
 
   String? _employeeId;
 
+  final Map<String, Color> leaveTypeColors = {
+    'Annual Leave': Colors.blue,
+    'Sick Leave': Colors.red,
+    'Casual Leave': Colors.orange,
+    'Maternity Leave': Colors.pinkAccent,
+    'Paternity Leave': Colors.blueAccent,
+    'Unpaid Leave': Colors.grey,
+  };
+
   @override
   void initState() {
     super.initState();
-    _loadEmployeeAndLeaveRequests();
-    _loadLeaveBalances();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadEmployeeAndLeaveRequests();
+    });
     _selectedDay = _focusedDay; // Initialize selectedDay
   }
 
   Future<void> _loadEmployeeAndLeaveRequests() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final leaveProvider = Provider.of<LeaveRequestProvider>(context, listen: false);
+    final leaveProvider =
+        Provider.of<LeaveRequestProvider>(context, listen: false);
     if (authProvider.user?['_id'] != null) {
-      final employeeId = await leaveProvider.fetchEmployeeIdByUserId(authProvider.user!['_id']);
+      final employeeId = await leaveProvider
+          .fetchEmployeeIdByUserId(authProvider.user!['_id']);
       setState(() {
         _employeeId = employeeId;
       });
       if (employeeId != null) {
         await leaveProvider.getUserLeaveRequests(employeeId);
+        await leaveProvider.fetchLeaveBalances(
+            employeeId); // Fetch balances after employeeId is set
       }
-    }
-  }
-
-  Future<void> _loadLeaveRequests() async {
-    final leaveProvider = Provider.of<LeaveRequestProvider>(context, listen: false);
-    if (_employeeId != null) {
-      await leaveProvider.getUserLeaveRequests(_employeeId!);
-    }
-  }
-
-  Future<void> _loadLeaveBalances() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final leaveProvider =
-        Provider.of<LeaveRequestProvider>(context, listen: false);
-
-    if (authProvider.user?['_id'] != null) {
-      await leaveProvider.fetchLeaveBalances(authProvider.user!['_id']);
     }
   }
 
@@ -114,28 +111,34 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final leaveProvider =
           Provider.of<LeaveRequestProvider>(context, listen: false);
-      final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+      final profileProvider =
+          Provider.of<ProfileProvider>(context, listen: false);
       print('DEBUG: profileProvider.profile = ${profileProvider.profile}');
       print('DEBUG: authProvider.user = ${authProvider.user}');
       // Always fetch the Employee document for the current user
       final userId = authProvider.user?['_id'];
       String? employeeId;
       if (userId != null) {
-        final fetchedEmployeeId = await leaveProvider.fetchEmployeeIdByUserId(userId);
-        print('DEBUG: fetchEmployeeIdByUserId($userId) returned: $fetchedEmployeeId');
+        final fetchedEmployeeId =
+            await leaveProvider.fetchEmployeeIdByUserId(userId);
+        print(
+            'DEBUG: fetchEmployeeIdByUserId($userId) returned: $fetchedEmployeeId');
         if (fetchedEmployeeId != null) {
           employeeId = fetchedEmployeeId;
         }
       }
       if (employeeId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Employee record not found. Please contact admin.')),
+          const SnackBar(
+              content:
+                  Text('Employee record not found. Please contact admin.')),
         );
         setState(() => _isLoading = false);
         return;
       }
       final success = await leaveProvider.createLeaveRequest({
-        'employeeId': employeeId, // Use Employee document _id (backend expects 'employeeId')
+        'employeeId':
+            employeeId, // Use Employee document _id (backend expects 'employeeId')
         'employeeName': authProvider.user?['name'] ?? 'Unknown',
         'leaveType': _selectedLeaveType,
         'startDate': _startDate!.toIso8601String(),
@@ -195,9 +198,13 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     final theme = Theme.of(context);
     final leaveProvider = Provider.of<LeaveRequestProvider>(context);
 
-    final annualLeave = leaveProvider.leaveBalances['annual'] ?? {};
-    final sickLeave = leaveProvider.leaveBalances['sick'] ?? {};
-    final casualLeave = leaveProvider.leaveBalances['casual'] ?? {};
+    final leaveBalances = leaveProvider.leaveBalances ?? {};
+    final annualLeave = leaveBalances['annual'] ?? {};
+    final sickLeave = leaveBalances['sick'] ?? {};
+    final casualLeave = leaveBalances['casual'] ?? {};
+    final maternityLeave = leaveBalances['maternity'] ?? {};
+    final paternityLeave = leaveBalances['paternity'] ?? {};
+    final unpaidLeave = leaveBalances['unpaid'] ?? {};
 
     // Function to get events for a given day
     List<dynamic> getEventsForDay(DateTime day) {
@@ -234,29 +241,6 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         foregroundColor: Colors.white,
       ),
       drawer: const AppDrawer(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          final reasonController = TextEditingController();
-          showDialog(
-            context: context,
-            builder: (context) => LeaveRequestModal(
-              reasonController: reasonController,
-              onSubmit: (fromDate, toDate, leaveType, reason) {
-                // Handle leave request submission
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Leave request submitted successfully!'),
-                  ),
-                );
-                reasonController.dispose();
-              },
-            ),
-          );
-        },
-        tooltip: 'New Leave Request',
-        child: const Icon(Icons.add),
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -285,21 +269,45 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                       children: [
                         _buildLeaveBalanceItem(
                           'Annual Leave',
-                          annualLeave['total']?.toString() ?? '-',
                           annualLeave['used']?.toString() ?? '-',
+                          annualLeave['total']?.toString() ?? '-',
                           theme.colorScheme.primary,
                         ),
                         _buildLeaveBalanceItem(
                           'Sick Leave',
-                          sickLeave['total']?.toString() ?? '-',
                           sickLeave['used']?.toString() ?? '-',
+                          sickLeave['total']?.toString() ?? '-',
                           theme.colorScheme.secondary,
                         ),
                         _buildLeaveBalanceItem(
                           'Casual Leave',
-                          casualLeave['total']?.toString() ?? '-',
                           casualLeave['used']?.toString() ?? '-',
+                          casualLeave['total']?.toString() ?? '-',
                           theme.colorScheme.tertiary,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildLeaveBalanceItem(
+                          'Maternity Leave',
+                          maternityLeave['used']?.toString() ?? '-',
+                          maternityLeave['total']?.toString() ?? '-',
+                          Colors.pinkAccent,
+                        ),
+                        _buildLeaveBalanceItem(
+                          'Paternity Leave',
+                          paternityLeave['used']?.toString() ?? '-',
+                          paternityLeave['total']?.toString() ?? '-',
+                          Colors.blueAccent,
+                        ),
+                        _buildLeaveBalanceItem(
+                          'Unpaid Leave',
+                          unpaidLeave['used']?.toString() ?? '-',
+                          unpaidLeave['total']?.toString() ?? '-',
+                          Colors.grey,
                         ),
                       ],
                     ),
@@ -320,11 +328,37 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Leave Calendar',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          'Leave Calendar',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        IconButton(
+                          icon:
+                              Icon(Icons.help_outline, color: Colors.grey[700]),
+                          tooltip: 'Show leave type legend',
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: Text('Leave Type Legend'),
+                                content: buildLeaveTypeLegend(),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(),
+                                    child: Text('Close'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     TableCalendar(
@@ -356,6 +390,32 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                           color: theme.colorScheme.secondary,
                           shape: BoxShape.circle,
                         ),
+                      ),
+                      calendarBuilders: CalendarBuilders(
+                        markerBuilder: (context, date, events) {
+                          if (events.isEmpty) return SizedBox();
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: events.take(3).map<Widget>((event) {
+                              final leaveType = (event is Map<String, dynamic>
+                                      ? event['leaveType']
+                                      : '') ??
+                                  '';
+                              final color =
+                                  leaveTypeColors[leaveType] ?? Colors.black;
+                              return Container(
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 1.0),
+                                width: 7,
+                                height: 7,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
                       ),
                       onPageChanged: (focusedDay) {
                         _focusedDay = focusedDay;
@@ -553,8 +613,8 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
 
   Widget _buildLeaveBalanceItem(
     String type,
+    String used,
     String total,
-    String remaining,
     Color color,
   ) {
     return Column(
@@ -568,7 +628,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          remaining,
+          used,
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -597,5 +657,31 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       default:
         return Colors.grey;
     }
+  }
+
+  Widget buildLeaveTypeLegend() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Wrap(
+        spacing: 12,
+        children: leaveTypeColors.entries.map((entry) {
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: entry.value,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              SizedBox(width: 4),
+              Text(entry.key, style: TextStyle(fontSize: 12)),
+            ],
+          );
+        }).toList(),
+      ),
+    );
   }
 }

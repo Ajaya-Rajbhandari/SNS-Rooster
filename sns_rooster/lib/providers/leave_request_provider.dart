@@ -56,14 +56,21 @@ class LeaveRequestProvider with ChangeNotifier {
   }
 
   // --- Get User Leave Balances ---
-  Future<void> fetchLeaveBalances(String userId) async {
+  Future<void> fetchLeaveBalances(String employeeId) async {
+    print('Fetching leave balance for employeeId: $employeeId');
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
-      // TODO: Replace with real API call (e.g., GET /api/users/:userId/leave-balances).
-      throw UnimplementedError(
-          "Real API call for leave balances not implemented.");
+      final prefs = await SharedPreferences.getInstance();
+      final api = ApiService(baseUrl: ApiConfig.baseUrl, prefs: prefs);
+      final response = await api.get('/employees/$employeeId/leave-balance');
+      if (response.success && response.data != null) {
+        _leaveBalances.clear();
+        _leaveBalances.addAll(response.data);
+      } else {
+        _error = response.message;
+      }
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -179,7 +186,8 @@ class LeaveRequestProvider with ChangeNotifier {
           print('ERROR: employeeId is null in response data.');
         }
       } else {
-        print('ERROR: Failed to fetch employeeId. Response: success=${response.success}, message=${response.message}, data=${response.data}');
+        print(
+            'ERROR: Failed to fetch employeeId. Response: success=${response.success}, message=${response.message}, data=${response.data}');
       }
     } catch (e) {
       print('ERROR: Exception while fetching employeeId: $e');

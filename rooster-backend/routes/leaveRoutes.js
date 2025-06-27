@@ -12,4 +12,8 @@ router.get('/history', auth, leaveController.getLeaveHistory);
 // Get all leave requests for admin
 router.get('/leave-requests', auth, leaveController.getAllLeaveRequests);
 
+// Approve or reject a leave request
+router.put('/:id/approve', auth, leaveController.approveLeaveRequest);
+router.put('/:id/reject', auth, leaveController.rejectLeaveRequest);
+
 module.exports = router;
