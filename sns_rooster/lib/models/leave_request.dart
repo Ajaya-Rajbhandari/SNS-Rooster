@@ -17,6 +17,7 @@ class LeaveRequest {
   final String id;
   final String employeeId;
   final String employeeName;
+  final String department;
   final LeaveType leaveType;
   final DateTime startDate;
   final DateTime endDate;
@@ -30,6 +31,7 @@ class LeaveRequest {
     required this.id,
     required this.employeeId,
     required this.employeeName,
+    required this.department,
     required this.leaveType,
     required this.startDate,
     required this.endDate,
@@ -41,24 +43,36 @@ class LeaveRequest {
   });
 
   factory LeaveRequest.fromJson(Map<String, dynamic> json) {
+    final startDate = DateTime.parse(json['startDate']);
+    final endDate = DateTime.parse(json['endDate']);
+    final duration = endDate.difference(startDate).inDays + 1;
+
+    String leaveTypeStr =
+        (json['leaveType'] as String).toLowerCase().replaceAll(' ', '');
+    LeaveType leaveType = LeaveType.values.firstWhere(
+      (e) => e.toString().toLowerCase().endsWith(leaveTypeStr),
+      orElse: () => LeaveType.casual,
+    );
+
     return LeaveRequest(
-      id: json['id'],
-      employeeId: json['employeeId'],
-      employeeName: json['employeeName'],
-      leaveType: LeaveType.values.firstWhere(
-        (e) => e.toString() == 'LeaveType.${json['leaveType']}',
-        orElse: () => LeaveType.casual,
-      ),
-      startDate: DateTime.parse(json['startDate']),
-      endDate: DateTime.parse(json['endDate']),
-      duration: json['duration'],
-      reason: json['reason'],
+      id: json['_id'] ?? '',
+      employeeId: json['employee'] ?? '',
+      employeeName: json['employeeName'] ?? '',
+      department: json['department'] ?? '',
+      leaveType: leaveType,
+      startDate: startDate,
+      endDate: endDate,
+      duration: duration,
+      reason: json['reason'] ?? '',
       status: LeaveRequestStatus.values.firstWhere(
-        (e) => e.toString() == 'LeaveRequestStatus.${json['status']}',
+        (e) => e
+            .toString()
+            .toLowerCase()
+            .endsWith((json['status'] as String).toLowerCase()),
         orElse: () => LeaveRequestStatus.pending,
       ),
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      createdAt: DateTime.parse(json['appliedAt']),
+      updatedAt: null,
     );
   }
 
@@ -67,6 +81,7 @@ class LeaveRequest {
       'id': id,
       'employeeId': employeeId,
       'employeeName': employeeName,
+      'department': department,
       'leaveType': leaveType.toString().split('.').last,
       'startDate': startDate.toIso8601String(),
       'endDate': endDate.toIso8601String(),
@@ -82,6 +97,7 @@ class LeaveRequest {
     String? id,
     String? employeeId,
     String? employeeName,
+    String? department,
     LeaveType? leaveType,
     DateTime? startDate,
     DateTime? endDate,
@@ -95,6 +111,7 @@ class LeaveRequest {
       id: id ?? this.id,
       employeeId: employeeId ?? this.employeeId,
       employeeName: employeeName ?? this.employeeName,
+      department: department ?? this.department,
       leaveType: leaveType ?? this.leaveType,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,

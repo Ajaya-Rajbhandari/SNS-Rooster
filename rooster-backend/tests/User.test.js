@@ -3,10 +3,7 @@ const mongoose = require('mongoose');
 
 // Mock Mongoose connection
 beforeAll(async () => {
-  await mongoose.connect('mongodb://localhost:27017/testdb', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
+  await mongoose.connect('mongodb://localhost:27017/testdb');
 });
 
 afterAll(async () => {

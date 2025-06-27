@@ -80,21 +80,44 @@ class ApiService {
   }
 
   Future<Map<String, String>> _getHeaders() async {
-    final token = prefs.getString('token'); // Changed from 'auth_token' to 'token'
+    final token =
+        prefs.getString('token'); // Changed from 'auth_token' to 'token'
     return {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
     };
   }
 
+  Future<String> getAuthorizationHeader() async {
+    final token = prefs.getString('token');
+    return token != null ? 'Bearer $token' : 'No Authorization header';
+  }
+
   ApiResponse _handleResponse(http.Response response) {
     try {
       final data = json.decode(response.body);
-      return ApiResponse(
-        success: response.statusCode >= 200 && response.statusCode < 300,
-        message: data['message'] ?? 'Request completed',
-        data: data['data'],
-      );
+      if (data is List) {
+        // Raw array response
+        return ApiResponse(
+          success: response.statusCode >= 200 && response.statusCode < 300,
+          message: 'Request completed',
+          data: data,
+        );
+      } else if (data is Map && data.containsKey('data')) {
+        // Object with 'data' field
+        return ApiResponse(
+          success: response.statusCode >= 200 && response.statusCode < 300,
+          message: data['message'] ?? 'Request completed',
+          data: data['data'],
+        );
+      } else {
+        // Fallback for other object responses
+        return ApiResponse(
+          success: response.statusCode >= 200 && response.statusCode < 300,
+          message: data['message'] ?? 'Request completed',
+          data: data,
+        );
+      }
     } catch (e) {
       return ApiResponse(
         success: false,

@@ -42,9 +42,22 @@ exports.getLeaveHistory = async (req, res) => {
 // Get all leave requests for admin
 exports.getAllLeaveRequests = async (req, res) => {
   try {
-    const leaveRequests = await Leave.find().populate('employee', 'name department');
-    res.json({ leaveRequests });
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching leave requests.', error: error.message });
+    const leaves = await Leave.find().populate('employee');
+    const result = leaves.map(leave => ({
+      _id: leave._id,
+      employee: leave.employee?._id,
+      employeeName: `${leave.employee?.firstName || ''} ${leave.employee?.lastName || ''}`.trim(),
+      department: leave.employee?.department || '',
+      leaveType: leave.leaveType,
+      startDate: leave.startDate,
+      endDate: leave.endDate,
+      reason: leave.reason,
+      status: leave.status,
+      appliedAt: leave.appliedAt,
+      // Add other fields as needed
+    }));
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching leave requests' });
   }
 };
