@@ -125,7 +125,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       },
       child: Container(
         width: 100,
-        height: 120,
+        height: 130,
         margin: const EdgeInsets.symmetric(horizontal: 8.0),
         decoration: BoxDecoration(
           color: isSelected ? color.withOpacity(0.9) : color.withOpacity(0.7),
@@ -152,9 +152,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           ? Icons.coffee
                           : Icons.access_time,
               color: Colors.white,
-              size: 36,
+              size: 32,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               title,
               style: const TextStyle(
@@ -162,7 +162,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   fontWeight: FontWeight.bold,
                   color: Colors.white),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               count.toString(),
               style: const TextStyle(
@@ -296,10 +296,31 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       final item = filteredData[index];
                       final status = _calculateStatus(item);
                       final date = _formatDate(item['date']);
-
+                      final checkIn = _formatTime(item['checkInTime']);
+                      final checkOut = _formatTime(item['checkOutTime']);
+                      final breakDurationMin =
+                          ((item['totalBreakDuration'] ?? 0) / 60000)
+                              .toStringAsFixed(1);
+                      // Calculate total hours worked
+                      String totalHoursWorked = '';
+                      if (item['checkInTime'] != null &&
+                          item['checkOutTime'] != null) {
+                        final checkInDt = DateTime.parse(item['checkInTime']);
+                        final checkOutDt = DateTime.parse(item['checkOutTime']);
+                        final breakMs = item['totalBreakDuration'] ?? 0;
+                        final workMs =
+                            checkOutDt.difference(checkInDt).inMilliseconds -
+                                breakMs;
+                        final workH = workMs ~/ (1000 * 60 * 60);
+                        final workM =
+                            ((workMs % (1000 * 60 * 60)) / (1000 * 60)).round();
+                        totalHoursWorked = '${workH}h ${workM}m';
+                      }
+                      // Prepare break details
+                      final breaks = (item['breaks'] as List<dynamic>? ?? []);
                       return Card(
                         margin: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: ListTile(
+                        child: ExpansionTile(
                           leading: Icon(
                             status == 'completed'
                                 ? Icons.check_circle_outline
@@ -322,18 +343,70 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                             children: [
                               Text(
                                   'Status: ${status.replaceAll('_', ' ').toUpperCase()}'),
-                              if (item['checkInTime'] != null)
-                                Text(
-                                    'Check In: ${_formatTime(item['checkInTime'])}'),
-                              if (item['checkOutTime'] != null)
-                                Text(
-                                    'Check Out: ${_formatTime(item['checkOutTime'])}'),
-                              if (item['totalBreakDuration'] != null &&
-                                  item['totalBreakDuration'] > 0)
-                                Text(
-                                    'Break Duration: ${((item['totalBreakDuration'] as int) / 60000).toStringAsFixed(1)} min'),
+                              Text('Check In: $checkIn'),
+                              if (breakDurationMin != '0.0')
+                                Text('Break Duration: $breakDurationMin min'),
                             ],
                           ),
+                          children: [
+                            if (item['checkOutTime'] != null)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                    left: 16.0, bottom: 4.0, right: 16.0),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text('Check Out: $checkOut'),
+                                ),
+                              ),
+                            if (totalHoursWorked.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                    left: 16.0, bottom: 4.0, right: 16.0),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                      'Total Hours Worked: $totalHoursWorked'),
+                                ),
+                              ),
+                            if (breaks.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                    left: 16.0, bottom: 8.0, right: 16.0),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Breaks:',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold)),
+                                      ...breaks.map((b) {
+                                        final breakType = b['type'] is Map
+                                            ? (b['type']['displayName'] ??
+                                                'Break')
+                                            : 'Break';
+                                        final start = _formatTime(b['start']);
+                                        final end = b['end'] != null
+                                            ? _formatTime(b['end'])
+                                            : 'Ongoing';
+                                        final durationMin =
+                                            b['duration'] != null
+                                                ? (b['duration'] / 60000)
+                                                    .toStringAsFixed(1)
+                                                : '';
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                              top: 2.0, bottom: 2.0),
+                                          child: Text(
+                                              '- $breakType: $start - $end (${durationMin.isNotEmpty ? '$durationMin min' : 'In progress'})'),
+                                        );
+                                      }).toList(),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       );
                     },
