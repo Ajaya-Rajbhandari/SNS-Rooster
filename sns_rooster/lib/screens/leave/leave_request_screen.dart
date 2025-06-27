@@ -115,8 +115,8 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       final leaveProvider =
           Provider.of<LeaveRequestProvider>(context, listen: false);
       final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
-      print('DEBUG: profileProvider.profile = ' + profileProvider.profile.toString());
-      print('DEBUG: authProvider.user = ' + authProvider.user.toString());
+      print('DEBUG: profileProvider.profile = ${profileProvider.profile}');
+      print('DEBUG: authProvider.user = ${authProvider.user}');
       // Always fetch the Employee document for the current user
       final userId = authProvider.user?['_id'];
       String? employeeId;

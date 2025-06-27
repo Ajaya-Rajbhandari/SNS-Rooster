@@ -13,6 +13,8 @@ import 'package:sns_rooster/screens/admin/help_support_screen.dart';
 import 'package:sns_rooster/screens/admin/attendance_management_screen.dart';
 import 'package:sns_rooster/screens/admin/break_management_screen.dart';
 import '../../widgets/admin_side_navigation.dart';
+import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -51,54 +53,129 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     });
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.token;
       String userName = authProvider.user?['name'] as String? ?? 'Admin';
 
-      // Fetch total users (employees) count
       int totalEmployees = 0;
-      try {
-        final response = await http.get(
-          Uri.parse('${ApiConfig.baseUrl}/auth/users'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ${authProvider.token}',
-          },
-        );
+      int presentToday = 0;
+      int onLeave = 0;
+      int pendingRequests = 0;
+      int absentToday = 0;
+      Map<String, dynamic> departmentStats = {};
+      List<dynamic> recentActivities = [];
+      List<dynamic> attendanceChart = [];
 
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          if (data['users'] is List) {
-            totalEmployees = (data['users'] as List).length;
+      // Fetch total employees and department stats
+      final usersResponse = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/auth/users'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (usersResponse.statusCode == 200) {
+        final usersData = jsonDecode(usersResponse.body);
+        if (usersData is List) {
+          final usersList =
+              usersData.where((user) => user['role'] == 'employee').toList();
+          totalEmployees = usersList.length;
+          for (var user in usersList) {
+            final department = user['department'] ?? 'Unknown';
+            if (departmentStats.containsKey(department)) {
+              departmentStats[department]['total'] =
+                  (departmentStats[department]['total'] ?? 0) + 1;
+            } else {
+              departmentStats[department] = {
+                'total': 1,
+                'present': 0,
+              };
+            }
           }
         } else {
-          print('Warning: Could not fetch total employees. Status code: ${response.statusCode}');
+          throw Exception('Unexpected data format for users');
         }
-      } catch (e) {
-        print('Error fetching total employees: $e. Using default 0.');
-        // Potentially set a specific error message for this part
+      } else {
+        print(
+            'Failed to load users: ${usersResponse.statusCode} ${usersResponse.body}');
+        throw Exception('Failed to load users');
       }
 
-      // TODO: Fetch actual data for these from dedicated API endpoints when available
-      int presentToday = 0; // Placeholder - API needed
-      int onLeave = 0; // Placeholder - API needed
-      int pendingRequests = 0; // Placeholder - API needed
+      // Fetch attendance stats
+      final attendanceResponse = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/attendance/today'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (attendanceResponse.statusCode == 200) {
+        final attendanceData = jsonDecode(attendanceResponse.body);
+        if (attendanceData is Map &&
+            attendanceData.containsKey('present') &&
+            attendanceData.containsKey('absent') &&
+            attendanceData.containsKey('onLeave')) {
+          presentToday = attendanceData['present'] ?? 0;
+          absentToday = attendanceData['absent'] ?? 0;
+          onLeave = attendanceData['onLeave'] ?? 0;
+        }
+      } else {
+        print(
+            'Attendance endpoint failed: ${attendanceResponse.statusCode} ${attendanceResponse.body}');
+      }
+
+      // Fetch leave requests (pending)
+      try {
+        final employeeId = authProvider.user?['employeeId'];
+        if (employeeId == null) {
+          print('Error: employeeId is undefined for leave history request.');
+          pendingRequests = 0;
+        } else {
+          final leaveRequestsResponse = await http.get(
+            Uri.parse(
+                '${ApiConfig.baseUrl}/leave/history?employeeId=$employeeId'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          );
+          if (leaveRequestsResponse.statusCode == 200) {
+            final leaveRequestsData = jsonDecode(leaveRequestsResponse.body);
+            if (leaveRequestsData is Map &&
+                leaveRequestsData.containsKey('leaveRequests')) {
+              final leaveRequestsList = leaveRequestsData['leaveRequests'];
+              if (leaveRequestsList is List) {
+                pendingRequests = leaveRequestsList
+                    .where((req) => req['status'] == 'pending')
+                    .length;
+              }
+            }
+          } else {
+            print(
+                'Failed to load leave requests: ${leaveRequestsResponse.statusCode} ${leaveRequestsResponse.body}');
+          }
+        }
+      } catch (e) {
+        print('Error fetching leave requests: $e');
+        pendingRequests = 0;
+      }
+
+      // Optionally: Fetch recent activities and chart data if you have endpoints
+      // (Retain your previous logic for these, or leave as empty for now)
 
       _dashboardData = {
         'welcomeMessage': 'Welcome, $userName!',
         'overviewText': 'Here\'s an overview of your admin dashboard.',
         'quickStats': {
           'totalEmployees': totalEmployees,
-          'presentToday': presentToday, // TODO: Replace with real data
-          'onLeave': onLeave, // TODO: Replace with real data
-          'pendingRequests': pendingRequests, // TODO: Replace with real data
+          'presentToday': presentToday,
+          'onLeave': onLeave,
+          'pendingRequests': pendingRequests,
+          'absentToday': absentToday,
         },
-        // TODO: Fetch actual recent activities from an API endpoint (e.g., /api/admin/recent-activity)
-        'recentActivities': [
-          // Example structure, will be replaced by API data
-          // {'id': '1', 'description': 'New leave request from Jane Doe.', 'timestamp': '2024-07-21T09:15:00Z'},
-        ],
-        // TODO: Fetch actual chart data from an API endpoint (e.g., /api/admin/dashboard-charts)
+        'departmentStats': departmentStats,
+        'recentActivities': recentActivities,
         'chartData': {
-          'attendance': [], // Example: [70.0, 85.0, 90.0, 75.0, 95.0, 88.0, 92.0]
+          'attendance': attendanceChart,
         }
       };
 
@@ -116,13 +193,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Always get latest user info from provider
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.user;
     final userName = user?['name'] ?? 'Admin';
-
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final now = DateTime.now();
 
     return Scaffold(
       appBar: AppBar(
@@ -139,173 +215,134 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             if (_isLoading) ...[
               const Center(child: CircularProgressIndicator()),
             ] else if (_errorMessage != null) ...[
-              Center(child: Text('Error: $_errorMessage', style: const TextStyle(color: Colors.red))),
+              Center(
+                  child: Text('Error:  _errorMessage',
+                      style: TextStyle(color: theme.colorScheme.error))),
             ] else ...[
-              Text(
-                _dashboardData['welcomeMessage'] ?? 'Welcome, Admin!',
-                style: theme.textTheme.headlineMedium,
+              // --- Modern Analytics Section ---
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Welcome, $userName!',
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    DateFormat('EEEE, MMMM d, y').format(now),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.7)),
+                  ),
+                  const SizedBox(height: 24),
+                  // Modern Stat Card Row
+                  _buildStatCardRow(),
+                  const SizedBox(height: 24),
+                  // Attendance Pie Chart
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Today\'s Attendance',
+                              style: theme.textTheme.titleLarge),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                              height: 200, child: _buildAttendancePieChart()),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Upcoming Events (placeholder)
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Upcoming Events',
+                                  style: theme.textTheme.titleLarge),
+                              TextButton(
+                                  onPressed: () {},
+                                  child: const Text('View All')),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          const Text('Events coming soon!'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Recent Activities (placeholder)
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Recent Activities',
+                                  style: theme.textTheme.titleLarge),
+                              TextButton(
+                                  onPressed: () {},
+                                  child: const Text('View All')),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          const Text('Recent activities coming soon!'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Department Stats Table
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Department-wise Attendance',
+                              style: theme.textTheme.titleLarge),
+                          const SizedBox(height: 16),
+                          _buildDepartmentStatsTable(),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // TODO: Implement Upcoming Events and Recent Activities with real data
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                _dashboardData['overviewText'] ?? 'Here\'s an overview of your admin dashboard.',
-                style: theme.textTheme.bodyLarge,
-              ),
+              const SizedBox(height: 24),
             ],
-            const SizedBox(height: 24),
             Text(
               'Quick Actions & Shortcuts',
               style: theme.textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Quick Actions',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 16,
-                      crossAxisSpacing: 16,
-                      children: [
-                        _buildActionCard(
-                          context,
-                          icon: Icons.payments,
-                          title: 'Payroll',
-                          onTap: () {
-                            print('ADMIN DASHBOARD: Navigating to PayrollManagementScreen');
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const PayrollManagementScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildActionCard(
-                          context,
-                          icon: Icons.people,
-                          title: 'Employee Management',
-                          onTap: () {
-                            print('ADMIN DASHBOARD: Navigating to EmployeeManagementScreen');
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const EmployeeManagementScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildActionCard(
-                          context,
-                          icon: Icons.beach_access,
-                          title: 'Leave',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const LeaveManagementScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildActionCard(
-                          context,
-                          icon: Icons.notifications,
-                          title: 'Notifications',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const NotificationAlertScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildActionCard(
-                          context,
-                          icon: Icons.settings,
-                          title: 'Settings',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const SettingsScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildActionCard(
-                          context,
-                          icon: Icons.access_time,
-                          title: 'Attendance',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const AttendanceManagementScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildActionCard(
-                          context,
-                          icon: Icons.free_breakfast,
-                          title: 'Break Management',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const BreakManagementScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildActionCard(
-                          context,
-                          icon: Icons.help_outline,
-                          title: 'Help',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const HelpSupportScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Recent Activity',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    // TODO: Implement _buildRecentActivitySection with real data
-                    // For now, showing a placeholder if no activities are fetched
-                    _dashboardData['recentActivities'] != null && (_dashboardData['recentActivities'] as List).isNotEmpty
-                        ? _buildRecentActivitySection(theme)
-                        : const Text('No recent activities to display. (TODO: Connect to API)'),
-
-                  ],
-                ),
-              ),
-            ),
+            _buildPaginatedQuickActions(context),
             const SizedBox(height: 24),
             Text(
               'Real-Time Data & Analytics',
@@ -328,10 +365,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     const SizedBox(height: 16),
                     // TODO: Implement _buildChartsSection with real data
                     // For now, showing a placeholder if no chart data is fetched
-                    _dashboardData['chartData'] != null && (_dashboardData['chartData']['attendance'] as List).isNotEmpty
+                    _dashboardData['chartData'] != null &&
+                            (_dashboardData['chartData']['attendance'] as List)
+                                .isNotEmpty
                         ? _buildChartsSection(theme)
-                        : const Text('Chart data not available. (TODO: Connect to API)'),
-
+                        : const Text(
+                            'Chart data not available. (TODO: Connect to API)',
+                            style: TextStyle(color: Colors.grey)),
                     const SizedBox(height: 24),
                     Text(
                       'Live Metrics',
@@ -689,21 +729,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       {required IconData icon,
       required String title,
       required VoidCallback onTap}) {
-    final theme = Theme.of(context);
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
+    return GestureDetector(
+      onTap: onTap,
+      child: Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Container(
           padding: const EdgeInsets.all(16.0),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue.withOpacity(0.7), Colors.blue],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 48, color: theme.colorScheme.primary),
+              Icon(icon, size: 32, color: Colors.white),
               const SizedBox(height: 8),
-              Text(title, style: theme.textTheme.titleMedium),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
             ],
           ),
         ),
@@ -711,26 +765,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildDrawerItem(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    required ColorScheme colorScheme,
-  }) {
-    return ListTile(
-      leading: Icon(icon, color: colorScheme.onSurface),
-      title: Text(
-        title,
-        style: TextStyle(color: colorScheme.onSurface),
-      ),
-      onTap: onTap,
-      selectedTileColor: colorScheme.primary.withOpacity(0.1),
-    );
-  }
-
-  Widget _buildRecentActivitySection(ThemeData theme) {
-    if (_isLoading || _dashboardData['recentActivities'] == null || (_dashboardData['recentActivities'] as List).isEmpty) {
+  Widget _buildUpcomingEventsSection(ThemeData theme) {
+    if (_isLoading ||
+        _dashboardData['upcomingEvents'] == null ||
+        (_dashboardData['upcomingEvents'] as List).isEmpty) {
       return Container(
         height: 100,
         decoration: BoxDecoration(
@@ -738,32 +776,407 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           borderRadius: BorderRadius.circular(8),
         ),
         child: const Center(
-          child: Text('No recent activity or loading...'),
+          child: Text('Events coming soon!'),
+        ),
+      );
+    }
+
+    List<dynamic> events = _dashboardData['upcomingEvents'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...events.map((event) => Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ListTile(
+                leading: const Icon(Icons.event),
+                title: Text(event['title'] ?? 'Untitled Event'),
+                subtitle: Text(event['date'] ?? 'No date provided'),
+              ),
+            )),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: () {
+              // Navigate to detailed events page
+            },
+            child: const Text('View All'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecentActivitiesSection(ThemeData theme) {
+    if (_isLoading ||
+        _dashboardData['recentActivities'] == null ||
+        (_dashboardData['recentActivities'] as List).isEmpty) {
+      return Container(
+        height: 100,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Center(
+          child: Text('Recent activities coming soon!'),
         ),
       );
     }
 
     List<dynamic> activities = _dashboardData['recentActivities'];
 
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: activities.length,
-      itemBuilder: (context, index) {
-        final activity = activities[index];
-        return ListTile(
-          leading: const Icon(Icons.history),
-          title: Text(activity['description'] ?? 'N/A'),
-          subtitle: Text(activity['timestamp'] != null ? 'At: ${activity['timestamp']}' : 'No timestamp'),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...activities.map((activity) => Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ListTile(
+                leading: const Icon(Icons.history),
+                title: Text(activity['description'] ?? 'No description'),
+                subtitle: Text(activity['timestamp'] ?? 'No timestamp'),
+              ),
+            )),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: () {
+              // Navigate to detailed activities page
+            },
+            child: const Text('View All'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(10), // Reduced from 16
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [color.withOpacity(0.7), color],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center, // Center vertically
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: Colors.white, size: 24), // Reduced from 28
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14, // Reduced from 16
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8), // Reduced from 12
+            Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 20, // Reduced from 24
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- Modern Dashboard Widgets ---
+  Widget _buildStatCardRow() {
+    final stats = [
+      {
+        'title': 'Total Employees',
+        'value':
+            _dashboardData['quickStats']?['totalEmployees'].toString() ?? '0',
+        'icon': Icons.people,
+        'color': Theme.of(context).colorScheme.primary
+      },
+      {
+        'title': 'Present',
+        'value':
+            _dashboardData['quickStats']?['presentToday'].toString() ?? '0',
+        'icon': Icons.check_circle,
+        'color': Colors.green
+      },
+      {
+        'title': 'On Leave',
+        'value': _dashboardData['quickStats']?['onLeave'].toString() ?? '0',
+        'icon': Icons.event_busy,
+        'color': Theme.of(context).colorScheme.secondary
+      },
+      {
+        'title': 'Absent',
+        'value': _dashboardData['quickStats']?['absentToday'].toString() ?? '0',
+        'icon': Icons.cancel,
+        'color': Colors.red
+      },
+      {
+        'title': 'Pending',
+        'value':
+            _dashboardData['quickStats']?['pendingRequests'].toString() ?? '0',
+        'icon': Icons.pending_actions,
+        'color': Colors.orange
+      },
+    ];
+    return SizedBox(
+      height: 110,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: stats.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, i) => SizedBox(
+          width: 160,
+          child: _buildStatCard(
+            stats[i]['title'] as String,
+            stats[i]['value'] as String,
+            stats[i]['icon'] as IconData,
+            stats[i]['color'] as Color,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttendancePieChart() {
+    final present =
+        (_dashboardData['quickStats']?['presentToday'] ?? 0).toDouble();
+    final absent =
+        (_dashboardData['quickStats']?['absentToday'] ?? 0).toDouble();
+    final onLeave = (_dashboardData['quickStats']?['onLeave'] ?? 0).toDouble();
+    final total = present + absent + onLeave;
+    if (total == 0) {
+      return const Center(child: Text('No attendance data.'));
+    }
+    return PieChart(
+      PieChartData(
+        sections: [
+          PieChartSectionData(
+            value: present,
+            title: 'Present',
+            color: Colors.green,
+            radius: 60,
+          ),
+          PieChartSectionData(
+            value: absent,
+            title: 'Absent',
+            color: Colors.red,
+            radius: 60,
+          ),
+          PieChartSectionData(
+            value: onLeave,
+            title: 'On Leave',
+            color: Colors.orange,
+            radius: 60,
+          ),
+        ],
+        sectionsSpace: 2,
+        centerSpaceRadius: 40,
+      ),
+    );
+  }
+
+  Widget _buildDepartmentStatsTable() {
+    final deptStats =
+        _dashboardData['departmentStats'] as Map<String, dynamic>?;
+    if (deptStats == null || deptStats.isEmpty) {
+      return const Text('No department stats available.');
+    }
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 220),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            dataRowMinHeight: 32,
+            dataRowMaxHeight: 40,
+            columns: const [
+              DataColumn(label: Text('Department')),
+              DataColumn(label: Text('Total')),
+            ],
+            rows: deptStats.entries
+                .map((e) => DataRow(cells: [
+                      DataCell(Text(e.key)),
+                      DataCell(Text(e.value['total'].toString())),
+                    ]))
+                .toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaginatedQuickActions(BuildContext context) {
+    final actions = [
+      {
+        'icon': Icons.payments,
+        'title': 'Payroll',
+        'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const PayrollManagementScreen()))
+      },
+      {
+        'icon': Icons.people,
+        'title': 'Employee Management',
+        'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const EmployeeManagementScreen()))
+      },
+      {
+        'icon': Icons.beach_access,
+        'title': 'Leave',
+        'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const LeaveManagementScreen()))
+      },
+      {
+        'icon': Icons.notifications,
+        'title': 'Notifications',
+        'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const NotificationAlertScreen()))
+      },
+      {
+        'icon': Icons.settings,
+        'title': 'Settings',
+        'onTap': () => Navigator.push(context,
+            MaterialPageRoute(builder: (context) => const SettingsScreen()))
+      },
+      {
+        'icon': Icons.access_time,
+        'title': 'Attendance',
+        'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const AttendanceManagementScreen()))
+      },
+      {
+        'icon': Icons.free_breakfast,
+        'title': 'Break Management',
+        'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const BreakManagementScreen()))
+      },
+      {
+        'icon': Icons.help_outline,
+        'title': 'Help',
+        'onTap': () => Navigator.push(context,
+            MaterialPageRoute(builder: (context) => const HelpSupportScreen()))
+      },
+    ];
+
+    const itemsPerPage = 4;
+    final totalPages = (actions.length / itemsPerPage).ceil();
+
+    return StatefulBuilder(
+      builder: (context, setState) {
+        int currentPage = 0;
+
+        List<Widget> buildPageActions(int page) {
+          final startIndex = page * itemsPerPage;
+          final endIndex = (startIndex + itemsPerPage).clamp(0, actions.length);
+          return actions.sublist(startIndex, endIndex).map((action) {
+            return _buildActionCard(
+              context,
+              icon: action['icon'] as IconData,
+              title: action['title'] as String,
+              onTap: action['onTap'] as VoidCallback,
+            );
+          }).toList();
+        }
+
+        return GestureDetector(
+          onHorizontalDragEnd: (details) {
+            if (details.primaryVelocity != null) {
+              setState(() {
+                if (details.primaryVelocity! < 0 &&
+                    currentPage < totalPages - 1) {
+                  currentPage++;
+                } else if (details.primaryVelocity! > 0 && currentPage > 0) {
+                  currentPage--;
+                }
+              });
+            }
+          },
+          child: Column(
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: GridView.count(
+                  key: ValueKey<int>(currentPage),
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  children: buildPageActions(currentPage),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(totalPages, (index) {
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        currentPage = index;
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: index == currentPage ? 12 : 8,
+                      height: index == currentPage ? 12 : 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: index == currentPage ? Colors.blue : Colors.grey,
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
   Widget _buildChartsSection(ThemeData theme) {
-    // Placeholder for charts. In a real app, you'd use a charting library like fl_chart.
     if (_isLoading || _dashboardData['chartData'] == null) {
-       return Container(
+      return Container(
         height: 200,
         decoration: BoxDecoration(
           color: Colors.grey[200],
@@ -774,6 +1187,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
       );
     }
+
     // Example: Display a simple text representation of chart data
     return Container(
       height: 200,
@@ -789,7 +1203,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           const SizedBox(height: 8),
           Expanded(
             child: Center(
-              child: Text(_dashboardData['chartData']['attendance']?.join(', ') ?? 'No chart data'),
+              child: Text(
+                _dashboardData['chartData']['attendance']?.join(', ') ??
+                    'No chart data',
+                style: const TextStyle(color: Colors.black54),
+              ),
             ),
           ),
         ],

@@ -71,7 +71,7 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load users: {e.toString()}')),
+          const SnackBar(content: Text('Failed to load users: {e.toString()}')),
         );
       }
     }

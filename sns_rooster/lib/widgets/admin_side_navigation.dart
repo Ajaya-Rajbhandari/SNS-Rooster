@@ -9,10 +9,8 @@ import '../screens/admin/notification_alert_screen.dart';
 import '../screens/admin/settings_screen.dart';
 import '../screens/admin/help_support_screen.dart';
 import '../screens/admin/user_management_screen.dart';
-import '../screens/admin/admin_overview_screen.dart';
 import '../screens/admin/admin_timesheet_screen.dart';
 import '../screens/admin/attendance_management_screen.dart';
-import '../screens/admin/leave_request_management_screen.dart';
 import '../screens/admin/break_management_screen.dart';
 import '../screens/admin/break_types_screen.dart';
 import 'package:sns_rooster/main.dart'; // Re-added import for navigatorKey
@@ -75,14 +73,6 @@ class AdminSideNavigation extends StatelessWidget {
           ),
           _buildDrawerItem(
             context,
-            icon: Icons.analytics,
-            title: 'Overview',
-            route: '/admin_overview',
-            screen: const AdminOverviewScreen(),
-            colorScheme: colorScheme,
-          ),
-          _buildDrawerItem(
-            context,
             icon: Icons.people,
             title: 'Employee Management',
             route: '/employee_management',
@@ -129,14 +119,7 @@ class AdminSideNavigation extends StatelessWidget {
             screen: const LeaveManagementScreen(),
             colorScheme: colorScheme,
           ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.assignment,
-            title: 'Leave Requests',
-            route: '/leave_request_management',
-            screen: const LeaveRequestManagementScreen(),
-            colorScheme: colorScheme,
-          ),
+
           _buildDrawerItem(
             context,
             icon: Icons.coffee,
@@ -283,25 +266,20 @@ class AdminSideNavigation extends StatelessWidget {
         await authProvider.logout();
 
         if (navigatorKey.currentContext != null) {
-          print('LOGOUT: Navigating to login screen');
           Navigator.pushNamedAndRemoveUntil(
             navigatorKey.currentContext!,
             '/login',
             (route) => false,
           );
         } else {
-          print('LOGOUT: Navigator context not available after logout');
           // Fallback navigation
           navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (route) => false);
         }
       } else {
-        print('LOGOUT: Navigator context not available before logout');
         // Fallback navigation
         if (navigatorKey.currentState != null) {
-          print('LOGOUT: Using navigatorKey.currentState for fallback navigation');
           navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (route) => false);
         } else {
-          print('LOGOUT: navigatorKey.currentState is also unavailable');
           // Final fallback: Use a direct MaterialPageRoute
           // runApp(MaterialApp(
           //   home: const LoginScreen(),

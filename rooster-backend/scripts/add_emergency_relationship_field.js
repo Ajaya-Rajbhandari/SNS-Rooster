@@ -7,7 +7,7 @@ const User = require('../models/User');
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/YOUR_DB_NAME'; // Update with your DB name
 
 async function addEmergencyRelationshipField() {
-  await mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+  await mongoose.connect(MONGODB_URI);
   const result = await User.updateMany(
     { emergencyRelationship: { $exists: false } },
     { $set: { emergencyRelationship: '' } }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:sns_rooster/services/api_service.dart';
 import 'package:sns_rooster/config/api_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/leave_request.dart';
 
 class LeaveRequestProvider with ChangeNotifier {
   final List<Map<String, dynamic>> _leaveRequests = [];
@@ -170,14 +169,23 @@ class LeaveRequestProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final api = ApiService(baseUrl: ApiConfig.baseUrl, prefs: prefs);
       final response = await api.get('/employees/user/$userId');
-      print('DEBUG: employee API response: success=${response.success}, data=${response.data}, message=${response.message}');
+
       if (response.success && response.data != null) {
-        return response.data['_id'];
+        final employeeId = response.data['_id'];
+        if (employeeId != null) {
+          print('DEBUG: Successfully fetched employeeId: $employeeId');
+          return employeeId;
+        } else {
+          print('ERROR: employeeId is null in response data.');
+        }
+      } else {
+        print('ERROR: Failed to fetch employeeId. Response: success=${response.success}, message=${response.message}, data=${response.data}');
       }
-      return null;
     } catch (e) {
-      print('DEBUG: fetchEmployeeIdByUserId error: $e');
-      return null;
+      print('ERROR: Exception while fetching employeeId: $e');
     }
+
+    print('ERROR: Returning null for employeeId.');
+    return null;
   }
 }
