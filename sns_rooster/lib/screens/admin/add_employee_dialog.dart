@@ -31,8 +31,26 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
   List<Map<String, dynamic>> _employees = [];
 
   // Added Position and Department dropdowns
-  final List<String> positions = ['Manager', 'Developer', 'Designer', 'QA', 'HR', 'Support', 'Intern', 'Other'];
-  final List<String> departments = ['Engineering', 'Design', 'HR', 'Support', 'Sales', 'Marketing', 'Finance', 'Other'];
+  final List<String> positions = [
+    'Manager',
+    'Developer',
+    'Designer',
+    'QA',
+    'HR',
+    'Support',
+    'Intern',
+    'Other'
+  ];
+  final List<String> departments = [
+    'Engineering',
+    'Design',
+    'HR',
+    'Support',
+    'Sales',
+    'Marketing',
+    'Finance',
+    'Other'
+  ];
 
   String? _selectedPosition;
   String? _selectedDepartment;
@@ -55,7 +73,7 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
       _isLoadingUsers = true;
     });
     try {
-      final users = await _userService.getUsers();
+      final users = await _userService.getUnassignedUsers();
       // Filter out admin/test users
       final filtered = users.where((user) {
         final email = user.email.toLowerCase();
@@ -71,7 +89,7 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load users: {e.toString()}')),
+          SnackBar(content: Text('Failed to load users: ${e.toString()}')),
         );
       }
     }
@@ -110,7 +128,8 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
     }
 
     // Extra validation: check if this user is already an employee
-    final alreadyEmployee = _employees.any((emp) => emp['userId'] == _selectedUser!.id);
+    final alreadyEmployee =
+        _employees.any((emp) => emp['userId'] == _selectedUser!.id);
     if (alreadyEmployee) {
       setState(() {
         _error = 'This user is already assigned as an employee.';
@@ -197,7 +216,8 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                                 const SizedBox(height: 8),
                                 DropdownButtonFormField<UserModel>(
                                   decoration: const InputDecoration(
-                                    hintText: 'Select a user to add as employee',
+                                    hintText:
+                                        'Select a user to add as employee',
                                     border: OutlineInputBorder(),
                                   ),
                                   value: _selectedUser,
@@ -216,18 +236,29 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                                       _selectedUser = newValue;
                                       // Auto-fill and generate Employee ID when user is selected
                                       if (newValue != null) {
-                                        _employeeIdController.text = _generateEmployeeIdFromUser(newValue);
+                                        _employeeIdController.text =
+                                            _generateEmployeeIdFromUser(
+                                                newValue);
                                       } else {
                                         _employeeIdController.clear();
                                       }
                                     });
                                   },
-                                  validator: (value) => value == null ? 'Please select a user' : null,
+                                  validator: (value) => value == null
+                                      ? 'Please select a user'
+                                      : null,
                                 ),
                                 if (_selectedUser != null) ...[
                                   const SizedBox(height: 8),
-                                  Text('Selected: ${_selectedUser!.displayName}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  Text('Email: ${_selectedUser!.email}', style: TextStyle(fontSize: 12, color: theme.textTheme.bodySmall?.color)),
+                                  Text(
+                                      'Selected: ${_selectedUser!.displayName}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                  Text('Email: ${_selectedUser!.email}',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: theme
+                                              .textTheme.bodySmall?.color)),
                                 ],
                               ],
                             ),
@@ -256,7 +287,8 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                         items: _roles.map((String role) {
                           return DropdownMenuItem<String>(
                             value: role,
-                            child: Text(role[0].toUpperCase() + role.substring(1)),
+                            child:
+                                Text(role[0].toUpperCase() + role.substring(1)),
                           );
                         }).toList(),
                         onChanged: (String? newValue) {
@@ -327,7 +359,8 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                             _selectedPosition = newValue;
                           });
                         },
-                        validator: (value) => value == null ? 'Please select a position' : null,
+                        validator: (value) =>
+                            value == null ? 'Please select a position' : null,
                       ),
                     ],
                   ),
@@ -362,18 +395,21 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                             _selectedDepartment = newValue;
                           });
                         },
-                        validator: (value) => value == null ? 'Please select a department' : null,
+                        validator: (value) =>
+                            value == null ? 'Please select a department' : null,
                       ),
                     ],
                   ),
                 ),
               ),
 
-              if (_error != null) ...[  // Show error message if present
+              if (_error != null) ...[
+                // Show error message if present
                 const SizedBox(height: 16),
                 Text(
                   _error!,
-                  style: TextStyle(color: theme.colorScheme.error, fontSize: 14),
+                  style:
+                      TextStyle(color: theme.colorScheme.error, fontSize: 14),
                   textAlign: TextAlign.center,
                 ),
               ],

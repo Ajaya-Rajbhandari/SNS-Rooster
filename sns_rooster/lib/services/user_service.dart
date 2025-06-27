@@ -21,7 +21,8 @@ class UserService {
     }
 
     final response = await http.get(
-      Uri.parse('$_baseUrl/auth/users'), // Endpoint to get all users, aligned with user_management_screen.dart
+      Uri.parse(
+          '$_baseUrl/auth/users'), // Endpoint to get all users, aligned with user_management_screen.dart
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -31,11 +32,39 @@ class UserService {
     if (response.statusCode == 200) {
       // The backend returns a list, not a map
       List<dynamic> usersJson = jsonDecode(response.body);
-      List<UserModel> users = usersJson.map((dynamic item) => UserModel.fromJson(item)).toList();
+      List<UserModel> users =
+          usersJson.map((dynamic item) => UserModel.fromJson(item)).toList();
       return users;
     } else {
       // Consider more specific error handling based on status code
-      throw Exception('Failed to load users: \\${response.statusCode} \\${response.body}');
+      throw Exception(
+          'Failed to load users: \\${response.statusCode} \\${response.body}');
+    }
+  }
+
+  // Fetch users not already assigned as employees
+  Future<List<UserModel>> getUnassignedUsers() async {
+    final token = await _getToken();
+    if (token == null) {
+      throw Exception('Authentication token not found');
+    }
+
+    final response = await http.get(
+      Uri.parse('$_baseUrl/employees/unassigned-users'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> usersJson = jsonDecode(response.body);
+      List<UserModel> users =
+          usersJson.map((dynamic item) => UserModel.fromJson(item)).toList();
+      return users;
+    } else {
+      throw Exception(
+          'Failed to load unassigned users: \\${response.statusCode} \\${response.body}');
     }
   }
 

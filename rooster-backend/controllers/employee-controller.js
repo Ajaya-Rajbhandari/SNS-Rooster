@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
+const User = require('../models/User');
 
 exports.getAllEmployees = async (req, res) => {
   try {
@@ -189,5 +190,22 @@ exports.getLeaveBalance = async (req, res) => {
   } catch (e) {
     console.error('Error in getLeaveBalance:', e);
     res.status(500).json({ message: 'Error fetching leave balance.' });
+  }
+};
+
+exports.getUnassignedUsers = async (req, res) => {
+  try {
+    // Only consider Employee records with a valid userId
+    const assignedUserIds = (await Employee.find({}, 'userId')).map(e => e.userId && e.userId.toString()).filter(Boolean);
+    // Only return users who are not assigned, have role 'employee', and are active
+    const unassignedUsers = await User.find({
+      _id: { $nin: assignedUserIds },
+      role: 'employee',
+      isActive: true
+    });
+    console.log('Unassigned users:', unassignedUsers.map(u => u.email));
+    res.json(unassignedUsers);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching unassigned users' });
   }
 };
