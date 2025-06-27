@@ -13,13 +13,14 @@ class PayrollService {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
     };
-    final url = '${ApiConfig.baseUrl}/payroll/employee/$userId';
+    final url = '${ApiConfig.baseUrl}/payroll/user/$userId';
     final response = await http.get(Uri.parse(url), headers: headers);
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       return data.cast<Map<String, dynamic>>();
     } else {
-      throw Exception('Failed to fetch payroll slips: ${response.statusCode} ${response.body}');
+      throw Exception(
+          'Failed to fetch payroll slips: ${response.statusCode} ${response.body}');
     }
   }
 }

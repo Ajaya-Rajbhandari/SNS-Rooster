@@ -32,3 +32,18 @@ exports.createPayroll = async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 };
+
+// Get payrolls for a specific user (by userId)
+exports.getUserPayrollsByUserId = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const employee = await Employee.findOne({ userId });
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee not found for this user.' });
+    }
+    const payrolls = await Payroll.find({ employee: employee._id }).populate('employee');
+    res.json(payrolls);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

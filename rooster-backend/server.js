@@ -1,56 +1,25 @@
-const express = require('express');
+// server.js: The ONLY entry point for the backend server.
+// This file imports app.js, connects to MongoDB, and starts the server.
+// Always use `node server.js` or `nodemon server.js` to run the backend.
+
+const app = require('./app');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-const cors = require('cors');
-const path = require('path');
-const authRoutes = require('./routes/authRoutes');
-const attendanceRoutes = require('./routes/attendanceRoutes');
-const adminAttendanceRoutes = require('./routes/adminAttendanceRoutes');
-const employeeRoutes = require('./routes/employeeRoutes');
-const leaveRoutes = require('./routes/leaveRoutes');
 
 // Load environment variables
 dotenv.config();
 
 console.log('DEBUG: JWT_SECRET value from dotenv:', process.env.JWT_SECRET);
 
-const app = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json()); // For parsing application/json
-app.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
-
-// Serve static files from uploads directory
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/sns-rooster';
-mongoose.connect(process.env.MONGODB_URI, {
+mongoose.connect(MONGODB_URI, {
     tlsAllowInvalidCertificates: true, // Add this line for debugging
   })
   .then(() => {
     console.log('Connected to MongoDB');
   })
   .catch((err) => console.error('MongoDB connection error:', err));
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/attendance', attendanceRoutes);
-app.use('/api/attendance', adminAttendanceRoutes);
-app.use('/api/employees', employeeRoutes);
-app.use('/api/leave', leaveRoutes);
-
-// Basic route for testing
-app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to SNS Rooster API' });
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
-});
 
 // Start server
 const PORT = process.env.PORT || 5000;
