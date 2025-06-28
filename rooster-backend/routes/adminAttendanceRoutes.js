@@ -129,7 +129,7 @@ router.get("/admin/break-history", auth, adminAuth, async (req, res) => {
     }
 
     const attendance = await Attendance.find(filter)
-      .populate("user", "name email")
+      .populate("user", "firstName lastName email")
       .sort({ date: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);

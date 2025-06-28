@@ -25,6 +25,7 @@ import 'package:sns_rooster/providers/analytics_provider.dart';
 import 'package:sns_rooster/providers/holiday_provider.dart';
 import 'package:sns_rooster/providers/employee_provider.dart';
 import 'package:sns_rooster/providers/admin_payroll_provider.dart';
+import 'package:sns_rooster/providers/admin_attendance_provider.dart';
 import 'package:sns_rooster/services/employee_service.dart';
 
 void main() {
@@ -91,6 +92,12 @@ class MyApp extends StatelessWidget {
             Provider.of<AuthProvider>(context, listen: false),
           ),
           update: (context, auth, previous) => AdminPayrollProvider(auth),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, AdminAttendanceProvider>(
+          create: (context) => AdminAttendanceProvider(
+            Provider.of<AuthProvider>(context, listen: false),
+          ),
+          update: (context, auth, previous) => AdminAttendanceProvider(auth),
         ),
       ],
       child: Consumer<AuthProvider>(

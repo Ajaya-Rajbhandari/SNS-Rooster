@@ -88,15 +88,27 @@ exports.checkIn = async (req, res) => {
 exports.checkOut = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    
+    // Use UTC for date comparison to match checkIn logic
+    const now = new Date();
+    const today = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        0,
+        0,
+        0,
+        0
+      )
+    );
     const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+    tomorrow.setUTCDate(today.getUTCDate() + 1);
 
     console.log(
       "DEBUG: checkOut - Querying for userId:",
       userId,
-      "and date range:",
+      "and date range (UTC):",
       today,
       "-",
       tomorrow
@@ -213,10 +225,22 @@ exports.startBreak = async (req, res) => {
 exports.endBreak = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    
+    // Use UTC for date comparison to match other methods
+    const now = new Date();
+    const today = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        0,
+        0,
+        0,
+        0
+      )
+    );
     const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+    tomorrow.setUTCDate(today.getUTCDate() + 1);
 
     const attendance = await Attendance.findOne({
       user: userId,
@@ -266,16 +290,20 @@ exports.endBreak = async (req, res) => {
 exports.getAttendanceStatus = async (req, res) => {
   try {
     const { userId } = req.params;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    
+    // Use UTC for date comparison to avoid timezone issues
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
     const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+    tomorrow.setUTCDate(today.getUTCDate() + 1);
 
     console.log(
       "DEBUG: getAttendanceStatus - Querying for userId:",
       userId,
-      "and date (today):",
-      today
+      "and date (today UTC):",
+      today,
+      "to",
+      tomorrow
     );
 
     const attendance = await Attendance.findOne({
@@ -321,7 +349,7 @@ exports.getMyAttendance = async (req, res) => {
     const userId = req.user.userId;
     const attendanceRecords = await Attendance.find({ user: userId }).populate(
       "user",
-      "name email role"
+      "firstName lastName email role"
     );
 
     res.json({ attendance: attendanceRecords });
@@ -349,7 +377,7 @@ exports.getUserAttendance = async (req, res) => {
     }
 
     const attendanceRecords = await Attendance.find({ user: userId })
-      .populate("user", "name email role")
+      .populate("user", "firstName lastName email role")
       .sort({ date: -1 }); // Sort by date, newest first
 
     res.json(attendanceRecords);
