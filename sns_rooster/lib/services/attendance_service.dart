@@ -72,8 +72,9 @@ class AttendanceService {
     };
     String url = '${ApiConfig.baseUrl}/attendance/my-attendance';
     final queryParams = <String, String>{};
-    if (startDate != null)
+    if (startDate != null) {
       queryParams['startDate'] = startDate.toIso8601String();
+    }
     if (endDate != null) queryParams['endDate'] = endDate.toIso8601String();
     if (queryParams.isNotEmpty) {
       url += '?${Uri(queryParameters: queryParams).query}';

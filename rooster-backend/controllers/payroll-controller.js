@@ -51,18 +51,66 @@ exports.getUserPayrollsByUserId = async (req, res) => {
 
 // Update a payroll record
 exports.updatePayroll = async (req, res) => {
+  console.log('DEBUG: updatePayroll controller called');
+  console.log('DEBUG: payrollId from params:', req.params.payrollId);
+  console.log('DEBUG: request body:', req.body);
+  
   try {
-    const { employee, periodStart, periodEnd, totalHours, grossPay, netPay, deductions, issueDate, payPeriod } = req.body;
-    const updated = await Payroll.findByIdAndUpdate(
-      req.params.payrollId,
-      { employee, periodStart, periodEnd, totalHours, grossPay, netPay, deductions, issueDate, payPeriod },
-      { new: true, runValidators: true }
-    );
-    if (!updated) {
+    const { employee, periodStart, periodEnd, totalHours, grossPay, netPay, deductions, issueDate, payPeriod, adminResponse } = req.body;
+    console.log('DEBUG: Extracted fields from request body:');
+    console.log('  - adminResponse:', adminResponse);
+    console.log('  - payPeriod:', payPeriod);
+    console.log('  - grossPay:', grossPay);
+    console.log('  - deductions:', deductions);
+    console.log('  - netPay:', netPay);
+    
+    const payslip = await Payroll.findById(req.params.payrollId);
+    console.log('DEBUG: Found payslip in database:', payslip ? 'YES' : 'NO');
+    
+    if (!payslip) {
+      console.log('DEBUG: Payslip not found, returning 404');
       return res.status(404).json({ error: 'Payroll not found' });
     }
-    res.json(updated);
+    
+    console.log('DEBUG: Current payslip status:', payslip.status);
+    console.log('DEBUG: Current payslip adminResponse:', payslip.adminResponse);
+    
+    // If status is needs_review and admin is responding, set to pending
+    if (payslip.status === 'needs_review') {
+      console.log('DEBUG: Status is needs_review, changing to pending');
+      payslip.status = 'pending';
+    } else {
+      console.log('DEBUG: Status is not needs_review, keeping as:', payslip.status);
+    }
+    
+    console.log('DEBUG: Updating payslip fields...');
+    payslip.employee = employee;
+    payslip.periodStart = periodStart;
+    payslip.periodEnd = periodEnd;
+    payslip.totalHours = totalHours;
+    payslip.grossPay = grossPay;
+    payslip.netPay = netPay;
+    payslip.deductions = deductions;
+    payslip.issueDate = issueDate;
+    payslip.payPeriod = payPeriod;
+    
+    if (adminResponse !== undefined) {
+      console.log('DEBUG: Setting adminResponse to:', adminResponse);
+      payslip.adminResponse = adminResponse;
+    } else {
+      console.log('DEBUG: adminResponse is undefined, not updating');
+    }
+    
+    console.log('DEBUG: About to save payslip...');
+    await payslip.save();
+    console.log('DEBUG: Payslip saved successfully');
+    console.log('DEBUG: Final payslip status:', payslip.status);
+    console.log('DEBUG: Final payslip adminResponse:', payslip.adminResponse);
+    console.log('DEBUG: Updated Payslip:', payslip);
+    
+    res.json(payslip);
   } catch (err) {
+    console.log('DEBUG: Error in updatePayroll:', err.message);
     res.status(400).json({ error: err.message });
   }
 };

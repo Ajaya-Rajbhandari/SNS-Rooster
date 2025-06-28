@@ -1099,8 +1099,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     const itemsPerPage = 4;
     final totalPages = (actions.length / itemsPerPage).ceil();
-    final PageController _pageController = PageController();
-    int _currentPage = 0;
+    final PageController pageController = PageController();
+    int currentPage = 0;
 
     List<Widget> buildPageActions(int page) {
       final startIndex = page * itemsPerPage;
@@ -1122,11 +1122,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             SizedBox(
               height: 360, // Increased for better layout
               child: PageView.builder(
-                controller: _pageController,
+                controller: pageController,
                 itemCount: totalPages,
                 onPageChanged: (index) {
                   setState(() {
-                    _currentPage = index;
+                    currentPage = index;
                   });
                 },
                 itemBuilder: (context, page) {
@@ -1176,23 +1176,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               children: List.generate(totalPages, (index) {
                 return GestureDetector(
                   onTap: () {
-                    _pageController.animateToPage(
+                    pageController.animateToPage(
                       index,
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeInOut,
                     );
                     setState(() {
-                      _currentPage = index;
+                      currentPage = index;
                     });
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: index == _currentPage ? 12 : 8,
-                    height: index == _currentPage ? 12 : 8,
+                    width: index == currentPage ? 12 : 8,
+                    height: index == currentPage ? 12 : 8,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: index == _currentPage ? Colors.blue : Colors.grey,
+                      color: index == currentPage ? Colors.blue : Colors.grey,
                     ),
                   ),
                 );

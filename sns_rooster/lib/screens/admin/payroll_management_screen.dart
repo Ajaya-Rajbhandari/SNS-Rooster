@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../../providers/admin_payroll_provider.dart';
+import '../../providers/auth_provider.dart';
 import 'edit_payslip_dialog.dart';
 import '../../widgets/admin_side_navigation.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
+import '../../config/api_config.dart';
+import 'dart:io';
 
 class PayrollManagementScreen extends StatefulWidget {
   const PayrollManagementScreen({super.key});
@@ -12,251 +20,486 @@ class PayrollManagementScreen extends StatefulWidget {
 }
 
 class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
-  // Mock employee list
-  final List<Map<String, String>> _employees = [
-    {'id': '1', 'name': 'John Doe'},
-    {'id': '2', 'name': 'Jane Smith'},
-    {'id': '3', 'name': 'Alice Johnson'},
-  ];
-  String _selectedEmployeeId = '1';
+  String? _selectedEmployeeId;
 
-  // Mock payslips per employee
-  final Map<String, List<Map<String, dynamic>>> _mockPayslips = {
-    '1': [
-      {
-        'payPeriod': 'May 2024',
-        'issueDate': '2024-05-31',
-        'grossPay': 3500.00,
-        'deductions': 500.00,
-        'netPay': 3000.00,
-      },
-      {
-        'payPeriod': 'Apr 2024',
-        'issueDate': '2024-04-30',
-        'grossPay': 3500.00,
-        'deductions': 450.00,
-        'netPay': 3050.00,
-      },
-    ],
-    '2': [
-      {
-        'payPeriod': 'May 2024',
-        'issueDate': '2024-05-31',
-        'grossPay': 4000.00,
-        'deductions': 600.00,
-        'netPay': 3400.00,
-      },
-    ],
-    '3': [],
-  };
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<AdminPayrollProvider>(context, listen: false)
+          .fetchEmployees();
+    });
+  }
+
+  void _onEmployeeChanged(String? employeeId) {
+    if (employeeId == null) return;
+    setState(() => _selectedEmployeeId = employeeId);
+    Provider.of<AdminPayrollProvider>(context, listen: false)
+        .fetchPayslips(employeeId);
+  }
+
+  void _addPayslip(BuildContext context, AdminPayrollProvider provider) async {
+    await showDialog(
+      context: context,
+      builder: (context) => EditPayslipDialog(
+        onSave: (newPayslip) async {
+          if (_selectedEmployeeId != null) {
+            await provider.addPayslip(newPayslip, _selectedEmployeeId!);
+          }
+        },
+      ),
+    );
+  }
+
+  void _editPayslip(BuildContext scaffoldContext, AdminPayrollProvider provider,
+      int idx) async {
+    final payslip = provider.payslips[idx];
+    final updatedPayslip = await showDialog<Map<String, dynamic>>(
+      context: scaffoldContext,
+      builder: (dialogContext) => EditPayslipDialog(
+        initialData: payslip,
+        onSave: (_) {}, // No-op, dialog just pops with data now
+      ),
+    );
+
+    if (!mounted || updatedPayslip == null) return;
+    try {
+      await provider.editPayslip(payslip['_id'], updatedPayslip);
+      if (_selectedEmployeeId != null) {
+        await provider.fetchPayslips(_selectedEmployeeId!);
+      }
+      ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+        const SnackBar(content: Text('Payslip updated successfully.')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+        SnackBar(content: Text('Error updating payslip: $e')),
+      );
+    }
+  }
+
+  void _deletePayslip(
+      BuildContext context, AdminPayrollProvider provider, int idx) async {
+    final payslip = provider.payslips[idx];
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Payslip'),
+        content: const Text('Are you sure you want to delete this payslip?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      try {
+        await provider.deletePayslip(payslip['_id']);
+        if (_selectedEmployeeId != null) {
+          await provider.fetchPayslips(_selectedEmployeeId!);
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Payslip deleted.'),
+            action: SnackBarAction(
+              label: 'Undo',
+              onPressed: () async {
+                // Optionally, implement undo by re-adding the payslip (requires storing its data)
+                await provider.addPayslip(payslip, _selectedEmployeeId!);
+                await provider.fetchPayslips(_selectedEmployeeId!);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Payslip restored.')),
+                );
+              },
+            ),
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting payslip: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _downloadPayslipPdf(
+      BuildContext context, String payslipId, String token) async {
+    try {
+      final url = '${ApiConfig.baseUrl}/payroll/$payslipId/pdf';
+      final response = await http.get(Uri.parse(url), headers: {
+        'Authorization': 'Bearer $token',
+      });
+      if (response.statusCode == 200) {
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/payslip-$payslipId.pdf');
+        await file.writeAsBytes(response.bodyBytes);
+        await OpenFile.open(file.path);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Failed to download PDF: ${response.statusCode}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error downloading PDF: $e')),
+      );
+    }
+  }
+
+  Widget _buildStatusIndicator(String? status, String? comment) {
+    if (status == 'approved') {
+      return const Row(children: [
+        Icon(Icons.check_circle, color: Colors.green, size: 22),
+        SizedBox(width: 4),
+        Text('Approved',
+            style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+      ]);
+    } else if (status == 'needs_review') {
+      return const Row(children: [
+        Icon(Icons.error, color: Colors.red, size: 22),
+        SizedBox(width: 4),
+        Text('Needs Review',
+            style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+      ]);
+    } else {
+      return const Row(children: [
+        Icon(Icons.access_time, color: Colors.orange, size: 22),
+        SizedBox(width: 4),
+        Text('Pending',
+            style:
+                TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+      ]);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final payslips = _mockPayslips[_selectedEmployeeId] ?? [];
+    final scaffoldContext = context;
+    return Consumer<AdminPayrollProvider>(
+      builder: (context, provider, child) {
+        final employees = provider.employees;
+        final payslips = provider.payslips;
+        final isLoading = provider.isLoading;
+        final error = provider.error;
 
-    void addPayslip() async {
-      await showDialog(
-        context: context,
-        builder: (context) => EditPayslipDialog(
-          onSave: (newPayslip) {
-            setState(() {
-              _mockPayslips[_selectedEmployeeId]!.insert(0, newPayslip);
-            });
-          },
-        ),
-      );
-    }
-
-    void editPayslip(int idx) async {
-      final payslip = payslips[idx];
-      await showDialog(
-        context: context,
-        builder: (context) => EditPayslipDialog(
-          initialData: payslip,
-          onSave: (updatedPayslip) {
-            setState(() {
-              _mockPayslips[_selectedEmployeeId]![idx] = updatedPayslip;
-            });
-          },
-        ),
-      );
-    }
-
-    void deletePayslip(int idx) async {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Delete Payslip'),
-          content: const Text('Are you sure you want to delete this payslip?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete'),
-            ),
-          ],
-        ),
-      );
-      if (confirmed == true) {
-        setState(() {
-          _mockPayslips[_selectedEmployeeId]!.removeAt(idx);
-        });
-      }
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Payroll Management'),
-      ),
-      drawer: const AdminSideNavigation(currentRoute: '/payroll_management'),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Employee selector
-            Row(
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Payroll Management'),
+          ),
+          drawer:
+              const AdminSideNavigation(currentRoute: '/payroll_management'),
+          body: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Select Employee:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(width: 12),
-                DropdownButton<String>(
-                  value: _selectedEmployeeId,
-                  items: _employees
-                      .map((emp) => DropdownMenuItem(
-                            value: emp['id'],
-                            child: Text(emp['name']!),
-                          ))
-                      .toList(),
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedEmployeeId = val);
-                  },
+                // Employee selector
+                Row(
+                  children: [
+                    const Text('Select Employee:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 12),
+                    if (isLoading && employees.isEmpty)
+                      const CircularProgressIndicator(),
+                    if (!isLoading && employees.isNotEmpty)
+                      DropdownButton<String>(
+                        value: _selectedEmployeeId ??
+                            employees.first['_id'] as String,
+                        items: employees
+                            .map((emp) => DropdownMenuItem<String>(
+                                  value: emp['_id'] as String,
+                                  child: Text(
+                                      emp['firstName'] + ' ' + emp['lastName']),
+                                ))
+                            .toList(),
+                        onChanged: (val) {
+                          _onEmployeeChanged(val);
+                        },
+                      ),
+                  ],
+                ),
+                if (error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: Text('Error: $error',
+                        style: const TextStyle(color: Colors.red)),
+                  ),
+                const SizedBox(height: 24),
+                // Payslip list
+                Expanded(
+                  child: isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : payslips.isEmpty
+                          ? Center(
+                              child: Text('No payslips for this employee.',
+                                  style: theme.textTheme.bodyLarge),
+                            )
+                          : RefreshIndicator(
+                              onRefresh: () async {
+                                if (_selectedEmployeeId != null) {
+                                  await Provider.of<AdminPayrollProvider>(
+                                          context,
+                                          listen: false)
+                                      .fetchPayslips(_selectedEmployeeId!);
+                                }
+                              },
+                              child: ListView.builder(
+                                itemCount: payslips.length,
+                                itemBuilder: (context, idx) {
+                                  final slip = payslips[idx];
+                                  // Get employee name if available
+                                  String empName = '';
+                                  final emp = slip['employee'];
+                                  if (emp is Map &&
+                                      emp['firstName'] != null &&
+                                      emp['lastName'] != null) {
+                                    empName =
+                                        '${emp['firstName']} ${emp['lastName']}';
+                                  }
+                                  return Card(
+                                    margin:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    elevation: 3,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(14)),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(18.0),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(Icons.calendar_month,
+                                                  color:
+                                                      theme.colorScheme.primary,
+                                                  size: 28),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: Text(
+                                                  slip['payPeriod']
+                                                          ?.toString() ??
+                                                      '-',
+                                                  style: theme
+                                                      .textTheme.titleMedium
+                                                      ?.copyWith(
+                                                          fontWeight:
+                                                              FontWeight.bold),
+                                                ),
+                                              ),
+                                              Chip(
+                                                label: Text(
+                                                    'Net Pay: ' +
+                                                        (slip['netPay'] != null
+                                                            ? (slip['netPay']
+                                                                    is num
+                                                                ? slip['netPay']
+                                                                    .toStringAsFixed(
+                                                                        2)
+                                                                : slip['netPay']
+                                                                    .toString())
+                                                            : '-'),
+                                                    style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontWeight:
+                                                            FontWeight.bold)),
+                                                backgroundColor:
+                                                    theme.colorScheme.primary,
+                                              ),
+                                              _buildStatusIndicator(
+                                                  slip['status']?.toString(),
+                                                  slip['employeeComment']
+                                                      ?.toString()),
+                                            ],
+                                          ),
+                                          // Show employee name if available
+                                          if (empName.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                  top: 6.0),
+                                              child: Text(
+                                                'Employee: $empName',
+                                                style: const TextStyle(
+                                                  color: Colors.black87,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                          const SizedBox(height: 10),
+                                          Row(
+                                            children: [
+                                              Icon(Icons.payments,
+                                                  color: Colors.green[700],
+                                                  size: 22),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                  'Gross: ' +
+                                                      (slip['grossPay'] != null
+                                                          ? (slip['grossPay']
+                                                                  is num
+                                                              ? slip['grossPay']
+                                                                  .toStringAsFixed(
+                                                                      2)
+                                                              : slip['grossPay']
+                                                                  .toString())
+                                                          : '-'),
+                                                  style: theme
+                                                      .textTheme.bodyMedium),
+                                              const SizedBox(width: 16),
+                                              Icon(Icons.remove_circle,
+                                                  color: Colors.red[700],
+                                                  size: 22),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                  'Deductions: -' +
+                                                      (slip['deductions'] !=
+                                                              null
+                                                          ? (slip['deductions']
+                                                                  is num
+                                                              ? slip['deductions']
+                                                                  .toStringAsFixed(
+                                                                      2)
+                                                              : slip['deductions']
+                                                                  .toString())
+                                                          : '-'),
+                                                  style: theme
+                                                      .textTheme.bodyMedium),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                              'Issued: ${slip['issueDate'] != null ? DateFormat('MMM d, y').format(DateTime.tryParse(slip['issueDate']) ?? DateTime(1970)) : '-'}',
+                                              style: theme.textTheme.bodySmall),
+                                          const SizedBox(height: 16),
+                                          // Always show employee comment if present
+                                          if ((slip['employeeComment']
+                                                      ?.toString() ??
+                                                  '')
+                                              .isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                  top: 8.0),
+                                              child: Text(
+                                                  'Employee Comment: ${slip['employeeComment']}',
+                                                  style: const TextStyle(
+                                                      color: Colors.red,
+                                                      fontWeight:
+                                                          FontWeight.bold)),
+                                            ),
+                                          if (((slip['status']?.toString() ??
+                                                          '') ==
+                                                      'pending' ||
+                                                  (slip['status']?.toString() ??
+                                                          '') ==
+                                                      'needs_review') &&
+                                              (slip['adminResponse'] ?? '')
+                                                  .isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                  top: 8.0),
+                                              child: Text(
+                                                'Admin Response: ${slip['adminResponse']}',
+                                                style: const TextStyle(
+                                                    color: Colors.blue,
+                                                    fontWeight:
+                                                        FontWeight.bold),
+                                              ),
+                                            ),
+                                          Row(
+                                            children: [
+                                              OutlinedButton.icon(
+                                                onPressed: () {
+                                                  final authProvider =
+                                                      Provider.of<AuthProvider>(
+                                                          context,
+                                                          listen: false);
+                                                  final payslipId = slip['_id'];
+                                                  final token =
+                                                      authProvider.token;
+                                                  if (payslipId == null ||
+                                                      payslipId
+                                                          .toString()
+                                                          .isEmpty) {
+                                                    ScaffoldMessenger.of(
+                                                            context)
+                                                        .showSnackBar(
+                                                      const SnackBar(
+                                                          content: Text(
+                                                              'Payslip ID is missing. Cannot download PDF.')),
+                                                    );
+                                                    return;
+                                                  }
+                                                  if (token == null ||
+                                                      token.isEmpty) {
+                                                    ScaffoldMessenger.of(
+                                                            context)
+                                                        .showSnackBar(
+                                                      const SnackBar(
+                                                          content: Text(
+                                                              'Auth token is missing. Cannot download PDF.')),
+                                                    );
+                                                    return;
+                                                  }
+                                                  _downloadPayslipPdf(
+                                                      context,
+                                                      payslipId.toString(),
+                                                      token);
+                                                },
+                                                icon:
+                                                    const Icon(Icons.download),
+                                                label: const Text('Download'),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              OutlinedButton.icon(
+                                                onPressed: (slip['status']
+                                                                ?.toString() ==
+                                                            'approved' ||
+                                                        slip['status']
+                                                                ?.toString() ==
+                                                            'acknowledged')
+                                                    ? null
+                                                    : () => _editPayslip(
+                                                        scaffoldContext,
+                                                        provider,
+                                                        idx),
+                                                icon: const Icon(Icons.edit),
+                                                label: const Text('Edit'),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                ),
+                // Add Payslip button
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: FloatingActionButton.extended(
+                    onPressed: isLoading || _selectedEmployeeId == null
+                        ? null
+                        : () => _addPayslip(context, provider),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Payslip'),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            // Payslip list
-            Expanded(
-              child: payslips.isEmpty
-                  ? Center(
-                      child: Text('No payslips for this employee.',
-                          style: theme.textTheme.bodyLarge),
-                    )
-                  : ListView.builder(
-                      itemCount: payslips.length,
-                      itemBuilder: (context, idx) {
-                        final slip = payslips[idx];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 8),
-                          elevation: 3,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14)),
-                          child: Padding(
-                            padding: const EdgeInsets.all(18.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(Icons.calendar_month,
-                                        color: theme.colorScheme.primary,
-                                        size: 28),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        slip['payPeriod'] ?? '-',
-                                        style: theme.textTheme.titleMedium
-                                            ?.copyWith(
-                                                fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                    Chip(
-                                      label: Text(
-                                          'Net Pay: ${slip['netPay'].toStringAsFixed(2)}',
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold)),
-                                      backgroundColor:
-                                          theme.colorScheme.primary,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    Icon(Icons.payments,
-                                        color: Colors.green[700], size: 22),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                        'Gross: ${slip['grossPay'].toStringAsFixed(2)}',
-                                        style: theme.textTheme.bodyMedium),
-                                    const SizedBox(width: 16),
-                                    Icon(Icons.remove_circle,
-                                        color: Colors.red[700], size: 22),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                        'Deductions: -${slip['deductions'].toStringAsFixed(2)}',
-                                        style: theme.textTheme.bodyMedium),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                    'Issued: ${DateFormat('MMM d, y').format(DateTime.parse(slip['issueDate']))}',
-                                    style: theme.textTheme.bodySmall),
-                                const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    OutlinedButton.icon(
-                                      onPressed: () {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                              content: Text(
-                                                  'Download coming soon!')),
-                                        );
-                                      },
-                                      icon: const Icon(Icons.download),
-                                      label: const Text('Download'),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    OutlinedButton.icon(
-                                      onPressed: () => editPayslip(idx),
-                                      icon: const Icon(Icons.edit),
-                                      label: const Text('Edit'),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    OutlinedButton.icon(
-                                      onPressed: () => deletePayslip(idx),
-                                      icon: const Icon(Icons.delete),
-                                      label: const Text('Delete'),
-                                      style: OutlinedButton.styleFrom(
-                                          foregroundColor: Colors.red),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-            // Add Payslip button
-            Align(
-              alignment: Alignment.bottomRight,
-              child: FloatingActionButton.extended(
-                onPressed: addPayslip,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Payslip'),
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

@@ -8,10 +8,11 @@ const PayrollSchema = new mongoose.Schema({
   grossPay: { type: Number, required: true },
   netPay: { type: Number, required: true },
   deductions: { type: Number, default: 0 },
-  status: { type: String, enum: ['pending', 'approved', 'needs_review'], default: 'pending' },
+  status: { type: String, enum: ['pending', 'approved', 'needs_review', 'acknowledged'], default: 'pending' },
   employeeComment: { type: String, default: '' },
   issueDate: { type: Date, required: true },
   payPeriod: { type: String, required: true },
+  adminResponse: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now }
 });
 

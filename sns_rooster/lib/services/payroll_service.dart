@@ -23,4 +23,24 @@ class PayrollService {
           'Failed to fetch payroll slips: ${response.statusCode} ${response.body}');
     }
   }
+
+  Future<void> updatePayslipStatus(String payslipId, String status,
+      {String? comment}) async {
+    final token = authProvider.token;
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+    final url = '${ApiConfig.baseUrl}/payroll/$payslipId/status';
+    final body = json.encode({
+      'status': status,
+      if (comment != null) 'employeeComment': comment,
+    });
+    final response =
+        await http.patch(Uri.parse(url), headers: headers, body: body);
+    if (response.statusCode != 200) {
+      throw Exception(
+          'Failed to update payslip status: ${response.statusCode} ${response.body}');
+    }
+  }
 }

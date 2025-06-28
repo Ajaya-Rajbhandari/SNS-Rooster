@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/leave_request_provider.dart';
 import '../../providers/profile_provider.dart';
-import '../../widgets/leave_request_modal.dart';
 import 'package:sns_rooster/widgets/app_drawer.dart';
 import 'package:table_calendar/table_calendar.dart';
 
@@ -401,7 +400,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                       ),
                       calendarBuilders: CalendarBuilders(
                         markerBuilder: (context, date, events) {
-                          if (events.isEmpty) return SizedBox();
+                          if (events.isEmpty) return const SizedBox();
                           return Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: events.take(3).map<Widget>((event) {
