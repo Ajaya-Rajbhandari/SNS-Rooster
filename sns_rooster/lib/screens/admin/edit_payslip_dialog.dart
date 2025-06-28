@@ -32,6 +32,16 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
   ];
   List<Map<String, dynamic>> _deductionsList = [];
 
+  // Income logic
+  final List<String> _defaultIncomeTypes = [
+    'Basic Salary',
+    'Allowance',
+    'Bonus',
+    'TDA',
+    'Other',
+  ];
+  List<Map<String, dynamic>> _incomesList = [];
+
   @override
   void initState() {
     super.initState();
@@ -62,7 +72,15 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
     } else {
       _deductionsList = [];
     }
-    // Auto-calculate total hours for default period
+    // Load incomes from initialData if present
+    if (data['incomesList'] != null && data['incomesList'] is List) {
+      _incomesList = List<Map<String, dynamic>>.from(data['incomesList']);
+    } else {
+      _incomesList = [
+        {'type': _defaultIncomeTypes.first, 'amount': ''},
+      ];
+    }
+    _updateGrossPay();
     _updateTotalHours();
   }
 
@@ -130,6 +148,41 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
     setState(() {
       _deductionsList[idx]['amount'] = value;
       _updateDeductionsTotal();
+    });
+  }
+
+  void _updateGrossPay() {
+    double total = 0;
+    for (final item in _incomesList) {
+      total += double.tryParse(item['amount']?.toString() ?? '0') ?? 0;
+    }
+    _grossPayController.text = total.toStringAsFixed(2);
+    _updateNetPay();
+  }
+
+  void _addIncomeRow() {
+    setState(() {
+      _incomesList.add({'type': _defaultIncomeTypes.first, 'amount': ''});
+    });
+  }
+
+  void _removeIncomeRow(int idx) {
+    setState(() {
+      _incomesList.removeAt(idx);
+      _updateGrossPay();
+    });
+  }
+
+  void _setIncomeType(int idx, String? type) {
+    setState(() {
+      _incomesList[idx]['type'] = type;
+    });
+  }
+
+  void _setIncomeAmount(int idx, String value) {
+    setState(() {
+      _incomesList[idx]['amount'] = value;
+      _updateGrossPay();
     });
   }
 
@@ -250,14 +303,67 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _grossPayController,
-                decoration: const InputDecoration(labelText: 'Gross Pay'),
-                keyboardType: TextInputType.number,
-                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                onChanged: (_) => setState(_updateNetPay),
+              // Income Section
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Income', style: theme.textTheme.titleMedium),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+              Column(
+                children: [
+                  for (int i = 0; i < _incomesList.length; i++)
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: DropdownButtonFormField<String>(
+                            value: _incomesList[i]['type'],
+                            items: _defaultIncomeTypes
+                                .map((type) => DropdownMenuItem(
+                                      value: type,
+                                      child: Text(type),
+                                    ))
+                                .toList(),
+                            onChanged: (val) => _setIncomeType(i, val),
+                            decoration: const InputDecoration(
+                              labelText: 'Type',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            initialValue:
+                                _incomesList[i]['amount']?.toString() ?? '',
+                            decoration:
+                                const InputDecoration(labelText: 'Amount'),
+                            keyboardType: TextInputType.number,
+                            onChanged: (val) => _setIncomeAmount(i, val),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle,
+                              color: Colors.red),
+                          onPressed: () => _removeIncomeRow(i),
+                          constraints: const BoxConstraints(),
+                          padding: EdgeInsets.zero,
+                          splashRadius: 18,
+                        ),
+                      ],
+                    ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _addIncomeRow,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Income'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
               // Deductions Section
               Align(
                 alignment: Alignment.centerLeft,
@@ -369,6 +475,7 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
               'periodEnd': _periodEnd!.toIso8601String(),
               'totalHours': double.tryParse(_totalHoursController.text) ?? 0,
               'grossPay': double.tryParse(_grossPayController.text) ?? 0,
+              'incomesList': _incomesList,
               'deductions': double.tryParse(_deductionsController.text) ?? 0,
               'deductionsList': _deductionsList,
               'netPay': double.tryParse(_netPayController.text) ?? 0,

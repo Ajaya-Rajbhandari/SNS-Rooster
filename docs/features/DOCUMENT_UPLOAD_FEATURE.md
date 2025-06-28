@@ -228,3 +228,27 @@ This section documents the updates made to the document upload feature, includin
 - [FEATURES_AND_WORKFLOW.md](FEATURES_AND_WORKFLOW.md) – Payroll, payslip, and workflow documentation
 - [STATUS_CARD_ENHANCEMENT_DOCUMENTATION.md](STATUS_CARD_ENHANCEMENT_DOCUMENTATION.md) – Attendance status card logic
 - [AVATAR_FIX_DOCUMENTATION.md](AVATAR_FIX_DOCUMENTATION.md) – Avatar/profile fixes and static file serving
+
+## Payroll Payslip Download Feature (CSV/PDF)
+
+### Overview
+- Both admin and employees can download all payslips as PDF or CSV files from the payroll screens.
+- Downloaded files are now saved to the public Downloads folder on Android and desktop platforms for easy access.
+- After a successful download, the app displays a SnackBar with the full file path, so users can easily locate the file.
+- Files are named `all-payslips.csv`/`all-payslips.pdf` (employee) or `all-payslips-<employeeId>.csv`/`.pdf` (admin).
+
+### How it Works
+- **Admin:** Can download all payslips for any employee as PDF or CSV from the Payroll Management screen.
+- **Employee:** Can download all their own payslips as PDF or CSV from the Payroll screen.
+- The app attempts to open the file automatically after download (if supported by the device).
+- If the Downloads folder is not available, the file is saved to the app's cache directory as a fallback.
+
+### User Experience
+- A SnackBar appears after download, showing the file path (e.g., `/storage/emulated/0/Download/all-payslips.csv`).
+- Users can find the file in their device's Downloads app or file manager.
+
+### See Also
+- [FEATURES_AND_WORKFLOW.md](FEATURES_AND_WORKFLOW.md)
+- [STATUS_CARD_ENHANCEMENT_DOCUMENTATION.md](STATUS_CARD_ENHANCEMENT_DOCUMENTATION.md)
+- [PROJECT_ORGANIZATION_GUIDE.md](../PROJECT_ORGANIZATION_GUIDE.md)
+- [API_DOCUMENTATION.md](../api/API_DOCUMENTATION.md)
