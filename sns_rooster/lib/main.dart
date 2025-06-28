@@ -24,6 +24,7 @@ import 'package:sns_rooster/providers/payroll_provider.dart';
 import 'package:sns_rooster/providers/analytics_provider.dart';
 import 'package:sns_rooster/providers/holiday_provider.dart';
 import 'package:sns_rooster/providers/employee_provider.dart';
+import 'package:sns_rooster/providers/admin_payroll_provider.dart';
 import 'package:sns_rooster/services/employee_service.dart';
 
 void main() {
@@ -39,7 +40,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('MAIN: Building MaterialApp with navigatorKey');    return MultiProvider(
+    print('MAIN: Building MaterialApp with navigatorKey');
+    return MultiProvider(
       providers: [
         Provider<RouteObserver<ModalRoute<void>>>(
           create: (_) => RouteObserver<ModalRoute<void>>(),
@@ -73,7 +75,8 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => HolidayProvider()),
         ChangeNotifierProvider(create: (context) {
-          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          final authProvider =
+              Provider.of<AuthProvider>(context, listen: false);
           final employeeService = EmployeeService(authProvider);
           return EmployeeProvider(employeeService);
         }),
@@ -82,6 +85,12 @@ class MyApp extends StatelessWidget {
             Provider.of<AuthProvider>(context, listen: false),
           ),
           update: (context, auth, previous) => previous!,
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, AdminPayrollProvider>(
+          create: (context) => AdminPayrollProvider(
+            Provider.of<AuthProvider>(context, listen: false),
+          ),
+          update: (context, auth, previous) => AdminPayrollProvider(auth),
         ),
       ],
       child: Consumer<AuthProvider>(
@@ -96,13 +105,16 @@ class MyApp extends StatelessWidget {
                   colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
                   useMaterial3: true,
                 ),
-                navigatorObservers: [Provider.of<RouteObserver<ModalRoute<void>>>(context)],
+                navigatorObservers: [
+                  Provider.of<RouteObserver<ModalRoute<void>>>(context)
+                ],
                 initialRoute: '/splash',
                 routes: {
                   '/splash': (context) => const SplashScreen(),
                   '/login': (context) => const LoginScreen(),
                   '/admin_dashboard': (context) => const AdminDashboardScreen(),
-                  '/employee_dashboard': (context) => const EmployeeDashboardScreen(),
+                  '/employee_dashboard': (context) =>
+                      const EmployeeDashboardScreen(),
                   '/forgot_password': (context) => const ForgotPasswordScreen(),
                   '/timesheet': (context) => const TimesheetScreen(),
                   '/leave_request': (context) => const LeaveRequestScreen(),
@@ -111,7 +123,8 @@ class MyApp extends StatelessWidget {
                   '/analytics': (context) => const AnalyticsScreen(),
                   '/profile': (context) => const ProfileScreen(),
                   '/notification': (context) => const NotificationScreen(),
-                  '/break_management': (context) => const BreakManagementScreen(),
+                  '/break_management': (context) =>
+                      const BreakManagementScreen(),
                   '/break_types': (context) => const BreakTypesScreen(),
                 },
               );

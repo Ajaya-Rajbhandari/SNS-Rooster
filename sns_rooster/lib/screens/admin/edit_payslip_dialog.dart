@@ -17,7 +17,20 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
   late TextEditingController _grossPayController;
   late TextEditingController _deductionsController;
   late TextEditingController _netPayController;
+  late TextEditingController _totalHoursController;
+  late TextEditingController _adminResponseController;
   DateTime? _issueDate;
+  DateTime? _periodStart;
+  DateTime? _periodEnd;
+
+  // Deductions logic
+  final List<String> _defaultDeductionTypes = [
+    'Tax',
+    'Provident Fund',
+    'Insurance',
+    'Other',
+  ];
+  List<Map<String, dynamic>> _deductionsList = [];
 
   @override
   void initState() {
@@ -30,8 +43,27 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
         TextEditingController(text: data['deductions']?.toString() ?? '');
     _netPayController =
         TextEditingController(text: data['netPay']?.toString() ?? '');
+    _totalHoursController =
+        TextEditingController(text: data['totalHours']?.toString() ?? '');
+    _adminResponseController =
+        TextEditingController(text: data['adminResponse'] ?? '');
     _issueDate =
         data['issueDate'] != null ? DateTime.tryParse(data['issueDate']) : null;
+    final now = DateTime.now();
+    _periodStart = data['periodStart'] != null
+        ? DateTime.tryParse(data['periodStart'])
+        : DateTime(now.year, now.month, 1);
+    _periodEnd = data['periodEnd'] != null
+        ? DateTime.tryParse(data['periodEnd'])
+        : DateTime(now.year, now.month + 1, 0); // Last day of month
+    // Load deductions from initialData if present
+    if (data['deductionsList'] != null && data['deductionsList'] is List) {
+      _deductionsList = List<Map<String, dynamic>>.from(data['deductionsList']);
+    } else {
+      _deductionsList = [];
+    }
+    // Auto-calculate total hours for default period
+    _updateTotalHours();
   }
 
   @override
@@ -40,6 +72,8 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
     _grossPayController.dispose();
     _deductionsController.dispose();
     _netPayController.dispose();
+    _totalHoursController.dispose();
+    _adminResponseController.dispose();
     super.dispose();
   }
 
@@ -48,6 +82,55 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
     final deductions = double.tryParse(_deductionsController.text) ?? 0;
     final net = gross - deductions;
     _netPayController.text = net.toStringAsFixed(2);
+  }
+
+  void _updateTotalHours() {
+    if (_periodStart != null && _periodEnd != null) {
+      int total = 0;
+      DateTime d = _periodStart!;
+      while (!d.isAfter(_periodEnd!)) {
+        if (d.weekday != DateTime.saturday && d.weekday != DateTime.sunday) {
+          total += 8; // 8 hours per weekday
+        }
+        d = d.add(const Duration(days: 1));
+      }
+      _totalHoursController.text = total.toString();
+    }
+  }
+
+  void _updateDeductionsTotal() {
+    double total = 0;
+    for (final item in _deductionsList) {
+      total += double.tryParse(item['amount']?.toString() ?? '0') ?? 0;
+    }
+    _deductionsController.text = total.toStringAsFixed(2);
+    _updateNetPay();
+  }
+
+  void _addDeductionRow() {
+    setState(() {
+      _deductionsList.add({'type': _defaultDeductionTypes.first, 'amount': ''});
+    });
+  }
+
+  void _removeDeductionRow(int idx) {
+    setState(() {
+      _deductionsList.removeAt(idx);
+      _updateDeductionsTotal();
+    });
+  }
+
+  void _setDeductionType(int idx, String? type) {
+    setState(() {
+      _deductionsList[idx]['type'] = type;
+    });
+  }
+
+  void _setDeductionAmount(int idx, String value) {
+    setState(() {
+      _deductionsList[idx]['amount'] = value;
+      _updateDeductionsTotal();
+    });
   }
 
   @override
@@ -65,6 +148,75 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
                 controller: _payPeriodController,
                 decoration: const InputDecoration(
                     labelText: 'Pay Period (e.g. May 2024)'),
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Pay Period is required' : null,
+              ),
+              const SizedBox(height: 12),
+              // Period Start
+              InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _periodStart ?? DateTime.now(),
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2100),
+                  );
+                  if (picked != null) {
+                    setState(() {
+                      _periodStart = picked;
+                      _updateTotalHours();
+                    });
+                  }
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(labelText: 'Period Start'),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(_periodStart != null
+                          ? DateFormat('MMM d, y').format(_periodStart!)
+                          : 'Select date'),
+                      const Icon(Icons.calendar_today, size: 18),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Period End
+              InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _periodEnd ?? DateTime.now(),
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2100),
+                  );
+                  if (picked != null) {
+                    setState(() {
+                      _periodEnd = picked;
+                      _updateTotalHours();
+                    });
+                  }
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(labelText: 'Period End'),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(_periodEnd != null
+                          ? DateFormat('MMM d, y').format(_periodEnd!)
+                          : 'Select date'),
+                      const Icon(Icons.calendar_today, size: 18),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Total Hours
+              TextFormField(
+                controller: _totalHoursController,
+                decoration: const InputDecoration(labelText: 'Total Hours'),
+                keyboardType: TextInputType.number,
                 validator: (v) => v == null || v.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 12),
@@ -79,7 +231,13 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
                   if (picked != null) setState(() => _issueDate = picked);
                 },
                 child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Issue Date'),
+                  decoration: InputDecoration(
+                    labelText: 'Issue Date',
+                    errorText: _issueDate == null &&
+                            _formKey.currentState?.validate() == false
+                        ? 'Issue Date is required'
+                        : null,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -100,12 +258,73 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
                 onChanged: (_) => setState(_updateNetPay),
               ),
               const SizedBox(height: 12),
+              // Deductions Section
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Deductions', style: theme.textTheme.titleMedium),
+              ),
+              const SizedBox(height: 8),
+              Column(
+                children: [
+                  for (int i = 0; i < _deductionsList.length; i++)
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: DropdownButtonFormField<String>(
+                            value: _deductionsList[i]['type'],
+                            items: _defaultDeductionTypes
+                                .map((type) => DropdownMenuItem(
+                                      value: type,
+                                      child: Text(type),
+                                    ))
+                                .toList(),
+                            onChanged: (val) => _setDeductionType(i, val),
+                            decoration: const InputDecoration(
+                              labelText: 'Type',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            initialValue:
+                                _deductionsList[i]['amount']?.toString() ?? '',
+                            decoration:
+                                const InputDecoration(labelText: 'Amount'),
+                            keyboardType: TextInputType.number,
+                            onChanged: (val) => _setDeductionAmount(i, val),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle,
+                              color: Colors.red),
+                          onPressed: () => _removeDeductionRow(i),
+                          constraints: const BoxConstraints(),
+                          padding: EdgeInsets.zero,
+                          splashRadius: 18,
+                        ),
+                      ],
+                    ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _addDeductionRow,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Deduction'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Total Deductions (read-only)
               TextFormField(
                 controller: _deductionsController,
-                decoration: const InputDecoration(labelText: 'Deductions'),
-                keyboardType: TextInputType.number,
-                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                onChanged: (_) => setState(_updateNetPay),
+                decoration:
+                    const InputDecoration(labelText: 'Total Deductions'),
+                readOnly: true,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -114,6 +333,19 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
                 keyboardType: TextInputType.number,
                 readOnly: true,
               ),
+              // Admin Response (only if needs_review)
+              if ((widget.initialData?['status'] ?? '') == 'needs_review')
+                Padding(
+                  padding: const EdgeInsets.only(top: 16.0),
+                  child: TextFormField(
+                    controller: _adminResponseController,
+                    decoration: const InputDecoration(
+                      labelText: 'Admin Response (visible to employee)',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 2,
+                  ),
+                ),
             ],
           ),
         ),
@@ -125,16 +357,26 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
         ),
         ElevatedButton(
           onPressed: () {
-            if (_formKey.currentState!.validate() && _issueDate != null) {
-              widget.onSave({
-                'payPeriod': _payPeriodController.text,
-                'issueDate': _issueDate!.toIso8601String(),
-                'grossPay': double.tryParse(_grossPayController.text) ?? 0,
-                'deductions': double.tryParse(_deductionsController.text) ?? 0,
-                'netPay': double.tryParse(_netPayController.text) ?? 0,
-              });
-              Navigator.pop(context);
+            final valid = _formKey.currentState!.validate();
+            if (!valid || _issueDate == null) {
+              setState(() {}); // To show error
+              return;
             }
+            final payload = {
+              'payPeriod': _payPeriodController.text,
+              'issueDate': _issueDate!.toIso8601String(),
+              'periodStart': _periodStart!.toIso8601String(),
+              'periodEnd': _periodEnd!.toIso8601String(),
+              'totalHours': double.tryParse(_totalHoursController.text) ?? 0,
+              'grossPay': double.tryParse(_grossPayController.text) ?? 0,
+              'deductions': double.tryParse(_deductionsController.text) ?? 0,
+              'deductionsList': _deductionsList,
+              'netPay': double.tryParse(_netPayController.text) ?? 0,
+              'adminResponse': _adminResponseController.text,
+            };
+            print('DEBUG: Admin Edit Payslip Payload:');
+            print(payload);
+            Navigator.pop(context, payload); // Just pop with the data
           },
           child: const Text('Save'),
         ),

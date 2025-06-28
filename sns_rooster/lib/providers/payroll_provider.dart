@@ -55,4 +55,21 @@ class PayrollProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
   }
+
+  Future<void> updatePayslipStatus(String payslipId, String status,
+      {String? comment}) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await _payrollService.updatePayslipStatus(payslipId, status,
+          comment: comment);
+      await fetchPayrollSlips();
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 }
