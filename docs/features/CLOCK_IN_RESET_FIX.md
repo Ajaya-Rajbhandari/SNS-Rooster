@@ -57,3 +57,8 @@ After implementing these fixes:
 
 ## Author
 AI Assistant - Clock-in Reset Bug Fix
+
+## See Also
+
+- [STATUS_CARD_ENHANCEMENT_DOCUMENTATION.md](STATUS_CARD_ENHANCEMENT_DOCUMENTATION.md) – Attendance status card logic
+- [FEATURES_AND_WORKFLOW.md](FEATURES_AND_WORKFLOW.md) – Payroll, payslip, and workflow documentation

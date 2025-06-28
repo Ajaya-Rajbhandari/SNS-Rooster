@@ -222,6 +222,12 @@ dependencies:
 - **MongoDB Docs**: https://docs.mongodb.com/
 - **Firebase Docs**: https://firebase.google.com/docs
 
+## See Also
+
+- [API_CONTRACT.md](./api/API_CONTRACT.md) – API endpoints and data models
+- [SETUP_GUIDE.md](./setup/SETUP_GUIDE.md) – Setup and environment configuration
+- [CLEANUP_SUMMARY.md](./CLEANUP_SUMMARY.md) – Project cleanup and documentation consolidation
+
 ---
 
 **Last Updated**: 2024-12-16  

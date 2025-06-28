@@ -68,3 +68,8 @@ After login or user switch, the Employee Dashboard and Profile screens sometimes
 ## Date: 2024
 ## Author: AI Assistant
 ## Status: Completed
+
+## See Also
+
+- [LEAVE_OVERLAP_VALIDATION_AND_UI_ENHANCEMENT.md](LEAVE_OVERLAP_VALIDATION_AND_UI_ENHANCEMENT.md) – Leave overlap validation and UI
+- [AVATAR_FIX_DOCUMENTATION.md](AVATAR_FIX_DOCUMENTATION.md) – Avatar/profile fixes and static file serving

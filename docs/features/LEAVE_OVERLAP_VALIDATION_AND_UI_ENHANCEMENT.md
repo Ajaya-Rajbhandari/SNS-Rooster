@@ -60,4 +60,9 @@ feat: prevent overlapping leave requests in backend and add '?' legend dialog to
 
 - Backend: Rejects new leave requests that overlap with existing pending/approved leaves for the same employee
 - Frontend: Adds a '?' icon to the leave calendar for showing the leave type legend in a dialog, removes always-visible legend
-``` 
+```
+
+## See Also
+
+- [FEATURES_AND_WORKFLOW.md](FEATURES_AND_WORKFLOW.md) – Payroll, payslip, and workflow documentation
+- [LAYOUT_FIX_DOCUMENTATION.md](LAYOUT_FIX_DOCUMENTATION.md) – UI layout fixes and dashboard/profile sync 

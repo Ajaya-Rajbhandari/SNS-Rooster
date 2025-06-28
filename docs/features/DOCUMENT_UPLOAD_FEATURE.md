@@ -222,3 +222,9 @@ This section documents the updates made to the document upload feature, includin
 
 ### Result
 - Document upload feature is now fully functional and integrated with backend.
+
+## See Also
+
+- [FEATURES_AND_WORKFLOW.md](FEATURES_AND_WORKFLOW.md) – Payroll, payslip, and workflow documentation
+- [STATUS_CARD_ENHANCEMENT_DOCUMENTATION.md](STATUS_CARD_ENHANCEMENT_DOCUMENTATION.md) – Attendance status card logic
+- [AVATAR_FIX_DOCUMENTATION.md](AVATAR_FIX_DOCUMENTATION.md) – Avatar/profile fixes and static file serving

@@ -91,3 +91,9 @@ Enhanced the status card to work with the backend data structure including:
 - Custom break type creation
 - Break efficiency analytics
 - Manager notifications for extended breaks
+
+## See Also
+
+- [FEATURES_AND_WORKFLOW.md](FEATURES_AND_WORKFLOW.md) – Payroll, payslip, and workflow documentation
+- [DOCUMENT_UPLOAD_FEATURE.md](DOCUMENT_UPLOAD_FEATURE.md) – Document upload and break type debugging
+- [CLOCK_IN_RESET_FIX.md](CLOCK_IN_RESET_FIX.md) – Clock-in reset bug fix and attendance state
