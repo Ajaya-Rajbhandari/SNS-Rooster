@@ -25,9 +25,11 @@ exports.getEmployeePayrolls = async (req, res) => {
 // Create a new payroll record
 exports.createPayroll = async (req, res) => {
   try {
-    const { employee, periodStart, periodEnd, totalHours, grossPay, netPay, deductions, issueDate, payPeriod } = req.body;
-    const payroll = new Payroll({ employee, periodStart, periodEnd, totalHours, grossPay, netPay, deductions, issueDate, payPeriod });
+    const { employee, periodStart, periodEnd, totalHours, grossPay, netPay, deductions, deductionsList, incomesList, issueDate, payPeriod } = req.body;
+    console.log('DEBUG: createPayroll incomesList:', incomesList);
+    const payroll = new Payroll({ employee, periodStart, periodEnd, totalHours, grossPay, netPay, deductions, deductionsList, incomesList, issueDate, payPeriod });
     await payroll.save();
+    console.log('DEBUG: Saved incomesList:', payroll.incomesList);
     res.status(201).json(payroll);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -56,13 +58,14 @@ exports.updatePayroll = async (req, res) => {
   console.log('DEBUG: request body:', req.body);
   
   try {
-    const { employee, periodStart, periodEnd, totalHours, grossPay, netPay, deductions, issueDate, payPeriod, adminResponse } = req.body;
+    const { employee, periodStart, periodEnd, totalHours, grossPay, netPay, deductions, deductionsList, incomesList, issueDate, payPeriod, adminResponse } = req.body;
     console.log('DEBUG: Extracted fields from request body:');
     console.log('  - adminResponse:', adminResponse);
     console.log('  - payPeriod:', payPeriod);
     console.log('  - grossPay:', grossPay);
     console.log('  - deductions:', deductions);
     console.log('  - netPay:', netPay);
+    console.log('DEBUG: updatePayroll incomesList:', incomesList);
     
     const payslip = await Payroll.findById(req.params.payrollId);
     console.log('DEBUG: Found payslip in database:', payslip ? 'YES' : 'NO');
@@ -91,6 +94,8 @@ exports.updatePayroll = async (req, res) => {
     payslip.grossPay = grossPay;
     payslip.netPay = netPay;
     payslip.deductions = deductions;
+    payslip.deductionsList = deductionsList;
+    payslip.incomesList = incomesList;
     payslip.issueDate = issueDate;
     payslip.payPeriod = payPeriod;
     
@@ -103,6 +108,7 @@ exports.updatePayroll = async (req, res) => {
     
     console.log('DEBUG: About to save payslip...');
     await payslip.save();
+    console.log('DEBUG: Saved incomesList:', payslip.incomesList);
     console.log('DEBUG: Payslip saved successfully');
     console.log('DEBUG: Final payslip status:', payslip.status);
     console.log('DEBUG: Final payslip adminResponse:', payslip.adminResponse);
@@ -240,5 +246,174 @@ exports.downloadPayslipPdf = async (req, res) => {
   } catch (err) {
     console.error('Error generating payslip PDF:', err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+exports.downloadAllPayslipsPdf = async (req, res) => {
+  try {
+    const employeeId = req.params.employeeId;
+    const payslips = await Payroll.find({ employee: employeeId }).populate('employee');
+    if (!payslips.length) {
+      return res.status(404).json({ error: 'No payslips found for this employee.' });
+    }
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument();
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=all-payslips-${employeeId}.pdf`);
+    doc.pipe(res);
+    payslips.forEach((payslip, idx) => {
+      if (idx > 0) doc.addPage();
+      doc.fontSize(20).fillColor('#1a237e').text('Salary Slip', 50, 60, { align: 'center', width: 500 });
+      doc.moveDown();
+      const monthStr = payslip.periodStart ? payslip.periodStart.toLocaleString('default', { month: 'long', year: 'numeric' }) : '-';
+      doc.rect(50, 90, 500, 25).fill('#f7e6b3').stroke();
+      doc.fillColor('black').font('Helvetica-Bold').fontSize(12).text(`Month: ${monthStr}`, 55, 97);
+      doc.fillColor('black').fontSize(11);
+      const info = [
+        ['Employee Name', `${payslip.employee.firstName} ${payslip.employee.lastName}`],
+        ['Employee Code', payslip.employee.employeeId || '-'],
+        ['Designation', payslip.employee.position || '-'],
+        ['PAN', payslip.employee.pan || '-'],
+      ];
+      let y = 115;
+      info.forEach(([label, value]) => {
+        doc.rect(50, y, 150, 25).stroke();
+        doc.rect(200, y, 350, 25).stroke();
+        doc.font('Helvetica-Bold').text(label, 55, y + 7);
+        doc.font('Helvetica').text(value, 205, y + 7);
+        y += 25;
+      });
+      // Income/Deductions table headers
+      const tableY = y;
+      doc.rect(50, tableY, 250, 25).fill('#b3d1f2').stroke();
+      doc.rect(300, tableY, 250, 25).fill('#b3d1f2').stroke();
+      doc.fillColor('black').font('Helvetica-Bold').text('Income', 55, tableY + 7);
+      doc.text('Deductions', 305, tableY + 7);
+      y = tableY + 25;
+      // Table columns
+      const colHeaderY = y;
+      doc.font('Helvetica-Bold').text('Particulars', 55, colHeaderY + 7);
+      doc.text('Amount (NPR)', 180, colHeaderY + 7);
+      doc.text('Particulars', 305, colHeaderY + 7);
+      doc.text('Amount (NPR)', 430, colHeaderY + 7);
+      doc.font('Helvetica');
+      y += 20;
+      // Income and deductions rows
+      const incomes = Array.isArray(payslip.incomesList) && payslip.incomesList.length > 0
+        ? payslip.incomesList.map(i => [i.type, i.amount])
+        : [['Gross Pay', payslip.grossPay ?? '-']];
+      const deductionsList = Array.isArray(payslip.deductionsList) ? payslip.deductionsList : [];
+      const deductions = deductionsList.length > 0
+        ? deductionsList.map(d => [d.type, d.amount])
+        : [['Deductions', payslip.deductions ?? '-']];
+      const maxRows = Math.max(incomes.length, deductions.length, 5);
+      for (let i = 0; i < maxRows; i++) {
+        doc.text(incomes[i]?.[0] || '', 55, y + 7);
+        doc.text(incomes[i]?.[1]?.toString() || '', 180, y + 7);
+        doc.text(deductions[i]?.[0] || '', 305, y + 7);
+        doc.text(deductions[i]?.[1]?.toString() || '', 430, y + 7);
+        doc.moveTo(50, y).lineTo(550, y).stroke();
+        y += 20;
+      }
+      // Totals
+      const totalIncome = payslip.grossPay ?? '-';
+      const totalDeductions = payslip.deductions ?? '-';
+      doc.font('Helvetica-Bold').text('Total', 55, y + 7);
+      doc.text(totalIncome.toString(), 180, y + 7);
+      doc.text('Total', 305, y + 7);
+      doc.text(totalDeductions.toString(), 430, y + 7);
+      y += 30;
+      // Net Salary row
+      doc.rect(50, y, 500, 30).fill('#b3d1f2').stroke();
+      doc.font('Helvetica-Bold').fontSize(14).fillColor('black')
+         .text('Net Salary (Deposited in Account)', 55, y + 7);
+      doc.text((payslip.netPay ?? '-').toString(), 480, y + 7);
+      doc.moveDown();
+      doc.font('Helvetica-Bold').fontSize(12).fillColor('black').text(`Status: ${payslip.status || 'pending'}`);
+      if (payslip.status === 'needs_review' && payslip.employeeComment) {
+        doc.font('Helvetica').fontSize(11).fillColor('red').text(`Employee Comment: ${payslip.employeeComment}`);
+      }
+    });
+    doc.end();
+  } catch (err) {
+    console.error('Error generating all payslips PDF:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.downloadAllPayslipsCsv = async (req, res) => {
+  try {
+    const employeeId = req.params.employeeId;
+    const payslips = await Payroll.find({ employee: employeeId }).populate('employee');
+    if (!payslips.length) {
+      return res.status(404).json({ error: 'No payslips found for this employee.' });
+    }
+    const fields = [
+      'payPeriod', 'issueDate', 'periodStart', 'periodEnd', 'totalHours',
+      'grossPay', 'netPay', 'deductions', 'status', 'employeeComment', 'adminResponse',
+      'employee.firstName', 'employee.lastName', 'employee.employeeId', 'employee.position', 'employee.pan',
+      'incomesList', 'deductionsList'
+    ];
+    // Build CSV header
+    let csv = fields.join(',') + '\n';
+    // Build CSV rows
+    payslips.forEach(payslip => {
+      const row = fields.map(field => {
+        if (field.startsWith('employee.')) {
+          const key = field.split('.')[1];
+          return (payslip.employee && payslip.employee[key]) ? `"${payslip.employee[key]}"` : '';
+        } else if (field === 'incomesList' || field === 'deductionsList') {
+          return payslip[field] && payslip[field].length
+            ? `"${payslip[field].map(i => `${i.type}:${i.amount}`).join('; ')}"`
+            : '';
+        } else if (payslip[field] instanceof Date) {
+          return `"${payslip[field].toISOString()}"`;
+        } else {
+          return payslip[field] !== undefined ? `"${payslip[field]}"` : '';
+        }
+      });
+      csv += row.join(',') + '\n';
+    });
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=all-payslips-${employeeId}.csv`);
+    res.send(csv);
+  } catch (err) {
+    console.error('Error generating all payslips CSV:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.downloadAllPayslipsPdfForCurrentUser = async (req, res) => {
+  try {
+    console.log('Current user for PDF download:', req.user);
+    // Find the employee record for this user
+    const employee = await Employee.findOne({ userId: req.user.userId });
+    if (!employee) {
+      console.error('Employee not found for userId:', req.user.userId);
+      return res.status(404).json({ error: 'Employee not found for this user.' });
+    }
+    console.log('employeeId used for PDF download:', employee._id);
+    req.params.employeeId = employee._id;
+    return exports.downloadAllPayslipsPdf(req, res);
+  } catch (err) {
+    console.error('Error generating PDF for current user:', err);
+    res.status(500).send('Failed to generate PDF');
+  }
+};
+
+exports.downloadAllPayslipsCsvForCurrentUser = async (req, res) => {
+  try {
+    console.log('Current user for CSV download:', req.user);
+    const employee = await Employee.findOne({ userId: req.user.userId });
+    if (!employee) {
+      console.error('Employee not found for userId:', req.user.userId);
+      return res.status(404).json({ error: 'Employee not found for this user.' });
+    }
+    console.log('employeeId used for CSV download:', employee._id);
+    req.params.employeeId = employee._id;
+    return exports.downloadAllPayslipsCsv(req, res);
+  } catch (err) {
+    console.error('Error generating CSV for current user:', err);
+    res.status(500).send('Failed to generate CSV');
   }
 };

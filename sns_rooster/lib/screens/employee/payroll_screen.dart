@@ -3,6 +3,13 @@ import 'package:provider/provider.dart';
 import '../../providers/payroll_provider.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/app_drawer.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
+import '../../config/api_config.dart';
+import '../../providers/auth_provider.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 // Import to access the RouteObserver
 
 class PayrollScreen extends StatefulWidget {
@@ -16,10 +23,11 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
   RouteObserver<ModalRoute<void>>? _routeObserver;
 
   void _refreshPayroll() {
-    print('PayrollScreen: _refreshPayroll called');
-    final provider = Provider.of<PayrollProvider>(context, listen: false);
-    provider.clearPayrollData();
-    provider.fetchPayrollSlips();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<PayrollProvider>(context, listen: false);
+      provider.clearPayrollData();
+      provider.fetchPayrollSlips();
+    });
   }
 
   @override
@@ -45,6 +53,69 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
   void didPopNext() {
     print('PayrollScreen: didPopNext called');
     _refreshPayroll();
+  }
+
+  Future<void> _downloadPayslipPdf(
+      BuildContext context, String payslipId, String token) async {
+    try {
+      final url = '${ApiConfig.baseUrl}/payroll/$payslipId/pdf';
+      final response = await http.get(Uri.parse(url), headers: {
+        'Authorization': 'Bearer $token',
+      });
+      if (response.statusCode == 200) {
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/payslip-$payslipId.pdf');
+        await file.writeAsBytes(response.bodyBytes);
+        await OpenFile.open(file.path);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text('Failed to download PDF: \\${response.statusCode}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error downloading PDF: $e')),
+      );
+    }
+  }
+
+  Future<void> _downloadAllPayslips(BuildContext context, String token,
+      {bool asCsv = false}) async {
+    try {
+      final url = asCsv
+          ? '${ApiConfig.baseUrl}/payroll/employee/csv'
+          : '${ApiConfig.baseUrl}/payroll/employee/pdf';
+      final response = await http.get(Uri.parse(url), headers: {
+        'Authorization': 'Bearer $token',
+      });
+      if (response.statusCode == 200) {
+        Directory? downloadsDir;
+        if (!kIsWeb && Platform.isAndroid) {
+          downloadsDir = Directory('/storage/emulated/0/Download');
+        } else if (!kIsWeb &&
+            (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+          downloadsDir = await getDownloadsDirectory();
+        }
+        downloadsDir ??= await getTemporaryDirectory();
+        final ext = asCsv ? 'csv' : 'pdf';
+        final file = File('${downloadsDir.path}/all-payslips.$ext');
+        await file.writeAsBytes(response.bodyBytes);
+        await OpenFile.open(file.path);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('File saved to: ${file.path}')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to download: ${response.statusCode}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error downloading: $e')),
+      );
+    }
   }
 
   @override
@@ -115,6 +186,42 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
               child: ListView(
                 padding: const EdgeInsets.all(16.0),
                 children: [
+                  // --- Download All Payslips Buttons ---
+                  Builder(
+                    builder: (context) {
+                      final authProvider =
+                          Provider.of<AuthProvider>(context, listen: false);
+                      final token = authProvider.token;
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: token == null || token.isEmpty
+                                  ? null
+                                  : () async {
+                                      await _downloadAllPayslips(context, token,
+                                          asCsv: false);
+                                    },
+                              icon: const Icon(Icons.picture_as_pdf),
+                              label: const Text('Download All (PDF)'),
+                            ),
+                            const SizedBox(width: 12),
+                            ElevatedButton.icon(
+                              onPressed: token == null || token.isEmpty
+                                  ? null
+                                  : () async {
+                                      await _downloadAllPayslips(context, token,
+                                          asCsv: true);
+                                    },
+                              icon: const Icon(Icons.table_chart),
+                              label: const Text('Download All (CSV)'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                   // --- Summary Card ---
                   Card(
                     elevation: 4,
@@ -262,13 +369,31 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
                             SizedBox(
                               width: double.infinity,
                               child: OutlinedButton.icon(
-                                onPressed: () {
-                                  // TODO: Implement PDF view/download functionality
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content:
-                                            Text('PDF download coming soon!')),
-                                  );
+                                onPressed: () async {
+                                  final authProvider =
+                                      Provider.of<AuthProvider>(context,
+                                          listen: false);
+                                  final payslipId = slip['_id'];
+                                  final token = authProvider.token;
+                                  if (payslipId == null ||
+                                      payslipId.toString().isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'Payslip ID is missing. Cannot download PDF.')),
+                                    );
+                                    return;
+                                  }
+                                  if (token == null || token.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'Auth token is missing. Cannot download PDF.')),
+                                    );
+                                    return;
+                                  }
+                                  await _downloadPayslipPdf(
+                                      context, payslipId.toString(), token);
                                 },
                                 icon: const Icon(Icons.download),
                                 label: const Text('Download Payslip (PDF)'),

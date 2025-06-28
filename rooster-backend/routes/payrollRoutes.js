@@ -3,12 +3,17 @@ console.log('payrollRoutes loaded');
 const express = require('express');
 const router = express.Router();
 const payrollController = require('../controllers/payroll-controller');
+const authMiddleware = require('../middleware/auth');
 
-// Get all payrolls
-router.get('/', (req, res, next) => {
-  console.log('DEBUG: GET /api/payroll - getAllPayrolls route hit');
-  next();
-}, payrollController.getAllPayrolls);
+// Download all payslips for the current logged-in employee as PDF
+router.get('/employee/pdf', authMiddleware, payrollController.downloadAllPayslipsPdfForCurrentUser);
+// Download all payslips for the current logged-in employee as CSV
+router.get('/employee/csv', authMiddleware, payrollController.downloadAllPayslipsCsvForCurrentUser);
+
+// Download all payslips for an employee as PDF
+router.get('/employee/:employeeId/pdf', payrollController.downloadAllPayslipsPdf);
+// Download all payslips for an employee as CSV
+router.get('/employee/:employeeId/csv', payrollController.downloadAllPayslipsCsv);
 
 // Get payrolls for a specific employee
 router.get('/employee/:employeeId', (req, res, next) => {

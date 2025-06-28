@@ -8,6 +8,18 @@ const PayrollSchema = new mongoose.Schema({
   grossPay: { type: Number, required: true },
   netPay: { type: Number, required: true },
   deductions: { type: Number, default: 0 },
+  deductionsList: [
+    {
+      type: { type: String, required: true },
+      amount: { type: Number, required: true }
+    }
+  ],
+  incomesList: [
+    {
+      type: { type: String, required: true },
+      amount: { type: Number, required: true }
+    }
+  ],
   status: { type: String, enum: ['pending', 'approved', 'needs_review', 'acknowledged'], default: 'pending' },
   employeeComment: { type: String, default: '' },
   issueDate: { type: Date, required: true },

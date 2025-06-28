@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 import '../../config/api_config.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 class PayrollManagementScreen extends StatefulWidget {
   const PayrollManagementScreen({super.key});
@@ -39,16 +40,19 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
   }
 
   void _addPayslip(BuildContext context, AdminPayrollProvider provider) async {
-    await showDialog(
+    final newPayslip = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => EditPayslipDialog(
-        onSave: (newPayslip) async {
-          if (_selectedEmployeeId != null) {
-            await provider.addPayslip(newPayslip, _selectedEmployeeId!);
-          }
-        },
+        onSave: (_) {}, // No-op, dialog just pops with data now
       ),
     );
+    if (newPayslip != null && _selectedEmployeeId != null) {
+      await provider.addPayslip(newPayslip, _selectedEmployeeId!);
+      await provider.fetchPayslips(_selectedEmployeeId!);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Payslip added successfully.')),
+      );
+    }
   }
 
   void _editPayslip(BuildContext scaffoldContext, AdminPayrollProvider provider,
@@ -153,6 +157,44 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
     }
   }
 
+  Future<void> _downloadAllPayslips(
+      BuildContext context, String employeeId, String token,
+      {bool asCsv = false}) async {
+    try {
+      final url = asCsv
+          ? '${ApiConfig.baseUrl}/payroll/employee/$employeeId/csv'
+          : '${ApiConfig.baseUrl}/payroll/employee/$employeeId/pdf';
+      final response = await http.get(Uri.parse(url), headers: {
+        'Authorization': 'Bearer $token',
+      });
+      if (response.statusCode == 200) {
+        Directory? downloadsDir;
+        if (!kIsWeb && Platform.isAndroid) {
+          downloadsDir = Directory('/storage/emulated/0/Download');
+        } else if (!kIsWeb &&
+            (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+          downloadsDir = await getDownloadsDirectory();
+        }
+        downloadsDir ??= await getTemporaryDirectory();
+        final ext = asCsv ? 'csv' : 'pdf';
+        final file = File('${downloadsDir.path}/all-payslips-$employeeId.$ext');
+        await file.writeAsBytes(response.bodyBytes);
+        await OpenFile.open(file.path);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('File saved to: ${file.path}')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to download: ${response.statusCode}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error downloading: $e')),
+      );
+    }
+  }
+
   Widget _buildStatusIndicator(String? status, String? comment) {
     if (status == 'approved') {
       return const Row(children: [
@@ -190,6 +232,19 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
         final isLoading = provider.isLoading;
         final error = provider.error;
 
+        // Auto-select first employee if none is selected and employees are loaded
+        if (_selectedEmployeeId == null && employees.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_selectedEmployeeId == null && employees.isNotEmpty) {
+              setState(() {
+                _selectedEmployeeId = employees.first['_id'] as String;
+              });
+              Provider.of<AdminPayrollProvider>(context, listen: false)
+                  .fetchPayslips(_selectedEmployeeId!);
+            }
+          });
+        }
+
         return Scaffold(
           appBar: AppBar(
             title: const Text('Payroll Management'),
@@ -226,6 +281,66 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
                       ),
                   ],
                 ),
+                if (_selectedEmployeeId != null && employees.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12.0, bottom: 8.0),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: isLoading
+                                ? null
+                                : () async {
+                                    final authProvider =
+                                        Provider.of<AuthProvider>(context,
+                                            listen: false);
+                                    final token = authProvider.token;
+                                    if (token == null || token.isEmpty) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                'Auth token is missing. Cannot download.')),
+                                      );
+                                      return;
+                                    }
+                                    await _downloadAllPayslips(
+                                        context, _selectedEmployeeId!, token,
+                                        asCsv: false);
+                                  },
+                            icon: const Icon(Icons.picture_as_pdf),
+                            label: const Text('Download All (PDF)'),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: isLoading
+                                ? null
+                                : () async {
+                                    final authProvider =
+                                        Provider.of<AuthProvider>(context,
+                                            listen: false);
+                                    final token = authProvider.token;
+                                    if (token == null || token.isEmpty) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                'Auth token is missing. Cannot download.')),
+                                      );
+                                      return;
+                                    }
+                                    await _downloadAllPayslips(
+                                        context, _selectedEmployeeId!, token,
+                                        asCsv: true);
+                                  },
+                            icon: const Icon(Icons.table_chart),
+                            label: const Text('Download All (CSV)'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 if (error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 16.0),
