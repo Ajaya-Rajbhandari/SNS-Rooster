@@ -143,3 +143,11 @@ sns_rooster/
 **Last Updated**: 2024-12-16  
 **Cleanup Completed By**: AI Assistant  
 **Status**: ✅ Complete 
+
+---
+
+## See Also
+
+- [PROJECT_ORGANIZATION_GUIDE.md](./PROJECT_ORGANIZATION_GUIDE.md) – Project structure and documentation standards
+- [API_CONTRACT.md](./api/API_CONTRACT.md) – API endpoints and data models
+- [FEATURES_AND_WORKFLOW.md](./features/FEATURES_AND_WORKFLOW.md) – Payroll, payslip, and workflow documentation 

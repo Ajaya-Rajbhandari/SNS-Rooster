@@ -183,6 +183,12 @@ console.info(`Admin operation: User ${req.user.userId} performed ${req.method} o
 - Right to erasure (admin deletion)
 - Data portability (export functionality needed)
 
+## See Also
+
+- [API_CONTRACT.md](../api/API_CONTRACT.md) – API endpoints and data models
+- [FEATURES_AND_WORKFLOW.md](../features/FEATURES_AND_WORKFLOW.md) – Payroll, payslip, and workflow documentation
+- [PROJECT_ORGANIZATION_GUIDE.md](../PROJECT_ORGANIZATION_GUIDE.md) – Project structure and documentation standards
+
 ## Conclusion
 
 The implemented security measures ensure that:

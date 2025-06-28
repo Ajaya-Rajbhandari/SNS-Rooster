@@ -71,3 +71,8 @@ This serves files at `/uploads/avatars/...` without the `/api` prefix.
 
 ## Result
 User avatars now display correctly in the mobile app after upload, resolving both the loading state issue and the file deletion problem.
+
+## See Also
+
+- [LAYOUT_FIX_DOCUMENTATION.md](LAYOUT_FIX_DOCUMENTATION.md) – UI layout fixes and dashboard/profile sync
+- [DOCUMENT_UPLOAD_FEATURE.md](DOCUMENT_UPLOAD_FEATURE.md) – Document upload and break type debugging

@@ -107,3 +107,9 @@
 - Fixed corrupted code structure in the `on_break` case  
 - Restored proper indentation and bracket matching
 - All syntax errors cleared, code now compiles cleanly
+
+## See Also
+
+- [FEATURES_AND_WORKFLOW.md](FEATURES_AND_WORKFLOW.md) – Payroll, payslip, and workflow documentation
+- [STATUS_CARD_ENHANCEMENT_DOCUMENTATION.md](STATUS_CARD_ENHANCEMENT_DOCUMENTATION.md) – Status card feature specification
+- [CLOCK_IN_RESET_FIX.md](CLOCK_IN_RESET_FIX.md) – Clock-in reset bug fix and attendance state

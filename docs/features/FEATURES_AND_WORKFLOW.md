@@ -72,3 +72,11 @@
 - Allow admins to "Mark as Resolved" or reset status after clarification.
 - Add export to CSV/Excel for payroll data.
 - Add analytics or summary reports for payroll. 
+
+---
+
+## See Also
+
+- [STATUS_CARD_ENHANCEMENT_DOCUMENTATION.md](STATUS_CARD_ENHANCEMENT_DOCUMENTATION.md) – Attendance status card logic
+- [DOCUMENT_UPLOAD_FEATURE.md](DOCUMENT_UPLOAD_FEATURE.md) – Document upload and break type debugging
+- [LEAVE_OVERLAP_VALIDATION_AND_UI_ENHANCEMENT.md](LEAVE_OVERLAP_VALIDATION_AND_UI_ENHANCEMENT.md) – Leave overlap validation and UI 
