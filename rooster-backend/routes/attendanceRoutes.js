@@ -23,22 +23,82 @@ router.get("/my-attendance", auth, attendanceController.getMyAttendance);
 // Get attendance for a specific user (Admin/Manager only, or self)
 router.get("/user/:userId", auth, attendanceController.getUserAttendance);
 
-// Get all attendance records (Admin only)
+// Get all attendance records (Admin only, with optional date range and employee filter)
 router.get("/", auth, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
-      return res
-        .status(403)
-        .json({ message: "Unauthorized to view all attendance data" });
+      return res.status(403).json({ message: "Unauthorized to view all attendance data" });
     }
-
-    const attendanceRecords = await Attendance.find({}).populate(
-      "user",
-      "name email role"
-    );
+    const { start, end, employeeId } = req.query;
+    let filter = {};
+    if (start || end) {
+      filter.date = {};
+      if (start) filter.date.$gte = new Date(start);
+      if (end) {
+        const endDate = new Date(end);
+        endDate.setHours(23, 59, 59, 999);
+        filter.date.$lte = endDate;
+      }
+    }
+    if (employeeId) filter.user = employeeId;
+    const attendanceRecords = await Attendance.find(filter)
+      .populate("user", "firstName lastName email role")
+      .populate("breaks.type", "displayName");
     res.json({ attendance: attendanceRecords });
   } catch (error) {
     console.error("Get all attendance error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Edit/correct an attendance record (Admin only)
+router.put("/:attendanceId", auth, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    const { attendanceId } = req.params;
+    const update = req.body;
+    const updated = await Attendance.findByIdAndUpdate(attendanceId, { $set: update }, { new: true });
+    if (!updated) return res.status(404).json({ message: "Attendance not found" });
+    res.json(updated);
+  } catch (error) {
+    console.error("Edit attendance error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Export attendance records as CSV (Admin only)
+router.get("/export", auth, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    const { start, end, employeeId } = req.query;
+    let filter = {};
+    if (start || end) {
+      filter.date = {};
+      if (start) filter.date.$gte = new Date(start);
+      if (end) {
+        const endDate = new Date(end);
+        endDate.setHours(23, 59, 59, 999);
+        filter.date.$lte = endDate;
+      }
+    }
+    if (employeeId) filter.user = employeeId;
+    const records = await Attendance.find(filter)
+      .populate("user", "firstName lastName email role")
+      .populate("breaks.type", "displayName");
+    // Build CSV
+    let csv = "Employee,Date,CheckIn,CheckOut,TotalBreak(ms)\n";
+    records.forEach(r => {
+      csv += `"${r.user.name}","${r.date.toISOString().slice(0,10)}","${r.checkInTime || ""}","${r.checkOutTime || ""}","${r.totalBreakDuration || 0}"\n`;
+    });
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=attendance.csv");
+    res.send(csv);
+  } catch (error) {
+    console.error("Export attendance error:", error);
     res.status(500).json({ message: "Server error" });
   }
 });

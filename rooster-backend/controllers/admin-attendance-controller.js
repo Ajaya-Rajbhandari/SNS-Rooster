@@ -179,7 +179,7 @@ exports.getAdminBreakStatus = async (req, res) => {
     const attendance = await Attendance.findOne({
       user: userId,
       date: today,
-    }).populate('user', 'name email');
+    }).populate('user', 'firstName lastName email');
 
     if (!attendance) {
       return res.status(404).json({ message: 'No attendance record found for today' });
