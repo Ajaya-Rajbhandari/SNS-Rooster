@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../widgets/admin_side_navigation.dart';
 import '../../providers/employee_provider.dart';
 import 'edit_attendance_dialog.dart';
+import 'package:flutter/scheduler.dart';
 
 class AdminTimesheetScreen extends StatefulWidget {
   const AdminTimesheetScreen({Key? key}) : super(key: key);
@@ -327,6 +328,8 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
                           DataCell(Row(
                             children: [
                               Text(_formatBreaks(rec['breaks'] as List?)),
+                              const SizedBox(width: 8),
+                              _buildBreakBadge(rec),
                               if ((rec['breaks'] as List?) != null &&
                                   (rec['breaks'] as List).isNotEmpty)
                                 IconButton(
@@ -338,18 +341,94 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
                                 ),
                             ],
                           )),
-                          DataCell(Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: _statusColor(status).withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(8),
+                          DataCell(
+                            Builder(
+                              builder: (context) {
+                                if (status == 'on_break') {
+                                  // Find the last break with no end time
+                                  final breaks = rec['breaks'] as List?;
+                                  Map<String, dynamic>? lastBreak;
+                                  if (breaks != null && breaks.isNotEmpty) {
+                                    final b = breaks.lastWhere(
+                                      (b) =>
+                                          b['start'] != null &&
+                                          b['end'] == null,
+                                      orElse: () => null,
+                                    );
+                                    if (b != null)
+                                      lastBreak = Map<String, dynamic>.from(b);
+                                  }
+                                  String breakType = lastBreak != null
+                                      ? (lastBreak['type'] is Map &&
+                                              lastBreak['type']
+                                                      ['displayName'] !=
+                                                  null
+                                          ? lastBreak['type']['displayName']
+                                          : lastBreak['type']?.toString() ??
+                                              '-')
+                                      : '-';
+                                  DateTime? breakStart = lastBreak != null &&
+                                          lastBreak['start'] != null
+                                      ? DateTime.tryParse(
+                                          lastBreak['start'].toString())
+                                      : null;
+                                  return Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              Colors.orange.withOpacity(0.15),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.pause_circle_filled,
+                                                color: Colors.orange, size: 18),
+                                            const SizedBox(width: 4),
+                                            Text('on break',
+                                                style: TextStyle(
+                                                    color: Colors.orange,
+                                                    fontWeight:
+                                                        FontWeight.bold)),
+                                            if (breakType != '-') ...[
+                                              const SizedBox(width: 6),
+                                              Text('($breakType)',
+                                                  style: TextStyle(
+                                                      color: Colors.orange[700],
+                                                      fontWeight:
+                                                          FontWeight.w500)),
+                                            ],
+                                            if (breakStart != null) ...[
+                                              const SizedBox(width: 8),
+                                              _LiveBreakTimer(
+                                                  start: breakStart),
+                                            ]
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                } else {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: _statusColor(status)
+                                          .withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(status,
+                                        style: TextStyle(
+                                            color: _statusColor(status),
+                                            fontWeight: FontWeight.bold)),
+                                  );
+                                }
+                              },
                             ),
-                            child: Text(status,
-                                style: TextStyle(
-                                    color: _statusColor(status),
-                                    fontWeight: FontWeight.bold)),
-                          )),
+                          ),
                           DataCell(Row(
                             children: [
                               IconButton(
@@ -472,6 +551,95 @@ class TimesheetSummary extends StatelessWidget {
           title,
           style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
         ),
+      ],
+    );
+  }
+}
+
+class _LiveBreakTimer extends StatefulWidget {
+  final DateTime start;
+  const _LiveBreakTimer({required this.start});
+
+  @override
+  State<_LiveBreakTimer> createState() => _LiveBreakTimerState();
+}
+
+class _LiveBreakTimerState extends State<_LiveBreakTimer> {
+  late Duration _elapsed;
+  late final Ticker _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _elapsed = DateTime.now().difference(widget.start);
+    _ticker = Ticker(_onTick)..start();
+  }
+
+  void _onTick(Duration _) {
+    setState(() {
+      _elapsed = DateTime.now().difference(widget.start);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final h = _elapsed.inHours;
+    final m = _elapsed.inMinutes % 60;
+    final s = _elapsed.inSeconds % 60;
+    return Text(
+      h > 0 ? '${h}h ${m}m ${s}s' : '${m}m ${s}s',
+      style: TextStyle(
+          color: Colors.orange[800], fontWeight: FontWeight.bold, fontSize: 12),
+    );
+  }
+}
+
+Widget _buildBreakBadge(Map<String, dynamic> rec) {
+  final breaks = rec['breaks'] as List?;
+  if (breaks != null && breaks.isNotEmpty) {
+    final ongoing = breaks.any((b) => b['end'] == null);
+    if (ongoing) {
+      return Row(
+        children: [
+          Icon(Icons.pause_circle_filled, color: Colors.orange, size: 18),
+          SizedBox(width: 4),
+          Text('On Break',
+              style:
+                  TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+          SizedBox(width: 4),
+          Icon(Icons.circle, color: Colors.red, size: 10),
+          SizedBox(width: 2),
+          Text('LIVE',
+              style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12)),
+        ],
+      );
+    } else {
+      return Row(
+        children: [
+          Icon(Icons.check_circle, color: Colors.blue, size: 18),
+          SizedBox(width: 4),
+          Text('Break Ended',
+              style:
+                  TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+        ],
+      );
+    }
+  } else {
+    return Row(
+      children: [
+        Icon(Icons.remove_circle_outline, color: Colors.grey, size: 18),
+        SizedBox(width: 4),
+        Text('No Break',
+            style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
       ],
     );
   }

@@ -341,8 +341,32 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                  'Status: ${status.replaceAll('_', ' ').toUpperCase()}'),
+                              Row(
+                                children: [
+                                  const Text('Status: '),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: status == 'completed'
+                                          ? Colors.green
+                                          : status == 'not_clocked_in'
+                                              ? Colors.red
+                                              : status == 'on_break'
+                                                  ? Colors.orange
+                                                  : Colors.blue,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      status.replaceAll('_', ' ').toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                               Text('Check In: $checkIn'),
                               if (breakDurationMin != '0.0')
                                 Text('Break Duration: $breakDurationMin min'),
@@ -395,11 +419,42 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                                 ? (b['duration'] / 60000)
                                                     .toStringAsFixed(1)
                                                 : '';
+                                        final isLive = b['end'] == null;
                                         return Padding(
                                           padding: const EdgeInsets.only(
                                               top: 2.0, bottom: 2.0),
-                                          child: Text(
-                                              '- $breakType: $start - $end (${durationMin.isNotEmpty ? '$durationMin min' : 'In progress'})'),
+                                          child: Row(
+                                            children: [
+                                              Text(
+                                                '- $breakType: $start - $end (${durationMin.isNotEmpty ? '$durationMin min' : 'In progress'})',
+                                              ),
+                                              if (isLive)
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                          left: 8.0),
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons.circle,
+                                                        color: Colors.red,
+                                                        size: 10,
+                                                      ),
+                                                      SizedBox(width: 4),
+                                                      Text(
+                                                        'LIVE',
+                                                        style: TextStyle(
+                                                          color: Colors.red,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
                                         );
                                       }).toList(),
                                     ],
