@@ -94,13 +94,14 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
   }
 
   String _formatTotalHours(String? inIso, String? outIso, int? breakMs) {
-    if (inIso == null || outIso == null) return '-';
+    if (inIso == null || outIso == null) return '0h 0m';
     final inDt = DateTime.tryParse(inIso);
     final outDt = DateTime.tryParse(outIso);
-    if (inDt == null || outDt == null) return '-';
-    final total = outDt.difference(inDt) - Duration(milliseconds: breakMs ?? 0);
-    final h = total.inHours;
-    final m = total.inMinutes % 60;
+    if (inDt == null || outDt == null) return '0h 0m';
+    int total = outDt.difference(inDt).inMilliseconds - (breakMs ?? 0);
+    if (total < 0) total = 0;
+    final h = total ~/ (1000 * 60 * 60);
+    final m = ((total % (1000 * 60 * 60)) / (1000 * 60)).round();
     return '${h}h ${m}m';
   }
 
@@ -122,7 +123,7 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
   }
 
   String _formatBreaks(List<dynamic>? breaks) {
-    if (breaks == null || breaks.isEmpty) return '-';
+    if (breaks == null || breaks.isEmpty) return '0h 0m';
     int totalMs = 0;
     for (final b in breaks) {
       if (b['start'] != null && b['end'] != null) {
@@ -133,6 +134,7 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
         }
       }
     }
+    if (totalMs < 0) totalMs = 0;
     final d = Duration(milliseconds: totalMs);
     final h = d.inHours;
     final m = d.inMinutes % 60;
