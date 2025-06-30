@@ -1,5 +1,6 @@
 class Employee {
   final String id;
+  final String userId;
   final String firstName;
   final String lastName;
   final String email;
@@ -10,6 +11,7 @@ class Employee {
 
   Employee({
     required this.id,
+    required this.userId,
     required this.firstName,
     required this.lastName,
     required this.email,
@@ -22,6 +24,7 @@ class Employee {
   factory Employee.fromJson(Map<String, dynamic> json) {
     return Employee(
       id: json['_id'] as String,
+      userId: json['userId'] as String,
       firstName: json['firstName'] as String,
       lastName: json['lastName'] as String,
       email: json['email'] as String,
@@ -35,6 +38,7 @@ class Employee {
   Map<String, dynamic> toJson() {
     return {
       '_id': id,
+      'userId': userId,
       'firstName': firstName,
       'lastName': lastName,
       'email': email,
@@ -44,6 +48,8 @@ class Employee {
       'department': department,
     };
   }
+
+  String get name => '$firstName $lastName';
 
   @override
   String toString() {
@@ -79,6 +85,7 @@ class Employee {
 
   Employee copyWith({
     String? id,
+    String? userId,
     String? firstName,
     String? lastName,
     String? email,
@@ -89,6 +96,7 @@ class Employee {
   }) {
     return Employee(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       email: email ?? this.email,

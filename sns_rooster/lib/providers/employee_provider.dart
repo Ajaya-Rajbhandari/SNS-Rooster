@@ -3,19 +3,20 @@ library;
 
 import 'package:flutter/material.dart';
 import '../services/employee_service.dart';
+import '../models/employee.dart';
 
 class EmployeeProvider with ChangeNotifier {
   final EmployeeService _employeeService;
 
   EmployeeProvider(this._employeeService);
 
-  List<Map<String, dynamic>> _employees = [];
-  Map<String, dynamic>? _profile;
+  List<Employee> _employees = [];
+  Employee? _profile;
   bool _isLoading = false;
   String? _error;
 
-  List<Map<String, dynamic>> get employees => _employees;
-  Map<String, dynamic>? get profile => _profile;
+  List<Employee> get employees => _employees;
+  Employee? get profile => _profile;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -25,7 +26,8 @@ class EmployeeProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      _employees = await _employeeService.getEmployees();
+      final rawList = await _employeeService.getEmployees();
+      _employees = rawList.map((e) => Employee.fromJson(e)).toList();
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -60,7 +62,8 @@ class EmployeeProvider with ChangeNotifier {
     try {
       await _employeeService.deleteEmployee(employeeId);
       // Remove from local list and notify listeners
-      _employees.removeWhere((emp) => emp['userId'] == employeeId || emp['_id'] == employeeId || emp['id'] == employeeId);
+      _employees.removeWhere(
+          (emp) => emp.userId == employeeId || emp.id == employeeId);
       notifyListeners();
       return true;
     } catch (e) {
@@ -78,7 +81,8 @@ class EmployeeProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      _profile = await _employeeService.getEmployeeById(employeeId);
+      final raw = await _employeeService.getEmployeeById(employeeId);
+      _profile = Employee.fromJson(raw);
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -88,7 +92,8 @@ class EmployeeProvider with ChangeNotifier {
   }
 
   // --- Update Profile (Employee) ---
-  Future<bool> updateProfile(String employeeId, Map<String, dynamic> updates) async {
+  Future<bool> updateProfile(
+      String employeeId, Map<String, dynamic> updates) async {
     _isLoading = true;
     _error = null;
     notifyListeners();

@@ -123,7 +123,8 @@ exports.adminEndBreak = async (req, res) => {
 
     // End the break and calculate duration
     lastBreak.end = new Date();
-    lastBreak.duration = Math.round((lastBreak.end - lastBreak.start) / (1000 * 60)); // Duration in minutes
+    // Store duration in milliseconds for consistency
+    lastBreak.duration = lastBreak.end - lastBreak.start; // ms
 
     // Validate break duration if break type config exists
     if (breakTypeConfig) {
@@ -135,11 +136,12 @@ exports.adminEndBreak = async (req, res) => {
 
       if (breakTypeConfig.maxDuration && lastBreak.duration > breakTypeConfig.maxDuration) {
         // Log warning but don't prevent ending the break
-        console.warn(`Break duration (${lastBreak.duration}min) exceeded maximum for ${breakTypeConfig.displayName} (${breakTypeConfig.maxDuration}min)`);
+        console.warn(`Break duration (${lastBreak.duration}ms) exceeded maximum for ${breakTypeConfig.displayName} (${breakTypeConfig.maxDuration}ms)`);
       }
     }
 
     // Recalculate total break duration
+    // Sum all break durations in ms
     attendance.totalBreakDuration = attendance.breaks.reduce((total, breakItem) => {
       return total + (breakItem.duration || 0);
     }, 0);
@@ -201,3 +203,20 @@ exports.getAdminBreakStatus = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// Utility: Calculate status for a given attendance record
+function getAttendanceStatusForRecord(att) {
+  if (!att) return 'absent';
+  if (att.checkOutTime) return 'clocked_out';
+  if (att.checkInTime) {
+    const breaks = att.breaks || [];
+    const lastBreak = breaks.length > 0 ? breaks[breaks.length - 1] : null;
+    if (lastBreak && lastBreak.start && !lastBreak.end) {
+      return 'on_break';
+    }
+    return 'present';
+  }
+  return 'absent';
+}
+
+module.exports.getAttendanceStatusForRecord = getAttendanceStatusForRecord;

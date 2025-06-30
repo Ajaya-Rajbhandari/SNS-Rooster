@@ -45,22 +45,36 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
     leaveType = widget.initialLeaveType;
   }
 
-  Future<void> _selectDate(BuildContext context, bool isFromDate) async {
-    final DateTime? picked = await showDatePicker(
+  Future<DateTime?> showCustomDatePicker(
+      BuildContext context, DateTime initialDate,
+      {DateTime? firstDate, DateTime? lastDate}) {
+    return showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: widget.disablePastDates ? DateTime.now() : DateTime(2000),
-      lastDate: DateTime(2101),
+      initialDate: initialDate,
+      firstDate: firstDate ?? DateTime(2000),
+      lastDate: lastDate ?? DateTime(2101),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Theme.of(context).primaryColor,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).primaryColor,
+                textStyle:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            dialogBackgroundColor: Colors.white,
+          ),
+          child: child!,
+        );
+      },
     );
-    if (picked != null && picked != (isFromDate ? fromDate : toDate)) {
-      setState(() {
-        if (isFromDate) {
-          fromDate = picked;
-        } else {
-          toDate = picked;
-        }
-      });
-    }
   }
 
   @override

@@ -9,6 +9,12 @@ class Attendance {
   final DateTime? checkOutTime;
   final Duration? breakDuration;
   final String? notes;
+  final String? id;
+  final String? userId;
+  final dynamic user;
+  final List<dynamic>? breaks;
+  final int? totalBreakDuration;
+  final String? breakStatus;
 
   Attendance({
     required this.date,
@@ -17,6 +23,12 @@ class Attendance {
     this.checkOutTime,
     this.breakDuration,
     this.notes,
+    this.id,
+    this.userId,
+    this.user,
+    this.breaks,
+    this.totalBreakDuration,
+    this.breakStatus,
   });
 
   Duration get totalWorkDuration {
@@ -95,11 +107,19 @@ class Attendance {
   Map<String, dynamic> toJson() {
     return {
       'date': formattedDate,
-      'status': status.toString().split('.').last,
+      'status': status is AttendanceStatus
+          ? (status as AttendanceStatus).toString().split('.').last
+          : status,
       'checkInTime': checkInTime?.toIso8601String(),
       'checkOutTime': checkOutTime?.toIso8601String(),
       'breakDuration': breakDuration?.inMinutes,
       'notes': notes,
+      '_id': id,
+      'userId': userId,
+      'user': user,
+      'breaks': breaks,
+      'totalBreakDuration': totalBreakDuration,
+      'breakStatus': breakStatus,
     };
   }
 
@@ -108,6 +128,7 @@ class Attendance {
       date: DateTime.parse(json['date']),
       status: AttendanceStatus.values.firstWhere(
         (e) => e.toString().split('.').last == json['status'],
+        orElse: () => AttendanceStatus.present,
       ),
       checkInTime: json['checkInTime'] != null
           ? DateTime.parse(json['checkInTime'])
@@ -119,6 +140,12 @@ class Attendance {
           ? Duration(minutes: json['breakDuration'])
           : null,
       notes: json['notes'],
+      id: json['_id'] as String?,
+      userId: json['userId'] as String?,
+      user: json['user'],
+      breaks: json['breaks'] as List<dynamic>?,
+      totalBreakDuration: json['totalBreakDuration'] as int?,
+      breakStatus: json['breakStatus'] as String?,
     );
   }
 }
