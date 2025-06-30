@@ -389,7 +389,7 @@ exports.getUserAttendance = async (req, res) => {
 
 exports.getBreakTypes = async (req, res) => {
   try {
-    const types = await BreakType.find().sort("displayName");
+    const types = await BreakType.find({ isActive: true }).sort("displayName");
     res.json(types);
   } catch (err) {
     console.error("Error fetching break types", err);
