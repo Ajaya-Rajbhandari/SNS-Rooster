@@ -46,13 +46,15 @@ class _TimesheetScreenState extends State<TimesheetScreen>
     );
 
     // Then try to load saved state (which will override if present)
-    _loadQuickActionState();    // Fetch attendance for current user
+    _loadQuickActionState(); // Fetch attendance for current user
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final attendanceProvider =
-          Provider.of<AttendanceProvider>(context, listen: false);      if (authProvider.user != null) {
+          Provider.of<AttendanceProvider>(context, listen: false);
+      if (authProvider.user != null) {
         // Use _id field from MongoDB instead of id
-        final userId = authProvider.user!['_id']?.toString() ?? authProvider.user!['id']?.toString();
+        final userId = authProvider.user!['_id']?.toString() ??
+            authProvider.user!['id']?.toString();
         if (userId != null) {
           attendanceProvider.fetchUserAttendance(userId);
         }
@@ -101,13 +103,13 @@ class _TimesheetScreenState extends State<TimesheetScreen>
     super.dispose();
   }
 
-  Future<void> _selectDateRange(BuildContext context) async {
-    final DateTimeRange? picked = await showDateRangePicker(
+  Future<DateTimeRange?> showCustomDateRangePicker(
+      BuildContext context, DateTimeRange? initialRange) {
+    return showDateRangePicker(
       context: context,
-      useRootNavigator: true,
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
-      initialDateRange: _selectedDateRange,
+      initialDateRange: initialRange,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -117,11 +119,25 @@ class _TimesheetScreenState extends State<TimesheetScreen>
               surface: Colors.white,
               onSurface: Colors.black,
             ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).primaryColor,
+                textStyle:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            dialogBackgroundColor: Colors.white,
           ),
           child: child!,
         );
       },
-    );    if (picked != null && picked != _selectedDateRange) {
+    );
+  }
+
+  Future<void> _selectDateRange(BuildContext context) async {
+    final DateTimeRange? picked =
+        await showCustomDateRangePicker(context, _selectedDateRange);
+    if (picked != null && picked != _selectedDateRange) {
       setState(() {
         _selectedDateRange = picked;
       });
@@ -171,32 +187,35 @@ class _TimesheetScreenState extends State<TimesheetScreen>
             }
           }
         }
-      }      final netWorkHours = totalHours - totalBreakHours;
-      
-      return netWorkHours > 0 ? netWorkHours : 0.0;    } catch (e) {
+      }
+      final netWorkHours = totalHours - totalBreakHours;
+
+      return netWorkHours > 0 ? netWorkHours : 0.0;
+    } catch (e) {
       return 0.0;
     }
   }
+
   List<Map<String, dynamic>> get _filteredData {
     final attendanceProvider = Provider.of<AttendanceProvider>(context);
     final List<Map<String, dynamic>> records = attendanceProvider
         .attendanceRecords
         .cast<Map<String, dynamic>>()
         .toList();
-    
+
     // Process records and add calculated totalHours
     final List<Map<String, dynamic>> processedRecords = records.map((entry) {
       final processedEntry = Map<String, dynamic>.from(entry);
       processedEntry['totalHours'] = _calculateTotalHours(entry);
-      
+
       // Ensure status field exists (default to 'Approved' for existing records)
       if (processedEntry['status'] == null) {
         processedEntry['status'] = 'Approved';
       }
-      
+
       return processedEntry;
     }).toList();
-    
+
     // Group by date (yyyy-MM-dd) and only keep the latest open record per day
     final Map<String, Map<String, dynamic>> latestOpenPerDay = {};
     for (final entry in processedRecords) {
@@ -216,26 +235,29 @@ class _TimesheetScreenState extends State<TimesheetScreen>
       final dateKey = DateFormat('yyyy-MM-dd').format(entryDate);
       // Only keep the latest open record (no checkOut) per day
       if ((entry['checkOut'] == null ||
-          entry['checkOut'].toString() == 'null' ||
-          entry['checkOut'].toString().isEmpty) &&
+              entry['checkOut'].toString() == 'null' ||
+              entry['checkOut'].toString().isEmpty) &&
           (entry['checkOutTime'] == null ||
-          entry['checkOutTime'].toString() == 'null' ||
-          entry['checkOutTime'].toString().isEmpty)) {
+              entry['checkOutTime'].toString() == 'null' ||
+              entry['checkOutTime'].toString().isEmpty)) {
         DateTime? currentCheckIn =
             DateTime.tryParse(entry['checkIn']?.toString() ?? '') ??
-            DateTime.tryParse(entry['checkInTime']?.toString() ?? '');
+                DateTime.tryParse(entry['checkInTime']?.toString() ?? '');
         DateTime? previousCheckIn = DateTime.tryParse(
-            latestOpenPerDay[dateKey]?['checkIn']?.toString() ?? '') ??
-            DateTime.tryParse(latestOpenPerDay[dateKey]?['checkInTime']?.toString() ?? '');
+                latestOpenPerDay[dateKey]?['checkIn']?.toString() ?? '') ??
+            DateTime.tryParse(
+                latestOpenPerDay[dateKey]?['checkInTime']?.toString() ?? '');
         if (!latestOpenPerDay.containsKey(dateKey) ||
             (currentCheckIn != null &&
                 previousCheckIn != null &&
                 previousCheckIn.isBefore(currentCheckIn))) {
           latestOpenPerDay[dateKey] = entry;
         }
-      }    }
+      }
+    }
     // Remove all but the latest open record for each day
-    final List<Map<String, dynamic>> filteredRecords = processedRecords.where((entry) {
+    final List<Map<String, dynamic>> filteredRecords =
+        processedRecords.where((entry) {
       DateTime? entryDate;
       try {
         entryDate = entry['date'] is DateTime
@@ -252,16 +274,17 @@ class _TimesheetScreenState extends State<TimesheetScreen>
       final dateKey = DateFormat('yyyy-MM-dd').format(entryDate);
       // If open, only keep the latest open record for the day
       if ((entry['checkOut'] == null ||
-          entry['checkOut'].toString() == 'null' ||
-          entry['checkOut'].toString().isEmpty) &&
+              entry['checkOut'].toString() == 'null' ||
+              entry['checkOut'].toString().isEmpty) &&
           (entry['checkOutTime'] == null ||
-          entry['checkOutTime'].toString() == 'null' ||
-          entry['checkOutTime'].toString().isEmpty)) {
+              entry['checkOutTime'].toString() == 'null' ||
+              entry['checkOutTime'].toString().isEmpty)) {
         return latestOpenPerDay[dateKey] == entry;
       }
       // Otherwise, keep all closed records
       return true;
-    }).toList();    final List<Map<String, dynamic>> dateFilteredData =
+    }).toList();
+    final List<Map<String, dynamic>> dateFilteredData =
         filteredRecords.where((entry) {
       DateTime? entryDate;
       try {
@@ -288,6 +311,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                 _selectedFilter.trim().toLowerCase()))
         .toList();
   }
+
   double get _totalHoursFiltered {
     return _filteredData.fold<double>(
       0,
@@ -302,38 +326,6 @@ class _TimesheetScreenState extends State<TimesheetScreen>
   // Get weekly summary for the selected date range
   Map<String, double> get _weeklySummary {
     Map<String, double> weeklySummary = {};
-      for (var entry in _filteredData) {
-      DateTime? entryDate;
-      try {
-        entryDate = entry['date'] is DateTime
-            ? entry['date']
-            : DateTime.tryParse(entry['date']?.toString() ?? '');
-        if (entryDate == null && entry['checkIn'] != null) {
-          entryDate = DateTime.tryParse(entry['checkIn'].toString());
-        }
-        if (entryDate == null && entry['checkInTime'] != null) {
-          entryDate = DateTime.tryParse(entry['checkInTime'].toString());
-        }
-      } catch (_) {}
-      
-      if (entryDate != null) {
-        // Get the start of the week (Monday)
-        final startOfWeek = entryDate.subtract(Duration(days: entryDate.weekday - 1));
-        final weekKey = 'Week of ${DateFormat('MMM dd').format(startOfWeek)}';
-        
-        final hours = (entry['totalHours'] is num) 
-            ? (entry['totalHours'] as num).toDouble() 
-            : 0.0;
-        weeklySummary[weekKey] = (weeklySummary[weekKey] ?? 0.0) + hours;
-      }
-    }
-    
-    return weeklySummary;
-  }
-  double get _totalOvertimeHours {
-    double overtime = 0.0;
-    Map<String, double> dailyTotals = {};
-      // Group entries by date and calculate daily totals
     for (var entry in _filteredData) {
       DateTime? entryDate;
       try {
@@ -347,23 +339,57 @@ class _TimesheetScreenState extends State<TimesheetScreen>
           entryDate = DateTime.tryParse(entry['checkInTime'].toString());
         }
       } catch (_) {}
-      
+
+      if (entryDate != null) {
+        // Get the start of the week (Monday)
+        final startOfWeek =
+            entryDate.subtract(Duration(days: entryDate.weekday - 1));
+        final weekKey = 'Week of ${DateFormat('MMM dd').format(startOfWeek)}';
+
+        final hours = (entry['totalHours'] is num)
+            ? (entry['totalHours'] as num).toDouble()
+            : 0.0;
+        weeklySummary[weekKey] = (weeklySummary[weekKey] ?? 0.0) + hours;
+      }
+    }
+
+    return weeklySummary;
+  }
+
+  double get _totalOvertimeHours {
+    double overtime = 0.0;
+    Map<String, double> dailyTotals = {};
+    // Group entries by date and calculate daily totals
+    for (var entry in _filteredData) {
+      DateTime? entryDate;
+      try {
+        entryDate = entry['date'] is DateTime
+            ? entry['date']
+            : DateTime.tryParse(entry['date']?.toString() ?? '');
+        if (entryDate == null && entry['checkIn'] != null) {
+          entryDate = DateTime.tryParse(entry['checkIn'].toString());
+        }
+        if (entryDate == null && entry['checkInTime'] != null) {
+          entryDate = DateTime.tryParse(entry['checkInTime'].toString());
+        }
+      } catch (_) {}
+
       if (entryDate != null) {
         final dateKey = DateFormat('yyyy-MM-dd').format(entryDate);
-        final hours = (entry['totalHours'] is num) 
-            ? (entry['totalHours'] as num).toDouble() 
+        final hours = (entry['totalHours'] is num)
+            ? (entry['totalHours'] as num).toDouble()
             : 0.0;
         dailyTotals[dateKey] = (dailyTotals[dateKey] ?? 0.0) + hours;
       }
     }
-    
+
     // Calculate overtime (hours over 8 per day)
     for (var dailyHours in dailyTotals.values) {
       if (dailyHours > 8.0) {
         overtime += dailyHours - 8.0;
       }
     }
-    
+
     return overtime;
   }
 
@@ -380,6 +406,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
       parsedTime.minute,
     );
   }
+
   // Add helper for week range
   DateTimeRange get _thisWeekRange {
     final now = DateTime.now();
@@ -408,7 +435,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
   Widget _buildDailyView(List<Map<String, dynamic>> data) {
     // Group entries by date
     Map<String, List<Map<String, dynamic>>> groupedData = {};
-      for (var entry in data) {
+    for (var entry in data) {
       DateTime? entryDate;
       try {
         entryDate = entry['date'] is DateTime
@@ -421,7 +448,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
           entryDate = DateTime.tryParse(entry['checkInTime'].toString());
         }
       } catch (_) {}
-      
+
       if (entryDate != null) {
         final dateKey = DateFormat('yyyy-MM-dd').format(entryDate);
         groupedData[dateKey] = groupedData[dateKey] ?? [];
@@ -441,27 +468,28 @@ class _TimesheetScreenState extends State<TimesheetScreen>
         final dateKey = sortedDates[index];
         final entriesForDay = groupedData[dateKey]!;
         final date = DateTime.parse(dateKey);
-        
+
         // Calculate daily totals
         double dailyHours = 0.0;
         int dailyBreaks = 0;
         for (var entry in entriesForDay) {
-          final hours = (entry['totalHours'] is num) 
-              ? (entry['totalHours'] as num).toDouble() 
+          final hours = (entry['totalHours'] is num)
+              ? (entry['totalHours'] as num).toDouble()
               : 0.0;
           dailyHours += hours;
-          
+
           // Count breaks
-          if (entry['breakDuration'] != null && 
+          if (entry['breakDuration'] != null &&
               entry['breakDuration'].toString() != '--' &&
               entry['breakDuration'].toString().isNotEmpty) {
             dailyBreaks++;
           }
         }
-        
+
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 8.0),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -495,7 +523,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: dailyHours > 8 
+                        color: dailyHours > 8
                             ? Colors.orange.withOpacity(0.2)
                             : Theme.of(context).primaryColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(16),
@@ -504,7 +532,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                         '${dailyHours.toStringAsFixed(1)} hrs',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: dailyHours > 8 
+                          color: dailyHours > 8
                               ? Colors.orange[700]
                               : Theme.of(context).primaryColor,
                         ),
@@ -515,9 +543,9 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                 const SizedBox(height: 12),
                 // Individual entries for the day
                 ...entriesForDay.map((entry) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: TimesheetRow(entry: entry),
-                )),
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: TimesheetRow(entry: entry),
+                    )),
               ],
             ),
           ),
@@ -525,6 +553,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
       },
     );
   }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -672,7 +701,8 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                           e['status'] == 'Absent' || e['status'] == 'Rejected')
                       .length,
                   overtimeHours: _totalOvertimeHours, // Use calculated overtime
-                ),              ),
+                ),
+              ),
               const SizedBox(height: 16),
 
               // Weekly Summary Section
@@ -758,7 +788,8 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                       ),
                     );
                   }).toList(),
-                ),              ),
+                ),
+              ),
               const SizedBox(height: 16),
 
               // View Toggle Buttons
@@ -807,7 +838,8 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                       padding: EdgeInsets.all(16.0),
                       child: Text('No timesheet entries for this range.'),
                     );
-                  }                  return Padding(
+                  }
+                  return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: _selectedView == 'Daily'
                         ? _buildDailyView(_filteredData)
@@ -1237,7 +1269,8 @@ class TimesheetSummary extends StatelessWidget {
         padding: const EdgeInsets.all(18.0),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [            _SummaryTile(
+          children: [
+            _SummaryTile(
                 label: 'Total Hours',
                 value: '${totalHours.toStringAsFixed(1)} hrs'),
             _SummaryTile(label: 'Present', value: '$presentCount'),
@@ -1260,11 +1293,13 @@ class _SummaryTile extends StatelessWidget {
         value = value ?? '';
   @override
   Widget build(BuildContext context) {
-    return Flexible( // Wrap Column with Flexible
+    return Flexible(
+      // Wrap Column with Flexible
       child: Column(
         mainAxisSize: MainAxisSize.min, // Prevent overflow
         children: [
-          Flexible( // Make text flexible
+          Flexible(
+            // Make text flexible
             child: Text(value,
                 style: Theme.of(context)
                     .textTheme
@@ -1275,7 +1310,8 @@ class _SummaryTile extends StatelessWidget {
                 maxLines: 2), // Allow wrapping to 2 lines
           ),
           const SizedBox(height: 4),
-          Flexible( // Make text flexible
+          Flexible(
+            // Make text flexible
             child: Text(label,
                 style: Theme.of(context)
                     .textTheme

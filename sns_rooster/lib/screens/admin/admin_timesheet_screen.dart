@@ -6,6 +6,7 @@ import '../../widgets/admin_side_navigation.dart';
 import '../../providers/employee_provider.dart';
 import 'edit_attendance_dialog.dart';
 import 'package:flutter/scheduler.dart';
+import '../../models/employee.dart';
 
 class AdminTimesheetScreen extends StatefulWidget {
   const AdminTimesheetScreen({Key? key}) : super(key: key);
@@ -17,7 +18,8 @@ class AdminTimesheetScreen extends StatefulWidget {
 class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
   DateTimeRange? _dateRange;
   String? _selectedEmployeeId;
-  List<Map<String, dynamic>> _employeeList = [];
+  List<Employee> _employeeList = [];
+  bool isExporting = false;
 
   @override
   void initState() {
@@ -32,31 +34,57 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
           Provider.of<EmployeeProvider>(context, listen: false);
       await employeeProvider.getEmployees();
       setState(() {
-        _employeeList = employeeProvider.employees.cast<Map<String, dynamic>>();
+        _employeeList = List<Employee>.from(employeeProvider.employees);
       });
       Provider.of<AdminAttendanceProvider>(context, listen: false)
-          .fetchAttendance(
+          .fetchAttendanceLegacy(
         start: DateFormat('yyyy-MM-dd').format(_dateRange!.start),
         end: DateFormat('yyyy-MM-dd').format(_dateRange!.end),
-        employeeId: _selectedEmployeeId,
+        userId: _selectedEmployeeId,
       );
     });
   }
 
-  Future<void> _pickDateRange() async {
-    final picked = await showDateRangePicker(
+  Future<DateTimeRange?> _showCustomDateRangePicker(
+      BuildContext context, DateTimeRange? initialRange) {
+    return showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
-      initialDateRange: _dateRange,
+      initialDateRange: initialRange,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Theme.of(context).primaryColor,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).primaryColor,
+                textStyle:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            dialogBackgroundColor: Colors.white,
+          ),
+          child: child!,
+        );
+      },
     );
+  }
+
+  Future<void> _pickDateRange() async {
+    final picked = await _showCustomDateRangePicker(context, _dateRange);
     if (picked != null) {
       setState(() => _dateRange = picked);
       Provider.of<AdminAttendanceProvider>(context, listen: false)
-          .fetchAttendance(
+          .fetchAttendanceLegacy(
         start: DateFormat('yyyy-MM-dd').format(picked.start),
         end: DateFormat('yyyy-MM-dd').format(picked.end),
-        employeeId: _selectedEmployeeId,
+        userId: _selectedEmployeeId,
       );
     }
   }
@@ -64,10 +92,10 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
   void _onEmployeeChanged(String? employeeId) {
     setState(() => _selectedEmployeeId = employeeId);
     Provider.of<AdminAttendanceProvider>(context, listen: false)
-        .fetchAttendance(
+        .fetchAttendanceLegacy(
       start: DateFormat('yyyy-MM-dd').format(_dateRange!.start),
       end: DateFormat('yyyy-MM-dd').format(_dateRange!.end),
-      employeeId: employeeId,
+      userId: employeeId,
     );
   }
 
@@ -246,9 +274,8 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
                         child: Text('All Employees'),
                       ),
                       ..._employeeList.map((emp) => DropdownMenuItem<String>(
-                            value: emp['userId'] as String?,
-                            child:
-                                Text('${emp['firstName']} ${emp['lastName']}'),
+                            value: emp.userId,
+                            child: Text('${emp.firstName} ${emp.lastName}'),
                           )),
                     ],
                     onChanged: _onEmployeeChanged,
@@ -258,24 +285,52 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
             ),
             const SizedBox(height: 8),
             ElevatedButton.icon(
-              onPressed: () async {
-                final provider = Provider.of<AdminAttendanceProvider>(context,
-                    listen: false);
-                final success = await provider.exportAttendance(
-                  start: DateFormat('yyyy-MM-dd').format(_dateRange!.start),
-                  end: DateFormat('yyyy-MM-dd').format(_dateRange!.end),
-                  employeeId: _selectedEmployeeId,
-                );
-                if (!success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content:
-                            Text(provider.error ?? 'Failed to export CSV')),
-                  );
-                }
-              },
-              icon: const Icon(Icons.download),
-              label: const Text('Export CSV'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 4,
+                shadowColor: Colors.black26,
+              ),
+              onPressed: isExporting
+                  ? null
+                  : () async {
+                      setState(() => isExporting = true);
+                      final provider = Provider.of<AdminAttendanceProvider>(
+                          context,
+                          listen: false);
+                      final filePath = await provider.exportAttendance(
+                        start:
+                            DateFormat('yyyy-MM-dd').format(_dateRange!.start),
+                        end: DateFormat('yyyy-MM-dd').format(_dateRange!.end),
+                        userId: _selectedEmployeeId,
+                      );
+                      setState(() => isExporting = false);
+                      if (filePath != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('CSV exported to: $filePath')),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content: Text(
+                                  provider.error ?? 'Failed to export CSV')),
+                        );
+                      }
+                    },
+              icon: isExporting
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : Icon(Icons.download, size: 22),
+              label: Text('Export CSV',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 8),
             Row(
@@ -301,186 +356,233 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
                   return SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
+                      headingRowColor:
+                          MaterialStateProperty.all(Colors.blueGrey[50]),
                       columns: const [
-                        DataColumn(label: Text('Employee')),
-                        DataColumn(label: Text('Date')),
-                        DataColumn(label: Text('Check In')),
-                        DataColumn(label: Text('Check Out')),
-                        DataColumn(label: Text('Total Hours')),
-                        DataColumn(label: Text('Break')),
-                        DataColumn(label: Text('Status')),
-                        DataColumn(label: Text('Actions')),
+                        DataColumn(
+                            label: Text('Employee',
+                                style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(
+                            label: Text('Date',
+                                style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(
+                            label: Text('Check In',
+                                style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(
+                            label: Text('Check Out',
+                                style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(
+                            label: Text('Total Hours',
+                                style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(
+                            label: Text('Break',
+                                style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(
+                            label: Text('Status',
+                                style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(
+                            label: Text('Actions',
+                                style: TextStyle(fontWeight: FontWeight.bold))),
                       ],
-                      rows: provider.attendanceRecords.map((rec) {
-                        final user = rec['user'];
-                        final status = rec['status']?.toString() ?? 'present';
-                        return DataRow(cells: [
-                          DataCell(Text(user != null
-                              ? (user['name'] ?? user['firstName'] ?? '-')
-                              : '-')),
-                          DataCell(Text(_formatDate(rec['date']?.toString()))),
-                          DataCell(Text(
-                              _formatTime(rec['checkInTime']?.toString()))),
-                          DataCell(Text(
-                              _formatTime(rec['checkOutTime']?.toString()))),
-                          DataCell(Text(_formatTotalHours(
-                              rec['checkInTime']?.toString(),
-                              rec['checkOutTime']?.toString(),
-                              rec['totalBreakDuration']))),
-                          DataCell(Row(
-                            children: [
-                              Text(_formatBreaks(rec['breaks'] as List?)),
-                              const SizedBox(width: 8),
-                              _buildBreakBadge(rec),
-                              if ((rec['breaks'] as List?) != null &&
-                                  (rec['breaks'] as List).isNotEmpty)
-                                IconButton(
-                                  icon:
-                                      const Icon(Icons.info_outline, size: 18),
-                                  tooltip: 'View break details',
-                                  onPressed: () => _showBreakDetailsDialog(
-                                      context, rec['breaks'] as List?),
-                                ),
-                            ],
-                          )),
-                          DataCell(
-                            Builder(
-                              builder: (context) {
-                                if (status == 'on_break') {
-                                  // Find the last break with no end time
-                                  final breaks = rec['breaks'] as List?;
-                                  Map<String, dynamic>? lastBreak;
-                                  if (breaks != null && breaks.isNotEmpty) {
-                                    final b = breaks.lastWhere(
-                                      (b) =>
-                                          b['start'] != null &&
-                                          b['end'] == null,
-                                      orElse: () => null,
-                                    );
-                                    if (b != null)
-                                      lastBreak = Map<String, dynamic>.from(b);
-                                  }
-                                  String breakType = lastBreak != null
-                                      ? (lastBreak['type'] is Map &&
-                                              lastBreak['type']
-                                                      ['displayName'] !=
-                                                  null
-                                          ? lastBreak['type']['displayName']
-                                          : lastBreak['type']?.toString() ??
-                                              '-')
-                                      : '-';
-                                  DateTime? breakStart = lastBreak != null &&
-                                          lastBreak['start'] != null
-                                      ? DateTime.tryParse(
-                                          lastBreak['start'].toString())
-                                      : null;
-                                  return Row(
-                                    children: [
-                                      Container(
+                      rows: List<DataRow>.generate(
+                        provider.attendanceRecords.length,
+                        (index) {
+                          final rec = provider.attendanceRecords[index];
+                          final user = rec.user;
+                          final status = rec.status?.toString() ?? 'present';
+                          return DataRow(
+                            color: MaterialStateProperty.resolveWith<Color?>(
+                                (Set<MaterialState> states) {
+                              return index % 2 == 0
+                                  ? Colors.white
+                                  : Colors.grey[50];
+                            }),
+                            cells: [
+                              DataCell(Text(
+                                  user != null
+                                      ? (user['name'] ??
+                                          user['firstName'] ??
+                                          '—')
+                                      : '—',
+                                  style: TextStyle(fontSize: 15))),
+                              DataCell(Text(_formatDate(rec.date.toString()),
+                                  style: TextStyle(fontSize: 15))),
+                              DataCell(Text(
+                                  _formatTime(rec.checkInTime?.toString()),
+                                  style: TextStyle(fontSize: 15))),
+                              DataCell(Text(
+                                  _formatTime(rec.checkOutTime?.toString()),
+                                  style: TextStyle(fontSize: 15))),
+                              DataCell(Text(
+                                  _formatTotalHours(
+                                      rec.checkInTime?.toString(),
+                                      rec.checkOutTime?.toString(),
+                                      rec.totalBreakDuration),
+                                  style: TextStyle(fontSize: 15))),
+                              DataCell(Row(
+                                children: [
+                                  Text(_formatBreaks(rec.breaks as List?),
+                                      style: TextStyle(fontSize: 15)),
+                                  const SizedBox(width: 8),
+                                  _buildBreakBadge(rec.toJson()),
+                                  if ((rec.breaks as List?) != null &&
+                                      (rec.breaks as List).isNotEmpty)
+                                    IconButton(
+                                      icon: const Icon(Icons.info_outline,
+                                          size: 18),
+                                      tooltip: 'View break details',
+                                      onPressed: () => _showBreakDetailsDialog(
+                                          context, rec.breaks as List?),
+                                    ),
+                                ],
+                              )),
+                              DataCell(
+                                Builder(
+                                  builder: (context) {
+                                    if (status == 'on_break') {
+                                      // Find the last break with no end time
+                                      final breaks = rec.breaks as List?;
+                                      Map<String, dynamic>? lastBreak;
+                                      if (breaks != null && breaks.isNotEmpty) {
+                                        final b = breaks.lastWhere(
+                                          (b) =>
+                                              b['start'] != null &&
+                                              b['end'] == null,
+                                          orElse: () => null,
+                                        );
+                                        if (b != null)
+                                          lastBreak =
+                                              Map<String, dynamic>.from(b);
+                                      }
+                                      String breakType = lastBreak != null
+                                          ? (lastBreak['type'] is Map &&
+                                                  lastBreak['type']
+                                                          ['displayName'] !=
+                                                      null
+                                              ? lastBreak['type']['displayName']
+                                              : lastBreak['type']?.toString() ??
+                                                  '-')
+                                          : '-';
+                                      DateTime? breakStart =
+                                          lastBreak != null &&
+                                                  lastBreak['start'] != null
+                                              ? DateTime.tryParse(
+                                                  lastBreak['start'].toString())
+                                              : null;
+                                      return Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.orange
+                                                  .withOpacity(0.15),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.pause_circle_filled,
+                                                    color: Colors.orange,
+                                                    size: 18),
+                                                const SizedBox(width: 4),
+                                                Text('on break',
+                                                    style: TextStyle(
+                                                        color: Colors.orange,
+                                                        fontWeight:
+                                                            FontWeight.bold)),
+                                                if (breakType != '-') ...[
+                                                  const SizedBox(width: 6),
+                                                  Text('($breakType)',
+                                                      style: TextStyle(
+                                                          color: Colors
+                                                              .orange[700],
+                                                          fontWeight:
+                                                              FontWeight.w500)),
+                                                ],
+                                                if (breakStart != null) ...[
+                                                  const SizedBox(width: 8),
+                                                  _LiveBreakTimer(
+                                                      start: breakStart),
+                                                ]
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    } else {
+                                      return Container(
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color:
-                                              Colors.orange.withOpacity(0.15),
+                                          color: _statusColor(status)
+                                              .withOpacity(0.15),
                                           borderRadius:
                                               BorderRadius.circular(8),
                                         ),
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.pause_circle_filled,
-                                                color: Colors.orange, size: 18),
-                                            const SizedBox(width: 4),
-                                            Text('on break',
-                                                style: TextStyle(
-                                                    color: Colors.orange,
-                                                    fontWeight:
-                                                        FontWeight.bold)),
-                                            if (breakType != '-') ...[
-                                              const SizedBox(width: 6),
-                                              Text('($breakType)',
-                                                  style: TextStyle(
-                                                      color: Colors.orange[700],
-                                                      fontWeight:
-                                                          FontWeight.w500)),
-                                            ],
-                                            if (breakStart != null) ...[
-                                              const SizedBox(width: 8),
-                                              _LiveBreakTimer(
-                                                  start: breakStart),
-                                            ]
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                } else {
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: _statusColor(status)
-                                          .withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(status,
-                                        style: TextStyle(
-                                            color: _statusColor(status),
-                                            fontWeight: FontWeight.bold)),
-                                  );
-                                }
-                              },
-                            ),
-                          ),
-                          DataCell(Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit),
-                                onPressed: () async {
-                                  final updated =
-                                      await showDialog<Map<String, dynamic>>(
-                                    context: context,
-                                    builder: (context) => EditAttendanceDialog(
-                                      initialData: rec,
-                                      onSave:
-                                          (_) {}, // No-op, handled by dialog pop
-                                    ),
-                                  );
-                                  if (updated != null) {
-                                    final provider =
-                                        Provider.of<AdminAttendanceProvider>(
-                                            context,
-                                            listen: false);
-                                    final success = await provider
-                                        .editAttendance(rec['_id'], updated);
-                                    if (success) {
-                                      await provider.fetchAttendance(
-                                        start: DateFormat('yyyy-MM-dd')
-                                            .format(_dateRange!.start),
-                                        end: DateFormat('yyyy-MM-dd')
-                                            .format(_dateRange!.end),
-                                        employeeId: _selectedEmployeeId,
-                                      );
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                            content: Text(
-                                                'Attendance updated successfully.')),
-                                      );
-                                    } else {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                            content: Text(provider.error ??
-                                                'Failed to update attendance.')),
+                                        child: Text(status,
+                                            style: TextStyle(
+                                                color: _statusColor(status),
+                                                fontWeight: FontWeight.bold)),
                                       );
                                     }
-                                  }
-                                },
+                                  },
+                                ),
                               ),
+                              DataCell(Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit),
+                                    onPressed: () async {
+                                      final updated = await showDialog<
+                                          Map<String, dynamic>>(
+                                        context: context,
+                                        builder: (context) =>
+                                            EditAttendanceDialog(
+                                          initialData: rec.toJson(),
+                                          onSave:
+                                              (_) {}, // No-op, handled by dialog pop
+                                        ),
+                                      );
+                                      if (updated != null) {
+                                        final provider = Provider.of<
+                                                AdminAttendanceProvider>(
+                                            context,
+                                            listen: false);
+                                        final success =
+                                            await provider.editAttendance(
+                                                rec.id ?? '', updated);
+                                        if (success) {
+                                          await provider.fetchAttendanceLegacy(
+                                            start: DateFormat('yyyy-MM-dd')
+                                                .format(_dateRange!.start),
+                                            end: DateFormat('yyyy-MM-dd')
+                                                .format(_dateRange!.end),
+                                            userId: _selectedEmployeeId,
+                                          );
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                                content: Text(
+                                                    'Attendance updated successfully.')),
+                                          );
+                                        } else {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                                content: Text(provider.error ??
+                                                    'Failed to update attendance.')),
+                                          );
+                                        }
+                                      }
+                                    },
+                                  ),
+                                ],
+                              )),
                             ],
-                          )),
-                        ]);
-                      }).toList(),
+                          );
+                        },
+                      ),
                     ),
                   );
                 },

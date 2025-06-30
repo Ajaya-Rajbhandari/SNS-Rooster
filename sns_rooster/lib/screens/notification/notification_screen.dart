@@ -176,12 +176,8 @@ class _NotificationScreenState extends State<NotificationScreen>
                           ? 'Start Date'
                           : DateFormat('MMM d, y').format(_startDate!)),
                       onPressed: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: _startDate ?? DateTime.now(),
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime.now(),
-                        );
+                        final date = await showCustomDatePicker(
+                            context, _startDate ?? DateTime.now());
                         if (date != null) {
                           setState(() => _startDate = date);
                         }
@@ -196,12 +192,8 @@ class _NotificationScreenState extends State<NotificationScreen>
                           ? 'End Date'
                           : DateFormat('MMM d, y').format(_endDate!)),
                       onPressed: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: _endDate ?? DateTime.now(),
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime.now(),
-                        );
+                        final date = await showCustomDatePicker(
+                            context, _endDate ?? DateTime.now());
                         if (date != null) {
                           setState(() => _endDate = date);
                         }
@@ -643,4 +635,36 @@ class MessageCard extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<DateTime?> showCustomDatePicker(
+    BuildContext context, DateTime initialDate,
+    {DateTime? firstDate, DateTime? lastDate}) {
+  return showDatePicker(
+    context: context,
+    initialDate: initialDate,
+    firstDate: firstDate ?? DateTime(2020),
+    lastDate: lastDate ?? DateTime.now(),
+    builder: (context, child) {
+      return Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.light(
+            primary: Theme.of(context).primaryColor,
+            onPrimary: Colors.white,
+            surface: Colors.white,
+            onSurface: Colors.black,
+          ),
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).primaryColor,
+              textStyle:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
+          dialogBackgroundColor: Colors.white,
+        ),
+        child: child!,
+      );
+    },
+  );
 }

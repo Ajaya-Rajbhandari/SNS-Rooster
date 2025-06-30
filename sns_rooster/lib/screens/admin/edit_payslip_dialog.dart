@@ -186,6 +186,37 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
     });
   }
 
+  Future<DateTime?> showCustomDatePicker(
+      BuildContext context, DateTime initialDate) {
+    return showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Theme.of(context).primaryColor,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).primaryColor,
+                textStyle:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            dialogBackgroundColor: Colors.white,
+          ),
+          child: child!,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -208,12 +239,8 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
               // Period Start
               InkWell(
                 onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _periodStart ?? DateTime.now(),
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2100),
-                  );
+                  final picked = await showCustomDatePicker(
+                      context, _periodStart ?? DateTime.now());
                   if (picked != null) {
                     setState(() {
                       _periodStart = picked;
@@ -238,12 +265,8 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
               // Period End
               InkWell(
                 onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _periodEnd ?? DateTime.now(),
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2100),
-                  );
+                  final picked = await showCustomDatePicker(
+                      context, _periodEnd ?? DateTime.now());
                   if (picked != null) {
                     setState(() {
                       _periodEnd = picked;
@@ -275,12 +298,8 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
               const SizedBox(height: 12),
               InkWell(
                 onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _issueDate ?? DateTime.now(),
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2100),
-                  );
+                  final picked = await showCustomDatePicker(
+                      context, _issueDate ?? DateTime.now());
                   if (picked != null) setState(() => _issueDate = picked);
                 },
                 child: InputDecorator(

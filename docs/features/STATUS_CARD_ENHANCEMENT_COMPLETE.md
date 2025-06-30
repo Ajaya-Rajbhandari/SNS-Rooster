@@ -131,6 +131,28 @@ The implementation has been tested and confirmed working on physical devices wit
 - `TIMEZONE_FIX_DOCUMENTATION.md` - Timezone handling details
 - `PROVIDER_ENHANCEMENT_DOCUMENTATION.md` - Data flow improvements
 
+## Attendance Management Filter Fix (2024-04)
+
+### Problem
+- Filtering by employee in the Attendance Management screen did not work: the filter sent the Employee's `_id`, but attendance records use the User's `_id` in the `user` field.
+
+### Solution
+1. **Dropdown Value Fix:**
+   - The employee dropdown now uses `emp['userId']` (the User's `_id`) as the value, ensuring the filter matches the correct attendance records.
+2. **Dropdown Reset:**
+   - The selected employee value (`_selectedEmployeeId`) is reset to `null` on screen load and when clearing filters, preventing Flutter dropdown assertion errors.
+3. **Backend Route Consistency:**
+   - The admin attendance route is now `/api/admin/attendance`, and the backend expects `userId` as a query parameter, matching the User's `_id`.
+
+### Troubleshooting
+- If the filter returns no records, check that the dropdown sends the correct User ID and that attendance records use the same ID in the `user` field.
+- If you see a Flutter dropdown error, ensure `_selectedEmployeeId` is reset to `null` when the employee list changes or is cleared.
+
+### Commit Message Example
+```
+Fix: Employee filter in Attendance Management uses userId, reset dropdown on load/clear, backend route consistency
+```
+
 ---
 
 **Status**: ✅ **COMPLETE** - All requested features implemented and tested
