@@ -7,6 +7,9 @@ import 'package:csv/csv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../models/attendance.dart';
+import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 class AdminAttendanceProvider extends ChangeNotifier {
   final AuthProvider authProvider;
@@ -74,7 +77,10 @@ class AdminAttendanceProvider extends ChangeNotifier {
   }
 
   Future<String?> exportAttendance(
-      {String? start, String? end, String? userId}) async {
+      {String? start,
+      String? end,
+      String? userId,
+      String? employeeName}) async {
     try {
       // Optionally, you could filter attendanceRecords here by userId if needed
       // Prepare CSV data
@@ -169,12 +175,168 @@ class AdminAttendanceProvider extends ChangeNotifier {
         dir = await getDownloadsDirectory();
       }
       dir ??= await getApplicationDocumentsDirectory();
-      final filePath = '${dir.path}/admin-attendance-export.csv';
+      // --- Filename logic ---
+      String employeePart = 'all-employees';
+      if (employeeName != null &&
+          employeeName.trim().isNotEmpty &&
+          employeeName != '-') {
+        employeePart = employeeName
+            .trim()
+            .toLowerCase()
+            .replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+      }
+      String datePart = '';
+      if (start != null && end != null) {
+        try {
+          final startDt = DateTime.parse(start);
+          final endDt = DateTime.parse(end);
+          final startStr = DateFormat('MMMdd').format(startDt); // e.g., Jun28
+          final endStr = DateFormat('MMMdd').format(endDt); // e.g., Jul05
+          datePart = '-$startStr-$endStr';
+        } catch (_) {}
+      }
+      final filePath = '${dir.path}/$employeePart-attendance${datePart}.csv';
+      print(
+          'DEBUG EXPORT: employeePart=$employeePart, datePart=$datePart, filePath=$filePath');
       final file = File(filePath);
       await file.writeAsString(csvString);
       return filePath;
     } catch (e) {
       error = 'Failed to export CSV: $e';
+      return null;
+    }
+  }
+
+  Future<String?> exportAttendancePdf(
+      {String? start,
+      String? end,
+      String? userId,
+      String? employeeName}) async {
+    try {
+      final pdf = pw.Document();
+      final headers = [
+        'Employee',
+        'Date',
+        'Check In',
+        'Check Out',
+        'Total Hours',
+        'Break Duration',
+        'Break Status',
+        'Status'
+      ];
+      final data = attendanceRecords.map((rec) {
+        final user = rec.user;
+        final employeeName =
+            user != null ? (user['name'] ?? user['firstName'] ?? '-') : '-';
+        final date = rec.date?.toString() ?? '-';
+        final checkIn = rec.checkInTime?.toString() ?? '-';
+        final checkOut = rec.checkOutTime?.toString() ?? '-';
+        String totalHours = '-';
+        if (rec.checkInTime != null && rec.checkOutTime != null) {
+          final inDt = DateTime.tryParse(rec.checkInTime.toString());
+          final outDt = DateTime.tryParse(rec.checkOutTime.toString());
+          int breakMs = rec.totalBreakDuration ?? 0;
+          if (inDt != null && outDt != null) {
+            int total = outDt.difference(inDt).inMilliseconds - breakMs;
+            if (total < 0) total = 0;
+            final h = total ~/ (1000 * 60 * 60);
+            final m = ((total % (1000 * 60 * 60)) / (1000 * 60)).round();
+            totalHours = '${h}h ${m}m';
+          }
+        }
+        String breakDuration = '0h 0m';
+        String breakStatus = 'No Break';
+        final breaks = rec.breaks as List?;
+        if (breaks != null && breaks.isNotEmpty) {
+          int totalMs = 0;
+          final ongoing = breaks.any((b) => b['end'] == null);
+          if (ongoing) {
+            breakStatus = 'On Break';
+          } else {
+            breakStatus = 'Break Ended';
+          }
+          for (final b in breaks) {
+            if (b['start'] != null && b['end'] != null) {
+              final start = DateTime.tryParse(b['start'].toString());
+              final end = DateTime.tryParse(b['end'].toString());
+              if (start != null && end != null) {
+                totalMs += end.difference(start).inMilliseconds;
+              }
+            }
+          }
+          if (totalMs < 0) totalMs = 0;
+          final d = Duration(milliseconds: totalMs);
+          final h = d.inHours;
+          final m = d.inMinutes % 60;
+          breakDuration = '${h}h ${m}m';
+        }
+        String status = '-';
+        if (rec.checkInTime != null && rec.checkOutTime != null) {
+          status = 'Present';
+        } else if (rec.checkInTime != null) {
+          final breaks = rec.breaks as List? ?? [];
+          final onBreak = breaks.any((b) => b['end'] == null);
+          status = onBreak ? 'On Break' : 'Clocked In';
+        } else {
+          status = 'Absent';
+        }
+        return [
+          employeeName,
+          date,
+          checkIn,
+          checkOut,
+          totalHours,
+          breakDuration,
+          breakStatus,
+          status,
+        ];
+      }).toList();
+      pdf.addPage(
+        pw.Page(
+          build: (context) => pw.Table.fromTextArray(
+            headers: headers,
+            data: data,
+            cellStyle: pw.TextStyle(fontSize: 10),
+            headerStyle:
+                pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+            headerDecoration: pw.BoxDecoration(color: PdfColors.grey300),
+            border: null,
+            cellAlignment: pw.Alignment.centerLeft,
+          ),
+        ),
+      );
+      Directory? dir;
+      if (Platform.isAndroid) {
+        dir = Directory('/storage/emulated/0/Download');
+      } else if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+        dir = await getDownloadsDirectory();
+      }
+      dir ??= await getApplicationDocumentsDirectory();
+      String employeePart = 'all-employees';
+      if (employeeName != null &&
+          employeeName.trim().isNotEmpty &&
+          employeeName != '-') {
+        employeePart = employeeName
+            .trim()
+            .toLowerCase()
+            .replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+      }
+      String datePart = '';
+      if (start != null && end != null) {
+        try {
+          final startDt = DateTime.parse(start);
+          final endDt = DateTime.parse(end);
+          final startStr = DateFormat('MMMdd').format(startDt);
+          final endStr = DateFormat('MMMdd').format(endDt);
+          datePart = '-$startStr-$endStr';
+        } catch (_) {}
+      }
+      final filePath = '${dir.path}/$employeePart-attendance${datePart}.pdf';
+      final file = File(filePath);
+      await file.writeAsBytes(await pdf.save());
+      return filePath;
+    } catch (e) {
+      error = 'Failed to export PDF: $e';
       return null;
     }
   }

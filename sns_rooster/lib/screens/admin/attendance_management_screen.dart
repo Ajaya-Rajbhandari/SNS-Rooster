@@ -5,6 +5,7 @@ import '../../providers/attendance_provider.dart';
 import '../../widgets/admin_side_navigation.dart';
 import '../../providers/admin_attendance_provider.dart';
 import '../../providers/employee_provider.dart';
+import '../../models/employee.dart';
 
 class AttendanceManagementScreen extends StatefulWidget {
   const AttendanceManagementScreen({super.key});
@@ -249,6 +250,102 @@ class _AttendanceManagementScreenState
                           await _fetchAttendancePage(1);
                         },
                         child: const Text('Clear'),
+                      ),
+                    ),
+                    // Export Dropdown Button
+                    SizedBox(
+                      height: 48,
+                      child: PopupMenuButton<String>(
+                        onSelected: (value) async {
+                          final provider = Provider.of<AdminAttendanceProvider>(
+                              context,
+                              listen: false);
+                          final employeeProvider =
+                              Provider.of<EmployeeProvider>(context,
+                                  listen: false);
+                          String? employeeName;
+                          if (_selectedEmployeeId != null) {
+                            final emp = employeeProvider.employees.firstWhere(
+                              (e) => e.userId == _selectedEmployeeId,
+                              orElse: () => Employee(
+                                id: '',
+                                userId: '',
+                                firstName: '',
+                                lastName: '',
+                                email: '',
+                                employeeId: '',
+                                hireDate: DateTime.now(),
+                              ),
+                            );
+                            if (emp.userId.isNotEmpty) employeeName = emp.name;
+                          }
+                          if (value == 'Export CSV') {
+                            print('DEBUG EXPORT: employeeName=' +
+                                employeeName.toString());
+                            final filePath = await provider.exportAttendance(
+                              start: _startDate?.toIso8601String(),
+                              end: _endDate?.toIso8601String(),
+                              userId: _selectedEmployeeId,
+                              employeeName: employeeName,
+                            );
+                            if (filePath != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content:
+                                        Text('CSV exported to: $filePath')),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text(provider.error ??
+                                        'Failed to export CSV')),
+                              );
+                            }
+                          } else if (value == 'Export PDF') {
+                            final filePath = await provider.exportAttendancePdf(
+                              start: _startDate?.toIso8601String(),
+                              end: _endDate?.toIso8601String(),
+                              userId: _selectedEmployeeId,
+                              employeeName: employeeName,
+                            );
+                            if (filePath != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content:
+                                        Text('PDF exported to: $filePath')),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text(provider.error ??
+                                        'Failed to export PDF')),
+                              );
+                            }
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                              value: 'Export CSV',
+                              child: Text('Export to CSV')),
+                          const PopupMenuItem(
+                              value: 'Export PDF',
+                              child: Text('Export to PDF')),
+                        ],
+                        child: IgnorePointer(
+                          ignoring: true,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.download),
+                            label: const Text('Export'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Theme.of(context).primaryColor,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            onPressed: () {},
+                          ),
+                        ),
                       ),
                     ),
                   ],
