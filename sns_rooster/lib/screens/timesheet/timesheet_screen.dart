@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:sns_rooster/widgets/app_drawer.dart';
 import '../../providers/attendance_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../widgets/admin_side_navigation.dart';
 
 class TimesheetScreen extends StatefulWidget {
   const TimesheetScreen({Key? key}) : super(key: key);
@@ -556,7 +557,15 @@ class _TimesheetScreenState extends State<TimesheetScreen>
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isAdmin = authProvider.user?['role'] == 'admin';
+    if (isAdmin) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Timesheet')),
+        body: const Center(child: Text('Access denied')),
+        drawer: const AdminSideNavigation(currentRoute: '/timesheet'),
+      );
+    }
     final theme = Theme.of(context);
     final dateFormat = DateFormat('MMM dd, yyyy');
 

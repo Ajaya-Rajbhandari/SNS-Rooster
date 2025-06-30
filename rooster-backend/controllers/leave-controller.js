@@ -1,5 +1,6 @@
 const Leave = require('../models/Leave');
 const Employee = require('../models/Employee');
+const Notification = require('../models/Notification');
 
 // Apply for leave
 exports.applyLeave = async (req, res) => {
@@ -31,6 +32,16 @@ exports.applyLeave = async (req, res) => {
       reason
     });
     await leave.save();
+    // Notify all admins
+    const employee = await Employee.findById(employeeId);
+    await Notification.create({
+      role: 'admin',
+      title: 'New Leave Request Submitted',
+      message: `${employee?.firstName || 'An employee'} ${employee?.lastName || ''} has submitted a leave request from ${start.toDateString()} to ${end.toDateString()}.`,
+      type: 'action',
+      link: '/admin/leave_management',
+      isRead: false,
+    });
     res.status(201).json({ message: 'Leave application submitted successfully.', leave });
   } catch (error) {
     res.status(500).json({ message: 'Error applying for leave.', error: error.message });
@@ -94,6 +105,15 @@ exports.approveLeaveRequest = async (req, res) => {
     if (!leave) {
       return res.status(404).json({ message: 'Leave request not found.' });
     }
+    // Notify the employee
+    await Notification.create({
+      user: leave.employee?._id,
+      title: 'Leave Request Approved',
+      message: `Your leave request from ${leave.startDate.toDateString()} to ${leave.endDate.toDateString()} has been approved.`,
+      type: 'info',
+      link: '/leave_request',
+      isRead: false,
+    });
     res.json({
       message: 'Leave request approved.',
       leave: {
@@ -124,6 +144,15 @@ exports.rejectLeaveRequest = async (req, res) => {
     if (!leave) {
       return res.status(404).json({ message: 'Leave request not found.' });
     }
+    // Notify the employee
+    await Notification.create({
+      user: leave.employee?._id,
+      title: 'Leave Request Rejected',
+      message: `Your leave request from ${leave.startDate.toDateString()} to ${leave.endDate.toDateString()} has been rejected.`,
+      type: 'alert',
+      link: '/leave_request',
+      isRead: false,
+    });
     res.json({
       message: 'Leave request rejected.',
       leave: {

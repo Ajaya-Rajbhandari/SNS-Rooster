@@ -10,6 +10,7 @@ import '../../config/api_config.dart';
 import '../../providers/auth_provider.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import '../../widgets/admin_side_navigation.dart';
 // Import to access the RouteObserver
 
 class PayrollScreen extends StatefulWidget {
@@ -120,6 +121,15 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isAdmin = authProvider.user?['role'] == 'admin';
+    if (isAdmin) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Payroll')),
+        body: const Center(child: Text('Access denied')),
+        drawer: const AdminSideNavigation(currentRoute: '/payroll'),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Payroll'),
