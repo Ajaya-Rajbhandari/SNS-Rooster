@@ -4,6 +4,7 @@ const auth = require("../middleware/auth");
 const adminAttendanceController = require("../controllers/admin-attendance-controller");
 const { getAttendanceStatusForRecord } = require("../controllers/admin-attendance-controller");
 const Attendance = require('../models/Attendance');
+const BreakType = require('../models/BreakType');
 
 // Admin middleware to check if user is admin
 const adminAuth = (req, res, next) => {

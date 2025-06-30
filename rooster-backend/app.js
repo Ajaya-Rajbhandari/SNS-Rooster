@@ -35,7 +35,7 @@ mongoose.connect(MONGODB_URI)
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/attendance', attendanceRoutes);
-app.use('/api/admin', adminAttendanceRoutes);
+app.use('/api/attendance', adminAttendanceRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/leave', leaveRoutes);

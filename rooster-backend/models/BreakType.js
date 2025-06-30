@@ -4,8 +4,7 @@ const breakTypeSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    unique: true,
-    enum: ['lunch', 'coffee', 'personal', 'medical', 'smoke', 'other']
+    unique: true
   },
   displayName: {
     type: String,
