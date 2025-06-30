@@ -13,24 +13,43 @@ exports.getAllEmployees = async (req, res) => {
     // On-demand: Notify admins of incomplete profiles
     for (const emp of employees) {
       if (!emp.phone || !emp.address || !emp.emergencyContact) {
-        // Notify admin
-        await Notification.create({
+        // Only send one admin notification per day
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const existingAdminNotif = await Notification.findOne({
           role: 'admin',
           title: 'Incomplete Employee Profile',
           message: `${emp.firstName} ${emp.lastName} has not completed their profile.`,
-          type: 'alert',
-          link: `/admin/employee_management`,
-          isRead: false,
+          createdAt: { $gte: today }
         });
-        // Notify employee
-        await Notification.create({
+        if (!existingAdminNotif) {
+          const adminNotification = new Notification({
+            role: 'admin',
+            title: 'Incomplete Employee Profile',
+            message: `${emp.firstName} ${emp.lastName} has not completed their profile.`,
+            type: 'alert',
+            link: `/admin/employee_management`,
+            isRead: false,
+          });
+          await adminNotification.save();
+        }
+        // Only send one employee notification per day
+        const existingEmpNotif = await Notification.findOne({
           user: emp.userId,
           title: 'Incomplete Profile',
-          message: 'Your profile is incomplete. Please update your information.',
-          type: 'alert',
-          link: '/profile',
-          isRead: false,
+          createdAt: { $gte: today }
         });
+        if (!existingEmpNotif) {
+          const employeeNotification = new Notification({
+            user: emp.userId,
+            title: 'Incomplete Profile',
+            message: 'Your profile is incomplete. Please update your information.',
+            type: 'alert',
+            link: '/profile',
+            isRead: false,
+          });
+          await employeeNotification.save();
+        }
       }
     }
     res.status(200).json(employees);

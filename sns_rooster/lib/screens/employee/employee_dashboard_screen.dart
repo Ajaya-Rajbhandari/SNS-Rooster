@@ -566,10 +566,7 @@ class _DashboardHeader extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.notifications, color: Colors.white),
-            onPressed: () {},
-          ),
+          NotificationBell(iconColor: Colors.white),
         ],
       ),
     );

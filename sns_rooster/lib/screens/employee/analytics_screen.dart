@@ -16,6 +16,7 @@ class AnalyticsScreen extends StatefulWidget {
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   String selectedRange = 'Last 7 days';
   final List<String> ranges = ['Last 7 days', 'Last 30 days', 'Custom'];
+  int _customRange = 7;
 
   bool get isCustom => selectedRange == 'Custom';
 
@@ -24,7 +25,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AnalyticsProvider>(context, listen: false)
-          .fetchAnalyticsData();
+          .fetchAnalyticsData(range: 7);
     });
   }
 
@@ -88,9 +89,43 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             final int totalLeave = attendance['Leave'] ?? 0;
             final int totalWorkDays = totalPresent + totalAbsent + totalLeave;
 
-            final int longestStreak = totalPresent;
-            const String mostProductiveDay = 'N/A';
-            const String avgCheckIn = 'N/A';
+            final int longestStreak = analyticsProvider.longestStreak;
+            final String mostProductiveDay =
+                analyticsProvider.mostProductiveDay;
+            final String avgCheckIn = analyticsProvider.avgCheckIn;
+
+            // Filter out negative work hours (should not happen, but for safety)
+            final List<double> filteredWorkHours =
+                workHours.map((h) => h < 0 ? 0.0 : h).toList();
+
+            final double present = attendance['Present']?.toDouble() ?? 0;
+            final double absent = attendance['Absent']?.toDouble() ?? 0;
+            final double leave = attendance['Leave']?.toDouble() ?? 0;
+            final double total = present + absent + leave;
+            String percent(double value) => total > 0
+                ? '${((value / total) * 100).toStringAsFixed(0)}%'
+                : '0%';
+
+            // Dynamically generate X-axis labels
+            List<String> xLabels;
+            if (workHours.length == 0) {
+              xLabels = [];
+            } else if (workHours.length <= 31) {
+              xLabels = List.generate(workHours.length, (i) => 'Day ${i + 1}');
+            } else {
+              xLabels = List.generate(workHours.length, (i) => 'Day ${i + 1}');
+            }
+            // Try to use actual dates if available in attendance data
+            // (Assumes attendance data is sorted oldest to newest)
+            // If you want to use actual dates, you need to pass them from the provider/backend
+            // For now, fallback to Day 1...Day N
+            String chartTitle = selectedRange == 'Custom'
+                ? 'Work Hours Trend (Last $_customRange Days)'
+                : selectedRange == 'Last 7 days'
+                    ? 'Work Hours Trend (Last 7 Days)'
+                    : selectedRange == 'Last 30 days'
+                        ? 'Work Hours Trend (Last 30 Days)'
+                        : 'Work Hours Trend';
 
             return Padding(
               padding: const EdgeInsets.all(16.0),
@@ -116,10 +151,161 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                     child: Text(r),
                                   ))
                               .toList(),
-                          onChanged: (val) {
-                            setState(() {
-                              selectedRange = val!;
-                            });
+                          onChanged: (val) async {
+                            if (val == 'Custom') {
+                              final now = DateTime.now();
+                              final int? picked = await showDialog<int>(
+                                context: context,
+                                builder: (context) {
+                                  int tempRange = _customRange;
+                                  DateTime endDate = now;
+                                  DateTime startDate = now
+                                      .subtract(Duration(days: tempRange - 1));
+                                  String formatDate(DateTime d) {
+                                    return '${d.day.toString().padLeft(2, '0')} ${_monthName(d.month)} ${d.year}';
+                                  }
+
+                                  return StatefulBuilder(
+                                    builder: (context, setState) {
+                                      endDate = now;
+                                      startDate = now.subtract(
+                                          Duration(days: tempRange - 1));
+                                      return AlertDialog(
+                                        title: const Text(
+                                            'Select Custom Range (days)'),
+                                        content: SizedBox(
+                                          height: 150,
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Slider(
+                                                value: tempRange.toDouble(),
+                                                min: 1,
+                                                max: 90,
+                                                divisions: 89,
+                                                label: 'Days: $tempRange',
+                                                onChanged: (v) {
+                                                  setState(() {
+                                                    tempRange = v.round();
+                                                  });
+                                                },
+                                              ),
+                                              Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
+                                                children: [
+                                                  Text('Days: $tempRange',
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .bodyLarge
+                                                          ?.copyWith(
+                                                              color:
+                                                                  Colors.black,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold)),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 12),
+                                              Divider(
+                                                  height: 1,
+                                                  thickness: 1,
+                                                  color: Colors.grey.shade200),
+                                              const SizedBox(height: 12),
+                                              Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
+                                                children: [
+                                                  Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text('From:',
+                                                          style:
+                                                              Theme.of(context)
+                                                                  .textTheme
+                                                                  .bodySmall),
+                                                      Text(
+                                                          formatDate(startDate),
+                                                          style: Theme.of(
+                                                                  context)
+                                                              .textTheme
+                                                              .bodyLarge
+                                                              ?.copyWith(
+                                                                  color: Colors
+                                                                      .black,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold)),
+                                                    ],
+                                                  ),
+                                                  Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.end,
+                                                    children: [
+                                                      Text('To:',
+                                                          style:
+                                                              Theme.of(context)
+                                                                  .textTheme
+                                                                  .bodySmall),
+                                                      Text(formatDate(endDate),
+                                                          style: Theme.of(
+                                                                  context)
+                                                              .textTheme
+                                                              .bodyLarge
+                                                              ?.copyWith(
+                                                                  color: Colors
+                                                                      .black,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold)),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, null),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(
+                                                context, tempRange),
+                                            child: const Text('OK'),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                },
+                              );
+                              if (picked != null) {
+                                setState(() {
+                                  selectedRange = 'Custom';
+                                  _customRange = picked;
+                                });
+                                Provider.of<AnalyticsProvider>(context,
+                                        listen: false)
+                                    .fetchAnalyticsData(range: picked);
+                              }
+                            } else {
+                              setState(() {
+                                selectedRange = val!;
+                              });
+                              int range = 7;
+                              if (val == 'Last 30 days') range = 30;
+                              Provider.of<AnalyticsProvider>(context,
+                                      listen: false)
+                                  .fetchAnalyticsData(range: range);
+                            }
                           },
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -161,7 +347,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Work Hours Trend (Last 7 Days)',
+                              chartTitle,
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: theme.colorScheme.primary,
@@ -184,12 +370,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                         showTitles: true,
                                         getTitlesWidget: (value, meta) {
                                           final idx = value.toInt();
-                                          return idx >= 0 && idx < days.length
+                                          return idx >= 0 &&
+                                                  idx < xLabels.length
                                               ? Padding(
                                                   padding:
                                                       const EdgeInsets.only(
                                                           top: 8.0),
-                                                  child: Text(days[idx],
+                                                  child: Text(xLabels[idx],
                                                       style: theme
                                                           .textTheme.bodySmall),
                                                 )
@@ -207,15 +394,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   ),
                                   borderData: FlBorderData(show: false),
                                   minX: 0,
-                                  maxX: (workHours.length - 1).toDouble(),
+                                  maxX:
+                                      (filteredWorkHours.length - 1).toDouble(),
                                   minY: 0,
                                   maxY: 10,
                                   lineBarsData: [
                                     LineChartBarData(
                                       spots: List.generate(
-                                        workHours.length,
-                                        (i) =>
-                                            FlSpot(i.toDouble(), workHours[i]),
+                                        filteredWorkHours.length,
+                                        (i) => FlSpot(
+                                            i.toDouble(), filteredWorkHours[i]),
                                       ),
                                       isCurved: true,
                                       color: theme.colorScheme.primary,
@@ -226,8 +414,40 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                         color: theme.colorScheme.primary
                                             .withOpacity(0.15),
                                       ),
+                                      showingIndicators: List.generate(
+                                          filteredWorkHours.length, (i) => i),
                                     ),
                                   ],
+                                  lineTouchData: LineTouchData(
+                                    enabled: true,
+                                    touchTooltipData: LineTouchTooltipData(
+                                      getTooltipColor: (spots) =>
+                                          Colors.black87,
+                                      getTooltipItems: (touchedSpots) {
+                                        return touchedSpots.map((spot) {
+                                          final idx = spot.x.toInt();
+                                          return LineTooltipItem(
+                                            '${xLabels[idx]}\n',
+                                            const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                            children: [
+                                              TextSpan(
+                                                text: '${spot.y}',
+                                                style: const TextStyle(
+                                                  color: Colors.amber,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        }).toList();
+                                      },
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -260,40 +480,33 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 PieChartData(
                                   sections: [
                                     PieChartSectionData(
-                                      value:
-                                          attendance['Present']?.toDouble() ??
-                                              0,
+                                      value: present,
                                       color: Colors.green,
-                                      title:
-                                          '${(attendance['Present'] ?? 0)} Present',
+                                      title: percent(present),
                                       radius: 50,
-                                      titleStyle: theme.textTheme.bodySmall
+                                      titleStyle: theme.textTheme.bodyLarge
                                           ?.copyWith(
-                                              color: Colors.white,
+                                              color: Colors.black,
                                               fontWeight: FontWeight.bold),
                                     ),
                                     PieChartSectionData(
-                                      value:
-                                          attendance['Absent']?.toDouble() ?? 0,
+                                      value: absent,
                                       color: Colors.red,
-                                      title:
-                                          '${(attendance['Absent'] ?? 0)} Absent',
+                                      title: percent(absent),
                                       radius: 50,
-                                      titleStyle: theme.textTheme.bodySmall
+                                      titleStyle: theme.textTheme.bodyLarge
                                           ?.copyWith(
-                                              color: Colors.white,
+                                              color: Colors.black,
                                               fontWeight: FontWeight.bold),
                                     ),
                                     PieChartSectionData(
-                                      value:
-                                          attendance['Leave']?.toDouble() ?? 0,
+                                      value: leave,
                                       color: Colors.amber,
-                                      title:
-                                          '${(attendance['Leave'] ?? 0)} Leave',
+                                      title: percent(leave),
                                       radius: 50,
-                                      titleStyle: theme.textTheme.bodySmall
+                                      titleStyle: theme.textTheme.bodyLarge
                                           ?.copyWith(
-                                              color: Colors.white,
+                                              color: Colors.black,
                                               fontWeight: FontWeight.bold),
                                     ),
                                   ],
@@ -385,5 +598,23 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         ),
       ),
     );
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    return months[month - 1];
   }
 }

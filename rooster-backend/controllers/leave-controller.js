@@ -34,7 +34,7 @@ exports.applyLeave = async (req, res) => {
     await leave.save();
     // Notify all admins
     const employee = await Employee.findById(employeeId);
-    await Notification.create({
+    const adminNotification = new Notification({
       role: 'admin',
       title: 'New Leave Request Submitted',
       message: `${employee?.firstName || 'An employee'} ${employee?.lastName || ''} has submitted a leave request from ${start.toDateString()} to ${end.toDateString()}.`,
@@ -42,6 +42,7 @@ exports.applyLeave = async (req, res) => {
       link: '/admin/leave_management',
       isRead: false,
     });
+    await adminNotification.save();
     res.status(201).json({ message: 'Leave application submitted successfully.', leave });
   } catch (error) {
     res.status(500).json({ message: 'Error applying for leave.', error: error.message });
@@ -106,7 +107,7 @@ exports.approveLeaveRequest = async (req, res) => {
       return res.status(404).json({ message: 'Leave request not found.' });
     }
     // Notify the employee
-    await Notification.create({
+    const employeeNotification = new Notification({
       user: leave.employee?._id,
       title: 'Leave Request Approved',
       message: `Your leave request from ${leave.startDate.toDateString()} to ${leave.endDate.toDateString()} has been approved.`,
@@ -114,6 +115,7 @@ exports.approveLeaveRequest = async (req, res) => {
       link: '/leave_request',
       isRead: false,
     });
+    await employeeNotification.save();
     res.json({
       message: 'Leave request approved.',
       leave: {
@@ -145,7 +147,7 @@ exports.rejectLeaveRequest = async (req, res) => {
       return res.status(404).json({ message: 'Leave request not found.' });
     }
     // Notify the employee
-    await Notification.create({
+    const employeeNotification = new Notification({
       user: leave.employee?._id,
       title: 'Leave Request Rejected',
       message: `Your leave request from ${leave.startDate.toDateString()} to ${leave.endDate.toDateString()} has been rejected.`,
@@ -153,6 +155,7 @@ exports.rejectLeaveRequest = async (req, res) => {
       link: '/leave_request',
       isRead: false,
     });
+    await employeeNotification.save();
     res.json({
       message: 'Leave request rejected.',
       leave: {

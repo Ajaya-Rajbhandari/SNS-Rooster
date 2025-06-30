@@ -10,7 +10,7 @@ class ApiConfig {
   static const String homeIP =
       '10.0.2.2'; // Android emulator maps to host localhost
   static const String fallbackIP =
-      '192.168.1.80'; // Actual machine IP as fallback (updated to current IP)
+      '192.168.1.68'; // Actual machine IP as fallback (updated to current IP)
   static const String officeIP =
       '10.0.0.45'; // Your office network IP (update this!)
   static const String port = '5000';
@@ -35,6 +35,65 @@ class ApiConfig {
       // Default for other platforms (desktop, etc.)
       return 'http://localhost:$port/api';
     }
+  }
+
+  /// Get base URL with automatic IP detection
+  static Future<String> getDynamicBaseUrl() async {
+    if (kIsWeb) {
+      return 'http://localhost:$port/api';
+    } else if (Platform.isAndroid || Platform.isIOS) {
+      // Check environment variable first
+      String ip = const String.fromEnvironment('API_HOST', defaultValue: '');
+
+      if (ip.isEmpty) {
+        // Try to detect local IP automatically
+        ip = await detectLocalIP();
+
+        // Fallback to hardcoded IP if detection fails
+        if (ip.isEmpty) {
+          ip = fallbackIP;
+        }
+      }
+
+      return 'http://$ip:$port/api';
+    } else {
+      return 'http://localhost:$port/api';
+    }
+  }
+
+  /// Detect local IP address automatically
+  static Future<String> detectLocalIP() async {
+    try {
+      // Get all network interfaces
+      final interfaces = await NetworkInterface.list();
+
+      for (final interface in interfaces) {
+        // Skip loopback and non-active interfaces
+        if (interface.name.toLowerCase().contains('loopback') ||
+            interface.name.toLowerCase().contains('virtual') ||
+            interface.name.toLowerCase().contains('vpn')) {
+          continue;
+        }
+
+        for (final addr in interface.addresses) {
+          // Look for IPv4 addresses in common local ranges
+          if (addr.type == InternetAddressType.IPv4) {
+            final ip = addr.address;
+
+            // Common local network ranges
+            if (ip.startsWith('192.168.') ||
+                ip.startsWith('10.') ||
+                ip.startsWith('172.')) {
+              return ip;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print('Error detecting local IP: $e');
+    }
+
+    return '';
   }
 
   /// Get base URL for specific environment
@@ -91,6 +150,31 @@ class ApiConfig {
       'officeIP': officeIP,
       'port': port,
     };
+  }
+
+  /// Get detailed network information for debugging
+  static Future<Map<String, dynamic>> getDetailedDebugInfo() async {
+    final info = Map<String, dynamic>.from(debugInfo);
+
+    try {
+      final detectedIP = await detectLocalIP();
+      info['detectedLocalIP'] = detectedIP;
+      info['dynamicBaseUrl'] = await getDynamicBaseUrl();
+
+      // Get all network interfaces
+      final interfaces = await NetworkInterface.list();
+      info['networkInterfaces'] = interfaces
+          .map((interface) => {
+                'name': interface.name,
+                'addresses':
+                    interface.addresses.map((addr) => addr.address).toList(),
+              })
+          .toList();
+    } catch (e) {
+      info['detectionError'] = e.toString();
+    }
+
+    return info;
   }
 }
 
