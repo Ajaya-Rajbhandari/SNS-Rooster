@@ -227,34 +227,101 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       appBar: AppBar(
         title: const Text('Attendance'),
         backgroundColor: Theme.of(context).primaryColor,
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) async {
-              if (value == 'Export CSV') {
-                await exportToCSV();
-              } else if (value == 'Export PDF') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('PDF export is not yet implemented.')),
-                );
-              } else if (value == 'Refresh') {
-                await fetchAttendanceData();
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                  value: 'Export CSV', child: Text('Export to CSV')),
-              const PopupMenuItem(
-                  value: 'Export PDF', child: Text('Export to PDF')),
-              const PopupMenuItem(
-                  value: 'Refresh', child: Text('Refresh List')),
-            ],
-          ),
-        ],
       ),
       drawer: const AppDrawer(),
       body: Column(
         children: [
+          // First row: Date Range Picker
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.date_range),
+                    label: const Text('Select Date Range'),
+                    onPressed: () {
+                      // TODO: Implement date range picker logic
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Second row: Employee Dropdown, Filter, Export
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+            child: Row(
+              children: [
+                // Employee Dropdown
+                Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<String>(
+                    value: 'All Employees',
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'All Employees',
+                        child: Text('All Employees'),
+                      ),
+                      // Add more employee options here
+                    ],
+                    onChanged: (value) {
+                      // TODO: Implement employee filter logic
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Filter Button
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.filter_alt),
+                  label: const Text('Filter'),
+                  onPressed: () {
+                    // TODO: Implement filter logic
+                  },
+                ),
+                const SizedBox(width: 8),
+                // Export Dropdown Button
+                PopupMenuButton<String>(
+                  onSelected: (value) async {
+                    if (value == 'Export CSV') {
+                      await exportToCSV();
+                    } else if (value == 'Export PDF') {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content:
+                                Text('PDF export is not yet implemented.')),
+                      );
+                    } else if (value == 'Refresh') {
+                      await fetchAttendanceData();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                        value: 'Export CSV', child: Text('Export to CSV')),
+                    const PopupMenuItem(
+                        value: 'Export PDF', child: Text('Export to PDF')),
+                    const PopupMenuItem(
+                        value: 'Refresh', child: Text('Refresh List')),
+                  ],
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.download),
+                    label: const Text('Export'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed:
+                        null, // Required for style, actual action is in PopupMenuButton
+                  ),
+                ),
+              ],
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: _buildSummarySection(),
