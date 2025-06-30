@@ -1,6 +1,7 @@
 const Payroll = require('../models/Payroll');
 const Employee = require('../models/Employee');
 const PDFDocument = require('pdfkit');
+const Notification = require('../models/Notification');
 
 // Get all payrolls
 exports.getAllPayrolls = async (req, res) => {
@@ -30,6 +31,21 @@ exports.createPayroll = async (req, res) => {
     const payroll = new Payroll({ employee, periodStart, periodEnd, totalHours, grossPay, netPay, deductions, deductionsList, incomesList, issueDate, payPeriod });
     await payroll.save();
     console.log('DEBUG: Saved incomesList:', payroll.incomesList);
+
+    // Fetch the employee's userId for notification
+    const emp = await Employee.findById(employee);
+    if (emp && emp.userId) {
+      const notification = new Notification({
+        user: emp.userId,
+        title: 'Payroll Processed',
+        message: `Your payroll for ${payPeriod} has been processed.`,
+        type: 'payroll',
+        link: '/payroll',
+        isRead: false,
+      });
+      await notification.save();
+    }
+
     res.status(201).json(payroll);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -138,14 +154,101 @@ exports.deletePayroll = async (req, res) => {
 exports.updatePayslipStatus = async (req, res) => {
   try {
     const { status, employeeComment } = req.body;
-    const payslip = await Payroll.findByIdAndUpdate(
-      req.params.payslipId,
-      { status, employeeComment },
-      { new: true, runValidators: true }
-    );
+    console.log('DEBUG: updatePayslipStatus called with:', { status, employeeComment, payslipId: req.params.payslipId });
+    
+    const payslip = await Payroll.findById(req.params.payslipId).populate('employee');
     if (!payslip) return res.status(404).json({ error: 'Payslip not found' });
+    
+    console.log('DEBUG: Found payslip:', {
+      id: payslip._id,
+      employee: payslip.employee ? {
+        id: payslip.employee._id,
+        name: `${payslip.employee.firstName} ${payslip.employee.lastName}`,
+        userId: payslip.employee.userId
+      } : 'No employee data',
+      prevStatus: payslip.status,
+      newStatus: status
+    });
+    
+    const prevStatus = payslip.status;
+    payslip.status = status;
+    if (employeeComment !== undefined) payslip.employeeComment = employeeComment;
+    await payslip.save();
+
+    // Notify admins if acknowledged/approved
+    if ((status === 'approved' || status === 'acknowledged') && prevStatus !== status) {
+      const employee = payslip.employee;
+      const payPeriod = payslip.payPeriod || '';
+      console.log('DEBUG: Creating admin notification for payslip acknowledgment');
+      const adminNotification = new Notification({
+        role: 'admin',
+        title: 'Payslip Acknowledged',
+        message: `${employee.firstName} ${employee.lastName} has acknowledged their payslip for ${payPeriod}.`,
+        type: 'payroll',
+        link: '/admin/payroll_management',
+        isRead: false,
+      });
+      await adminNotification.save();
+      console.log('DEBUG: Admin notification created successfully');
+    }
+
+    // Notify employee of status change (except if status is unchanged)
+    if (prevStatus !== status) {
+      const employee = payslip.employee;
+      const payPeriod = payslip.payPeriod || '';
+      let title = 'Payslip Status Updated';
+      let message = `Your payslip for ${payPeriod} status changed to ${status}.`;
+      if (status === 'needs_review') {
+        title = 'Payslip Needs Review';
+        message = `Your payslip for ${payPeriod} needs your review. Please check and respond.`;
+      } else if (status === 'approved' || status === 'acknowledged') {
+        title = 'Payslip Acknowledged';
+        message = `You have acknowledged your payslip for ${payPeriod}.`;
+      }
+      
+      console.log('DEBUG: Creating employee notification:', {
+        userId: employee.userId,
+        title,
+        message,
+        type: 'payroll'
+      });
+      
+      if (!employee.userId) {
+        console.log('ERROR: Employee userId is missing, cannot create notification');
+      } else {
+        const employeeNotification = new Notification({
+          user: employee.userId,
+          title,
+          message,
+          type: 'payroll',
+          link: '/payroll',
+          isRead: false,
+        });
+        await employeeNotification.save();
+        console.log('DEBUG: Employee notification created successfully');
+      }
+    } else {
+      console.log('DEBUG: Status unchanged, no notification needed');
+    }
+
+    // Notify admins if employee requests review (needs_review)
+    if (status === 'needs_review' && prevStatus !== status) {
+      const employee = payslip.employee;
+      const payPeriod = payslip.payPeriod || '';
+      const adminNotification = new Notification({
+        role: 'admin',
+        title: 'Payslip Needs Review',
+        message: `${employee.firstName} ${employee.lastName} has requested a review for their payslip for ${payPeriod}.`,
+        type: 'review',
+        link: '/admin/payroll_management',
+        isRead: false,
+      });
+      await adminNotification.save();
+    }
+
     res.json(payslip);
   } catch (err) {
+    console.error('ERROR in updatePayslipStatus:', err);
     res.status(400).json({ error: err.message });
   }
 };

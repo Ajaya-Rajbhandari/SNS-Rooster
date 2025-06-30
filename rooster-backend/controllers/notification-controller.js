@@ -26,24 +26,17 @@ exports.createNotification = async (req, res) => {
 exports.getNotifications = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const userRole = req.user.role;
-    // Find notifications for this user, their role, or broadcast
+    const role = req.user.role;
+    // Fetch notifications for the user or their role, sorted by newest first
     const notifications = await Notification.find({
       $or: [
         { user: userId },
-        { role: userRole },
-        { role: 'all' },
-      ],
-      $or: [
-        { expiresAt: null },
-        { expiresAt: { $gt: new Date() } },
-      ],
-    })
-      .sort({ createdAt: -1 })
-      .limit(100);
-    res.status(200).json({ notifications });
+        { role: role },
+        { role: 'all' }
+      ]
+    }).sort({ createdAt: -1 });
+    res.json({ notifications });
   } catch (error) {
-    console.error('Get notifications error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -70,6 +63,69 @@ exports.markAsRead = async (req, res) => {
     res.status(200).json({ message: 'Notification marked as read' });
   } catch (error) {
     console.error('Mark as read error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Mark all notifications as read
+exports.markAllAsRead = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+    await Notification.updateMany(
+      {
+        $or: [
+          { user: userId },
+          { role: userRole },
+          { role: 'all' }
+        ],
+        isRead: false
+      },
+      { $set: { isRead: true } }
+    );
+    res.status(200).json({ message: 'All notifications marked as read' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Delete all notifications for the current user/role
+exports.clearAllNotifications = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+    await Notification.deleteMany({
+      $or: [
+        { user: userId },
+        { role: userRole },
+        { role: 'all' }
+      ]
+    });
+    res.status(200).json({ message: 'All notifications cleared' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Delete a single notification by ID
+exports.deleteNotification = async (req, res) => {
+  try {
+    const notificationId = req.params.id;
+    const userId = req.user.userId;
+    // Only allow deleting if the notification belongs to the user or their role
+    const notification = await Notification.findOneAndDelete({
+      _id: notificationId,
+      $or: [
+        { user: userId },
+        { role: req.user.role },
+        { role: 'all' }
+      ]
+    });
+    if (!notification) {
+      return res.status(404).json({ message: 'Notification not found' });
+    }
+    res.status(200).json({ message: 'Notification deleted' });
+  } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
 }; 

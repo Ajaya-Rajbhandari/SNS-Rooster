@@ -240,6 +240,23 @@ exports.updateCurrentUserProfile = async (req, res) => {
 
     await user.save();
 
+    // If profile is now complete, clear related notifications
+    if (user.isProfileComplete) {
+      const Notification = require('../models/Notification');
+      // Delete 'Incomplete Profile' notifications for this user
+      await Notification.deleteMany({
+        user: user._id,
+        title: 'Incomplete Profile'
+      });
+      // Delete 'Incomplete Employee Profile' notifications for admins about this user
+      const fullName = `${user.firstName} ${user.lastName}`.trim();
+      await Notification.deleteMany({
+        role: 'admin',
+        title: 'Incomplete Employee Profile',
+        message: { $regex: new RegExp(`^${fullName} has not completed their profile\.?$`, 'i') }
+      });
+    }
+
     // Fetch the updated user from the database to ensure fresh data is returned
     const updatedUser = await User.findById(user._id);
     res.json({ profile: updatedUser.getPublicProfile() });
@@ -311,6 +328,23 @@ exports.updateUserProfileByAdmin = async (req, res) => {
     user.recalculateProfileComplete();
 
     await user.save();
+
+    // If profile is now complete, clear related notifications
+    if (user.isProfileComplete) {
+      const Notification = require('../models/Notification');
+      // Delete 'Incomplete Profile' notifications for this user
+      await Notification.deleteMany({
+        user: user._id,
+        title: 'Incomplete Profile'
+      });
+      // Delete 'Incomplete Employee Profile' notifications for admins about this user
+      const fullName = `${user.firstName} ${user.lastName}`.trim();
+      await Notification.deleteMany({
+        role: 'admin',
+        title: 'Incomplete Employee Profile',
+        message: { $regex: new RegExp(`^${fullName} has not completed their profile\.?$`, 'i') }
+      });
+    }
 
     res.json({ message: 'User profile updated successfully', user: user.getPublicProfile() });
   } catch (error) {

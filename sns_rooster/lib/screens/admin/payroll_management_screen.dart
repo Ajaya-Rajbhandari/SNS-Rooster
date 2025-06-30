@@ -196,11 +196,11 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
   }
 
   Widget _buildStatusIndicator(String? status, String? comment) {
-    if (status == 'approved') {
+    if (status == 'approved' || status == 'acknowledged') {
       return const Row(children: [
         Icon(Icons.check_circle, color: Colors.green, size: 22),
         SizedBox(width: 4),
-        Text('Approved',
+        Text('Acknowledged',
             style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
       ]);
     } else if (status == 'needs_review') {

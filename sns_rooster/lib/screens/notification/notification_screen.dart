@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import '../../providers/notification_provider.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/app_drawer.dart';
+import '../../providers/auth_provider.dart';
+import 'package:http/http.dart' as http;
+import '../../config/api_config.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -169,10 +172,69 @@ class _NotificationScreenState extends State<NotificationScreen> {
             onPressed: _showFilterDialog,
           ),
           IconButton(
+            icon: const Icon(Icons.done_all),
+            tooltip: 'Mark All as Read',
+            onPressed: () async {
+              final authProvider =
+                  Provider.of<AuthProvider>(context, listen: false);
+              final token = authProvider.token;
+              if (token == null) return;
+              final url =
+                  Uri.parse('${ApiConfig.baseUrl}/notifications/mark-all-read');
+              final response = await http.patch(url, headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $token',
+              });
+              if (response.statusCode == 200) {
+                Provider.of<NotificationProvider>(context, listen: false)
+                    .fetchNotifications();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('All notifications marked as read.')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content:
+                          Text('Failed to mark all as read: ${response.body}')),
+                );
+              }
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
               Provider.of<NotificationProvider>(context, listen: false)
                   .fetchNotifications();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_forever),
+            tooltip: 'Clear All',
+            onPressed: () async {
+              final authProvider =
+                  Provider.of<AuthProvider>(context, listen: false);
+              final token = authProvider.token;
+              if (token == null) return;
+              final url =
+                  Uri.parse('${ApiConfig.baseUrl}/notifications/clear-all');
+              final response = await http.delete(url, headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $token',
+              });
+              if (response.statusCode == 200) {
+                Provider.of<NotificationProvider>(context, listen: false)
+                    .fetchNotifications();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('All notifications cleared.')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text(
+                          'Failed to clear notifications: ${response.body}')),
+                );
+              }
             },
           ),
         ],
@@ -180,118 +242,218 @@ class _NotificationScreenState extends State<NotificationScreen> {
         foregroundColor: Colors.white,
       ),
       drawer: const AppDrawer(),
-      body: Consumer<NotificationProvider>(
-        builder: (context, notificationProvider, child) {
-          if (notificationProvider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          List<Map<String, dynamic>> filteredNotifications =
-              notificationProvider.notifications.where((n) {
-            bool matchesStatus = _selectedStatus == null
-                ? true
-                : _selectedStatus == 'unread'
-                    ? n['isRead'] == false
-                    : n['isRead'] == true;
-            bool matchesDate = true;
-            if (_startDate != null && n['createdAt'] != null) {
-              final created =
-                  DateTime.tryParse(n['createdAt'] ?? '') ?? DateTime(2000);
-              if (created.isBefore(DateTime(
-                  _startDate!.year, _startDate!.month, _startDate!.day))) {
-                matchesDate = false;
-              }
-            }
-            if (_endDate != null && n['createdAt'] != null) {
-              final created =
-                  DateTime.tryParse(n['createdAt'] ?? '') ?? DateTime(2100);
-              if (created.isAfter(DateTime(_endDate!.year, _endDate!.month,
-                  _endDate!.day, 23, 59, 59))) {
-                matchesDate = false;
-              }
-            }
-            return matchesStatus && matchesDate;
-          }).toList();
-          return filteredNotifications.isEmpty
-              ? const Center(child: Text('No notifications.'))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(8.0),
-                  itemCount: filteredNotifications.length,
-                  itemBuilder: (context, index) {
-                    final notification = filteredNotifications[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                          vertical: 4.0, horizontal: 8.0),
-                      color: notification['isRead'] == true
-                          ? theme.colorScheme.surface
-                          : theme.colorScheme.secondary.withOpacity(0.05),
-                      elevation: notification['isRead'] == true ? 2 : 4,
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor:
-                              theme.colorScheme.primary.withOpacity(0.1),
-                          child: const Icon(Icons.notifications),
-                        ),
-                        title: Text(
-                          notification['title'] ?? '',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: notification['isRead'] == true
-                                ? theme.colorScheme.onSurface
-                                : theme.colorScheme.primary,
-                          ),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              notification['message'] ?? '',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurface
-                                    .withOpacity(0.8),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Tooltip(
+              message: 'Swipe left on a notification to delete it.',
+              child: Row(
+                children: [
+                  Icon(Icons.swipe_left, color: theme.colorScheme.primary),
+                  SizedBox(width: 8),
+                  Text('Tip: Swipe left to delete a notification',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.colorScheme.primary)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: Consumer<NotificationProvider>(
+                builder: (context, notificationProvider, child) {
+                  if (notificationProvider.isLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  List<Map<String, dynamic>> filteredNotifications =
+                      notificationProvider.notifications.where((n) {
+                    bool matchesStatus = _selectedStatus == null
+                        ? true
+                        : _selectedStatus == 'unread'
+                            ? n['isRead'] == false
+                            : n['isRead'] == true;
+                    bool matchesDate = true;
+                    if (_startDate != null && n['createdAt'] != null) {
+                      final created = DateTime.tryParse(n['createdAt'] ?? '') ??
+                          DateTime(2000);
+                      if (created.isBefore(DateTime(_startDate!.year,
+                          _startDate!.month, _startDate!.day))) {
+                        matchesDate = false;
+                      }
+                    }
+                    if (_endDate != null && n['createdAt'] != null) {
+                      final created = DateTime.tryParse(n['createdAt'] ?? '') ??
+                          DateTime(2100);
+                      if (created.isAfter(DateTime(_endDate!.year,
+                          _endDate!.month, _endDate!.day, 23, 59, 59))) {
+                        matchesDate = false;
+                      }
+                    }
+                    return matchesStatus && matchesDate;
+                  }).toList();
+                  final userRole =
+                      Provider.of<AuthProvider>(context, listen: false)
+                          .user?['role'];
+                  filteredNotifications = filteredNotifications.where((n) {
+                    // Hide admin-only notifications for non-admins
+                    if (userRole != 'admin' && n['role'] == 'admin')
+                      return false;
+                    // Hide 'Incomplete Employee Profile' for non-admins
+                    if (userRole != 'admin' &&
+                        n['title'] == 'Incomplete Employee Profile')
+                      return false;
+                    return true;
+                  }).toList();
+                  return filteredNotifications.isEmpty
+                      ? const Center(child: Text('No notifications.'))
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(8.0),
+                          itemCount: filteredNotifications.length,
+                          itemBuilder: (context, index) {
+                            final notification = filteredNotifications[index];
+                            return Dismissible(
+                              key: Key(notification['_id']),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                color: Colors.red,
+                                alignment: Alignment.centerRight,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 20),
+                                child: const Icon(Icons.delete,
+                                    color: Colors.white),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Align(
-                              alignment: Alignment.bottomRight,
-                              child: Text(
-                                notification['createdAt'] != null
-                                    ? DateFormat('MMM d, y HH:mm').format(
-                                        DateTime.tryParse(
-                                                notification['createdAt']) ??
-                                            DateTime.now())
-                                    : '',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface
-                                      .withOpacity(0.6),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        trailing: notification['isRead'] == false
-                            ? IconButton(
-                                icon: const Icon(Icons.mark_email_read),
-                                tooltip: 'Mark as read',
-                                onPressed: () {
+                              onDismissed: (direction) async {
+                                final authProvider = Provider.of<AuthProvider>(
+                                    context,
+                                    listen: false);
+                                final token = authProvider.token;
+                                final url = Uri.parse(
+                                    '${ApiConfig.baseUrl}/notifications/${notification['_id']}');
+                                final response =
+                                    await http.delete(url, headers: {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': 'Bearer $token',
+                                });
+                                if (response.statusCode == 200) {
                                   Provider.of<NotificationProvider>(context,
                                           listen: false)
-                                      .markAsRead(notification['_id']);
-                                },
-                              )
-                            : null,
-                        onTap: () {
-                          if (notification['isRead'] == false) {
-                            Provider.of<NotificationProvider>(context,
-                                    listen: false)
-                                .markAsRead(notification['_id']);
-                          }
-                          // Optionally: Navigate to details or perform action
-                        },
-                      ),
-                    );
-                  },
-                );
-        },
+                                      .fetchNotifications();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Notification deleted.')),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text(
+                                            'Failed to delete notification: \\${response.body}')),
+                                  );
+                                }
+                              },
+                              child: Card(
+                                margin: const EdgeInsets.symmetric(
+                                    vertical: 4.0, horizontal: 8.0),
+                                color: notification['isRead'] == true
+                                    ? theme.colorScheme.surface
+                                    : theme.colorScheme.secondary
+                                        .withOpacity(0.05),
+                                elevation:
+                                    notification['isRead'] == true ? 2 : 4,
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: theme.colorScheme.primary
+                                        .withOpacity(0.1),
+                                    child: const Icon(Icons.notifications),
+                                  ),
+                                  title: Text(
+                                    notification['title'] ?? '',
+                                    style:
+                                        theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: notification['isRead'] == true
+                                          ? theme.colorScheme.onSurface
+                                          : theme.colorScheme.primary,
+                                    ),
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        notification['message'] ?? '',
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                          color: theme.colorScheme.onSurface
+                                              .withOpacity(0.8),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Align(
+                                        alignment: Alignment.bottomRight,
+                                        child: Text(
+                                          notification['createdAt'] != null
+                                              ? DateFormat('MMM d, y HH:mm')
+                                                  .format(DateTime.tryParse(
+                                                          notification[
+                                                              'createdAt']) ??
+                                                      DateTime.now())
+                                              : '',
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: theme.colorScheme.onSurface
+                                                .withOpacity(0.6),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  trailing: notification['isRead'] == false
+                                      ? IconButton(
+                                          icon:
+                                              const Icon(Icons.mark_email_read),
+                                          tooltip: 'Mark as read',
+                                          onPressed: () {
+                                            Provider.of<NotificationProvider>(
+                                                    context,
+                                                    listen: false)
+                                                .markAsRead(
+                                                    notification['_id']);
+                                          },
+                                        )
+                                      : null,
+                                  onTap: () {
+                                    if (notification['isRead'] == false) {
+                                      Provider.of<NotificationProvider>(context,
+                                              listen: false)
+                                          .markAsRead(notification['_id']);
+                                    }
+                                    // Only navigate for actionable types
+                                    final actionableTypes = [
+                                      'leave',
+                                      'timesheet',
+                                      'action',
+                                      'payroll'
+                                    ];
+                                    if (actionableTypes
+                                            .contains(notification['type']) &&
+                                        notification['link'] != null &&
+                                        notification['link'].isNotEmpty) {
+                                      Navigator.of(context)
+                                          .pushNamed(notification['link']);
+                                    }
+                                    // else: do nothing (just mark as read)
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
