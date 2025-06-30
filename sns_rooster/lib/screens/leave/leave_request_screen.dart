@@ -6,6 +6,7 @@ import '../../providers/leave_request_provider.dart';
 import '../../providers/profile_provider.dart';
 import 'package:sns_rooster/widgets/app_drawer.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../../widgets/admin_side_navigation.dart';
 
 class LeaveRequestScreen extends StatefulWidget {
   const LeaveRequestScreen({super.key});
@@ -205,6 +206,15 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isAdmin = authProvider.user?['role'] == 'admin';
+    if (isAdmin) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Leave Request')),
+        body: const Center(child: Text('Access denied')),
+        drawer: const AdminSideNavigation(currentRoute: '/leave'),
+      );
+    }
     final theme = Theme.of(context);
     final leaveProvider = Provider.of<LeaveRequestProvider>(context);
 

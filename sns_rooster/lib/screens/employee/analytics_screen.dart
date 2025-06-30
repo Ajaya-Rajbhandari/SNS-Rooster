@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart'; // Import provider
 import '../../providers/analytics_provider.dart'; // Import AnalyticsProvider
+import '../../providers/auth_provider.dart';
 import '../../widgets/app_drawer.dart'; // Import AppDrawer
+import '../../widgets/admin_side_navigation.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({Key? key}) : super(key: key);
@@ -28,6 +30,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isAdmin = authProvider.user?['role'] == 'admin';
+    if (isAdmin) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Analytics & Reports')),
+        body: const Center(child: Text('Access denied')),
+        drawer: const AdminSideNavigation(currentRoute: '/analytics'),
+      );
+    }
     final theme = Theme.of(context);
 
     return Scaffold(

@@ -23,6 +23,9 @@ import '../../../widgets/user_avatar.dart';
 import '../../services/attendance_service.dart';
 import 'live_clock.dart';
 import 'package:sns_rooster/utils/color_utils.dart';
+import '../../widgets/admin_side_navigation.dart';
+import '../../widgets/notification_bell.dart';
+import '../../providers/notification_provider.dart';
 
 /// EmployeeDashboardScreen displays the main dashboard for employees.
 //
@@ -375,6 +378,10 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
             .fetchAttendanceSummary(userId);
       }
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<NotificationProvider>(context, listen: false)
+          .fetchNotifications();
+    });
   }
 
   /// Checks the current network connectivity status using connectivity_plus.
@@ -388,6 +395,15 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isAdmin = authProvider.user?['role'] == 'admin';
+    if (isAdmin) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Employee Dashboard')),
+        body: const Center(child: Text('Access denied')),
+        drawer: const AdminSideNavigation(currentRoute: '/employee_dashboard'),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Employee Dashboard'),

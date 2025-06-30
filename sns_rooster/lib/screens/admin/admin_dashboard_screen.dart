@@ -15,6 +15,8 @@ import 'package:sns_rooster/screens/admin/break_management_screen.dart';
 import '../../widgets/admin_side_navigation.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../../widgets/notification_bell.dart';
+import '../../providers/notification_provider.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -32,6 +34,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<NotificationProvider>(context, listen: false)
+          .fetchNotifications();
+    });
     _fetchDashboardData();
   }
 
@@ -205,6 +211,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         title: const Text('Admin Dashboard'),
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
+        actions: [
+          NotificationBell(iconColor: colorScheme.onPrimary),
+        ],
       ),
       drawer: const AdminSideNavigation(currentRoute: '/admin_dashboard'),
       body: SingleChildScrollView(

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 
 exports.getAllEmployees = async (req, res) => {
   try {
@@ -9,6 +10,29 @@ exports.getAllEmployees = async (req, res) => {
     }
     
     const employees = await Employee.find();
+    // On-demand: Notify admins of incomplete profiles
+    for (const emp of employees) {
+      if (!emp.phone || !emp.address || !emp.emergencyContact) {
+        // Notify admin
+        await Notification.create({
+          role: 'admin',
+          title: 'Incomplete Employee Profile',
+          message: `${emp.firstName} ${emp.lastName} has not completed their profile.`,
+          type: 'alert',
+          link: `/admin/employee_management`,
+          isRead: false,
+        });
+        // Notify employee
+        await Notification.create({
+          user: emp.userId,
+          title: 'Incomplete Profile',
+          message: 'Your profile is incomplete. Please update your information.',
+          type: 'alert',
+          link: '/profile',
+          isRead: false,
+        });
+      }
+    }
     res.status(200).json(employees);
   } catch (error) {
     res.status(500).json({ message: error.message });

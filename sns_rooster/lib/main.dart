@@ -14,6 +14,8 @@ import 'package:sns_rooster/screens/admin/break_types_screen.dart';
 import 'package:sns_rooster/screens/auth/forgot_password_screen.dart';
 import 'package:sns_rooster/screens/employee/payroll_screen.dart';
 import 'package:sns_rooster/screens/employee/analytics_screen.dart';
+import 'package:sns_rooster/screens/admin/notification_alert_screen.dart';
+import 'package:sns_rooster/screens/admin/leave_management_screen.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
 import 'package:sns_rooster/providers/profile_provider.dart';
@@ -27,6 +29,7 @@ import 'package:sns_rooster/providers/employee_provider.dart';
 import 'package:sns_rooster/providers/admin_payroll_provider.dart';
 import 'package:sns_rooster/providers/admin_attendance_provider.dart';
 import 'package:sns_rooster/services/employee_service.dart';
+import 'package:sns_rooster/services/notification_service.dart';
 
 void main() {
   print('MAIN: Initializing navigatorKey');
@@ -60,7 +63,15 @@ class MyApp extends StatelessWidget {
           update: (context, auth, previous) => AttendanceProvider(auth),
         ),
         ChangeNotifierProvider(create: (_) => LeaveRequestProvider()),
-        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, NotificationProvider>(
+          create: (context) => NotificationProvider(
+            NotificationService(
+                Provider.of<AuthProvider>(context, listen: false)),
+          ),
+          update: (context, auth, previous) => NotificationProvider(
+            NotificationService(auth),
+          ),
+        ),
         ChangeNotifierProvider(create: (_) => LeaveProvider()),
         ChangeNotifierProxyProvider<AuthProvider, PayrollProvider>(
           create: (context) => PayrollProvider(
@@ -133,6 +144,10 @@ class MyApp extends StatelessWidget {
                   '/break_management': (context) =>
                       const BreakManagementScreen(),
                   '/break_types': (context) => const BreakTypesScreen(),
+                  '/admin/notification_alerts': (context) =>
+                      const NotificationAlertScreen(),
+                  '/admin/leave_management': (context) =>
+                      const LeaveManagementScreen(),
                 },
               );
             },

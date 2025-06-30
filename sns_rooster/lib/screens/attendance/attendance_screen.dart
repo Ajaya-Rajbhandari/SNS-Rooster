@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/widgets/app_drawer.dart';
+import 'package:sns_rooster/widgets/admin_side_navigation.dart';
 import 'attendance_detail_widgets.dart';
 
 class AttendanceScreen extends StatefulWidget {
@@ -214,6 +215,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isAdmin = authProvider.user?['role'] == 'admin';
+    if (isAdmin) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Attendance')),
+        body: const Center(child: Text('Access denied')),
+        drawer: const AdminSideNavigation(currentRoute: '/attendance'),
+      );
+    }
     final attendanceProvider = Provider.of<AttendanceProvider>(context);
     final attendanceRecords = attendanceProvider.attendanceRecords;
 

@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/notification_provider.dart';
-import '../../models/notification.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/app_drawer.dart';
 
@@ -13,30 +12,18 @@ class NotificationScreen extends StatefulWidget {
   State<NotificationScreen> createState() => _NotificationScreenState();
 }
 
-class _NotificationScreenState extends State<NotificationScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  NotificationType? _selectedType;
-  NotificationPriority? _selectedPriority;
-  bool? _showUnreadOnly;
+class _NotificationScreenState extends State<NotificationScreen> {
+  String? _selectedStatus; // 'all', 'unread', 'read'
   DateTime? _startDate;
   DateTime? _endDate;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    // Fetch notifications when the screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<NotificationProvider>(context, listen: false)
-          .refreshNotifications();
+          .fetchNotifications();
     });
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   void _showFilterDialog() {
@@ -58,10 +45,7 @@ class _NotificationScreenState extends State<NotificationScreen>
                 children: [
                   const Text(
                     'Filter Notifications',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -70,103 +54,34 @@ class _NotificationScreenState extends State<NotificationScreen>
                 ],
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Type',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              const Text('Status',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               Wrap(
                 spacing: 8,
                 children: [
                   FilterChip(
                     label: const Text('All'),
-                    selected: _selectedType == null,
-                    onSelected: (selected) {
-                      setState(() => _selectedType = null);
-                    },
-                  ),
-                  ...NotificationType.values.map((type) => FilterChip(
-                        label: Text(type.toString().split('.').last),
-                        selected: _selectedType == type,
-                        onSelected: (selected) {
-                          setState(
-                              () => _selectedType = selected ? type : null);
-                        },
-                      )),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Priority',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Wrap(
-                spacing: 8,
-                children: [
-                  FilterChip(
-                    label: const Text('All'),
-                    selected: _selectedPriority == null,
-                    onSelected: (selected) {
-                      setState(() => _selectedPriority = null);
-                    },
-                  ),
-                  ...NotificationPriority.values.map((priority) => FilterChip(
-                        label: Text(priority.toString().split('.').last),
-                        selected: _selectedPriority == priority,
-                        onSelected: (selected) {
-                          setState(() =>
-                              _selectedPriority = selected ? priority : null);
-                        },
-                      )),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Status',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Wrap(
-                spacing: 8,
-                children: [
-                  FilterChip(
-                    label: const Text('All'),
-                    selected: _showUnreadOnly == null,
-                    onSelected: (selected) {
-                      setState(() => _showUnreadOnly = null);
-                    },
+                    selected: _selectedStatus == null,
+                    onSelected: (selected) =>
+                        setState(() => _selectedStatus = null),
                   ),
                   FilterChip(
                     label: const Text('Unread'),
-                    selected: _showUnreadOnly == true,
-                    onSelected: (selected) {
-                      setState(() => _showUnreadOnly = selected ? true : null);
-                    },
+                    selected: _selectedStatus == 'unread',
+                    onSelected: (selected) => setState(
+                        () => _selectedStatus = selected ? 'unread' : null),
                   ),
                   FilterChip(
                     label: const Text('Read'),
-                    selected: _showUnreadOnly == false,
-                    onSelected: (selected) {
-                      setState(() => _showUnreadOnly = selected ? false : null);
-                    },
+                    selected: _selectedStatus == 'read',
+                    onSelected: (selected) => setState(
+                        () => _selectedStatus = selected ? 'read' : null),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Date Range',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              const Text('Date Range',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               Row(
                 children: [
                   Expanded(
@@ -178,9 +93,7 @@ class _NotificationScreenState extends State<NotificationScreen>
                       onPressed: () async {
                         final date = await showCustomDatePicker(
                             context, _startDate ?? DateTime.now());
-                        if (date != null) {
-                          setState(() => _startDate = date);
-                        }
+                        if (date != null) setState(() => _startDate = date);
                       },
                     ),
                   ),
@@ -194,9 +107,7 @@ class _NotificationScreenState extends State<NotificationScreen>
                       onPressed: () async {
                         final date = await showCustomDatePicker(
                             context, _endDate ?? DateTime.now());
-                        if (date != null) {
-                          setState(() => _endDate = date);
-                        }
+                        if (date != null) setState(() => _endDate = date);
                       },
                     ),
                   ),
@@ -209,9 +120,7 @@ class _NotificationScreenState extends State<NotificationScreen>
                     child: OutlinedButton(
                       onPressed: () {
                         setState(() {
-                          _selectedType = null;
-                          _selectedPriority = null;
-                          _showUnreadOnly = null;
+                          _selectedStatus = null;
                           _startDate = null;
                           _endDate = null;
                         });
@@ -241,397 +150,148 @@ class _NotificationScreenState extends State<NotificationScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications'),
         leading: Builder(
           builder: (BuildContext context) {
             return IconButton(
-              icon: const Icon(Icons.menu), // Hamburger icon
+              icon: const Icon(Icons.menu),
               onPressed: () {
                 Scaffold.of(context).openDrawer();
               },
             );
           },
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Notifications'),
-            Tab(text: 'Messages'),
-          ],
-          indicatorColor: Colors.white, // White indicator
-          labelColor: Colors.white, // White label color
-          unselectedLabelColor:
-              Colors.white70, // Slightly transparent for unselected
-        ),
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: _showFilterDialog,
           ),
-          Consumer<NotificationProvider>(
-            builder: (context, notificationProvider, child) {
-              final currentTab = _tabController.index;
-              return PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'mark_all_read') {
-                    if (currentTab == 0) {
-                      notificationProvider.markAllNotificationsAsRead();
-                    } else {
-                      notificationProvider.markAllMessagesAsRead();
-                    }
-                  } else if (value == 'delete_all') {
-                    if (currentTab == 0) {
-                      notificationProvider.deleteAllNotifications();
-                    } else {
-                      notificationProvider.deleteAllMessages();
-                    }
-                  }
-                },
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(
-                    value: 'mark_all_read',
-                    child: Text('Mark all as read'),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'delete_all',
-                    child: Text('Delete all'),
-                  ),
-                ],
-              );
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              Provider.of<NotificationProvider>(context, listen: false)
+                  .fetchNotifications();
             },
           ),
         ],
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: Colors.white,
       ),
       drawer: const AppDrawer(),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildNotificationList(context), // Notifications Tab
-          _buildMessageList(context), // Messages Tab
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNotificationList(BuildContext context) {
-    return Consumer<NotificationProvider>(
-      builder: (context, notificationProvider, child) {
-        if (notificationProvider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        List<AppNotification> filteredNotifications =
-            notificationProvider.notifications.where((n) {
-          bool matchesType = _selectedType == null || n.type == _selectedType;
-          bool matchesPriority =
-              _selectedPriority == null || n.priority == _selectedPriority;
-          bool matchesReadStatus = _showUnreadOnly == null
-              ? true
-              : n.isRead ==
-                  !_showUnreadOnly!; // if true, show unread; if false, show read
-          bool matchesDate = true;
-          if (_startDate != null &&
-              n.timestamp.isBefore(DateTime(
+      body: Consumer<NotificationProvider>(
+        builder: (context, notificationProvider, child) {
+          if (notificationProvider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          List<Map<String, dynamic>> filteredNotifications =
+              notificationProvider.notifications.where((n) {
+            bool matchesStatus = _selectedStatus == null
+                ? true
+                : _selectedStatus == 'unread'
+                    ? n['isRead'] == false
+                    : n['isRead'] == true;
+            bool matchesDate = true;
+            if (_startDate != null && n['createdAt'] != null) {
+              final created =
+                  DateTime.tryParse(n['createdAt'] ?? '') ?? DateTime(2000);
+              if (created.isBefore(DateTime(
                   _startDate!.year, _startDate!.month, _startDate!.day))) {
-            matchesDate = false;
-          }
-          if (_endDate != null &&
-              n.timestamp.isAfter(DateTime(_endDate!.year, _endDate!.month,
+                matchesDate = false;
+              }
+            }
+            if (_endDate != null && n['createdAt'] != null) {
+              final created =
+                  DateTime.tryParse(n['createdAt'] ?? '') ?? DateTime(2100);
+              if (created.isAfter(DateTime(_endDate!.year, _endDate!.month,
                   _endDate!.day, 23, 59, 59))) {
-            matchesDate = false;
-          }
-          return matchesType &&
-              matchesPriority &&
-              matchesReadStatus &&
-              matchesDate;
-        }).toList();
-
-        return filteredNotifications.isEmpty
-            ? const Center(child: Text('No notifications.'))
-            : ListView.builder(
-                padding: const EdgeInsets.all(8.0),
-                itemCount: filteredNotifications.length,
-                itemBuilder: (context, index) {
-                  final notification = filteredNotifications[index];
-                  return NotificationCard(
-                    notification: notification,
-                    onDismissed: () {
-                      notificationProvider.deleteNotification(notification.id);
-                    },
-                    onTap: () {
-                      notificationProvider
-                          .markNotificationAsRead(notification.id);
-                      // TODO: Navigate to details or specific action
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content: Text('Tapped on: ${notification.title}')),
-                      );
-                    },
-                  );
-                },
-              );
-      },
-    );
-  }
-
-  Widget _buildMessageList(BuildContext context) {
-    return Consumer<NotificationProvider>(
-      builder: (context, notificationProvider, child) {
-        if (notificationProvider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        List<AppNotification> filteredMessages =
-            notificationProvider.messages.where((m) {
-          bool matchesType = _selectedType == null || m.type == _selectedType;
-          bool matchesPriority =
-              _selectedPriority == null || m.priority == _selectedPriority;
-          bool matchesReadStatus =
-              _showUnreadOnly == null ? true : m.isRead == !_showUnreadOnly!;
-          bool matchesDate = true;
-          if (_startDate != null &&
-              m.timestamp.isBefore(DateTime(
-                  _startDate!.year, _startDate!.month, _startDate!.day))) {
-            matchesDate = false;
-          }
-          if (_endDate != null &&
-              m.timestamp.isAfter(DateTime(_endDate!.year, _endDate!.month,
-                  _endDate!.day, 23, 59, 59))) {
-            matchesDate = false;
-          }
-          return matchesType &&
-              matchesPriority &&
-              matchesReadStatus &&
-              matchesDate;
-        }).toList();
-
-        return filteredMessages.isEmpty
-            ? const Center(child: Text('No messages.'))
-            : ListView.builder(
-                padding: const EdgeInsets.all(8.0),
-                itemCount: filteredMessages.length,
-                itemBuilder: (context, index) {
-                  final message = filteredMessages[index];
-                  return MessageCard(
-                    message: message,
-                    onDismissed: () {
-                      notificationProvider.deleteMessage(message.id);
-                    },
-                    onTap: () {
-                      notificationProvider.markMessageAsRead(message.id);
-                      // TODO: Navigate to chat/message details
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content: Text(
-                                'Tapped on message from: ${message.title}')),
-                      );
-                    },
-                  );
-                },
-              );
-      },
-    );
-  }
-}
-
-// Move NotificationCard outside _NotificationScreenState
-class NotificationCard extends StatelessWidget {
-  final AppNotification notification;
-  final VoidCallback onDismissed;
-  final VoidCallback onTap;
-
-  const NotificationCard({
-    super.key,
-    required this.notification,
-    required this.onDismissed,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context); // Get theme
-    return Dismissible(
-      key: Key(notification.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 16),
-        color: Colors.red,
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
-      onDismissed: (direction) {
-        onDismissed();
-      },
-      child: Card(
-        margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
-        color: notification.isRead
-            ? theme.colorScheme.surface
-            : theme.colorScheme.secondary
-                .withOpacity(0.05), // Subtle highlight for unread
-        elevation: notification.isRead ? 2 : 4,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                  child: Icon(
-                    notification.icon,
-                    color: theme.colorScheme.primary,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        notification.title,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: notification.isRead
-                              ? theme.colorScheme.onSurface
-                              : theme.colorScheme.primary,
+                matchesDate = false;
+              }
+            }
+            return matchesStatus && matchesDate;
+          }).toList();
+          return filteredNotifications.isEmpty
+              ? const Center(child: Text('No notifications.'))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(8.0),
+                  itemCount: filteredNotifications.length,
+                  itemBuilder: (context, index) {
+                    final notification = filteredNotifications[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                          vertical: 4.0, horizontal: 8.0),
+                      color: notification['isRead'] == true
+                          ? theme.colorScheme.surface
+                          : theme.colorScheme.secondary.withOpacity(0.05),
+                      elevation: notification['isRead'] == true ? 2 : 4,
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor:
+                              theme.colorScheme.primary.withOpacity(0.1),
+                          child: const Icon(Icons.notifications),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        notification.message,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.8),
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Align(
-                        alignment: Alignment.bottomRight,
-                        child: Text(
-                          DateFormat('MMM d, y HH:mm')
-                              .format(notification.timestamp),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        title: Text(
+                          notification['title'] ?? '',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: notification['isRead'] == true
+                                ? theme.colorScheme.onSurface
+                                : theme.colorScheme.primary,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Move MessageCard outside _NotificationScreenState
-class MessageCard extends StatelessWidget {
-  final AppNotification message;
-  final VoidCallback onDismissed;
-  final VoidCallback onTap;
-
-  const MessageCard({
-    super.key,
-    required this.message,
-    required this.onDismissed,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context); // Get theme
-    return Dismissible(
-      key: Key(message.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 16),
-        color: Colors.red,
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
-      onDismissed: (direction) {
-        onDismissed();
-      },
-      child: Card(
-        margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
-        color: message.isRead
-            ? theme.colorScheme.surface
-            : theme.colorScheme.surface.withOpacity(
-                0.9), // Keep consistent with NotificationCard for unread
-        elevation: message.isRead ? 2 : 4,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundImage:
-                      message.avatar != null && message.avatar!.isNotEmpty
-                          ? AssetImage(message.avatar!) as ImageProvider
-                          : null,
-                  child: message.avatar == null || message.avatar!.isEmpty
-                      ? const Icon(Icons.person, size: 28)
-                      : null,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        message.title,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: message.isRead
-                              ? theme.colorScheme.onSurface
-                              : theme.colorScheme.primary,
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              notification['message'] ?? '',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurface
+                                    .withOpacity(0.8),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Align(
+                              alignment: Alignment.bottomRight,
+                              child: Text(
+                                notification['createdAt'] != null
+                                    ? DateFormat('MMM d, y HH:mm').format(
+                                        DateTime.tryParse(
+                                                notification['createdAt']) ??
+                                            DateTime.now())
+                                    : '',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.6),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        trailing: notification['isRead'] == false
+                            ? IconButton(
+                                icon: const Icon(Icons.mark_email_read),
+                                tooltip: 'Mark as read',
+                                onPressed: () {
+                                  Provider.of<NotificationProvider>(context,
+                                          listen: false)
+                                      .markAsRead(notification['_id']);
+                                },
+                              )
+                            : null,
+                        onTap: () {
+                          if (notification['isRead'] == false) {
+                            Provider.of<NotificationProvider>(context,
+                                    listen: false)
+                                .markAsRead(notification['_id']);
+                          }
+                          // Optionally: Navigate to details or perform action
+                        },
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        message.message,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.8),
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Align(
-                        alignment: Alignment.bottomRight,
-                        child: Text(
-                          DateFormat('MMM d, y HH:mm')
-                              .format(message.timestamp),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+                    );
+                  },
+                );
+        },
       ),
     );
   }
@@ -649,19 +309,8 @@ Future<DateTime?> showCustomDatePicker(
       return Theme(
         data: Theme.of(context).copyWith(
           colorScheme: ColorScheme.light(
-            primary: Theme.of(context).primaryColor,
-            onPrimary: Colors.white,
-            surface: Colors.white,
-            onSurface: Colors.black,
+            primary: Theme.of(context).colorScheme.primary,
           ),
-          textButtonTheme: TextButtonThemeData(
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).primaryColor,
-              textStyle:
-                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ),
-          dialogBackgroundColor: Colors.white,
         ),
         child: child!,
       );
