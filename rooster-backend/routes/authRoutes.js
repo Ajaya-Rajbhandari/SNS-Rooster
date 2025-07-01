@@ -43,4 +43,7 @@ router.get("/users", auth, authController.getAllUsers);
 // Add route to delete a user by id (admin only)
 router.delete("/users/:id", auth, authController.deleteUser);
 
+// Add route to toggle user active status (admin only)
+router.patch('/users/:id', auth, authController.toggleUserActive);
+
 module.exports = router;

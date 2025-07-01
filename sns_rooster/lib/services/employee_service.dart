@@ -22,17 +22,18 @@ class EmployeeService {
     };
   }
 
-  Future<List<Map<String, dynamic>>> getEmployees() async {
+  Future<List<Map<String, dynamic>>> getEmployees(
+      {bool showInactive = false}) async {
     try {
-      final response = await http.get(
-          Uri.parse('${ApiConfig.baseUrl}/employees'),
-          headers: getHeaders());
+      final uri = Uri.parse('${ApiConfig.baseUrl}/employees').replace(
+          queryParameters: showInactive ? {'showInactive': 'true'} : null);
+      final response = await http.get(uri, headers: getHeaders());
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         return data.cast<Map<String, dynamic>>();
       } else {
         throw Exception(
-            'Failed to load employees: ${response.statusCode} ${response.body}');
+            'Failed to load employees: \\${response.statusCode} \\${response.body}');
       }
     } catch (e) {
       throw Exception('Error fetching employees: $e');

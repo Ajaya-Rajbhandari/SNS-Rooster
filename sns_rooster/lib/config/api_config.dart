@@ -10,7 +10,7 @@ class ApiConfig {
   static const String homeIP =
       '10.0.2.2'; // Android emulator maps to host localhost
   static const String fallbackIP =
-      '192.168.1.68'; // Actual machine IP as fallback (updated to current IP)
+      '192.168.1.80'; // Actual machine IP as fallback (updated to current IP)
   static const String officeIP =
       '10.0.0.45'; // Your office network IP (update this!)
   static const String port = '5000';

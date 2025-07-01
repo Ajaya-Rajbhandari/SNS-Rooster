@@ -9,7 +9,6 @@ router.use((req, res, next) => {
 
 const authMiddleware = require('../middleware/auth');
 const employeeController = require('../controllers/employee-controller');
-const analyticsController = require('../controllers/analytics-controller');
 
 // Get all employees (admin/manager only)
 router.get('/', authMiddleware, employeeController.getAllEmployees);
@@ -37,11 +36,6 @@ router.get('/dashboard', authMiddleware, employeeController.getEmployeeDashboard
 
 // Get a single employee by User ID (admin/manager or self)
 router.get('/user/:userId', authMiddleware, employeeController.getEmployeeByUserId);
-
-// Analytics endpoints for employees
-router.get('/analytics/attendance/:userId', authMiddleware, analyticsController.getAttendanceAnalytics);
-router.get('/analytics/work-hours/:userId', authMiddleware, analyticsController.getWorkHoursAnalytics);
-router.get('/analytics/summary/:userId', analyticsController.getAnalyticsSummary);
 
 console.log('EMPLOYEE ROUTES: Registering /dashboard route');
 

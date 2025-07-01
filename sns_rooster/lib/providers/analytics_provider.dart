@@ -40,14 +40,14 @@ class AnalyticsProvider with ChangeNotifier {
       }
       // Debug: Print outgoing request details
       print(
-          'DEBUG: Analytics attendance URL: ${ApiConfig.baseUrl}/employees/analytics/attendance/$userId?range=$range');
+          'DEBUG: Analytics attendance URL: ${ApiConfig.baseUrl}/analytics/attendance/$userId?range=$range');
       print(
-          'DEBUG: Analytics work hours URL: ${ApiConfig.baseUrl}/employees/analytics/work-hours/$userId?range=$range');
+          'DEBUG: Analytics work hours URL: ${ApiConfig.baseUrl}/analytics/work-hours/$userId?range=$range');
       print('DEBUG: Authorization token: Bearer $token');
       // Fetch attendance analytics from backend
       final attendanceRes = await http.get(
         Uri.parse(
-            '${ApiConfig.baseUrl}/employees/analytics/attendance/$userId?range=$range'),
+            '${ApiConfig.baseUrl}/analytics/attendance/$userId?range=$range'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -64,7 +64,7 @@ class AnalyticsProvider with ChangeNotifier {
       // Fetch work hours analytics from backend
       final workHoursRes = await http.get(
         Uri.parse(
-            '${ApiConfig.baseUrl}/employees/analytics/work-hours/$userId?range=$range'),
+            '${ApiConfig.baseUrl}/analytics/work-hours/$userId?range=$range'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -83,7 +83,7 @@ class AnalyticsProvider with ChangeNotifier {
       // Fetch analytics summary from backend
       final summaryRes = await http.get(
         Uri.parse(
-            '${ApiConfig.baseUrl}/employees/analytics/summary/$userId?range=$range'),
+            '${ApiConfig.baseUrl}/analytics/summary/$userId?range=$range'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -115,5 +115,43 @@ class AnalyticsProvider with ChangeNotifier {
     _isLoading = false;
     _error = null;
     notifyListeners();
+  }
+}
+
+class EmployeeAnalyticsService {
+  static Future<Map<String, dynamic>> fetchLateCheckins(
+      String userId, String token) async {
+    final url = '${ApiConfig.baseUrl}/analytics/late-checkins/$userId';
+    final response = await http
+        .get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to load late check-ins');
+    }
+  }
+
+  static Future<Map<String, dynamic>> fetchAvgCheckout(
+      String userId, String token) async {
+    final url = '${ApiConfig.baseUrl}/analytics/avg-checkout/$userId';
+    final response = await http
+        .get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to load average check-out time');
+    }
+  }
+
+  static Future<List<dynamic>> fetchRecentActivity(
+      String userId, String token) async {
+    final url = '${ApiConfig.baseUrl}/analytics/recent-activity/$userId';
+    final response = await http
+        .get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
+    if (response.statusCode == 200) {
+      return json.decode(response.body)['recentActivity'];
+    } else {
+      throw Exception('Failed to load recent activity');
+    }
   }
 }

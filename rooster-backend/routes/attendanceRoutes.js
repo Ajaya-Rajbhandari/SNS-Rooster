@@ -4,6 +4,7 @@ const auth = require("../middleware/auth");
 const attendanceController = require("../controllers/attendance-controller");
 const BreakType = require("../models/BreakType");
 const Attendance = require('../models/Attendance');
+const analyticsController = require('../controllers/analytics-controller');
 
 // Check-in (User can check-in once per day)
 router.post("/check-in", auth, attendanceController.checkIn);
@@ -200,5 +201,14 @@ router.post("/debug/clock-in/:userId", auth, async (req, res) => {
 
 // Aggregate attendance stats for today (admin only)
 router.get("/today", auth, attendanceController.getTodayAttendanceStats);
+
+// Add leave types breakdown analytics endpoint
+// If you have an auth middleware, add it as needed (e.g., authMiddleware)
+router.get('/analytics/leave-types-breakdown', analyticsController.getLeaveTypesBreakdown);
+
+// Add analytics endpoints for employee dashboard
+router.get('/analytics/late-checkins/:userId', analyticsController.getLateCheckins);
+router.get('/analytics/avg-checkout/:userId', analyticsController.getAverageCheckoutTime);
+router.get('/analytics/recent-activity/:userId', analyticsController.getRecentActivity);
 
 module.exports = router;

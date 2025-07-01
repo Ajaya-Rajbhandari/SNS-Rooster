@@ -5,11 +5,15 @@ const Notification = require('../models/Notification');
 
 exports.getAllEmployees = async (req, res) => {
   try {
+    console.log('DEBUG: getAllEmployees called, user role:', req.user.role);
     if (req.user.role !== 'admin' && req.user.role !== 'manager') {
       return res.status(403).json({ message: 'Only admins and managers can view all employees' });
     }
-    
-    const employees = await Employee.find();
+    const showInactive = req.query.showInactive === 'true';
+    const filter = showInactive ? {} : { isActive: true };
+    console.log('DEBUG: Employee filter:', filter);
+    const employees = await Employee.find(filter);
+    console.log('DEBUG: Found employees count:', employees.length);
     // On-demand: Notify admins of incomplete profiles
     for (const emp of employees) {
       if (!emp.phone || !emp.address || !emp.emergencyContact) {

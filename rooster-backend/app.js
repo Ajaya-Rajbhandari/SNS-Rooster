@@ -13,6 +13,7 @@ const employeeRoutes = require('./routes/employeeRoutes');
 const payrollRoutes = require('./routes/payrollRoutes');
 const leaveRoutes = require('./routes/leaveRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -41,6 +42,7 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/leave', leaveRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {

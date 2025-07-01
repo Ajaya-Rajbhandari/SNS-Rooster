@@ -8,6 +8,7 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/admin_side_navigation.dart';
+import 'package:flutter/services.dart';
 
 void showDocumentDialog(BuildContext context, String? url) {
   if (url == null || url.isEmpty) return;
@@ -226,12 +227,88 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
+    // Validation
+    String firstName = _firstNameController.text.trim();
+    String lastName = _lastNameController.text.trim();
+    String phone = _phoneController.text.trim();
+    String email = _emailController.text.trim();
+    String address = _addressController.text.trim();
+    String emergencyContact = _emergencyContactController.text.trim();
+    String emergencyPhone = _emergencyPhoneController.text.trim();
+    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
+    if (firstName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('First name is required.')),
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+    if (lastName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Last name is required.')),
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+    if (email.isEmpty || !emailRegex.hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid email address.')),
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+    if (phone.isEmpty || phone.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('Please enter a valid phone number (at least 8 digits).')),
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+    if (address.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Address is required.')),
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+    if (emergencyContact.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Emergency contact name is required.')),
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+    if (emergencyPhone.isEmpty || emergencyPhone.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Please enter a valid emergency contact phone (at least 8 digits).')),
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
     setState(() {
       _isLoading = true;
     });
     final profileProvider =
         Provider.of<ProfileProvider>(context, listen: false);
-
     Map<String, dynamic> updates = {
       'firstName': _firstNameController.text,
       'lastName': _lastNameController.text,
@@ -244,7 +321,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // For relationship, add 'emergencyRelationship' for future backend support
       'emergencyRelationship': _emergencyContactRelationshipController.text,
     };
-
     await profileProvider.updateProfile(updates);
     setState(() {
       _isLoading = false;
@@ -310,25 +386,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return Scaffold(
           appBar: AppBar(
             title: const Text('Profile'),
-            actions: [
-              IconButton(
-                icon: Icon(_isEditing ? Icons.check : Icons.edit),
-                onPressed: () {
-                  setState(() {
-                    _isEditing = !_isEditing;
-                    if (!_isEditing) {
-                      _isEditingPersonal = false;
-                      _isEditingEmergency = false;
-                      _saveProfile();
-                    } else {
-                      final currentProfileProvider =
-                          Provider.of<ProfileProvider>(context, listen: false);
-                      _loadUserDataInternal(currentProfileProvider);
-                    }
-                  });
-                },
-              ),
-            ],
           ),
           drawer: const AppDrawer(),
           body: profileProvider.isLoading && !_isLoading
@@ -368,9 +425,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ),
                                     const SizedBox(height: 8),
                                     ElevatedButton.icon(
-                                      onPressed: _isEditing
-                                          ? _pickAndUploadImage
-                                          : null,
+                                      onPressed: _pickAndUploadImage,
                                       icon: const Icon(Icons.camera_alt),
                                       label: const Text('Change Photo'),
                                     ),
@@ -409,25 +464,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ),
                                     IconButton(
                                       icon: Icon(
-                                          _isEditingPersonal
-                                              ? Icons.check
-                                              : Icons.edit,
-                                          color: _isEditing
-                                              ? Colors.blueAccent
-                                              : Colors.grey),
-                                      onPressed: _isEditing
-                                          ? () {
-                                              setState(() {
-                                                _isEditingPersonal =
-                                                    !_isEditingPersonal;
-                                              });
-                                            }
-                                          : null,
-                                      tooltip: _isEditing
-                                          ? (_isEditingPersonal
-                                              ? 'Done editing section'
-                                              : 'Edit section')
-                                          : 'Enable main edit mode to edit',
+                                        _isEditingPersonal
+                                            ? Icons.check
+                                            : Icons.edit,
+                                        color: Colors.blueAccent,
+                                      ),
+                                      onPressed: () async {
+                                        if (_isEditingPersonal) {
+                                          setState(() {
+                                            _isLoading = true;
+                                          });
+                                          await _saveProfile();
+                                          setState(() {
+                                            _isEditingPersonal = false;
+                                            _isLoading = false;
+                                          });
+                                        } else {
+                                          setState(() {
+                                            _isEditingPersonal = true;
+                                          });
+                                        }
+                                      },
+                                      tooltip: _isEditingPersonal
+                                          ? 'Save'
+                                          : 'Edit section',
                                     ),
                                   ],
                                 ),
@@ -436,36 +496,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   controller: _firstNameController,
                                   label: 'First Name',
                                   icon: Icons.person,
-                                  enabled: _isEditing &&
-                                      _isEditingPersonal, // Modified
+                                  enabled: false,
                                 ),
                                 _buildTextField(
                                   controller: _lastNameController,
                                   label: 'Last Name',
                                   icon: Icons.person,
-                                  enabled: _isEditing &&
-                                      _isEditingPersonal, // Modified
+                                  enabled: false,
                                 ),
                                 _buildTextField(
                                   controller: _emailController,
                                   label: 'Email',
                                   icon: Icons.email,
-                                  enabled:
-                                      false, // Email usually not editable by user directly
+                                  enabled: false,
+                                  keyboardType: TextInputType.emailAddress,
                                 ),
                                 _buildTextField(
                                   controller: _phoneController,
                                   label: 'Phone',
                                   icon: Icons.phone,
-                                  enabled: _isEditing &&
-                                      _isEditingPersonal, // Modified
+                                  enabled: _isEditingPersonal,
+                                  keyboardType: TextInputType.phone,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly
+                                  ],
                                 ),
                                 _buildTextField(
                                   controller: _addressController,
                                   label: 'Address',
                                   icon: Icons.home,
-                                  enabled: _isEditing &&
-                                      _isEditingPersonal, // Modified
+                                  enabled: _isEditingPersonal,
                                 ),
                               ],
                             ),
@@ -491,25 +551,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                       IconButton(
                                         icon: Icon(
-                                            _isEditingEmergency
-                                                ? Icons.check
-                                                : Icons.edit,
-                                            color: _isEditing
-                                                ? Colors.blueAccent
-                                                : Colors.grey),
-                                        onPressed: _isEditing
-                                            ? () {
-                                                setState(() {
-                                                  _isEditingEmergency =
-                                                      !_isEditingEmergency;
-                                                });
-                                              }
-                                            : null,
-                                        tooltip: _isEditing
-                                            ? (_isEditingEmergency
-                                                ? 'Done editing section'
-                                                : 'Edit section')
-                                            : 'Enable main edit mode to edit',
+                                          _isEditingEmergency
+                                              ? Icons.check
+                                              : Icons.edit,
+                                          color: Colors.blueAccent,
+                                        ),
+                                        onPressed: () async {
+                                          if (_isEditingEmergency) {
+                                            setState(() {
+                                              _isLoading = true;
+                                            });
+                                            await _saveProfile();
+                                            setState(() {
+                                              _isEditingEmergency = false;
+                                              _isLoading = false;
+                                            });
+                                          } else {
+                                            setState(() {
+                                              _isEditingEmergency = true;
+                                            });
+                                          }
+                                        },
+                                        tooltip: _isEditingEmergency
+                                            ? 'Save'
+                                            : 'Edit section',
                                       ),
                                     ],
                                   ),
@@ -518,23 +583,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     controller: _emergencyContactController,
                                     label: 'Contact Name',
                                     icon: Icons.person_pin_rounded,
-                                    enabled: _isEditing &&
-                                        _isEditingEmergency, // Modified
+                                    enabled: _isEditingEmergency,
                                   ),
                                   _buildTextField(
                                     controller: _emergencyPhoneController,
                                     label: 'Contact Phone',
                                     icon: Icons.phone_iphone,
-                                    enabled: _isEditing &&
-                                        _isEditingEmergency, // Modified
+                                    enabled: _isEditingEmergency,
+                                    keyboardType: TextInputType.phone,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly
+                                    ],
                                   ),
                                   _buildTextField(
                                     controller:
                                         _emergencyContactRelationshipController,
                                     label: 'Relationship',
                                     icon: Icons.people,
-                                    enabled: _isEditing &&
-                                        _isEditingEmergency, // Modified
+                                    enabled: _isEditingEmergency,
                                   ),
                                 ],
                               ),
@@ -726,6 +792,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String label,
     required IconData icon,
     bool enabled = true,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -741,6 +809,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           filled: true,
           fillColor: enabled ? Colors.white : Colors.grey[100],
         ),
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
       ),
     );
   }
