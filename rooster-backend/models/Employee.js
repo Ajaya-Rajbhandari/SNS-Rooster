@@ -42,6 +42,10 @@ const employeeSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
   // Add other employee-related fields as needed
 });
 

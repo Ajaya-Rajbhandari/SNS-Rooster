@@ -17,6 +17,7 @@ import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../widgets/notification_bell.dart';
 import '../../providers/notification_provider.dart';
+import '../../services/employee_service.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -60,130 +61,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final token = authProvider.token;
-      String userName = authProvider.user?['name'] as String? ?? 'Admin';
 
-      int totalEmployees = 0;
-      int presentToday = 0;
-      int onLeave = 0;
-      int pendingRequests = 0;
-      int absentToday = 0;
-      Map<String, dynamic> departmentStats = {};
-      List<dynamic> recentActivities = [];
-      List<dynamic> attendanceChart = [];
-
-      // Fetch total employees and department stats
-      final usersResponse = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/auth/users'),
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/analytics/admin/overview'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
       );
-      if (usersResponse.statusCode == 200) {
-        final usersData = jsonDecode(usersResponse.body);
-        if (usersData is List) {
-          final usersList =
-              usersData.where((user) => user['role'] == 'employee').toList();
-          totalEmployees = usersList.length;
-          for (var user in usersList) {
-            final department = user['department'] ?? 'Unknown';
-            if (departmentStats.containsKey(department)) {
-              departmentStats[department]['total'] =
-                  (departmentStats[department]['total'] ?? 0) + 1;
-            } else {
-              departmentStats[department] = {
-                'total': 1,
-                'present': 0,
-              };
-            }
-          }
-        } else {
-          throw Exception('Unexpected data format for users');
-        }
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        _dashboardData = data;
       } else {
-        print(
-            'Failed to load users: ${usersResponse.statusCode} ${usersResponse.body}');
-        throw Exception('Failed to load users');
+        throw Exception('Failed to load dashboard analytics');
       }
-
-      // Fetch attendance stats
-      final attendanceResponse = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/attendance/today'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-      if (attendanceResponse.statusCode == 200) {
-        final attendanceData = jsonDecode(attendanceResponse.body);
-        if (attendanceData is Map &&
-            attendanceData.containsKey('present') &&
-            attendanceData.containsKey('absent') &&
-            attendanceData.containsKey('onLeave')) {
-          presentToday = attendanceData['present'] ?? 0;
-          absentToday = attendanceData['absent'] ?? 0;
-          onLeave = attendanceData['onLeave'] ?? 0;
-        }
-      } else {
-        print(
-            'Attendance endpoint failed: ${attendanceResponse.statusCode} ${attendanceResponse.body}');
-      }
-
-      // Fetch leave requests (pending)
-      try {
-        final employeeId = authProvider.user?['employeeId'];
-        if (employeeId == null) {
-          print('Error: employeeId is undefined for leave history request.');
-          pendingRequests = 0;
-        } else {
-          final leaveRequestsResponse = await http.get(
-            Uri.parse(
-                '${ApiConfig.baseUrl}/leave/history?employeeId=$employeeId'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-          );
-          if (leaveRequestsResponse.statusCode == 200) {
-            final leaveRequestsData = jsonDecode(leaveRequestsResponse.body);
-            if (leaveRequestsData is Map &&
-                leaveRequestsData.containsKey('leaveRequests')) {
-              final leaveRequestsList = leaveRequestsData['leaveRequests'];
-              if (leaveRequestsList is List) {
-                pendingRequests = leaveRequestsList
-                    .where((req) => req['status'] == 'pending')
-                    .length;
-              }
-            }
-          } else {
-            print(
-                'Failed to load leave requests: ${leaveRequestsResponse.statusCode} ${leaveRequestsResponse.body}');
-          }
-        }
-      } catch (e) {
-        print('Error fetching leave requests: $e');
-        pendingRequests = 0;
-      }
-
-      // Optionally: Fetch recent activities and chart data if you have endpoints
-      // (Retain your previous logic for these, or leave as empty for now)
-
-      _dashboardData = {
-        'welcomeMessage': 'Welcome, $userName!',
-        'overviewText': 'Here\'s an overview of your admin dashboard.',
-        'quickStats': {
-          'totalEmployees': totalEmployees,
-          'presentToday': presentToday,
-          'onLeave': onLeave,
-          'pendingRequests': pendingRequests,
-          'absentToday': absentToday,
-        },
-        'departmentStats': departmentStats,
-        'recentActivities': recentActivities,
-        'chartData': {
-          'attendance': attendanceChart,
-        }
-      };
 
       setState(() {
         _isLoading = false;
@@ -225,7 +117,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               const Center(child: CircularProgressIndicator()),
             ] else if (_errorMessage != null) ...[
               Center(
-                  child: Text('Error:  _errorMessage',
+                  child: Text('Error: $_errorMessage',
                       style: TextStyle(color: theme.colorScheme.error))),
             ] else ...[
               // --- Modern Analytics Section ---
@@ -372,44 +264,46 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 16),
-                    // TODO: Implement _buildChartsSection with real data
-                    // For now, showing a placeholder if no chart data is fetched
-                    _dashboardData['chartData'] != null &&
-                            (_dashboardData['chartData']['attendance'] as List)
-                                .isNotEmpty
-                        ? _buildChartsSection(theme)
-                        : const Text(
-                            'Chart data not available. (TODO: Connect to API)',
-                            style: TextStyle(color: Colors.grey)),
+                    // Only show chart if real data is available
+                    if (_dashboardData['chartData'] != null &&
+                        (_dashboardData['chartData']['attendance'] as List)
+                            .isNotEmpty)
+                      _buildChartsSection(theme),
                     const SizedBox(height: 24),
                     Text(
                       'Live Metrics',
                       style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildSummaryItem(
-                          context,
-                          icon: Icons.people,
-                          label: 'Employees',
-                          value: '10',
-                        ),
-                        _buildSummaryItem(
-                          context,
-                          icon: Icons.payments,
-                          label: 'Payslips',
-                          value: '50',
-                        ),
-                        _buildSummaryItem(
-                          context,
-                          icon: Icons.notifications,
-                          label: 'Notifications',
-                          value: '5',
-                        ),
-                      ],
-                    ),
+                    // Only show metrics if real data is available
+                    if (_dashboardData['quickStats'] != null)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildSummaryItem(
+                            context,
+                            icon: Icons.people,
+                            label: 'Employees',
+                            value: _dashboardData['quickStats']
+                                    ['totalEmployees']
+                                .toString(),
+                          ),
+                          _buildSummaryItem(
+                            context,
+                            icon: Icons.payments,
+                            label: 'Payslips',
+                            value: (_dashboardData['payslipCount'] ?? '-')
+                                .toString(),
+                          ),
+                          _buildSummaryItem(
+                            context,
+                            icon: Icons.notifications,
+                            label: 'Notifications',
+                            value: (_dashboardData['notificationCount'] ?? '-')
+                                .toString(),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -429,22 +323,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Notification Center',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Text('Notifications coming soon!'),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
                     Text(
                       'Alert Banner',
                       style: theme.textTheme.titleMedium,
@@ -493,15 +371,62 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 16),
-                    Container(
-                      height: 200,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Text('Employee Directory coming soon!'),
-                      ),
+                    FutureBuilder<List<Map<String, dynamic>>>(
+                      future: EmployeeService(
+                              Provider.of<AuthProvider>(context, listen: false))
+                          .getEmployees(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        } else if (snapshot.hasError) {
+                          return Center(
+                              child: Text(
+                                  'Failed to load employees: \\${snapshot.error}'));
+                        } else if (!snapshot.hasData ||
+                            snapshot.data!.isEmpty) {
+                          return const Center(
+                              child: Text('No employees found.'));
+                        }
+                        final employees = snapshot.data!;
+                        return SizedBox(
+                          height: 200,
+                          child: ListView.separated(
+                            itemCount: employees.length,
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 1),
+                            itemBuilder: (context, i) {
+                              final emp = employees[i];
+                              return ListTile(
+                                leading: const Icon(Icons.person),
+                                title: Text(
+                                  ((emp['firstName'] ?? '') +
+                                              ' ' +
+                                              (emp['lastName'] ?? ''))
+                                          .trim()
+                                          .isEmpty
+                                      ? 'No Name'
+                                      : ((emp['firstName'] ?? '') +
+                                              ' ' +
+                                              (emp['lastName'] ?? ''))
+                                          .trim(),
+                                ),
+                                subtitle:
+                                    Text(emp['department'] ?? 'No Department'),
+                                trailing: Text(
+                                    emp['isActive'] == true
+                                        ? 'Active'
+                                        : 'Inactive',
+                                    style: TextStyle(
+                                        color: emp['isActive'] == true
+                                            ? Colors.green
+                                            : Colors.red)),
+                              );
+                            },
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
@@ -1033,7 +958,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             rows: deptStats.entries
                 .map((e) => DataRow(cells: [
                       DataCell(Text(e.key)),
-                      DataCell(Text(e.value['total'].toString())),
+                      DataCell(Text(e.value.toString())),
                     ]))
                 .toList(),
           ),

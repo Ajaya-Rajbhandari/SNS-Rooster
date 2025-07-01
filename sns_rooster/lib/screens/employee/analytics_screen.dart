@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart'; // Import provider
-import '../../providers/analytics_provider.dart'; // Import AnalyticsProvider
+import '../../providers/analytics_provider.dart' hide EmployeeAnalyticsService;
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_drawer.dart'; // Import AppDrawer
 import '../../widgets/admin_side_navigation.dart';
+import '../../services/employee_analytics_service.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({Key? key}) : super(key: key);
@@ -20,12 +22,42 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   bool get isCustom => selectedRange == 'Custom';
 
+  Map<String, dynamic>? lateCheckins;
+  Map<String, dynamic>? avgCheckout;
+  List<dynamic>? recentActivity;
+  bool loadingExtra = true;
+  String? extraError;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       Provider.of<AnalyticsProvider>(context, listen: false)
           .fetchAnalyticsData(range: 7);
+      // Fetch extra analytics
+      try {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final userId = authProvider.user?['_id'] ?? authProvider.user?['id'];
+        final token = authProvider.token ?? '';
+        // You must have EmployeeAnalyticsService implemented as shown previously
+        final late =
+            await EmployeeAnalyticsService.fetchLateCheckins(userId, token);
+        final avg =
+            await EmployeeAnalyticsService.fetchAvgCheckout(userId, token);
+        final recent =
+            await EmployeeAnalyticsService.fetchRecentActivity(userId, token);
+        setState(() {
+          lateCheckins = late;
+          avgCheckout = avg;
+          recentActivity = recent;
+          loadingExtra = false;
+        });
+      } catch (e) {
+        setState(() {
+          extraError = e.toString();
+          loadingExtra = false;
+        });
+      }
     });
   }
 
@@ -108,7 +140,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
             // Dynamically generate X-axis labels
             List<String> xLabels;
-            if (workHours.length == 0) {
+            if (workHours.isEmpty) {
               xLabels = [];
             } else if (workHours.length <= 31) {
               xLabels = List.generate(workHours.length, (i) => 'Day ${i + 1}');
@@ -538,6 +570,185 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
+                    Divider(thickness: 1, height: 32),
+                    Text(
+                      'Attendance Insights',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    AnimatedOpacity(
+                      opacity: loadingExtra ? 0.5 : 1.0,
+                      duration: const Duration(milliseconds: 500),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (loadingExtra)
+                            Center(
+                              child: SpinKitThreeBounce(
+                                color: theme.colorScheme.primary,
+                                size: 32.0,
+                              ),
+                            ),
+                          if (extraError != null)
+                            Center(child: Text('Error: ' + extraError!)),
+                          if (!loadingExtra && extraError == null) ...[
+                            Card(
+                              elevation: 3,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              margin: const EdgeInsets.symmetric(
+                                  vertical: 8, horizontal: 0),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 16, horizontal: 20),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor:
+                                          Colors.red.withOpacity(0.1),
+                                      child: Icon(Icons.access_time,
+                                          color: Colors.red),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text('Late Check-ins (last 30 days)',
+                                              style: theme.textTheme.bodyLarge
+                                                  ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.bold)),
+                                          Text(
+                                              '${lateCheckins?['lateCount'] ?? 0} times',
+                                              style: theme.textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                      color: Colors.grey[700])),
+                                        ],
+                                      ),
+                                    ),
+                                    lateCheckins?['lateDates'] != null &&
+                                            (lateCheckins!['lateDates'] as List)
+                                                .isNotEmpty
+                                        ? IconButton(
+                                            icon: Icon(Icons.info_outline,
+                                                color: Colors.grey[600]),
+                                            onPressed: () {
+                                              showDialog(
+                                                context: context,
+                                                builder: (_) => AlertDialog(
+                                                  title: Text(
+                                                      'Late Check-in Dates'),
+                                                  content: Text((lateCheckins![
+                                                          'lateDates'] as List)
+                                                      .join('\n')),
+                                                ),
+                                              );
+                                            },
+                                          )
+                                        : const SizedBox.shrink(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Card(
+                              elevation: 3,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              margin: const EdgeInsets.symmetric(
+                                  vertical: 8, horizontal: 0),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 16, horizontal: 20),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor:
+                                          Colors.blue.withOpacity(0.1),
+                                      child: Icon(Icons.logout,
+                                          color: Colors.blue),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text('Average Check-out Time',
+                                              style: theme.textTheme.bodyLarge
+                                                  ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.bold)),
+                                          Text(
+                                              avgCheckout?['avgCheckOut'] ??
+                                                  '--:--',
+                                              style: theme.textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                      color: Colors.grey[700])),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Card(
+                              elevation: 3,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              margin: const EdgeInsets.symmetric(
+                                  vertical: 8, horizontal: 0),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 16, horizontal: 20),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Recent Attendance Activity',
+                                        style: theme.textTheme.bodyLarge
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 8),
+                                    if (recentActivity == null ||
+                                        recentActivity!.isEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 12.0),
+                                        child: Text('No recent activity found.',
+                                            style: theme.textTheme.bodyMedium
+                                                ?.copyWith(color: Colors.grey)),
+                                      )
+                                    else
+                                      ...recentActivity!.map((rec) => ListTile(
+                                            contentPadding: EdgeInsets.zero,
+                                            title: Text(
+                                                'Date: ${rec['date']?.substring(0, 10) ?? ''}',
+                                                style: theme
+                                                    .textTheme.bodyMedium
+                                                    ?.copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w500)),
+                                            subtitle: Text(
+                                                'Check-in: ${rec['checkInTime']?.substring(11, 16) ?? '--:--'} | Check-out: ${rec['checkOutTime']?.substring(11, 16) ?? '--:--'}'),
+                                          )),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Divider(thickness: 1, height: 32),
                     SizedBox(
                       height: 60,
                       child: Center(

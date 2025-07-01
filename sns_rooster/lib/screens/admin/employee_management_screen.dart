@@ -25,6 +25,7 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
       []; // List of employees to display (after filtering)
   bool _isLoading = false;
   String? _error;
+  bool _showInactive = false; // Track whether to show inactive employees
 
   @override
   void initState() {
@@ -49,7 +50,8 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
     });
 
     try {
-      fetchedEmployees = await _employeeService.getEmployees();
+      fetchedEmployees =
+          await _employeeService.getEmployees(showInactive: _showInactive);
       // Ensure each employee has a 'name' field for detail screen
       for (var emp in fetchedEmployees) {
         final firstName = emp['firstName'] ?? '';
@@ -110,6 +112,36 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
         title: const Text('Employee Management'),
         backgroundColor: theme.colorScheme.primary,
         foregroundColor: theme.colorScheme.onPrimary,
+        actions: [
+          // Toggle button to show/hide inactive employees
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _showInactive ? 'All' : 'Active',
+                style: TextStyle(
+                  color: theme.colorScheme.onPrimary,
+                  fontSize: 12,
+                ),
+              ),
+              Switch(
+                value: _showInactive,
+                onChanged: (value) {
+                  setState(() {
+                    _showInactive = value;
+                  });
+                  _loadEmployees(); // Reload employees with new filter
+                },
+                activeColor: theme.colorScheme.onPrimary,
+                activeTrackColor: theme.colorScheme.onPrimary.withOpacity(0.3),
+                inactiveThumbColor: theme.colorScheme.onPrimary,
+                inactiveTrackColor:
+                    theme.colorScheme.onPrimary.withOpacity(0.3),
+              ),
+            ],
+          ),
+          const SizedBox(width: 16),
+        ],
       ),
       drawer: const AdminSideNavigation(currentRoute: '/employee_management'),
       body: Padding(
@@ -206,9 +238,39 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                        "${employee['firstName'] ?? 'N/A'} ${employee['lastName'] ?? 'N/A'}",
-                                        style: theme.textTheme.titleMedium),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                              "${employee['firstName'] ?? 'N/A'} ${employee['lastName'] ?? 'N/A'}",
+                                              style:
+                                                  theme.textTheme.titleMedium),
+                                        ),
+                                        // Show inactive badge if employee is inactive
+                                        if (employee['isActive'] == false)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  Colors.red.withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              border: Border.all(
+                                                  color: Colors.red
+                                                      .withOpacity(0.3)),
+                                            ),
+                                            child: Text(
+                                              'Inactive',
+                                              style: TextStyle(
+                                                color: Colors.red,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                     Text(employee['position'] ?? 'N/A',
                                         style: theme.textTheme.bodyMedium),
                                     Text(employee['email'] ?? 'N/A',

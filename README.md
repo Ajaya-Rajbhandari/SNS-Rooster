@@ -51,7 +51,18 @@ SNS-Rooster-app/
 - **Employee Management**: Comprehensive employee data handling
 - **Profile Management**: Complete profile editing with image upload
 - **Authentication**: Secure JWT-based authentication
+- **Analytics & Reporting**: Dynamic work hours, attendance breakdown, and custom date range analytics with modern charts and tooltips
 - **Cross-platform**: Works on Android, iOS, and Web
+
+## 📊 Analytics & Reporting (June 2024)
+
+- Dynamic analytics range: 7, 30, or custom days
+- Custom range dialog with date preview
+- Dynamic work hours chart and labels
+- Enhanced pie chart percentage display
+- Custom-styled tooltips
+- Backend supports flexible range and status inference
+- See [Analytics & UI/UX Improvements Documentation](docs/features/ANALYTICS_UI_IMPROVEMENTS.md) for full details
 
 ## 📚 Documentation
 

@@ -23,6 +23,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   bool _isLoading = false;
   String? _error;
   List<Map<String, dynamic>> _users = [];
+  bool _showInactive = false; // Track whether to show inactive users
 
   @override
   void initState() {
@@ -51,7 +52,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       final token = Provider.of<AuthProvider>(context, listen: false).token;
       print('Auth Token: $token');
 
-      print('DEBUG: ApiConfig.baseUrl = \'${ApiConfig.baseUrl}\'' );
+      print('DEBUG: ApiConfig.baseUrl = \'${ApiConfig.baseUrl}\'');
       print('DEBUG: Auth Token = $token');
 
       if (token == null || token.isEmpty) {
@@ -63,7 +64,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         return;
       }
 
-      final url = '${ApiConfig.baseUrl}/auth/users';
+      // Add showInactive parameter to the URL
+      final url =
+          '${ApiConfig.baseUrl}/auth/users${_showInactive ? '?showInactive=true' : ''}';
       print('Requesting users from: $url');
 
       final response = await http.get(
@@ -94,16 +97,19 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         // Show a snackbar for better UX
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Session expired. Please log in again.')),
+            const SnackBar(
+                content: Text('Session expired. Please log in again.')),
           );
         }
         // Navigate to login screen
         Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
       } else {
-        print('Failed to load users. Status: ${response.statusCode}, Body: ${response.body}');
+        print(
+            'Failed to load users. Status: ${response.statusCode}, Body: ${response.body}');
         if (showErrors) {
           setState(() {
-            _error = 'Failed to load users: ${response.statusCode} ${response.body}';
+            _error =
+                'Failed to load users: ${response.statusCode} ${response.body}';
             _isLoading = false;
           });
         } else {
@@ -239,7 +245,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Confirm Delete'),
-          content: const Text('Are you sure you want to delete this user? This action cannot be undone.'),
+          content: const Text(
+              'Are you sure you want to delete this user? This action cannot be undone.'),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -265,7 +272,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final response = await http.delete(
-        Uri.parse('${ApiConfig.baseUrl}/auth/users/$userId'), // Assuming this is the delete endpoint
+        Uri.parse(
+            '${ApiConfig.baseUrl}/auth/users/$userId'), // Assuming this is the delete endpoint
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${authProvider.token}',
@@ -283,14 +291,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         final data = json.decode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(data['message'] ?? 'Failed to delete user: ${response.statusCode}'),
+            content: Text(data['message'] ??
+                'Failed to delete user: ${response.statusCode}'),
           ),
         );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Network error occurred while deleting user')),
+        const SnackBar(
+            content: Text('Network error occurred while deleting user')),
       );
     } finally {
       if (mounted) {
@@ -303,8 +313,43 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('User Management')),
+      appBar: AppBar(
+        title: const Text('User Management'),
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: theme.colorScheme.onPrimary,
+        actions: [
+          // Toggle button to show/hide inactive users
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _showInactive ? 'All' : 'Active',
+                style: TextStyle(
+                  color: theme.colorScheme.onPrimary,
+                  fontSize: 12,
+                ),
+              ),
+              Switch(
+                value: _showInactive,
+                onChanged: (value) {
+                  setState(() {
+                    _showInactive = value;
+                  });
+                  _loadUsers(); // Reload users with new filter
+                },
+                activeColor: theme.colorScheme.onPrimary,
+                activeTrackColor: theme.colorScheme.onPrimary.withOpacity(0.3),
+                inactiveThumbColor: theme.colorScheme.onPrimary,
+                inactiveTrackColor:
+                    theme.colorScheme.onPrimary.withOpacity(0.3),
+              ),
+            ],
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
       drawer: const AdminSideNavigation(currentRoute: '/user_management'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -439,23 +484,60 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                   shrinkWrap: true,
                                   physics: const NeverScrollableScrollPhysics(),
                                   itemCount: _users.length,
-                                  separatorBuilder: (context, index) => const Divider(height: 1),
+                                  separatorBuilder: (context, index) =>
+                                      const Divider(height: 1),
                                   itemBuilder: (context, index) {
                                     final user = _users[index];
                                     return ListTile(
                                       leading: CircleAvatar(
                                         child: Text(
-                                          (user['firstName'] != null && user['firstName'].isNotEmpty)
-                                              ? user['firstName'][0].toUpperCase()
+                                          (user['firstName'] != null &&
+                                                  user['firstName'].isNotEmpty)
+                                              ? user['firstName'][0]
+                                                  .toUpperCase()
                                               : '?',
                                         ),
                                       ),
-                                      title: Text(
-                                        (user['firstName'] ?? '') +
-                                            (user['lastName'] != null && user['lastName'].isNotEmpty
-                                                ? ' ' + user['lastName']
-                                                : ''),
-                                        style: const TextStyle(fontWeight: FontWeight.w500),
+                                      title: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              (user['firstName'] ?? '') +
+                                                  (user['lastName'] != null &&
+                                                          user['lastName']
+                                                              .isNotEmpty
+                                                      ? ' ' + user['lastName']
+                                                      : ''),
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.w500),
+                                            ),
+                                          ),
+                                          // Show inactive badge if user is inactive
+                                          if (user['isActive'] == false)
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color:
+                                                    Colors.red.withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                border: Border.all(
+                                                    color: Colors.red
+                                                        .withOpacity(0.3)),
+                                              ),
+                                              child: Text(
+                                                'Inactive',
+                                                style: TextStyle(
+                                                  color: Colors.red,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                       subtitle: Text(user['email'] ?? ''),
                                       trailing: Row(
@@ -463,7 +545,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                         children: [
                                           Switch(
                                             value: user['isActive'] ?? false,
-                                            onChanged: (value) => _toggleUserStatus(
+                                            onChanged: (value) =>
+                                                _toggleUserStatus(
                                               user['_id'],
                                               user['isActive'],
                                             ),
@@ -472,8 +555,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                           ),
                                           const SizedBox(width: 8),
                                           IconButton(
-                                            icon: const Icon(Icons.delete, color: Colors.red),
-                                            onPressed: () => _deleteUser(user['_id']),
+                                            icon: const Icon(Icons.delete,
+                                                color: Colors.red),
+                                            onPressed: () =>
+                                                _deleteUser(user['_id']),
                                             tooltip: 'Delete User',
                                           ),
                                         ],
@@ -490,10 +575,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 )
               : (_error != null)
                   ? Center(
-                      child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                      child: Text(_error!,
+                          style: const TextStyle(color: Colors.red)),
                     )
                   : const Center(
-                      child: Text('No users found.', style: TextStyle(color: Colors.grey)),
+                      child: Text('No users found.',
+                          style: TextStyle(color: Colors.grey)),
                     ),
     );
   }

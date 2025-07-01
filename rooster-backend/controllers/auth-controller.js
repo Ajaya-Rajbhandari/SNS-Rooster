@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const User = require('../models/User');
+const Employee = require('../models/Employee');
 
 exports.login = async (req, res) => {
   try {
@@ -329,6 +330,20 @@ exports.updateUserProfileByAdmin = async (req, res) => {
 
     await user.save();
 
+    // --- Sync Employee record ---
+    const employee = await Employee.findOne({ userId: user._id });
+    if (employee) {
+      // Only update fields that exist in Employee schema
+      const employeeFields = ['firstName', 'lastName', 'email', 'department', 'position', 'address'];
+      employeeFields.forEach(field => {
+        if (req.body[field] !== undefined) {
+          employee[field] = req.body[field];
+        }
+      });
+      await employee.save();
+    }
+    // --- End sync ---
+
     // If profile is now complete, clear related notifications
     if (user.isProfileComplete) {
       const Notification = require('../models/Notification');
@@ -358,7 +373,9 @@ exports.getAllUsers = async (req, res) => {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Only admins can view all users' });
     }
-    const users = await User.find({}, '-password'); // Exclude password
+    const showInactive = req.query.showInactive === 'true';
+    const filter = showInactive ? {} : { isActive: true };
+    const users = await User.find(filter, '-password'); // Exclude password
     res.status(200).json(users);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -549,5 +566,30 @@ exports.debugCreateUser = async (req, res) => {
   } catch (error) {
     console.error('Debug create user error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+exports.toggleUserActive = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only admins can update user status' });
+    }
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (typeof req.body.isActive !== 'boolean') {
+      return res.status(400).json({ message: 'isActive must be a boolean' });
+    }
+    user.isActive = req.body.isActive;
+    await user.save();
+    // Sync Employee record if exists
+    const employee = await Employee.findOne({ userId: user._id });
+    if (employee) {
+      employee.isActive = req.body.isActive;
+      await employee.save();
+    }
+    res.json({ message: 'User status updated', user: user.getPublicProfile() });
+  } catch (err) {
+    console.error('toggleUserActive error:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 };

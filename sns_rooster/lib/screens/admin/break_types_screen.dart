@@ -33,7 +33,7 @@ class _BreakTypesScreenState extends State<BreakTypesScreen> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/attendance/admin/break-types'),
+        Uri.parse('${ApiConfig.baseUrl}/admin/break-types'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${authProvider.token}',
@@ -64,7 +64,7 @@ class _BreakTypesScreenState extends State<BreakTypesScreen> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final response = await http.put(
-        Uri.parse('${ApiConfig.baseUrl}/attendance/admin/break-types/$id'),
+        Uri.parse('${ApiConfig.baseUrl}/admin/break-types/$id'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${authProvider.token}',
@@ -253,7 +253,8 @@ class _BreakTypesScreenState extends State<BreakTypesScreen> {
                                                       size: 18),
                                                   tooltip: 'Edit',
                                                   padding: EdgeInsets.zero,
-                                                  constraints: BoxConstraints(),
+                                                  constraints:
+                                                      const BoxConstraints(),
                                                   onPressed: () =>
                                                       _showBreakTypeDialog(
                                                           breakType: breakType),
@@ -353,8 +354,8 @@ class _BreakTypesScreenState extends State<BreakTypesScreen> {
                     ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showBreakTypeDialog(),
-        child: const Icon(Icons.add),
         tooltip: 'Add Break Type',
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -405,7 +406,7 @@ class _BreakTypesScreenState extends State<BreakTypesScreen> {
     bool isActive = breakType?['isActive'] ?? true;
     bool showAdvanced = false;
 
-    String _generateName(String displayName) {
+    String generateName(String displayName) {
       return displayName
           .trim()
           .toLowerCase()
@@ -433,7 +434,7 @@ class _BreakTypesScreenState extends State<BreakTypesScreen> {
                             v == null || v.trim().isEmpty ? 'Required' : null,
                         onChanged: (v) => setState(() {
                           displayName = v;
-                          name = _generateName(v);
+                          name = generateName(v);
                         }),
                       ),
                       if (isEdit)
@@ -679,7 +680,7 @@ class _BreakTypesScreenState extends State<BreakTypesScreen> {
                         Provider.of<AuthProvider>(context, listen: false);
                     final body = {
                       'displayName': displayName.trim(),
-                      'name': _generateName(displayName),
+                      'name': generateName(displayName),
                       'description': description.trim(),
                       'icon': icon,
                       'color': color,
@@ -696,7 +697,7 @@ class _BreakTypesScreenState extends State<BreakTypesScreen> {
                       if (isEdit) {
                         response = await http.put(
                           Uri.parse(
-                              '${ApiConfig.baseUrl}/attendance/admin/break-types/${breakType!['_id']}'),
+                              '${ApiConfig.baseUrl}/admin/break-types/${breakType['_id']}'),
                           headers: {
                             'Content-Type': 'application/json',
                             'Authorization': 'Bearer ${authProvider.token}',
@@ -705,8 +706,7 @@ class _BreakTypesScreenState extends State<BreakTypesScreen> {
                         );
                       } else {
                         response = await http.post(
-                          Uri.parse(
-                              '${ApiConfig.baseUrl}/attendance/admin/break-types'),
+                          Uri.parse('${ApiConfig.baseUrl}/admin/break-types'),
                           headers: {
                             'Content-Type': 'application/json',
                             'Authorization': 'Bearer ${authProvider.token}',
