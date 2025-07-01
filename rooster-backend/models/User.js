@@ -66,18 +66,13 @@ const userSchema = new mongoose.Schema({
     type: String, // File path or URL
     trim: true,
   },
-  passport: {
-    type: String, // File path or URL
-    trim: true,
-  },
-  idCard: {
-    type: String, // File path or URL for uploaded ID card
-    trim: true,
-  },
   documents: [
     {
       type: { type: String, trim: true }, // e.g., 'idCard', 'passport'
       path: { type: String, trim: true },
+      status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
+      verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      verifiedAt: { type: Date }
     }
   ],
   education: [
@@ -151,9 +146,32 @@ userSchema.methods.getPublicProfile = function() {
   return userObject;
 };
 
-userSchema.methods.recalculateProfileComplete = function() {
-  // Only require fields employees can fill themselves
-  const requiredFields = [
+userSchema.methods.recalculateProfileComplete = async function() {
+  // Get admin settings to determine what sections are required
+  const AdminSettings = require('./AdminSettings');
+  let settings;
+  try {
+    settings = await AdminSettings.getSettings();
+  } catch (error) {
+    console.log('Could not load admin settings, using defaults');
+    // Fallback to defaults if settings can't be loaded
+    settings = {
+      educationSectionEnabled: true,
+      certificatesSectionEnabled: true,
+      requiredProfileFields: [
+        'firstName',
+        'lastName',
+        'email',
+        'phone',
+        'address',
+        'emergencyContact',
+        'emergencyPhone'
+      ]
+    };
+  }
+
+  // Base required fields that employees can fill themselves
+  const requiredFields = settings.requiredProfileFields || [
     'firstName',
     'lastName',
     'email',
@@ -162,9 +180,32 @@ userSchema.methods.recalculateProfileComplete = function() {
     'emergencyContact',
     'emergencyPhone'
   ];
-  this.isProfileComplete = requiredFields.every(field => {
+
+  // Check if base fields are complete
+  let isComplete = requiredFields.every(field => {
     return this[field] && String(this[field]).trim().length > 0;
   });
+
+  // If education section is enabled and user has education entries,
+  // require at least basic information for each entry
+  if (isComplete && settings.educationSectionEnabled && this.education && this.education.length > 0) {
+    isComplete = this.education.every(edu => {
+      return edu.institution && edu.degree && edu.fieldOfStudy &&
+             edu.institution.trim().length > 0 && 
+             edu.degree.trim().length > 0 && 
+             edu.fieldOfStudy.trim().length > 0;
+    });
+  }
+
+  // If certificates section is enabled and user has certificate entries,
+  // require at least basic information for each entry
+  if (isComplete && settings.certificatesSectionEnabled && this.certificates && this.certificates.length > 0) {
+    isComplete = this.certificates.every(cert => {
+      return cert.name && cert.name.trim().length > 0;
+    });
+  }
+
+  this.isProfileComplete = isComplete;
 };
 const User = mongoose.model('User', userSchema);
 

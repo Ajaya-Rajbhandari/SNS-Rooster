@@ -217,11 +217,13 @@ class ProfileProvider with ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['profile'] != null && data['profile'] is Map<String, dynamic>) {
+        if (data['profile'] != null &&
+            data['profile'] is Map<String, dynamic>) {
           _updateProfileData(data['profile']);
           // Debug print for avatar troubleshooting
           print('DEBUG: Avatar field after upload: \\${_profile?['avatar']}');
-          print('DEBUG: ProfilePicture field after upload: \\${_profile?['profilePicture']}');
+          print(
+              'DEBUG: ProfilePicture field after upload: \\${_profile?['profilePicture']}');
           if (_disposed) return false;
           // Update AuthProvider's user data for consistency
           await _authProvider.updateUser(_profile!);
@@ -269,6 +271,10 @@ class ProfileProvider with ChangeNotifier {
         final responseBody = await response.stream.bytesToString();
         final data = json.decode(responseBody);
         print('Upload successful: $data');
+
+        // Refresh profile data to get updated document info
+        await _fetchProfileInBackground();
+
         return true;
       } else {
         print('Upload failed with status code: ${response.statusCode}');

@@ -237,7 +237,8 @@ exports.updateCurrentUserProfile = async (req, res) => {
       delete req.body.emergencyContactRelationship;
     }
 
-    // Recalculate profile completeness after updates    user.recalculateProfileComplete();
+    // Recalculate profile completeness after updates
+    await user.recalculateProfileComplete();
 
     await user.save();
 
@@ -326,7 +327,7 @@ exports.updateUserProfileByAdmin = async (req, res) => {
     });
 
     // Recalculate profile completeness after updates
-    user.recalculateProfileComplete();
+    await user.recalculateProfileComplete();
 
     await user.save();
 
@@ -422,35 +423,6 @@ exports.deleteUser = async (req, res) => {
         }
       });
     }
-    // Delete idCard and passport files
-    if (user.idCard) {
-      const idCardPath = path.join(__dirname, '..', user.idCard);
-      fs.unlink(idCardPath, (err) => {
-        if (err) {
-          if (err.code === 'ENOENT') {
-            // File already deleted or never existed, ignore
-          } else if (err.code === 'EPERM') {
-            console.warn('Warning: Could not delete idCard due to permission error:', err);
-          } else {
-            console.error('Error deleting idCard:', err);
-          }
-        }
-      });
-    }
-    if (user.passport) {
-      const passportPath = path.join(__dirname, '..', user.passport);
-      fs.unlink(passportPath, (err) => {
-        if (err) {
-          if (err.code === 'ENOENT') {
-            // File already deleted or never existed, ignore
-          } else if (err.code === 'EPERM') {
-            console.warn('Warning: Could not delete passport due to permission error:', err);
-          } else {
-            console.error('Error deleting passport:', err);
-          }
-        }
-      });
-    }
     // Delete all files in documents array
     if (user.documents && Array.isArray(user.documents)) {
       user.documents.forEach(doc => {
@@ -478,7 +450,9 @@ exports.deleteUser = async (req, res) => {
 };
 
 exports.uploadDocument = async (req, res) => {
-  try {    const { documentType } = req.body;
+  try {
+    let { documentType } = req.body;
+    documentType = (documentType || '').toLowerCase().trim();
     const userId = req.user.userId;
 
     if (!req.file) {
@@ -495,29 +469,24 @@ exports.uploadDocument = async (req, res) => {
     }
 
     const filePath = `/uploads/documents/${req.file.filename}`;
-    // Remove old file if updating same document type
-    if (documentType === 'idCard' && user.idCard) {
-      const oldPath = path.join(__dirname, '..', user.idCard);
-      fs.unlink(oldPath, (err) => {        if (err) console.error('Error deleting old ID card:', err);
-      });
-    }
-    if (documentType === 'passport' && user.passport) {
-      const oldPath = path.join(__dirname, '..', user.passport);
-      fs.unlink(oldPath, (err) => {
-        if (err) console.error('Error deleting old passport:', err);
-      });
-    }
-    // Save new file path
-    if (documentType === 'idCard') user.idCard = filePath;
-    if (documentType === 'passport') user.passport = filePath;
-    // Update documents array (replace or add)
+
+    // Remove all previous documents of the same type (and delete their files)
     user.documents = user.documents || [];
-    const docIndex = user.documents.findIndex(doc => doc.type === documentType);
-    if (docIndex !== -1) {
-      user.documents[docIndex].path = filePath;
-    } else {
-      user.documents.push({ type: documentType, path: filePath });
-    }    await user.save();
+    const docsToRemove = user.documents.filter(doc => doc.type === documentType);
+    for (const doc of docsToRemove) {
+      if (doc.path && doc.path !== filePath) { // Don't delete the new file
+        const docPath = path.join(__dirname, '..', doc.path);
+        fs.unlink(docPath, (err) => {
+          if (err && err.code !== 'ENOENT') console.error('Error deleting old document:', err);
+        });
+      }
+    }
+    // Keep only documents not of this type
+    user.documents = user.documents.filter(doc => doc.type !== documentType);
+    // Add the new document
+    user.documents.push({ type: documentType, path: filePath });
+
+    await user.save();
 
     res.status(200).json({
       message: 'Document uploaded successfully',

@@ -380,7 +380,39 @@ exports.getUserAttendance = async (req, res) => {
       .populate("user", "firstName lastName email role")
       .sort({ date: -1 }); // Sort by date, newest first
 
-    res.json(attendanceRecords);
+    // Calculate status for each attendance record
+    const recordsWithStatus = attendanceRecords.map(record => {
+      let status = "absent";
+      
+      if (record.checkInTime) {
+        if (record.checkOutTime) {
+          // Check if they were late (after 9:00 AM)
+          const checkInTime = new Date(record.checkInTime);
+          const checkInHour = checkInTime.getHours();
+          const checkInMinute = checkInTime.getMinutes();
+          const isLate = checkInHour > 9 || (checkInHour === 9 && checkInMinute > 0);
+          
+          status = isLate ? "late" : "present";
+        } else {
+          // Still clocked in or on break
+          const lastBreak = record.breaks.length > 0 
+            ? record.breaks[record.breaks.length - 1] 
+            : null;
+          if (lastBreak && !lastBreak.end) {
+            status = "on break";
+          } else {
+            status = "working";
+          }
+        }
+      }
+
+      // Convert to plain object and add status
+      const recordObj = record.toObject();
+      recordObj.status = status;
+      return recordObj;
+    });
+
+    res.json(recordsWithStatus);
   } catch (error) {
     console.error("Get user attendance error:", error);
     res.status(500).json({ message: "Server error" });

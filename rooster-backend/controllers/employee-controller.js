@@ -120,6 +120,7 @@ exports.updateEmployee = async (req, res) => {
     employee.hireDate = req.body.hireDate || employee.hireDate;
     employee.position = req.body.position || employee.position;
     employee.department = req.body.department || employee.department;
+    employee.userId = req.body.userId || employee.userId;
 
     const updatedEmployee = await employee.save();
     res.status(200).json(updatedEmployee);
@@ -254,5 +255,35 @@ exports.getUnassignedUsers = async (req, res) => {
     res.json(unassignedUsers);
   } catch (err) {
     res.status(500).json({ message: 'Error fetching unassigned users' });
+  }
+};
+
+exports.verifyUserDocument = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only admins can verify documents' });
+    }
+    const { userId, docId } = req.params;
+    const { status } = req.body;
+    if (!['verified', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const doc = user.documents.id(docId);
+    if (!doc) return res.status(404).json({ message: 'Document not found' });
+
+    doc.status = status;
+    doc.verifiedBy = req.user.userId;
+    doc.verifiedAt = new Date();
+
+    await user.save();
+
+    res.json({ message: `Document ${status}`, document: doc });
+  } catch (error) {
+    console.error('verifyUserDocument error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
