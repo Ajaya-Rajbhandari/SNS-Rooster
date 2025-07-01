@@ -7,6 +7,7 @@ import 'package:sns_rooster/widgets/app_drawer.dart'; // Add this import
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/admin_settings_provider.dart';
 import '../../widgets/admin_side_navigation.dart';
 import 'package:flutter/services.dart';
 
@@ -65,7 +66,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _emergencyContactRelationshipController =
       TextEditingController();
 
-  bool _isEditing = false;
   bool _isLoading = false; // For local operations like save, image pick
   bool _isEditingPersonal = false;
   bool _isEditingEmergency = false;
@@ -205,6 +205,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (success) {
         print('Document uploaded successfully.');
+        // Refresh profile data to update UI with new document
+        await profileProvider.refreshProfile();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Document uploaded successfully!')),
         );
@@ -226,42 +228,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _saveProfile() async {
-    // Validation
+  Future<void> _savePersonalInfo() async {
+    // Validation for personal information only
     String firstName = _firstNameController.text.trim();
     String lastName = _lastNameController.text.trim();
     String phone = _phoneController.text.trim();
     String email = _emailController.text.trim();
     String address = _addressController.text.trim();
-    String emergencyContact = _emergencyContactController.text.trim();
-    String emergencyPhone = _emergencyPhoneController.text.trim();
     final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
     if (firstName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('First name is required.')),
       );
-      setState(() {
-        _isLoading = false;
-      });
       return;
     }
     if (lastName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Last name is required.')),
       );
-      setState(() {
-        _isLoading = false;
-      });
       return;
     }
     if (email.isEmpty || !emailRegex.hasMatch(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a valid email address.')),
       );
-      setState(() {
-        _isLoading = false;
-      });
       return;
     }
     if (phone.isEmpty || phone.length < 8) {
@@ -270,27 +261,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
             content:
                 Text('Please enter a valid phone number (at least 8 digits).')),
       );
-      setState(() {
-        _isLoading = false;
-      });
       return;
     }
     if (address.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Address is required.')),
       );
-      setState(() {
-        _isLoading = false;
-      });
       return;
     }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
+    Map<String, dynamic> updates = {
+      'firstName': _firstNameController.text,
+      'lastName': _lastNameController.text,
+      'phone': _phoneController.text,
+      'address': _addressController.text,
+    };
+
+    try {
+      await profileProvider.updateProfile(updates);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Personal information updated successfully!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update personal information: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+        _isEditingPersonal = false;
+      });
+    }
+  }
+
+  Future<void> _saveEmergencyContact() async {
+    // Validation for emergency contact only
+    String emergencyContact = _emergencyContactController.text.trim();
+    String emergencyPhone = _emergencyPhoneController.text.trim();
+    String emergencyRelationship =
+        _emergencyContactRelationshipController.text.trim();
+
     if (emergencyContact.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Emergency contact name is required.')),
       );
-      setState(() {
-        _isLoading = false;
-      });
       return;
     }
     if (emergencyPhone.isEmpty || emergencyPhone.length < 8) {
@@ -299,35 +320,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
             content: Text(
                 'Please enter a valid emergency contact phone (at least 8 digits).')),
       );
-      setState(() {
-        _isLoading = false;
-      });
       return;
     }
+    if (emergencyRelationship.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Relationship is required.')),
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
+
     final profileProvider =
         Provider.of<ProfileProvider>(context, listen: false);
     Map<String, dynamic> updates = {
-      'firstName': _firstNameController.text,
-      'lastName': _lastNameController.text,
-      // 'email': _emailController.text, // Email is not editable, so don't send for update
-      'phone': _phoneController.text,
-      'address': _addressController.text,
-      // Use backend field names for emergency contact
       'emergencyContact': _emergencyContactController.text,
       'emergencyPhone': _emergencyPhoneController.text,
-      // For relationship, add 'emergencyRelationship' for future backend support
       'emergencyRelationship': _emergencyContactRelationshipController.text,
     };
-    await profileProvider.updateProfile(updates);
-    setState(() {
-      _isLoading = false;
-      _isEditing = false;
-      _isEditingPersonal = false;
-      _isEditingEmergency = false;
-    });
+
+    try {
+      await profileProvider.updateProfile(updates);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Emergency contact updated successfully!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update emergency contact: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+        _isEditingEmergency = false;
+      });
+    }
   }
 
   @override
@@ -471,14 +500,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                       onPressed: () async {
                                         if (_isEditingPersonal) {
-                                          setState(() {
-                                            _isLoading = true;
-                                          });
-                                          await _saveProfile();
-                                          setState(() {
-                                            _isEditingPersonal = false;
-                                            _isLoading = false;
-                                          });
+                                          await _savePersonalInfo();
                                         } else {
                                           setState(() {
                                             _isEditingPersonal = true;
@@ -496,13 +518,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   controller: _firstNameController,
                                   label: 'First Name',
                                   icon: Icons.person,
-                                  enabled: false,
+                                  enabled: _isEditingPersonal,
                                 ),
                                 _buildTextField(
                                   controller: _lastNameController,
                                   label: 'Last Name',
                                   icon: Icons.person,
-                                  enabled: false,
+                                  enabled: _isEditingPersonal,
                                 ),
                                 _buildTextField(
                                   controller: _emailController,
@@ -558,14 +580,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         ),
                                         onPressed: () async {
                                           if (_isEditingEmergency) {
-                                            setState(() {
-                                              _isLoading = true;
-                                            });
-                                            await _saveProfile();
-                                            setState(() {
-                                              _isEditingEmergency = false;
-                                              _isLoading = false;
-                                            });
+                                            await _saveEmergencyContact();
                                           } else {
                                             setState(() {
                                               _isEditingEmergency = true;
@@ -675,66 +690,98 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 Consumer<ProfileProvider>(
                                   builder: (context, profileProvider, _) {
                                     final profile = profileProvider.profile;
-                                    final idCardPath = profile?['idCard'];
-                                    final passportPath = profile?['passport'];
+                                    final documents =
+                                        profile?['documents'] ?? [];
                                     return Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        ListTile(
-                                          leading: const Icon(Icons.credit_card,
-                                              color: Colors.blue),
-                                          title: const Text('ID Card'),
-                                          subtitle: idCardPath != null &&
-                                                  idCardPath.isNotEmpty
-                                              ? Text(
-                                                  'Uploaded: ${idCardPath.split('/').last}')
-                                              : const Text(
-                                                  'No ID Card uploaded'),
-                                          trailing: idCardPath != null &&
-                                                  idCardPath.isNotEmpty
-                                              ? IconButton(
+                                        ...documents
+                                            .asMap()
+                                            .entries
+                                            .map((entry) {
+                                          final idx = entry.key;
+                                          final document = entry.value;
+                                          final status =
+                                              document['status'] ?? 'pending';
+                                          Color statusColor;
+                                          String statusLabel;
+                                          switch (status) {
+                                            case 'verified':
+                                              statusColor = Colors.green;
+                                              statusLabel = 'Verified';
+                                              break;
+                                            case 'rejected':
+                                              statusColor = Colors.red;
+                                              statusLabel = 'Rejected';
+                                              break;
+                                            default:
+                                              statusColor = Colors.orange;
+                                              statusLabel = 'Pending';
+                                          }
+                                          return ListTile(
+                                            leading: const Icon(
+                                                Icons.file_present,
+                                                color: Colors.blue),
+                                            title: Row(
+                                              children: [
+                                                Expanded(
+                                                    child: Text(
+                                                        document['name'] ??
+                                                            '')),
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: statusColor
+                                                        .withOpacity(0.15),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                  child: Text(
+                                                    statusLabel,
+                                                    style: TextStyle(
+                                                        color: statusColor,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 12),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            subtitle: Text(
+                                                'Uploaded: ${document['filename'] ?? ''}'),
+                                            trailing: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                IconButton(
                                                   icon: const Icon(
                                                       Icons.visibility),
+                                                  tooltip: 'View',
                                                   onPressed: () async {
-                                                    final url = ApiConfig
-                                                            .baseUrl
-                                                            .replaceAll(
-                                                                '/api', '') +
-                                                        idCardPath;
-                                                    showDocumentDialog(
-                                                        context, url);
+                                                    showDocumentDialog(context,
+                                                        document['url']);
                                                   },
-                                                )
-                                              : null,
-                                        ),
-                                        ListTile(
-                                          leading: const Icon(Icons.book,
-                                              color: Colors.green),
-                                          title: const Text('Passport'),
-                                          subtitle: passportPath != null &&
-                                                  passportPath.isNotEmpty
-                                              ? Text(
-                                                  'Uploaded: ${passportPath.split('/').last}')
-                                              : const Text(
-                                                  'No Passport uploaded'),
-                                          trailing: passportPath != null &&
-                                                  passportPath.isNotEmpty
-                                              ? IconButton(
-                                                  icon: const Icon(
-                                                      Icons.visibility),
-                                                  onPressed: () async {
-                                                    final url = ApiConfig
-                                                            .baseUrl
-                                                            .replaceAll(
-                                                                '/api', '') +
-                                                        passportPath;
-                                                    showDocumentDialog(
-                                                        context, url);
-                                                  },
-                                                )
-                                              : null,
-                                        ),
+                                                ),
+                                                if (status == 'rejected')
+                                                  IconButton(
+                                                    icon: const Icon(
+                                                        Icons.refresh,
+                                                        color: Colors.orange),
+                                                    tooltip: 'Replace',
+                                                    onPressed: () async {
+                                                      await _pickAndUploadDocument(
+                                                          document['type'] ??
+                                                              '');
+                                                    },
+                                                  ),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
                                       ],
                                     );
                                   },
@@ -743,32 +790,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           const SizedBox(height: 32),
-                          // Education Section
-                          _EducationSection(),
-                          const SizedBox(height: 32),
-                          // Certificates Section
-                          _CertificateSection(),
-                          // Save Button
-                          if (_isEditing)
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: _isLoading ? null : _saveProfile,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: theme.colorScheme.primary,
-                                  foregroundColor: Colors.white,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  elevation: 2,
-                                ),
-                                child: _isLoading
-                                    ? const CircularProgressIndicator()
-                                    : const Text('Save Changes'),
-                              ),
-                            ),
+                          // Education Section (conditional)
+                          Consumer<AdminSettingsProvider>(
+                            builder: (context, adminSettings, _) {
+                              if (adminSettings.educationSectionEnabled) {
+                                return Column(
+                                  children: [
+                                    _EducationSection(),
+                                    const SizedBox(height: 32),
+                                  ],
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                          // Certificates Section (conditional)
+                          Consumer<AdminSettingsProvider>(
+                            builder: (context, adminSettings, _) {
+                              if (adminSettings.certificatesSectionEnabled) {
+                                return _CertificateSection();
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                          // Save buttons are now integrated into individual sections
                         ],
                       ),
                     ),

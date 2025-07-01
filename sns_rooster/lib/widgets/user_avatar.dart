@@ -13,7 +13,7 @@ class UserAvatar extends StatelessWidget {
     this.avatarUrl,
     this.radius = 40, // Default radius to 40 as in original
     this.onTap,
-  }) ;
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -31,8 +31,8 @@ class UserAvatar extends StatelessWidget {
         ),
         errorWidget: (context, url, error) => CircleAvatar(
           radius: radius,
-          backgroundColor: Colors.red[100],
-          child: Icon(Icons.error_outline, size: radius, color: Colors.red[700]),
+          backgroundColor: Colors.grey[200],
+          child: Icon(Icons.person, size: radius, color: Colors.grey[400]),
         ),
         imageBuilder: (context, imageProvider) => CircleAvatar(
           radius: radius,
@@ -52,8 +52,8 @@ class UserAvatar extends StatelessWidget {
         ),
         errorWidget: (context, url, error) => CircleAvatar(
           radius: radius,
-          backgroundColor: Colors.red[100],
-          child: Icon(Icons.error_outline, size: radius, color: Colors.red[700]),
+          backgroundColor: Colors.grey[200],
+          child: Icon(Icons.person, size: radius, color: Colors.grey[400]),
         ),
         imageBuilder: (context, imageProvider) => CircleAvatar(
           radius: radius,
@@ -63,7 +63,8 @@ class UserAvatar extends StatelessWidget {
     } else if (avatarUrl!.startsWith('file://')) {
       avatarChild = CircleAvatar(
         radius: radius,
-        backgroundImage: FileImage(File(avatarUrl!.replaceFirst('file://', ''))),
+        backgroundImage:
+            FileImage(File(avatarUrl!.replaceFirst('file://', ''))),
       );
     } else {
       // Assume it's an asset path
@@ -76,7 +77,8 @@ class UserAvatar extends StatelessWidget {
         avatarChild = CircleAvatar(
           radius: radius,
           backgroundColor: Colors.orange[100],
-          child: Icon(Icons.broken_image, size: radius, color: Colors.orange[700]),
+          child:
+              Icon(Icons.broken_image, size: radius, color: Colors.orange[700]),
         );
       }
     }
@@ -87,8 +89,10 @@ class UserAvatar extends StatelessWidget {
       onTap: onTap,
       child: CircleAvatar(
         radius: radius,
-        backgroundColor: Colors.transparent, // Important for CachedNetworkImage's CircleAvatar to show
-        child: ClipOval( // Ensures the child (which might be rectangular from CachedNetworkImage) is clipped to a circle
+        backgroundColor: Colors
+            .transparent, // Important for CachedNetworkImage's CircleAvatar to show
+        child: ClipOval(
+          // Ensures the child (which might be rectangular from CachedNetworkImage) is clipped to a circle
           child: avatarChild,
         ),
       ),

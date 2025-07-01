@@ -37,6 +37,9 @@ router.get('/dashboard', authMiddleware, employeeController.getEmployeeDashboard
 // Get a single employee by User ID (admin/manager or self)
 router.get('/user/:userId', authMiddleware, employeeController.getEmployeeByUserId);
 
+// Document verification (admin only)
+router.patch('/users/:userId/documents/:docId/verify', authMiddleware, employeeController.verifyUserDocument);
+
 console.log('EMPLOYEE ROUTES: Registering /dashboard route');
 
 // Catch-all debug route for unmatched requests
