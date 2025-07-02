@@ -31,6 +31,46 @@ const adminSettingsSchema = new mongoose.Schema({
     default: ['pdf', 'jpg', 'jpeg', 'png'],
   },
   
+  // Payroll cycle settings (nested object)
+  payrollCycle: {
+    frequency: {
+      type: String,
+      default: 'Monthly',
+    },
+    cutoffDay: {
+      type: Number,
+      default: 25,
+    },
+    payDay: {
+      type: Number,
+      default: 30,
+    },
+    payOffset: {
+      type: Number,
+      default: 0,
+    },
+    overtimeEnabled: {
+      type: Boolean,
+      default: true,
+    },
+    overtimeMultiplier: {
+      type: Number,
+      default: 1.5,
+    },
+    autoGenerate: {
+      type: Boolean,
+      default: true,
+    },
+    notifyCycleClose: {
+      type: Boolean,
+      default: true,
+    },
+    notifyPayslip: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  
   // Profile completion requirements
   requiredProfileFields: {
     type: [String],

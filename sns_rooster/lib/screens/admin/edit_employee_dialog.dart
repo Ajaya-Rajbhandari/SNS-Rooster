@@ -22,6 +22,7 @@ class _EditEmployeeDialogState extends State<EditEmployeeDialog> {
   late TextEditingController _employeeIdController;
   late TextEditingController _positionController;
   late TextEditingController _departmentController;
+  late TextEditingController _hourlyRateController;
   bool _isLoading = false;
   String? _error;
   bool _dialogResult = false;
@@ -40,6 +41,8 @@ class _EditEmployeeDialogState extends State<EditEmployeeDialog> {
         TextEditingController(text: widget.employee['position']);
     _departmentController =
         TextEditingController(text: widget.employee['department']);
+    _hourlyRateController = TextEditingController(
+        text: widget.employee['hourlyRate']?.toString() ?? '');
   }
 
   @override
@@ -50,6 +53,7 @@ class _EditEmployeeDialogState extends State<EditEmployeeDialog> {
     _employeeIdController.dispose();
     _positionController.dispose();
     _departmentController.dispose();
+    _hourlyRateController.dispose();
     super.dispose();
   }
 
@@ -71,6 +75,7 @@ class _EditEmployeeDialogState extends State<EditEmployeeDialog> {
         'employeeId': _employeeIdController.text.trim(),
         'position': _positionController.text.trim(),
         'department': _departmentController.text.trim(),
+        'hourlyRate': double.tryParse(_hourlyRateController.text) ?? 0,
       };
       // Call updateEmployee on the EmployeeProvider
       await widget.employeeProvider
@@ -174,6 +179,19 @@ class _EditEmployeeDialogState extends State<EditEmployeeDialog> {
                 ),
                 validator: (v) => v == null || v.isEmpty ? 'Required' : null,
               ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _hourlyRateController,
+                decoration: InputDecoration(
+                  labelText: 'Hourly Rate',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  prefixIcon:
+                      Icon(Icons.attach_money, color: colorScheme.primary),
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
               if (_error != null) ...[
                 const SizedBox(height: 16),
                 Text(

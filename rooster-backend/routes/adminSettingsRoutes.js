@@ -17,6 +17,10 @@ router.get('/', auth, adminOnly, adminSettingsController.getAdminSettings);
 // PUT /api/admin/settings - Update admin settings
 router.put('/', auth, adminOnly, adminSettingsController.updateAdminSettings);
 
+// Payroll cycle settings
+router.get('/payroll-cycle', auth, adminOnly, adminSettingsController.getPayrollCycleSettings);
+router.put('/payroll-cycle', auth, adminOnly, adminSettingsController.updatePayrollCycleSettings);
+
 // POST /api/admin/settings/reset - Reset settings to defaults
 router.post('/reset', auth, adminOnly, adminSettingsController.resetAdminSettings);
 

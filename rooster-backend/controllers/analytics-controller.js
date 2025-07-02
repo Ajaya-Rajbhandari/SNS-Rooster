@@ -218,7 +218,16 @@ exports.getMonthlyHoursTrendAdmin = async (req, res) => {
         hours: +(monthMap[key] / (1000 * 60 * 60)).toFixed(1),
       }));
 
-    res.json({ trend });
+    console.log('DEBUG: payroll trend raw length', trend.length);
+    const formatted = trend.map((t) => {
+      const monthStr = `${t.month}`;
+      return {
+        month: monthStr,
+        totalHours: t.hours,
+      };
+    });
+
+    res.json({ trend: formatted });
   } catch (err) {
     console.error('Monthly hours trend error:', err);
     res.status(500).json({ message: 'Error computing monthly hours trend' });
@@ -316,22 +325,67 @@ exports.getAdminOverview = async (req, res) => {
     const employees = await require('../models/User').find({ role: 'employee' });
     const employeeIds = employees.map(e => e._id);
 
-    // Attendance breakdown for the last N days
-    const attendanceRecords = await Attendance.find({
-      user: { $in: employeeIds },
-      date: { $gte: startDate, $lte: today }
-    });
-    let present = 0, absent = 0, leave = 0;
-    attendanceRecords.forEach(record => {
-      let status = (record.status || '').toLowerCase();
-      if (!status && record.checkInTime && record.checkOutTime) status = 'present';
-      if (status === 'present' || status === 'completed') present++;
-      else if (status === 'absent') absent++;
-      else if (status === 'leave') leave++;
-    });
+    // Attendance breakdown for today
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    // ===== Attendance Counters =====
+    let present = 0;
+    let leave = 0;
+    let absent = 0;
+
+    try {
+      console.time('presentAttendance');
+      const presentAttendance = await Attendance.find({
+        user: { $in: employeeIds },
+        date: { $gte: todayStart, $lte: todayEnd },
+        $or: [
+          { status: { $in: ['present', 'completed'] } },
+          { $and: [{ checkInTime: { $ne: null } }, { checkOutTime: { $ne: null } }] },
+        ],
+      }).distinct('user');
+      console.timeEnd('presentAttendance');
+
+      const presentSet = new Set(presentAttendance.map((id) => id.toString()));
+
+      console.time('employeeDocs');
+      const employeeDocs = await Employee.find({ userId: { $in: employeeIds } }, '_id userId');
+      console.timeEnd('employeeDocs');
+
+      const empIdMap = new Map();
+      employeeDocs.forEach((e) => empIdMap.set(e._id.toString(), e.userId.toString()));
+
+      console.time('leaveDocs');
+      const leaveDocs = await Leave.find({
+        employee: { $in: employeeDocs.map((e) => e._id) },
+        startDate: { $lte: todayEnd },
+        endDate: { $gte: todayStart },
+        status: { $regex: /^approved$/i },
+      }).distinct('employee');
+      console.timeEnd('leaveDocs');
+
+      const leaveSet = new Set(
+        leaveDocs
+          .map((id) => empIdMap.get(id.toString()))
+          .filter(Boolean)
+      );
+
+      present = presentSet.size;
+      leave = leaveSet.size;
+      absent = employeeIds.length - present - leave;
+    } catch (attErr) {
+      console.error('Admin overview attendance calc error:', attErr);
+      // Fallback to previous simple logic: everyone absent except presentSet if available
+      present = 0;
+      leave = 0;
+      absent = employeeIds.length;
+    }
 
     // Work hours trend (average per day for all employees)
     const workHoursByDay = {};
+    const attendanceRecords = await Attendance.find({ user: { $in: employeeIds } }).sort({ date: -1 });
     attendanceRecords.forEach(record => {
       if (record.checkInTime && record.checkOutTime) {
         const dateStr = record.date.toISOString().slice(0, 10);
@@ -472,8 +526,49 @@ exports.getPayrollTrendAdmin = async (req, res) => {
     }
 
     const months = parseInt(req.query.months) || 6;
+    const freq = (req.query.freq || 'monthly').toLowerCase();
     const endDate = new Date();
     const startDate = new Date(endDate.getFullYear(), endDate.getMonth() - months + 1, 1);
+
+    let groupStage;
+    if (freq === 'weekly') {
+      groupStage = {
+        _id: {
+          year: { $year: '$issueDate' },
+          week: { $isoWeek: '$issueDate' },
+        },
+      };
+    } else if (freq === 'bi-weekly') {
+      // group by bi-week index (every 2 ISO weeks)
+      groupStage = {
+        _id: {
+          year: { $year: '$issueDate' },
+          biweek: {
+            $floor: {
+              $divide: [{ $subtract: [{ $isoWeek: '$issueDate' }, 1] }, 2],
+            },
+          },
+        },
+      };
+    } else if (freq === 'semi-monthly') {
+      groupStage = {
+        _id: {
+          year: { $year: '$issueDate' },
+          month: { $month: '$issueDate' },
+          half: {
+            $cond: [{ $lte: [{ $dayOfMonth: '$issueDate' }, 15] }, 1, 2],
+          },
+        },
+      };
+    } else {
+      // monthly default
+      groupStage = {
+        _id: {
+          year: { $year: '$issueDate' },
+          month: { $month: '$issueDate' },
+        },
+      };
+    }
 
     const trend = await Payroll.aggregate([
       {
@@ -483,24 +578,31 @@ exports.getPayrollTrendAdmin = async (req, res) => {
       },
       {
         $group: {
-          _id: {
-            year: { $year: '$issueDate' },
-            month: { $month: '$issueDate' },
-          },
+          ...groupStage,
           totalGross: { $sum: '$grossPay' },
           totalNet: { $sum: '$netPay' },
           totalDeductions: { $sum: '$deductions' },
         },
       },
       {
-        $sort: { '_id.year': 1, '_id.month': 1 },
+        $sort: { '_id.year': 1 },
       },
     ]);
 
+    console.log('DEBUG: payroll trend raw length', trend.length);
     const formatted = trend.map((t) => {
-      const monthStr = `${t._id.year}-${t._id.month.toString().padStart(2, '0')}`;
+      let label;
+      if (freq === 'weekly') {
+        label = `${t._id.year}-W${t._id.week}`;
+      } else if (freq === 'bi-weekly') {
+        label = `${t._id.year}-B${t._id.biweek + 1}`;
+      } else if (freq === 'semi-monthly') {
+        label = `${t._id.year}-${t._id.month.toString().padStart(2, '0')}-${t._id.half}`;
+      } else {
+        label = `${t._id.year}-${t._id.month.toString().padStart(2, '0')}`;
+      }
       return {
-        month: monthStr,
+        month: label,
         totalGross: t.totalGross,
         totalNet: t.totalNet,
         totalDeductions: t.totalDeductions,

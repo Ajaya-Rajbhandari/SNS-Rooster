@@ -34,6 +34,7 @@ import 'package:sns_rooster/providers/admin_settings_provider.dart';
 import 'package:sns_rooster/providers/admin_attendance_provider.dart';
 import 'package:sns_rooster/providers/admin_analytics_provider.dart';
 import 'package:sns_rooster/providers/payroll_analytics_provider.dart';
+import 'package:sns_rooster/providers/payroll_cycle_settings_provider.dart';
 import 'package:sns_rooster/services/employee_service.dart';
 import 'package:sns_rooster/services/notification_service.dart';
 
@@ -133,6 +134,12 @@ class MyApp extends StatelessWidget {
             Provider.of<AuthProvider>(context, listen: false),
           ),
           update: (context, auth, previous) => PayrollAnalyticsProvider(auth),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, PayrollCycleSettingsProvider>(
+          create: (context) => PayrollCycleSettingsProvider(
+              Provider.of<AuthProvider>(context, listen: false)),
+          update: (context, auth, previous) =>
+              PayrollCycleSettingsProvider(auth),
         ),
       ],
       child: Consumer<AuthProvider>(

@@ -52,6 +52,8 @@ exports.createEmployee = async (req, res) => {
       hireDate: req.body.hireDate,
       position: req.body.position,
       department: req.body.department,
+      hourlyRate: req.body.hourlyRate,
+      monthlySalary: req.body.monthlySalary,
     });
 
     const newEmployee = await employee.save();
@@ -93,6 +95,8 @@ exports.updateEmployee = async (req, res) => {
     employee.position = req.body.position || employee.position;
     employee.department = req.body.department || employee.department;
     employee.userId = req.body.userId || employee.userId;
+    if (req.body.hourlyRate !== undefined) employee.hourlyRate = req.body.hourlyRate;
+    if (req.body.monthlySalary !== undefined) employee.monthlySalary = req.body.monthlySalary;
 
     // Sync position & department changes to User model if this employee is linked
     if (employee.userId) {
@@ -266,6 +270,27 @@ exports.verifyUserDocument = async (req, res) => {
     doc.verifiedAt = new Date();
 
     await user.save();
+
+    // Send notification to employee
+    try {
+      const existing = await Notification.findOne({
+        user: user._id,
+        title: 'Document Review',
+        message: { $regex: new RegExp(`^Your ${doc.type} has been (verified|rejected)\.`, 'i') }
+      });
+      if (!existing) {
+        await Notification.create({
+          user: user._id,
+          role: 'employee',
+          title: 'Document Review',
+          message: `Your ${doc.type} has been ${status}.`,
+          type: 'review',
+          link: '/profile',
+        });
+      }
+    } catch (nErr) {
+      console.error('Failed to create notification for document review:', nErr);
+    }
 
     res.json({ message: `Document ${status}`, document: doc });
   } catch (error) {

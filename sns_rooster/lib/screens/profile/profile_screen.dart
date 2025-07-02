@@ -703,8 +703,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             .map((entry) {
                                           final _idx = entry.key;
                                           final document = entry.value;
-                                          final status =
-                                              document['status'] ?? 'pending';
+                                          final String? docPath =
+                                              document['path']?.toString();
+                                          final bool hasFile =
+                                              docPath != null &&
+                                                  docPath.isNotEmpty;
+                                          final String? docUrl = hasFile
+                                              ? '${ApiConfig.baseUrl.split('/api').first}$docPath'
+                                              : null;
+                                          String status =
+                                              (document['status'] ?? 'pending')
+                                                  .toString();
+                                          if (!hasFile) {
+                                            status = 'not_uploaded';
+                                          }
                                           Color statusColor;
                                           String statusLabel;
                                           switch (status) {
@@ -715,6 +727,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             case 'rejected':
                                               statusColor = Colors.red;
                                               statusLabel = 'Rejected';
+                                              break;
+                                            case 'not_uploaded':
+                                              statusColor = Colors.grey;
+                                              statusLabel = 'Not Uploaded';
                                               break;
                                             default:
                                               statusColor = Colors.orange;
@@ -753,8 +769,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                 ),
                                               ],
                                             ),
-                                            subtitle: Text(
-                                                'Uploaded: ${document['filename'] ?? ''}'),
+                                            subtitle: hasFile
+                                                ? Text(
+                                                    'Uploaded: ${document['fileName'] ?? (document['filename'] ?? '')}')
+                                                : const Text(
+                                                    'No file uploaded'),
                                             trailing: Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
@@ -762,10 +781,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                   icon: const Icon(
                                                       Icons.visibility),
                                                   tooltip: 'View',
-                                                  onPressed: () async {
-                                                    showDocumentDialog(context,
-                                                        document['url']);
-                                                  },
+                                                  onPressed: hasFile
+                                                      ? () =>
+                                                          showDocumentDialog(
+                                                              context, docUrl)
+                                                      : null,
                                                 ),
                                                 if (status == 'rejected')
                                                   IconButton(

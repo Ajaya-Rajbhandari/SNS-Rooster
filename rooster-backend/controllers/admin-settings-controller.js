@@ -67,4 +67,28 @@ exports.resetAdminSettings = async (req, res) => {
     console.error('Reset admin settings error:', error);
     res.status(500).json({ message: 'Failed to reset admin settings' });
   }
+};
+
+// === Payroll Cycle Settings ===
+// GET /api/admin/settings/payroll-cycle
+exports.getPayrollCycleSettings = async (req, res) => {
+  try {
+    const settings = await AdminSettings.getSettings();
+    res.json(settings.payrollCycle || {});
+  } catch (error) {
+    console.error('Get payroll cycle settings error:', error);
+    res.status(500).json({ message: 'Failed to fetch payroll cycle settings' });
+  }
+};
+
+// PUT /api/admin/settings/payroll-cycle
+exports.updatePayrollCycleSettings = async (req, res) => {
+  try {
+    const cycleUpdates = req.body; // assume validated
+    const settings = await AdminSettings.updateSettings({ payrollCycle: cycleUpdates });
+    res.json({ message: 'Payroll cycle settings updated', payrollCycle: settings.payrollCycle });
+  } catch (error) {
+    console.error('Update payroll cycle settings error:', error);
+    res.status(500).json({ message: 'Failed to update payroll cycle settings' });
+  }
 }; 

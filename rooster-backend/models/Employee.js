@@ -36,6 +36,16 @@ const employeeSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  hourlyRate: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  monthlySalary: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

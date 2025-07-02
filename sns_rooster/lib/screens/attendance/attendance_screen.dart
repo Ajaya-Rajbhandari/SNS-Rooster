@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:sns_rooster/utils/logger.dart';
 import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -19,6 +18,8 @@ class AttendanceScreen extends StatefulWidget {
 
 class _AttendanceScreenState extends State<AttendanceScreen> {
   String filterStatus = 'All';
+  DateTime? _startDate;
+  DateTime? _endDate;
 
   @override
   void initState() {
@@ -35,9 +36,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       await attendanceProvider.fetchUserAttendance(authProvider.user!['_id']);
 
       // Debug: Print the attendance records to see what we're getting
-      log('DEBUG: Attendance records fetched: ${attendanceProvider.attendanceRecords.length}');
+      print(
+          'DEBUG: Attendance records fetched: ${attendanceProvider.attendanceRecords.length}');
       if (attendanceProvider.attendanceRecords.isNotEmpty) {
-        log('DEBUG: First attendance record: ${attendanceProvider.attendanceRecords.first}');
+        print(
+            'DEBUG: First attendance record: ${attendanceProvider.attendanceRecords.first}');
       }
     }
   }
@@ -226,9 +229,33 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final attendanceProvider = Provider.of<AttendanceProvider>(context);
     final attendanceRecords = attendanceProvider.attendanceRecords;
 
+    // Step 1: Date range filter
+    List<dynamic> dateFilteredRecords = attendanceRecords;
+    if (_startDate != null && _endDate != null) {
+      dateFilteredRecords = attendanceRecords.where((item) {
+        if (item['date'] == null) return false;
+        final DateTime itemDate;
+        try {
+          itemDate = DateTime.parse(item['date'].toString());
+        } catch (_) {
+          return false;
+        }
+        // Normalize dates to ignore time components for comparison
+        final onlyDate = DateTime(itemDate.year, itemDate.month, itemDate.day);
+        final startOnly =
+            DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
+        final endOnly =
+            DateTime(_endDate!.year, _endDate!.month, _endDate!.day);
+        return (onlyDate.isAtSameMomentAs(startOnly) ||
+                onlyDate.isAfter(startOnly)) &&
+            (onlyDate.isAtSameMomentAs(endOnly) || onlyDate.isBefore(endOnly));
+      }).toList();
+    }
+
+    // Step 2: Status filter
     final filteredData = filterStatus == 'All'
-        ? attendanceRecords
-        : attendanceRecords
+        ? dateFilteredRecords
+        : dateFilteredRecords
             .where((item) => _calculateStatus(item) == filterStatus)
             .toList();
 
@@ -249,83 +276,77 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                     icon: const Icon(Icons.date_range),
-                    label: const Text('Select Date Range'),
-                    onPressed: () {
-                      // TODO: Implement date range picker logic
+                    label: Text(_startDate != null && _endDate != null
+                        ? '${_formatDate(_startDate)} - ${_formatDate(_endDate)}'
+                        : 'Select Date Range'),
+                    onPressed: () async {
+                      final picked = await showDateRangePicker(
+                        context: context,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2100),
+                        initialDateRange: _startDate != null && _endDate != null
+                            ? DateTimeRange(start: _startDate!, end: _endDate!)
+                            : null,
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _startDate = picked.start;
+                          _endDate = picked.end;
+                        });
+                      }
                     },
                   ),
                 ),
               ],
             ),
           ),
-          // Second row: Employee Dropdown, Filter, Export
+          // Second row: Employee Dropdown, Export
           Padding(
             padding:
                 const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
             child: Row(
               children: [
-                // Employee Dropdown
+                // Export Dropdown Button (full-width)
                 Expanded(
-                  flex: 2,
-                  child: DropdownButtonFormField<String>(
-                    value: 'All Employees',
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'All Employees',
-                        child: Text('All Employees'),
-                      ),
-                      // Add more employee options here
-                    ],
-                    onChanged: (value) {
-                      // TODO: Implement employee filter logic
+                  child: PopupMenuButton<String>(
+                    onSelected: (value) async {
+                      if (value == 'Export CSV') {
+                        await exportToCSV();
+                      } else if (value == 'Export PDF') {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content:
+                                  Text('PDF export is not yet implemented.')),
+                        );
+                      } else if (value == 'Refresh') {
+                        await fetchAttendanceData();
+                      }
                     },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Filter Button
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.filter_alt),
-                  label: const Text('Filter'),
-                  onPressed: () {
-                    // TODO: Implement filter logic
-                  },
-                ),
-                const SizedBox(width: 8),
-                // Export Dropdown Button
-                PopupMenuButton<String>(
-                  onSelected: (value) async {
-                    if (value == 'Export CSV') {
-                      await exportToCSV();
-                    } else if (value == 'Export PDF') {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content:
-                                Text('PDF export is not yet implemented.')),
-                      );
-                    } else if (value == 'Refresh') {
-                      await fetchAttendanceData();
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                        value: 'Export CSV', child: Text('Export to CSV')),
-                    const PopupMenuItem(
-                        value: 'Export PDF', child: Text('Export to PDF')),
-                    const PopupMenuItem(
-                        value: 'Refresh', child: Text('Refresh List')),
-                  ],
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.download),
-                    label: const Text('Export'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                          value: 'Export CSV', child: Text('Export to CSV')),
+                      const PopupMenuItem(
+                          value: 'Export PDF', child: Text('Export to PDF')),
+                      const PopupMenuItem(
+                          value: 'Refresh', child: Text('Refresh List')),
+                    ],
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.download),
+                        label: const Text('Export'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed:
+                            () {}, // Non-null so button appears enabled; PopupMenuButton handles tap
                       ),
                     ),
-                    onPressed:
-                        null, // Required for style, actual action is in PopupMenuButton
                   ),
                 ),
               ],

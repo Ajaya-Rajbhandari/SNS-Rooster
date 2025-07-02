@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sns_rooster/utils/logger.dart';
 import 'package:intl/intl.dart';
 
 class EditPayslipDialog extends StatefulWidget {
@@ -19,6 +18,7 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
   late TextEditingController _deductionsController;
   late TextEditingController _netPayController;
   late TextEditingController _totalHoursController;
+  late TextEditingController _overtimeHoursController;
   late TextEditingController _adminResponseController;
   DateTime? _issueDate;
   DateTime? _periodStart;
@@ -56,10 +56,13 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
         TextEditingController(text: data['netPay']?.toString() ?? '');
     _totalHoursController =
         TextEditingController(text: data['totalHours']?.toString() ?? '');
+    _overtimeHoursController =
+        TextEditingController(text: data['overtimeHours']?.toString() ?? '0');
     _adminResponseController =
         TextEditingController(text: data['adminResponse'] ?? '');
-    _issueDate =
-        data['issueDate'] != null ? DateTime.tryParse(data['issueDate']) : null;
+    _issueDate = data['issueDate'] != null
+        ? DateTime.tryParse(data['issueDate'])
+        : DateTime.now();
     final now = DateTime.now();
     _periodStart = data['periodStart'] != null
         ? DateTime.tryParse(data['periodStart'])
@@ -92,6 +95,7 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
     _deductionsController.dispose();
     _netPayController.dispose();
     _totalHoursController.dispose();
+    _overtimeHoursController.dispose();
     _adminResponseController.dispose();
     super.dispose();
   }
@@ -114,6 +118,7 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
         d = d.add(const Duration(days: 1));
       }
       _totalHoursController.text = total.toString();
+      _updateGrossPay();
     }
   }
 
@@ -157,6 +162,18 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
     for (final item in _incomesList) {
       total += double.tryParse(item['amount']?.toString() ?? '0') ?? 0;
     }
+
+    // Include overtime pay if present
+    final otHours = double.tryParse(_overtimeHoursController.text) ?? 0;
+    if (otHours > 0) {
+      final ratePerHour =
+          total / (double.tryParse(_totalHoursController.text) ?? 1);
+      final multiplier = double.tryParse(
+              widget.initialData?['overtimeMultiplier']?.toString() ?? '1.5') ??
+          1.5;
+      total += otHours * ratePerHour * multiplier;
+    }
+
     _grossPayController.text = total.toStringAsFixed(2);
     _updateNetPay();
   }
@@ -295,6 +312,13 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
                 decoration: const InputDecoration(labelText: 'Total Hours'),
                 keyboardType: TextInputType.number,
                 validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _overtimeHoursController,
+                decoration: const InputDecoration(labelText: 'Overtime Hours'),
+                keyboardType: TextInputType.number,
+                onChanged: (_) => _updateGrossPay(),
               ),
               const SizedBox(height: 12),
               InkWell(
@@ -494,6 +518,10 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
               'periodStart': _periodStart!.toIso8601String(),
               'periodEnd': _periodEnd!.toIso8601String(),
               'totalHours': double.tryParse(_totalHoursController.text) ?? 0,
+              'overtimeHours':
+                  double.tryParse(_overtimeHoursController.text) ?? 0,
+              'overtimeMultiplier':
+                  widget.initialData?['overtimeMultiplier'] ?? 1.5,
               'grossPay': double.tryParse(_grossPayController.text) ?? 0,
               'incomesList': _incomesList,
               'deductions': double.tryParse(_deductionsController.text) ?? 0,
@@ -501,8 +529,8 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
               'netPay': double.tryParse(_netPayController.text) ?? 0,
               'adminResponse': _adminResponseController.text,
             };
-            log('DEBUG: Admin Edit Payslip Payload:');
-            log(payload);
+            print('DEBUG: Admin Edit Payslip Payload:');
+            print(payload);
             Navigator.pop(context, payload); // Just pop with the data
           },
           child: const Text('Save'),

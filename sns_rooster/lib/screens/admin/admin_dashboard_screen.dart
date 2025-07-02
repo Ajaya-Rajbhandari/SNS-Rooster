@@ -20,6 +20,7 @@ import '../../widgets/notification_bell.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/employee_service.dart';
 import '../../providers/payroll_analytics_provider.dart';
+import '../../providers/payroll_cycle_settings_provider.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -962,7 +963,12 @@ class _PayrollInsightsSectionState extends State<_PayrollInsightsSection> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider =
           Provider.of<PayrollAnalyticsProvider>(context, listen: false);
-      provider.fetchTrend();
+      final cycleProv =
+          Provider.of<PayrollCycleSettingsProvider>(context, listen: false);
+      final freq = (cycleProv.settings?['frequency'] ?? 'Monthly')
+          .toString()
+          .toLowerCase();
+      provider.fetchTrend(freq: freq);
       provider.fetchDeductionBreakdown();
     });
   }
@@ -987,9 +993,31 @@ class _PayrollInsightsSectionState extends State<_PayrollInsightsSection> {
 
     // Compute summary stats from trend (use latest month if available)
     double totalPayroll = 0;
+    double latestGross = 0;
+    double latestDeductions = 0;
+    DateTime? nextPayDate;
     if (trend.isNotEmpty) {
       final latest = trend.last; // latest month
       totalPayroll = (latest['totalNet'] ?? 0).toDouble();
+      latestGross = (latest['totalGross'] ?? 0).toDouble();
+      latestDeductions = (latest['totalDeductions'] ?? 0).toDouble();
+    }
+
+    // Compute next pay date using payroll cycle settings
+    final cycleProvider = Provider.of<PayrollCycleSettingsProvider>(context);
+    final cycle = cycleProvider.settings;
+    if (cycle != null) {
+      final String freq = cycle['frequency'] ?? 'Monthly';
+      if (freq == 'Monthly') {
+        final int payDay = (cycle['payDay'] ?? 30) as int;
+        DateTime now = DateTime.now();
+        DateTime tentative = DateTime(now.year, now.month, payDay);
+        if (now.isAfter(tentative)) {
+          tentative = DateTime(now.year, now.month + 1, payDay);
+        }
+        final int offset = (cycle['payOffset'] ?? 0) as int;
+        nextPayDate = tentative.add(Duration(days: offset));
+      }
     }
 
     return Column(
@@ -1006,43 +1034,68 @@ class _PayrollInsightsSectionState extends State<_PayrollInsightsSection> {
           ),
           child: trend.isEmpty
               ? const Center(child: Text('No data'))
-              : BarChart(
-                  BarChartData(
-                    alignment: BarChartAlignment.spaceAround,
-                    barTouchData: const BarTouchData(enabled: false),
-                    titlesData: FlTitlesData(
-                      leftTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false)),
-                      rightTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false)),
-                      topTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false)),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          getTitlesWidget: (value, meta) {
-                            final idx = value.toInt();
-                            if (idx < 0 || idx >= trend.length) {
-                              return const SizedBox.shrink();
-                            }
-                            final mStr = trend[idx]['month'] as String;
-                            return Text(mStr.substring(5)); // MM
+              : Builder(builder: (context) {
+                  final maxY = trend
+                      .map<double>((e) => (e['totalNet'] ?? 0).toDouble())
+                      .fold<double>(0, (prev, v) => v > prev ? v : prev);
+                  return BarChart(
+                    BarChartData(
+                      maxY: maxY * 1.2,
+                      barTouchData: BarTouchData(
+                        enabled: true,
+                        touchTooltipData: BarTouchTooltipData(
+                          getTooltipItem: (group, _, rod, __) {
+                            final month = trend[group.x.toInt()]['month'];
+                            return BarTooltipItem(
+                              '$month\n₹${rod.toY.toStringAsFixed(0)}',
+                              const TextStyle(color: Colors.white),
+                            );
                           },
                         ),
                       ),
-                    ),
-                    borderData: FlBorderData(show: false),
-                    barGroups: [
-                      for (int i = 0; i < trend.length; i++)
-                        BarChartGroupData(x: i, barRods: [
-                          BarChartRodData(
+                      titlesData: FlTitlesData(
+                        leftTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            interval: 1,
+                            getTitlesWidget: (value, meta) {
+                              final idx = value.toInt();
+                              if (idx < 0 || idx >= trend.length)
+                                return const SizedBox.shrink();
+                              final mStr =
+                                  (trend[idx]['month'] as String).substring(5);
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 4.0),
+                                child: Text(mStr,
+                                    style: const TextStyle(fontSize: 10)),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      gridData:
+                          FlGridData(show: true, horizontalInterval: maxY / 4),
+                      borderData: FlBorderData(show: false),
+                      barGroups: [
+                        for (int i = 0; i < trend.length; i++)
+                          BarChartGroupData(x: i, barRods: [
+                            BarChartRodData(
                               toY: (trend[i]['totalNet'] ?? 0).toDouble(),
-                              color: Colors.blue,
-                              width: 14),
-                        ])
-                    ],
-                  ),
-                ),
+                              color: Theme.of(context).colorScheme.primary,
+                              width: 18,
+                              borderRadius: BorderRadius.circular(4),
+                            )
+                          ])
+                      ],
+                    ),
+                  );
+                }),
         ),
         const SizedBox(height: 24),
         Text('Deduction Breakdown', style: theme.textTheme.titleMedium),
@@ -1057,33 +1110,88 @@ class _PayrollInsightsSectionState extends State<_PayrollInsightsSection> {
               ? const Center(child: Text('No breakdown data'))
               : PieChart(
                   PieChartData(
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 30,
                     sections: breakdown.entries.map((e) {
-                      final color = Colors.primaries[
-                          breakdown.keys.toList().indexOf(e.key) %
-                              Colors.primaries.length];
+                      final idx = breakdown.keys.toList().indexOf(e.key);
+                      final color =
+                          Colors.primaries[idx % Colors.primaries.length];
+                      final percent =
+                          (e.value / breakdown.values.reduce((a, b) => a + b)) *
+                              100;
                       return PieChartSectionData(
                         value: e.value,
-                        title: e.key,
+                        title: '${percent.toStringAsFixed(0)}%',
                         color: color,
-                        radius: 50,
-                        titleStyle: theme.textTheme.bodySmall
-                            ?.copyWith(color: Colors.white),
+                        radius: 60,
+                        titleStyle: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold),
                       );
                     }).toList(),
                   ),
                 ),
         ),
+        const SizedBox(height: 8),
+        if (breakdown.isNotEmpty)
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              for (final entry in breakdown.entries)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Colors.primaries[
+                            breakdown.keys.toList().indexOf(entry.key) %
+                                Colors.primaries.length],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text('${entry.key}: ₹${entry.value.toStringAsFixed(0)}',
+                        style: theme.textTheme.bodySmall),
+                  ],
+                ),
+            ],
+          ),
         const SizedBox(height: 24),
         Text('Payroll Summary', style: theme.textTheme.titleMedium),
         const SizedBox(height: 12),
-        Row(
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
           children: [
             _buildSummaryCard(
                 context,
                 'Latest Net Payroll',
-                'â‚¤${totalPayroll.toStringAsFixed(2)}',
+                '₹${totalPayroll.toStringAsFixed(2)}',
                 Icons.payments,
                 Colors.blue),
+            _buildSummaryCard(
+                context,
+                'Latest Gross Payroll',
+                '₹${latestGross.toStringAsFixed(2)}',
+                Icons.account_balance_wallet,
+                Colors.green),
+            _buildSummaryCard(
+                context,
+                'Latest Deductions',
+                '₹${latestDeductions.toStringAsFixed(2)}',
+                Icons.remove_circle,
+                Colors.red),
+            if (nextPayDate != null)
+              _buildSummaryCard(
+                  context,
+                  'Next Pay Run',
+                  DateFormat('d MMM').format(nextPayDate!),
+                  Icons.calendar_today,
+                  Colors.purple),
           ],
         ),
       ],
