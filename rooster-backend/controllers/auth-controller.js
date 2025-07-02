@@ -147,6 +147,18 @@ exports.getCurrentUserProfile = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+
+    // Enrich with employee position/department if needed
+    try {
+      const empRecord = await Employee.findOne({ userId: user._id });
+      if (empRecord) {
+        if (!user.position && empRecord.position) user.position = empRecord.position;
+        if (!user.department && empRecord.department) user.department = empRecord.department;
+      }
+    } catch (err) {
+      console.error('Warning: Failed to enrich user profile with employee info:', err);
+    }
+
     res.json({ profile: user.getPublicProfile() });
   } catch (error) {
     console.error('Get profile error:', error);
@@ -392,6 +404,18 @@ exports.getUserById = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+
+    // Attempt to enrich with position & department from Employee collection
+    try {
+      const empRecord = await Employee.findOne({ userId: user._id });
+      if (empRecord) {
+        if (!user.position && empRecord.position) user.position = empRecord.position;
+        if (!user.department && empRecord.department) user.department = empRecord.department;
+      }
+    } catch (err) {
+      console.error('Warning: Failed to enrich user profile with employee info:', err);
+    }
+
     res.json({ profile: user.getPublicProfile() });
   } catch (error) {
     console.error('Get user by ID error:', error);

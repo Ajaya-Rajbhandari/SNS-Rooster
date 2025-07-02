@@ -82,56 +82,6 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
     }
   }
 
-  void _deletePayslip(
-      BuildContext context, AdminPayrollProvider provider, int idx) async {
-    final payslip = provider.payslips[idx];
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Payslip'),
-        content: const Text('Are you sure you want to delete this payslip?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      try {
-        await provider.deletePayslip(payslip['_id']);
-        if (_selectedEmployeeId != null) {
-          await provider.fetchPayslips(_selectedEmployeeId!);
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Payslip deleted.'),
-            action: SnackBarAction(
-              label: 'Undo',
-              onPressed: () async {
-                // Optionally, implement undo by re-adding the payslip (requires storing its data)
-                await provider.addPayslip(payslip, _selectedEmployeeId!);
-                await provider.fetchPayslips(_selectedEmployeeId!);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Payslip restored.')),
-                );
-              },
-            ),
-          ),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting payslip: $e')),
-        );
-      }
-    }
-  }
-
   Future<void> _downloadPayslipPdf(
       BuildContext context, String payslipId, String token) async {
     try {
@@ -392,48 +342,60 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Row(
+                                          Wrap(
+                                            alignment:
+                                                WrapAlignment.spaceBetween,
+                                            crossAxisAlignment:
+                                                WrapCrossAlignment.center,
+                                            spacing: 8,
+                                            runSpacing: 8,
                                             children: [
-                                              Icon(Icons.calendar_month,
-                                                  color:
-                                                      theme.colorScheme.primary,
-                                                  size: 28),
-                                              const SizedBox(width: 10),
-                                              Expanded(
-                                                child: Text(
-                                                  slip['payPeriod']
-                                                          ?.toString() ??
-                                                      '-',
-                                                  style: theme
-                                                      .textTheme.titleMedium
-                                                      ?.copyWith(
-                                                          fontWeight:
-                                                              FontWeight.bold),
-                                                ),
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.calendar_month,
+                                                      color: theme
+                                                          .colorScheme.primary,
+                                                      size: 28),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    slip['payPeriod']
+                                                            ?.toString() ??
+                                                        '-',
+                                                    style: theme
+                                                        .textTheme.titleMedium
+                                                        ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .bold),
+                                                  ),
+                                                ],
                                               ),
                                               Chip(
                                                 label: Text(
-                                                    'Net Pay: ' +
-                                                        (slip['netPay'] != null
-                                                            ? (slip['netPay']
-                                                                    is num
-                                                                ? slip['netPay']
-                                                                    .toStringAsFixed(
-                                                                        2)
-                                                                : slip['netPay']
-                                                                    .toString())
-                                                            : '-'),
-                                                    style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontWeight:
-                                                            FontWeight.bold)),
+                                                  'Net Pay: ' +
+                                                      (slip['netPay'] != null
+                                                          ? (slip['netPay']
+                                                                  is num
+                                                              ? slip['netPay']
+                                                                  .toStringAsFixed(
+                                                                      2)
+                                                              : slip['netPay']
+                                                                  .toString())
+                                                          : '-'),
+                                                  style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.bold),
+                                                ),
                                                 backgroundColor:
                                                     theme.colorScheme.primary,
                                               ),
                                               _buildStatusIndicator(
-                                                  slip['status']?.toString(),
-                                                  slip['employeeComment']
-                                                      ?.toString()),
+                                                slip['status']?.toString(),
+                                                slip['employeeComment']
+                                                    ?.toString(),
+                                              ),
                                             ],
                                           ),
                                           // Show employee name if available
@@ -443,51 +405,68 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
                                                   top: 6.0),
                                               child: Text(
                                                 'Employee: $empName',
-                                                style: const TextStyle(
-                                                  color: Colors.black87,
+                                                style: TextStyle(
+                                                  color: theme
+                                                      .colorScheme.onSurface,
                                                   fontWeight: FontWeight.w500,
                                                 ),
                                               ),
                                             ),
                                           const SizedBox(height: 10),
-                                          Row(
+                                          Wrap(
+                                            spacing: 8,
+                                            runSpacing: 8,
+                                            crossAxisAlignment:
+                                                WrapCrossAlignment.center,
                                             children: [
-                                              Icon(Icons.payments,
-                                                  color: Colors.green[700],
-                                                  size: 22),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                  'Gross: ' +
-                                                      (slip['grossPay'] != null
-                                                          ? (slip['grossPay']
-                                                                  is num
-                                                              ? slip['grossPay']
-                                                                  .toStringAsFixed(
-                                                                      2)
-                                                              : slip['grossPay']
-                                                                  .toString())
-                                                          : '-'),
-                                                  style: theme
-                                                      .textTheme.bodyMedium),
-                                              const SizedBox(width: 16),
-                                              Icon(Icons.remove_circle,
-                                                  color: Colors.red[700],
-                                                  size: 22),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                  'Deductions: -' +
-                                                      (slip['deductions'] !=
-                                                              null
-                                                          ? (slip['deductions']
-                                                                  is num
-                                                              ? slip['deductions']
-                                                                  .toStringAsFixed(
-                                                                      2)
-                                                              : slip['deductions']
-                                                                  .toString())
-                                                          : '-'),
-                                                  style: theme
-                                                      .textTheme.bodyMedium),
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.payments,
+                                                      color: Colors.green[700],
+                                                      size: 22),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    'Gross: ' +
+                                                        (slip['grossPay'] !=
+                                                                null
+                                                            ? (slip['grossPay']
+                                                                    is num
+                                                                ? slip['grossPay']
+                                                                    .toStringAsFixed(
+                                                                        2)
+                                                                : slip['grossPay']
+                                                                    .toString())
+                                                            : '-'),
+                                                    style: theme
+                                                        .textTheme.bodyMedium,
+                                                  ),
+                                                ],
+                                              ),
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.remove_circle,
+                                                      color: Colors.red[700],
+                                                      size: 22),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    'Deductions: -' +
+                                                        (slip['deductions'] !=
+                                                                null
+                                                            ? (slip['deductions']
+                                                                    is num
+                                                                ? slip['deductions']
+                                                                    .toStringAsFixed(
+                                                                        2)
+                                                                : slip['deductions']
+                                                                    .toString())
+                                                            : '-'),
+                                                    style: theme
+                                                        .textTheme.bodyMedium,
+                                                  ),
+                                                ],
+                                              ),
                                             ],
                                           ),
                                           const SizedBox(height: 8),

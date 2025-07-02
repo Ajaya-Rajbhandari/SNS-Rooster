@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:sns_rooster/services/api_service.dart';
 import 'package:sns_rooster/config/api_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -57,7 +58,7 @@ class LeaveRequestProvider with ChangeNotifier {
 
   // --- Get User Leave Balances ---
   Future<void> fetchLeaveBalances(String employeeId) async {
-    print('Fetching leave balance for employeeId: $employeeId');
+    log('Fetching leave balance for employeeId: $employeeId');
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -180,20 +181,19 @@ class LeaveRequestProvider with ChangeNotifier {
       if (response.success && response.data != null) {
         final employeeId = response.data['_id'];
         if (employeeId != null) {
-          print('DEBUG: Successfully fetched employeeId: $employeeId');
+          log('DEBUG: Successfully fetched employeeId: $employeeId');
           return employeeId;
         } else {
-          print('ERROR: employeeId is null in response data.');
+          log('ERROR: employeeId is null in response data.');
         }
       } else {
-        print(
-            'ERROR: Failed to fetch employeeId. Response: success=${response.success}, message=${response.message}, data=${response.data}');
+        log('ERROR: Failed to fetch employeeId. Response: success=${response.success}, message=${response.message}, data=${response.data}');
       }
     } catch (e) {
-      print('ERROR: Exception while fetching employeeId: $e');
+      log('ERROR: Exception while fetching employeeId: $e');
     }
 
-    print('ERROR: Returning null for employeeId.');
+    log('ERROR: Returning null for employeeId.');
     return null;
   }
 }

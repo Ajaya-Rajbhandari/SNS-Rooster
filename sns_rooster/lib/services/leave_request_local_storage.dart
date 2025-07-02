@@ -5,9 +5,11 @@ import 'dart:convert';
 class LeaveRequestLocalStorage {
   static const String _leaveRequestsKey = 'leave_requests';
 
-  static Future<void> saveLeaveRequests(List<LeaveRequest> leaveRequests) async {
+  static Future<void> saveLeaveRequests(
+      List<LeaveRequest> leaveRequests) async {
     final prefs = await SharedPreferences.getInstance();
-    final leaveRequestsJson = jsonEncode(leaveRequests.map((e) => e.toJson()).toList());
+    final leaveRequestsJson =
+        jsonEncode(leaveRequests.map((e) => e.toJson()).toList());
     await prefs.setString(_leaveRequestsKey, leaveRequestsJson);
   }
 

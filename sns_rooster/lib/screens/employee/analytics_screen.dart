@@ -4,9 +4,9 @@ import 'package:provider/provider.dart'; // Import provider
 import '../../providers/analytics_provider.dart' hide EmployeeAnalyticsService;
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_drawer.dart'; // Import AppDrawer
-import '../../widgets/admin_side_navigation.dart';
 import '../../services/employee_analytics_service.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
+import '../admin/analytics_reports_screen.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({Key? key}) : super(key: key);
@@ -66,11 +66,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final isAdmin = authProvider.user?['role'] == 'admin';
     if (isAdmin) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Analytics & Reports')),
-        body: const Center(child: Text('Access denied')),
-        drawer: const AdminSideNavigation(currentRoute: '/analytics'),
-      );
+      // Directly show admin analytics screen for admins
+      return const AdminAnalyticsScreen();
     }
     final theme = Theme.of(context);
 
@@ -106,7 +103,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             final Map<String, int> attendance =
                 analyticsProvider.attendanceData;
             final List<double> workHours = analyticsProvider.workHoursData;
-            final List<String> days = [
+            final List<String> _days = [
               'Day 1',
               'Day 2',
               'Day 3',
@@ -119,7 +116,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             final int totalPresent = attendance['Present'] ?? 0;
             final int totalAbsent = attendance['Absent'] ?? 0;
             final int totalLeave = attendance['Leave'] ?? 0;
-            final int totalWorkDays = totalPresent + totalAbsent + totalLeave;
+            final int _totalWorkDays = totalPresent + totalAbsent + totalLeave;
 
             final int longestStreak = analyticsProvider.longestStreak;
             final String mostProductiveDay =
@@ -570,7 +567,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    Divider(thickness: 1, height: 32),
+                    const Divider(thickness: 1, height: 32),
                     Text(
                       'Attendance Insights',
                       style: theme.textTheme.titleMedium?.copyWith(
@@ -594,7 +591,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                               ),
                             ),
                           if (extraError != null)
-                            Center(child: Text('Error: ' + extraError!)),
+                            Center(child: Text('Error: ${extraError!}')),
                           if (!loadingExtra && extraError == null) ...[
                             Card(
                               elevation: 3,
@@ -611,7 +608,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                     CircleAvatar(
                                       backgroundColor:
                                           Colors.red.withOpacity(0.1),
-                                      child: Icon(Icons.access_time,
+                                      child: const Icon(Icons.access_time,
                                           color: Colors.red),
                                     ),
                                     const SizedBox(width: 16),
@@ -643,7 +640,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                               showDialog(
                                                 context: context,
                                                 builder: (_) => AlertDialog(
-                                                  title: Text(
+                                                  title: const Text(
                                                       'Late Check-in Dates'),
                                                   content: Text((lateCheckins![
                                                           'lateDates'] as List)
@@ -672,7 +669,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                     CircleAvatar(
                                       backgroundColor:
                                           Colors.blue.withOpacity(0.1),
-                                      child: Icon(Icons.logout,
+                                      child: const Icon(Icons.logout,
                                           color: Colors.blue),
                                     ),
                                     const SizedBox(width: 16),
@@ -748,12 +745,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    Divider(thickness: 1, height: 32),
+                    const Divider(thickness: 1, height: 32),
                     SizedBox(
                       height: 60,
                       child: Center(
                         child: Text(
-                          'More charts and insights coming soon!',
+                          'More charts and insights will appear here.',
                           style: theme.textTheme.titleMedium?.copyWith(
                             color: theme.colorScheme.onSurface.withOpacity(0.6),
                           ),

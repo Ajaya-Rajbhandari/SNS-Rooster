@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -34,11 +35,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       await attendanceProvider.fetchUserAttendance(authProvider.user!['_id']);
 
       // Debug: Print the attendance records to see what we're getting
-      print(
-          'DEBUG: Attendance records fetched: ${attendanceProvider.attendanceRecords.length}');
+      log('DEBUG: Attendance records fetched: ${attendanceProvider.attendanceRecords.length}');
       if (attendanceProvider.attendanceRecords.isNotEmpty) {
-        print(
-            'DEBUG: First attendance record: ${attendanceProvider.attendanceRecords.first}');
+        log('DEBUG: First attendance record: ${attendanceProvider.attendanceRecords.first}');
       }
     }
   }
@@ -506,10 +505,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                                 '- $breakType: $start - $end (${durationMin.isNotEmpty ? '$durationMin min' : 'In progress'})',
                                               ),
                                               if (isLive)
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                          left: 8.0),
+                                                const Padding(
+                                                  padding: EdgeInsets.only(
+                                                      left: 8.0),
                                                   child: Row(
                                                     children: [
                                                       Icon(

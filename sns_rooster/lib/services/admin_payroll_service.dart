@@ -1,4 +1,5 @@
-import 'dart:convert';
+﻿import 'dart:convert';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../providers/auth_provider.dart';
@@ -60,9 +61,9 @@ class AdminPayrollService {
 
   Future<Map<String, dynamic>> editPayslip(
       String payslipId, Map<String, dynamic> payslip) async {
-    print('DEBUG: AdminPayrollService.editPayslip called');
-    print('DEBUG: payslipId: $payslipId');
-    print('DEBUG: payslip data: $payslip');
+    log('DEBUG: AdminPayrollService.editPayslip called');
+    log('DEBUG: payslipId: $payslipId');
+    log('DEBUG: payslip data: $payslip');
 
     final token = authProvider.token;
     final headers = {
@@ -70,22 +71,22 @@ class AdminPayrollService {
       'Authorization': 'Bearer $token',
     };
     final url = '${ApiConfig.baseUrl}/payroll/$payslipId';
-    print('DEBUG: Making PUT request to: $url');
-    print('DEBUG: Request headers: $headers');
-    print('DEBUG: Request body: ${json.encode(payslip)}');
+    log('DEBUG: Making PUT request to: $url');
+    log('DEBUG: Request headers: $headers');
+    log('DEBUG: Request body: ${json.encode(payslip)}');
 
     final response = await http.put(Uri.parse(url),
         headers: headers, body: json.encode(payslip));
 
-    print('DEBUG: Response status code: ${response.statusCode}');
-    print('DEBUG: Response body: ${response.body}');
+    log('DEBUG: Response status code: ${response.statusCode}');
+    log('DEBUG: Response body: ${response.body}');
 
     if (response.statusCode == 200) {
       final result = json.decode(response.body);
-      print('DEBUG: Successfully parsed response: $result');
+      log('DEBUG: Successfully parsed response: $result');
       return result;
     } else {
-      print('DEBUG: Request failed with status: ${response.statusCode}');
+      log('DEBUG: Request failed with status: ${response.statusCode}');
       throw Exception(
           'Failed to edit payslip: ${response.statusCode} ${response.body}');
     }

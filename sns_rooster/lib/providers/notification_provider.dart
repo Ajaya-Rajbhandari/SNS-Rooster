@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
-import '../models/notification.dart';
 import '../services/notification_service.dart';
 
 class NotificationProvider extends ChangeNotifier {

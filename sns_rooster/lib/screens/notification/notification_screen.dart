@@ -252,7 +252,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               child: Row(
                 children: [
                   Icon(Icons.swipe_left, color: theme.colorScheme.primary),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text('Tip: Swipe left to delete a notification',
                       style: theme.textTheme.bodySmall
                           ?.copyWith(color: theme.colorScheme.primary)),
@@ -297,12 +297,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           .user?['role'];
                   filteredNotifications = filteredNotifications.where((n) {
                     // Hide admin-only notifications for non-admins
-                    if (userRole != 'admin' && n['role'] == 'admin')
+                    if (userRole != 'admin' && n['role'] == 'admin') {
                       return false;
+                    }
                     // Hide 'Incomplete Employee Profile' for non-admins
                     if (userRole != 'admin' &&
-                        n['title'] == 'Incomplete Employee Profile')
+                        n['title'] == 'Incomplete Employee Profile') {
                       return false;
+                    }
                     return true;
                   }).toList();
                   return filteredNotifications.isEmpty

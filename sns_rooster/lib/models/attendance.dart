@@ -107,9 +107,7 @@ class Attendance {
   Map<String, dynamic> toJson() {
     return {
       'date': formattedDate,
-      'status': status is AttendanceStatus
-          ? (status as AttendanceStatus).toString().split('.').last
-          : status,
+      'status': status.toString().split('.').last,
       'checkInTime': checkInTime?.toIso8601String(),
       'checkOutTime': checkOutTime?.toIso8601String(),
       'breakDuration': breakDuration?.inMinutes,

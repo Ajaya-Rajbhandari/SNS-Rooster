@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
@@ -117,16 +118,15 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
           Provider.of<LeaveRequestProvider>(context, listen: false);
       final profileProvider =
           Provider.of<ProfileProvider>(context, listen: false);
-      print('DEBUG: profileProvider.profile = ${profileProvider.profile}');
-      print('DEBUG: authProvider.user = ${authProvider.user}');
+      log('DEBUG: profileProvider.profile = ${profileProvider.profile}');
+      log('DEBUG: authProvider.user = ${authProvider.user}');
       // Always fetch the Employee document for the current user
       final userId = authProvider.user?['_id'];
       String? employeeId;
       if (userId != null) {
         final fetchedEmployeeId =
             await leaveProvider.fetchEmployeeIdByUserId(userId);
-        print(
-            'DEBUG: fetchEmployeeIdByUserId($userId) returned: $fetchedEmployeeId');
+        log('DEBUG: fetchEmployeeIdByUserId($userId) returned: $fetchedEmployeeId');
         if (fetchedEmployeeId != null) {
           employeeId = fetchedEmployeeId;
         }

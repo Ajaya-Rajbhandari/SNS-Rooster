@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:provider/provider.dart';
 import '../../providers/payroll_provider.dart';
 import 'package:intl/intl.dart';
@@ -46,13 +47,13 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
 
   @override
   void didPush() {
-    print('PayrollScreen: didPush called');
+    log('PayrollScreen: didPush called');
     _refreshPayroll();
   }
 
   @override
   void didPopNext() {
-    print('PayrollScreen: didPopNext called');
+    log('PayrollScreen: didPopNext called');
     _refreshPayroll();
   }
 

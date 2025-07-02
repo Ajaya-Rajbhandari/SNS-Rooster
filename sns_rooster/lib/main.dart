@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:provider/provider.dart';
 import 'package:sns_rooster/screens/splash/splash_screen.dart';
 import 'package:sns_rooster/screens/login/login_screen.dart';
@@ -16,6 +17,8 @@ import 'package:sns_rooster/screens/employee/payroll_screen.dart';
 import 'package:sns_rooster/screens/employee/analytics_screen.dart';
 import 'package:sns_rooster/screens/admin/notification_alert_screen.dart';
 import 'package:sns_rooster/screens/admin/leave_management_screen.dart';
+import 'package:sns_rooster/screens/admin/payroll_cycle_settings_screen.dart';
+import 'package:sns_rooster/screens/admin/leave_policy_settings_screen.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
 import 'package:sns_rooster/providers/profile_provider.dart';
@@ -29,12 +32,14 @@ import 'package:sns_rooster/providers/employee_provider.dart';
 import 'package:sns_rooster/providers/admin_payroll_provider.dart';
 import 'package:sns_rooster/providers/admin_settings_provider.dart';
 import 'package:sns_rooster/providers/admin_attendance_provider.dart';
+import 'package:sns_rooster/providers/admin_analytics_provider.dart';
+import 'package:sns_rooster/providers/payroll_analytics_provider.dart';
 import 'package:sns_rooster/services/employee_service.dart';
 import 'package:sns_rooster/services/notification_service.dart';
 
 void main() {
-  print('MAIN: Initializing navigatorKey');
-  print('MAIN: Starting MyApp with AuthProvider');
+  log('MAIN: Initializing navigatorKey');
+  log('MAIN: Starting MyApp with AuthProvider');
   runApp(const MyApp());
 }
 
@@ -45,7 +50,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('MAIN: Building MaterialApp with navigatorKey');
+    log('MAIN: Building MaterialApp with navigatorKey');
     return MultiProvider(
       providers: [
         Provider<RouteObserver<ModalRoute<void>>>(
@@ -117,19 +122,49 @@ class MyApp extends StatelessWidget {
           ),
           update: (context, auth, previous) => AdminSettingsProvider(auth),
         ),
+        ChangeNotifierProxyProvider<AuthProvider, AdminAnalyticsProvider>(
+          create: (context) => AdminAnalyticsProvider(
+            Provider.of<AuthProvider>(context, listen: false),
+          ),
+          update: (context, auth, previous) => AdminAnalyticsProvider(auth),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, PayrollAnalyticsProvider>(
+          create: (context) => PayrollAnalyticsProvider(
+            Provider.of<AuthProvider>(context, listen: false),
+          ),
+          update: (context, auth, previous) => PayrollAnalyticsProvider(auth),
+        ),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {
           return Builder(
             builder: (context) {
-              print('MAIN: AuthProvider is accessible in MaterialApp');
+              log('MAIN: AuthProvider is accessible in MaterialApp');
+              final adminSettings = Provider.of<AdminSettingsProvider>(context);
+
+              final lightTheme = ThemeData(
+                colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+                useMaterial3: true,
+                brightness: Brightness.light,
+              );
+
+              final darkTheme = ThemeData(
+                colorScheme: ColorScheme.fromSeed(
+                    seedColor: Colors.blue, brightness: Brightness.dark),
+                useMaterial3: true,
+                brightness: Brightness.dark,
+              );
+
               return MaterialApp(
                 navigatorKey: navigatorKey,
                 title: 'SNS HR',
-                theme: ThemeData(
-                  colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-                  useMaterial3: true,
-                ),
+                theme: lightTheme,
+                darkTheme: darkTheme,
+                themeMode: (authProvider.isAuthenticated &&
+                        authProvider.user?['role'] == 'admin' &&
+                        adminSettings.darkModeEnabled)
+                    ? ThemeMode.dark
+                    : ThemeMode.light,
                 navigatorObservers: [
                   Provider.of<RouteObserver<ModalRoute<void>>>(context)
                 ],
@@ -155,6 +190,10 @@ class MyApp extends StatelessWidget {
                       const NotificationAlertScreen(),
                   '/admin/leave_management': (context) =>
                       const LeaveManagementScreen(),
+                  '/admin/payroll_cycle_settings': (context) =>
+                      const PayrollCycleSettingsScreen(),
+                  '/admin/leave_policy_settings': (context) =>
+                      const LeavePolicySettingsScreen(),
                 },
               );
             },

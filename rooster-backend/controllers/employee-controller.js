@@ -14,48 +14,7 @@ exports.getAllEmployees = async (req, res) => {
     console.log('DEBUG: Employee filter:', filter);
     const employees = await Employee.find(filter);
     console.log('DEBUG: Found employees count:', employees.length);
-    // On-demand: Notify admins of incomplete profiles
-    for (const emp of employees) {
-      if (!emp.phone || !emp.address || !emp.emergencyContact) {
-        // Only send one admin notification per day
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const existingAdminNotif = await Notification.findOne({
-          role: 'admin',
-          title: 'Incomplete Employee Profile',
-          message: `${emp.firstName} ${emp.lastName} has not completed their profile.`,
-          createdAt: { $gte: today }
-        });
-        if (!existingAdminNotif) {
-          const adminNotification = new Notification({
-            role: 'admin',
-            title: 'Incomplete Employee Profile',
-            message: `${emp.firstName} ${emp.lastName} has not completed their profile.`,
-            type: 'alert',
-            link: `/admin/employee_management`,
-            isRead: false,
-          });
-          await adminNotification.save();
-        }
-        // Only send one employee notification per day
-        const existingEmpNotif = await Notification.findOne({
-          user: emp.userId,
-          title: 'Incomplete Profile',
-          createdAt: { $gte: today }
-        });
-        if (!existingEmpNotif) {
-          const employeeNotification = new Notification({
-            user: emp.userId,
-            title: 'Incomplete Profile',
-            message: 'Your profile is incomplete. Please update your information.',
-            type: 'alert',
-            link: '/profile',
-            isRead: false,
-          });
-          await employeeNotification.save();
-        }
-      }
-    }
+    // Removed notification-creation logic for incomplete profiles
     res.status(200).json(employees);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -96,6 +55,19 @@ exports.createEmployee = async (req, res) => {
     });
 
     const newEmployee = await employee.save();
+
+    // Also update the corresponding User document with position and department
+    try {
+      const userToUpdate = await User.findById(req.body.userId);
+      if (userToUpdate) {
+        if (req.body.position !== undefined) userToUpdate.position = req.body.position;
+        if (req.body.department !== undefined) userToUpdate.department = req.body.department;
+        await userToUpdate.save();
+      }
+    } catch (err) {
+      console.error('Warning: Failed to sync position/department to User:', err);
+    }
+
     res.status(201).json(newEmployee);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -121,6 +93,20 @@ exports.updateEmployee = async (req, res) => {
     employee.position = req.body.position || employee.position;
     employee.department = req.body.department || employee.department;
     employee.userId = req.body.userId || employee.userId;
+
+    // Sync position & department changes to User model if this employee is linked
+    if (employee.userId) {
+      try {
+        const linkedUser = await User.findById(employee.userId);
+        if (linkedUser) {
+          if (req.body.position !== undefined) linkedUser.position = req.body.position;
+          if (req.body.department !== undefined) linkedUser.department = req.body.department;
+          await linkedUser.save();
+        }
+      } catch (err) {
+        console.error('Warning: Failed to sync position/department to User on update:', err);
+      }
+    }
 
     const updatedEmployee = await employee.save();
     res.status(200).json(updatedEmployee);

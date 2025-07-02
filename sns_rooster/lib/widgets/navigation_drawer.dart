@@ -228,7 +228,7 @@ class AppNavigationDrawer extends StatelessWidget {
             onTap: () async {
               // Close the drawer first
               Navigator.pop(context);
-              
+
               // Show confirmation dialog
               final shouldLogout = await showDialog<bool>(
                 context: context,

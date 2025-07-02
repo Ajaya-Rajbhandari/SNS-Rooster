@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
@@ -18,6 +19,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../widgets/notification_bell.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/employee_service.dart';
+import '../../providers/payroll_analytics_provider.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -81,7 +83,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      print('Error fetching dashboard data: $e');
+      log('Error fetching dashboard data: $e');
       setState(() {
         _isLoading = false;
         _errorMessage = 'Failed to load dashboard data. Please try again.';
@@ -181,7 +183,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          const Text('Events coming soon!'),
+                          const Text('No upcoming events.'),
                         ],
                       ),
                     ),
@@ -208,7 +210,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          const Text('Recent activities coming soon!'),
+                          const Text('No recent activities.'),
                         ],
                       ),
                     ),
@@ -314,43 +316,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               style: theme.textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Alert Banner',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.warning, color: Colors.red[700]),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Critical: Payroll deadline approaching!',
-                              style: TextStyle(color: Colors.red[700]),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            _buildAlertsSection(context),
             const SizedBox(height: 24),
             Text(
               'Employee Management',
@@ -447,199 +413,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
             const SizedBox(height: 16),
             // --- Payroll Insights Section ---
-            _PayrollInsightsSection(),
+            const _PayrollInsightsSection(),
             const SizedBox(height: 24),
-            Text(
-              'Settings & Configuration',
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Admin Preferences',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Text('Admin Preferences coming soon!'),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'System Configuration',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Text('System Configuration coming soon!'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Help & Support',
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'FAQ or Help Center',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Text('FAQ coming soon!'),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        // Navigate to Contact Support screen
-                      },
-                      icon: const Icon(Icons.contact_support),
-                      label: const Text('Contact Support'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Security & Compliance',
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Audit Logs',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Text('Audit Logs coming soon!'),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Compliance Alerts',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Text('Compliance Alerts coming soon!'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Integration with External Tools',
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Calendar Integration',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Text('Calendar Integration coming soon!'),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Export Options',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Text('Export Options coming soon!'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            // Placeholder sections removed (Help & Support, Security & Compliance, Integration)
           ],
         ),
       ),
@@ -663,6 +439,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       {required IconData icon,
       required String title,
       required VoidCallback onTap}) {
+    final theme = Theme.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Card(
@@ -683,7 +460,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 32, color: Colors.white),
+              Icon(icon, size: 32, color: theme.colorScheme.onPrimary),
               const SizedBox(height: 8),
               Text(
                 title,
@@ -699,98 +476,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildUpcomingEventsSection(ThemeData theme) {
-    if (_isLoading ||
-        _dashboardData['upcomingEvents'] == null ||
-        (_dashboardData['upcomingEvents'] as List).isEmpty) {
-      return Container(
-        height: 100,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Center(
-          child: Text('Events coming soon!'),
-        ),
-      );
-    }
-
-    List<dynamic> events = _dashboardData['upcomingEvents'];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ...events.map((event) => Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ListTile(
-                leading: const Icon(Icons.event),
-                title: Text(event['title'] ?? 'Untitled Event'),
-                subtitle: Text(event['date'] ?? 'No date provided'),
-              ),
-            )),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: () {
-              // Navigate to detailed events page
-            },
-            child: const Text('View All'),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRecentActivitiesSection(ThemeData theme) {
-    if (_isLoading ||
-        _dashboardData['recentActivities'] == null ||
-        (_dashboardData['recentActivities'] as List).isEmpty) {
-      return Container(
-        height: 100,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Center(
-          child: Text('Recent activities coming soon!'),
-        ),
-      );
-    }
-
-    List<dynamic> activities = _dashboardData['recentActivities'];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ...activities.map((activity) => Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ListTile(
-                leading: const Icon(Icons.history),
-                title: Text(activity['description'] ?? 'No description'),
-                subtitle: Text(activity['timestamp'] ?? 'No timestamp'),
-              ),
-            )),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: () {
-              // Navigate to detailed activities page
-            },
-            child: const Text('View All'),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(
-      String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(BuildContext context, String title, String value,
+      IconData icon, Color color) {
+    final theme = Theme.of(context);
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(
@@ -812,7 +500,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             Row(
               children: [
-                Icon(icon, color: Colors.white, size: 24), // Reduced from 28
+                Icon(icon, color: theme.colorScheme.onPrimary, size: 24),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -888,6 +576,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         itemBuilder: (context, i) => SizedBox(
           width: 160,
           child: _buildStatCard(
+            context,
             stats[i]['title'] as String,
             stats[i]['value'] as String,
             stats[i]['icon'] as IconData,
@@ -1178,69 +867,130 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
     );
   }
+
+  Widget _buildAlertsSection(BuildContext context) {
+    final notificationProvider = Provider.of<NotificationProvider>(context);
+    // Filter notifications: show only alerts or broadcasts for admin
+    final rawAlerts = notificationProvider.notifications;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.user?['_id'];
+    final alerts = rawAlerts
+        .where((n) {
+          final isAlertType = n['type'] == 'alert' ||
+              n['type'] == 'payroll'; // extend as needed
+          final isForAdminRole = n['role'] == 'admin';
+          final isBroadcast = n['role'] == 'all';
+          final isForThisAdmin = n['user'] == userId;
+          return isAlertType &&
+              (isForAdminRole || isBroadcast || isForThisAdmin);
+        })
+        .take(3)
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Recent Alerts',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 12),
+        if (alerts.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Center(child: Text('No critical alerts.')),
+          )
+        else
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: alerts.map((alert) {
+                return ListTile(
+                  leading: Icon(
+                    alert['type'] == 'alert'
+                        ? Icons.warning
+                        : Icons.notifications,
+                    color: alert['type'] == 'alert'
+                        ? Colors.red
+                        : Theme.of(context).colorScheme.primary,
+                  ),
+                  title: Text(alert['title'] ?? 'Untitled Alert'),
+                  subtitle: Text(alert['message'] ?? 'No description'),
+                );
+              }).toList(),
+            ),
+          ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationAlertScreen(),
+                ),
+              );
+            },
+            child: const Text('View All Alerts'),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-class _PayrollInsightsSection extends StatelessWidget {
-  _PayrollInsightsSection({Key? key}) : super(key: key);
+class _PayrollInsightsSection extends StatefulWidget {
+  const _PayrollInsightsSection({Key? key}) : super(key: key);
 
-  // Mock payroll data
-  final List<Map<String, dynamic>> payrollData = [
-    {
-      'employee': 'John Doe',
-      'salary': 3500.0,
-      'deductions': 500.0,
-      'month': 'May'
-    },
-    {
-      'employee': 'Jane Smith',
-      'salary': 4000.0,
-      'deductions': 600.0,
-      'month': 'May'
-    },
-    {
-      'employee': 'Bob Johnson',
-      'salary': 3200.0,
-      'deductions': 400.0,
-      'month': 'May'
-    },
-    {
-      'employee': 'John Doe',
-      'salary': 3500.0,
-      'deductions': 450.0,
-      'month': 'Apr'
-    },
-    {
-      'employee': 'Jane Smith',
-      'salary': 4000.0,
-      'deductions': 550.0,
-      'month': 'Apr'
-    },
-    {
-      'employee': 'Bob Johnson',
-      'salary': 3200.0,
-      'deductions': 350.0,
-      'month': 'Apr'
-    },
-  ];
+  @override
+  State<_PayrollInsightsSection> createState() =>
+      _PayrollInsightsSectionState();
+}
+
+class _PayrollInsightsSectionState extends State<_PayrollInsightsSection> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider =
+          Provider.of<PayrollAnalyticsProvider>(context, listen: false);
+      provider.fetchTrend();
+      provider.fetchDeductionBreakdown();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Calculate summary stats
-    const currentMonth = 'May';
-    final currentMonthData =
-        payrollData.where((e) => e['month'] == currentMonth).toList();
-    final totalPayroll =
-        currentMonthData.fold<double>(0, (sum, e) => sum + (e['salary'] ?? 0));
-    final avgSalary = currentMonthData.isNotEmpty
-        ? totalPayroll / currentMonthData.length
-        : 0;
-    final highest = currentMonthData.isNotEmpty
-        ? currentMonthData.reduce((a, b) => a['salary'] > b['salary'] ? a : b)
-        : null;
-    final lowest = currentMonthData.isNotEmpty
-        ? currentMonthData.reduce((a, b) => a['salary'] < b['salary'] ? a : b)
-        : null;
+    final provider = Provider.of<PayrollAnalyticsProvider>(context);
+
+    if (provider.isLoading && provider.trend.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (provider.error != null) {
+      return Text('Error: ${provider.error}',
+          style: theme.textTheme.bodyMedium
+              ?.copyWith(color: theme.colorScheme.error));
+    }
+
+    final trend = provider.trend;
+    final breakdown = provider.deductionBreakdown;
+
+    // Compute summary stats from trend (use latest month if available)
+    double totalPayroll = 0;
+    if (trend.isNotEmpty) {
+      final latest = trend.last; // latest month
+      totalPayroll = (latest['totalNet'] ?? 0).toDouble();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1254,7 +1004,45 @@ class _PayrollInsightsSection extends StatelessWidget {
             color: Colors.grey[200],
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Center(child: Text('Payroll Trend Chart coming soon!')),
+          child: trend.isEmpty
+              ? const Center(child: Text('No data'))
+              : BarChart(
+                  BarChartData(
+                    alignment: BarChartAlignment.spaceAround,
+                    barTouchData: const BarTouchData(enabled: false),
+                    titlesData: FlTitlesData(
+                      leftTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            final idx = value.toInt();
+                            if (idx < 0 || idx >= trend.length) {
+                              return const SizedBox.shrink();
+                            }
+                            final mStr = trend[idx]['month'] as String;
+                            return Text(mStr.substring(5)); // MM
+                          },
+                        ),
+                      ),
+                    ),
+                    borderData: FlBorderData(show: false),
+                    barGroups: [
+                      for (int i = 0; i < trend.length; i++)
+                        BarChartGroupData(x: i, barRods: [
+                          BarChartRodData(
+                              toY: (trend[i]['totalNet'] ?? 0).toDouble(),
+                              color: Colors.blue,
+                              width: 14),
+                        ])
+                    ],
+                  ),
+                ),
         ),
         const SizedBox(height: 24),
         Text('Deduction Breakdown', style: theme.textTheme.titleMedium),
@@ -1265,46 +1053,38 @@ class _PayrollInsightsSection extends StatelessWidget {
             color: Colors.grey[200],
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Center(
-              child: Text('Deduction Breakdown Chart coming soon!')),
+          child: breakdown.isEmpty
+              ? const Center(child: Text('No breakdown data'))
+              : PieChart(
+                  PieChartData(
+                    sections: breakdown.entries.map((e) {
+                      final color = Colors.primaries[
+                          breakdown.keys.toList().indexOf(e.key) %
+                              Colors.primaries.length];
+                      return PieChartSectionData(
+                        value: e.value,
+                        title: e.key,
+                        color: color,
+                        radius: 50,
+                        titleStyle: theme.textTheme.bodySmall
+                            ?.copyWith(color: Colors.white),
+                      );
+                    }).toList(),
+                  ),
+                ),
         ),
         const SizedBox(height: 24),
         Text('Payroll Summary', style: theme.textTheme.titleMedium),
         const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _buildSummaryCard(
-                  context,
-                  'Total Payroll',
-                  '₤${totalPayroll.toStringAsFixed(2)}',
-                  Icons.payments,
-                  Colors.blue),
-              _buildSummaryCard(
-                  context,
-                  'Avg Salary',
-                  '₤${avgSalary.toStringAsFixed(2)}',
-                  Icons.bar_chart,
-                  Colors.green),
-              _buildSummaryCard(
-                  context,
-                  'Highest',
-                  highest != null
-                      ? '${highest['employee']}\n₤${highest['salary'].toStringAsFixed(2)}'
-                      : '-',
-                  Icons.trending_up,
-                  Colors.orange),
-              _buildSummaryCard(
-                  context,
-                  'Lowest',
-                  lowest != null
-                      ? '${lowest['employee']}\n₤${lowest['salary'].toStringAsFixed(2)}'
-                      : '-',
-                  Icons.trending_down,
-                  Colors.red),
-            ],
-          ),
+        Row(
+          children: [
+            _buildSummaryCard(
+                context,
+                'Latest Net Payroll',
+                'â‚¤${totalPayroll.toStringAsFixed(2)}',
+                Icons.payments,
+                Colors.blue),
+          ],
         ),
       ],
     );

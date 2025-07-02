@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sns_rooster/utils/logger.dart';
 import '../services/admin_payroll_service.dart';
 import '../providers/auth_provider.dart';
 
@@ -65,9 +66,9 @@ class AdminPayrollProvider with ChangeNotifier {
 
   Future<void> editPayslip(
       String payslipId, Map<String, dynamic> payslip) async {
-    print('DEBUG: AdminPayrollProvider.editPayslip called');
-    print('DEBUG: payslipId: $payslipId');
-    print('DEBUG: payslip data (before patch): $payslip');
+    log('DEBUG: AdminPayrollProvider.editPayslip called');
+    log('DEBUG: payslipId: $payslipId');
+    log('DEBUG: payslip data (before patch): $payslip');
 
     // Ensure employee field is present
     if (payslip['employee'] == null || payslip['employee'].toString().isEmpty) {
@@ -75,29 +76,28 @@ class AdminPayrollProvider with ChangeNotifier {
       final idx = _payslips.indexWhere((p) => p['_id'] == payslipId);
       if (idx != -1 && _payslips[idx]['employee'] != null) {
         payslip['employee'] = _payslips[idx]['employee'];
-        print(
-            'DEBUG: Patched employee field from local payslip: \\${payslip['employee']}');
+        log('DEBUG: Patched employee field from local payslip: \\${payslip['employee']}');
       }
     }
 
-    print('DEBUG: payslip data (after patch): $payslip');
+    log('DEBUG: payslip data (after patch): $payslip');
 
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
-      print('DEBUG: Calling _service.editPayslip...');
+      log('DEBUG: Calling _service.editPayslip...');
       final updated = await _service.editPayslip(payslipId, payslip);
-      print('DEBUG: Service returned updated payslip: $updated');
+      log('DEBUG: Service returned updated payslip: $updated');
 
       final idx = _payslips.indexWhere((p) => p['_id'] == payslipId);
-      print('DEBUG: Found payslip at index: $idx');
+      log('DEBUG: Found payslip at index: $idx');
       if (idx != -1) {
         _payslips[idx] = updated;
-        print('DEBUG: Updated payslip in local list');
+        log('DEBUG: Updated payslip in local list');
       }
     } catch (e) {
-      print('DEBUG: Error in editPayslip: $e');
+      log('DEBUG: Error in editPayslip: $e');
       _error = e.toString();
     } finally {
       _isLoading = false;

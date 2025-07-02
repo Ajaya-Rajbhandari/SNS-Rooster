@@ -34,7 +34,8 @@ class LeaveRequestTile extends StatelessWidget {
       leading: Icon(Icons.event_note, color: Theme.of(context).primaryColor),
       title: Text('$type Leave'),
       subtitle: Text(date),
-      trailing: Text(status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
+      trailing: Text(status,
+          style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
     );
   }
 }

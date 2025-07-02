@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sns_rooster/utils/logger.dart';
 import '../providers/auth_provider.dart'; // To get current user ID
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -39,11 +40,9 @@ class AnalyticsProvider with ChangeNotifier {
         return;
       }
       // Debug: Print outgoing request details
-      print(
-          'DEBUG: Analytics attendance URL: ${ApiConfig.baseUrl}/analytics/attendance/$userId?range=$range');
-      print(
-          'DEBUG: Analytics work hours URL: ${ApiConfig.baseUrl}/analytics/work-hours/$userId?range=$range');
-      print('DEBUG: Authorization token: Bearer $token');
+      log('DEBUG: Analytics attendance URL: ${ApiConfig.baseUrl}/analytics/attendance/$userId?range=$range');
+      log('DEBUG: Analytics work hours URL: ${ApiConfig.baseUrl}/analytics/work-hours/$userId?range=$range');
+      log('DEBUG: Authorization token: Bearer $token');
       // Fetch attendance analytics from backend
       final attendanceRes = await http.get(
         Uri.parse(

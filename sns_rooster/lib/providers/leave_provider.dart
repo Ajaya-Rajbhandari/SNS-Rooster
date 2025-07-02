@@ -1,4 +1,5 @@
-import 'dart:async';
+﻿import 'dart:async';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/leave_request.dart';
@@ -17,17 +18,17 @@ class LeaveProvider with ChangeNotifier {
 
   Future<void> _initializeApiService() async {
     try {
-      print('DEBUG: Initializing _apiService');
+      log('DEBUG: Initializing _apiService');
       final prefs = await SharedPreferences.getInstance();
       _apiService = ApiService(
         baseUrl: ApiConfig.baseUrl,
         prefs: prefs,
       );
       _apiServiceCompleter.complete();
-      print('DEBUG: _apiService initialization complete');
+      log('DEBUG: _apiService initialization complete');
     } catch (e) {
       _apiServiceCompleter.completeError(e);
-      print('DEBUG: Error initializing _apiService: $e');
+      log('DEBUG: Error initializing _apiService: $e');
     }
   }
 
@@ -47,11 +48,11 @@ class LeaveProvider with ChangeNotifier {
             .map((json) => LeaveRequest.fromJson(json))
             .toList();
       } else {
-        print('Error fetching leave requests: ${response.message}');
+        log('Error fetching leave requests: ${response.message}');
         _leaveRequests = []; // Clear the list if the API call fails
       }
     } catch (e) {
-      print('Error fetching leave requests: $e');
+      log('Error fetching leave requests: $e');
       _leaveRequests = []; // Clear the list if the API call fails
     } finally {
       _isLoading = false;
@@ -74,10 +75,10 @@ class LeaveProvider with ChangeNotifier {
         }).toList();
         notifyListeners();
       } else {
-        print('Error approving leave request: ${response.message}');
+        log('Error approving leave request: ${response.message}');
       }
     } catch (e) {
-      print('Error approving leave request: $e');
+      log('Error approving leave request: $e');
       // For development, update the mock data
       _leaveRequests = _leaveRequests.map((request) {
         if (request.id == id) {
@@ -107,10 +108,10 @@ class LeaveProvider with ChangeNotifier {
         }).toList();
         notifyListeners();
       } else {
-        print('Error rejecting leave request: ${response.message}');
+        log('Error rejecting leave request: ${response.message}');
       }
     } catch (e) {
-      print('Error rejecting leave request: $e');
+      log('Error rejecting leave request: $e');
       // For development, update the mock data
       _leaveRequests = _leaveRequests.map((request) {
         if (request.id == id) {
@@ -133,10 +134,10 @@ class LeaveProvider with ChangeNotifier {
         _leaveRequests.add(newRequest);
         notifyListeners();
       } else {
-        print('Error creating leave request: ${response.message}');
+        log('Error creating leave request: ${response.message}');
       }
     } catch (e) {
-      print('Error creating leave request: $e');
+      log('Error creating leave request: $e');
       // For development, add to mock data
       _leaveRequests.add(request);
       notifyListeners();

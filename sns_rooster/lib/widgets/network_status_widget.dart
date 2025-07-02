@@ -18,7 +18,7 @@ class _NetworkStatusWidgetState extends State<NetworkStatusWidget> {
 
   @override
   void initState() {
-    super(initState());
+    super.initState();
     _loadNetworkInfo();
   }
 

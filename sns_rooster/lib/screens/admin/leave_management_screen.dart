@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:provider/provider.dart';
 import '../../providers/leave_provider.dart';
 import '../../models/leave_request.dart';
@@ -32,13 +33,13 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
 
   Future<void> _initializeApiService() async {
     try {
-      print('DEBUG: Initializing _apiService');
+      log('DEBUG: Initializing _apiService');
       // Simulate initialization logic for _apiService
       await Future.delayed(const Duration(seconds: 1));
       _apiServiceCompleter.complete();
-      print('DEBUG: _apiService initialization complete');
+      log('DEBUG: _apiService initialization complete');
     } catch (e) {
-      print('Error initializing _apiService: $e');
+      log('Error initializing _apiService: $e');
       _apiServiceCompleter.completeError(e);
     }
   }
@@ -47,28 +48,26 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
     final leaveProvider = Provider.of<LeaveProvider>(context, listen: false);
     try {
       await _apiServiceCompleter.future;
-      print('DEBUG: Initiating fetchLeaveRequests');
-      print(
-          'DEBUG: Authorization header being sent: ${await leaveProvider.getAuthorizationHeader()}');
+      log('DEBUG: Initiating fetchLeaveRequests');
+      log('DEBUG: Authorization header being sent: ${await leaveProvider.getAuthorizationHeader()}');
       await leaveProvider.fetchLeaveRequests();
-      print(
-          'DEBUG: Leave requests fetched successfully. Total requests: ${leaveProvider.leaveRequests.length}');
+      log('DEBUG: Leave requests fetched successfully. Total requests: ${leaveProvider.leaveRequests.length}');
     } catch (e) {
       if (e is FormatException) {
-        print('Error parsing response: $e');
+        log('Error parsing response: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text(
                   'Error parsing backend response. Please contact admin.')),
         );
       } else if (e.toString().contains('employeeId is undefined')) {
-        print('Error: employeeId is undefined for leave history request.');
+        log('Error: employeeId is undefined for leave history request.');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Employee ID is missing. Please contact admin.')),
         );
       } else {
-        print('Error fetching leave requests: $e');
+        log('Error fetching leave requests: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text(

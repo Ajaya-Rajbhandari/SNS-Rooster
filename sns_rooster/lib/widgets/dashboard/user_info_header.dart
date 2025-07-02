@@ -12,7 +12,8 @@ class UserInfoHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
     final profile = profileProvider.profile;
 
     return Row(
@@ -20,7 +21,8 @@ class UserInfoHeader extends StatelessWidget {
         CircleAvatar(
           backgroundImage: profile != null && profile['avatar'] != null
               ? NetworkImage(profile['avatar'])
-              : const AssetImage('assets/images/default_avatar.png') as ImageProvider,
+              : const AssetImage('assets/images/default_avatar.png')
+                  as ImageProvider,
           radius: 28,
         ),
         const SizedBox(width: 12),
@@ -29,7 +31,9 @@ class UserInfoHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                profile != null ? 'Welcome Back, ${profile['name']}' : 'Welcome Back',
+                profile != null
+                    ? 'Welcome Back, ${profile['name']}'
+                    : 'Welcome Back',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               Text(

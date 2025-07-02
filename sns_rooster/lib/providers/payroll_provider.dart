@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:sns_rooster/utils/logger.dart';
 import '../providers/auth_provider.dart';
 import '../services/payroll_service.dart';
 
@@ -18,7 +19,7 @@ class PayrollProvider with ChangeNotifier {
   String? get error => _error;
 
   Future<void> fetchPayrollSlips() async {
-    print('PayrollProvider: fetchPayrollSlips called');
+    log('PayrollProvider: fetchPayrollSlips called');
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -26,7 +27,7 @@ class PayrollProvider with ChangeNotifier {
     final userId = _authProvider.user?['_id'];
 
     if (userId == null) {
-      print('PayrollProvider: userId is null');
+      log('PayrollProvider: userId is null');
       _error = 'User not logged in.';
       _isLoading = false;
       notifyListeners();
@@ -34,12 +35,12 @@ class PayrollProvider with ChangeNotifier {
     }
 
     try {
-      print('PayrollProvider: calling getPayrollSlips for userId: $userId');
+      log('PayrollProvider: calling getPayrollSlips for userId: $userId');
       _payrollSlips = await _payrollService.getPayrollSlips(userId);
-      print('PayrollProvider: payrollSlips fetched: ${_payrollSlips.length}');
+      log('PayrollProvider: payrollSlips fetched: ${_payrollSlips.length}');
       _payrollSlips.sort((a, b) => b['periodEnd'].compareTo(a['periodEnd']));
     } catch (e) {
-      print('PayrollProvider: error fetching payroll slips: $e');
+      log('PayrollProvider: error fetching payroll slips: $e');
       _error = e.toString();
       _payrollSlips = [];
     } finally {
@@ -49,7 +50,7 @@ class PayrollProvider with ChangeNotifier {
   }
 
   void clearPayrollData() {
-    print('PayrollProvider: clearPayrollData called');
+    log('PayrollProvider: clearPayrollData called');
     _payrollSlips = [];
     _isLoading = false;
     _error = null;

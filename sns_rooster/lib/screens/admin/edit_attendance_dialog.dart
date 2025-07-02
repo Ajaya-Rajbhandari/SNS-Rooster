@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:intl/intl.dart';
 
 class EditAttendanceDialog extends StatefulWidget {
@@ -32,10 +33,12 @@ class _EditAttendanceDialogState extends State<EditAttendanceDialog> {
       _breaks =
           (widget.initialData['breaks'] as List).map<Map<String, dynamic>>((b) {
         final map = Map<String, dynamic>.from(b as Map);
-        if (map['start'] != null)
+        if (map['start'] != null) {
           map['start'] = DateTime.tryParse(map['start'].toString());
-        if (map['end'] != null)
+        }
+        if (map['end'] != null) {
           map['end'] = DateTime.tryParse(map['end'].toString());
+        }
         return map;
       }).toList();
     }
@@ -249,7 +252,7 @@ class _EditAttendanceDialogState extends State<EditAttendanceDialog> {
                       })
                   .toList(),
             };
-            print('DEBUG: Saving attendance: ' + updated.toString());
+            log('DEBUG: Saving attendance: $updated');
             widget.onSave(updated);
             Navigator.pop(context, updated);
           },

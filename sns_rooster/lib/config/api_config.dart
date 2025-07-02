@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:sns_rooster/utils/logger.dart';
 
 /// API Configuration for SNS Rooster App
 ///
@@ -9,8 +10,8 @@ class ApiConfig {
   // Network Configuration - Update these IPs based on your setup
   static const String homeIP =
       '10.0.2.2'; // Android emulator maps to host localhost
-  static const String fallbackIP =
-      '192.168.1.80'; // Actual machine IP as fallback (updated to current IP)
+  static const String fallbackIP = '192.168.1.80';
+  // '192.168.1.68'; // Actual machine IP as fallback (updated to current IP)
   static const String officeIP =
       '10.0.0.45'; // Your office network IP (update this!)
   static const String port = '5000';
@@ -90,7 +91,7 @@ class ApiConfig {
         }
       }
     } catch (e) {
-      print('Error detecting local IP: $e');
+      log('Error detecting local IP: $e');
     }
 
     return '';

@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:sns_rooster/screens/admin/edit_employee_dialog.dart';
-import 'package:sns_rooster/services/attendance_service.dart';
 import 'package:sns_rooster/providers/employee_provider.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/admin_settings_provider.dart';
@@ -754,7 +753,7 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen>
         _fetchFullProfile();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update document status.')),
+          const SnackBar(content: Text('Failed to update document status.')),
         );
       }
     } catch (e) {

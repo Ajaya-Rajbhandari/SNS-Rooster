@@ -6,7 +6,9 @@ class EditEmployeeDialog extends StatefulWidget {
   final EmployeeProvider employeeProvider; // Change to EmployeeProvider
 
   const EditEmployeeDialog(
-      {super.key, required this.employee, required this.employeeProvider}); // Update constructor
+      {super.key,
+      required this.employee,
+      required this.employeeProvider}); // Update constructor
 
   @override
   State<EditEmployeeDialog> createState() => _EditEmployeeDialogState();
@@ -96,7 +98,6 @@ class _EditEmployeeDialogState extends State<EditEmployeeDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final colorScheme = Theme.of(context).colorScheme;
 
     return AlertDialog(

@@ -240,8 +240,10 @@ class _BreakTypesScreenState extends State<BreakTypesScreen> {
                                                     isActive
                                                         ? 'Active'
                                                         : 'Inactive',
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
+                                                    style: TextStyle(
+                                                      color: Theme.of(context)
+                                                          .colorScheme
+                                                          .onPrimary,
                                                       fontSize: 12,
                                                       fontWeight:
                                                           FontWeight.bold,

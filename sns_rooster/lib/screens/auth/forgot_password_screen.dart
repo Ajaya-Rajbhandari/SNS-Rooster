@@ -30,9 +30,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     });
 
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      // TODO: Implement actual forgot password request in AuthProvider
-      // For now, simulate success
+      // TODO: implement logic via AuthProvider if needed
       await Future.delayed(const Duration(seconds: 2));
 
       ScaffoldMessenger.of(context).showSnackBar(

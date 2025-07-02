@@ -260,7 +260,7 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                                                   color: Colors.red
                                                       .withOpacity(0.3)),
                                             ),
-                                            child: Text(
+                                            child: const Text(
                                               'Inactive',
                                               style: TextStyle(
                                                 color: Colors.red,

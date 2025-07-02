@@ -21,4 +21,7 @@ router.delete('/clear-all', auth, notificationController.clearAllNotifications);
 // Delete a single notification by ID
 router.delete('/:id', auth, notificationController.deleteNotification);
 
+// Admin-only: delete all admin notifications
+router.delete('/clear-all-admin', auth, notificationController.clearAllAdminNotifications);
+
 module.exports = router; 

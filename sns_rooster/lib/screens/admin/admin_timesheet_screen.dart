@@ -53,22 +53,36 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
       lastDate: DateTime(2100),
       initialDateRange: initialRange,
       builder: (context, child) {
+        final baseScheme = Theme.of(context).colorScheme;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final pickerScheme = (isDark
+                ? ColorScheme.dark(
+                    primary: baseScheme.primary,
+                    onPrimary: baseScheme.onPrimary,
+                    surface: baseScheme.surface,
+                    onSurface: baseScheme.onSurface,
+                  )
+                : ColorScheme.light(
+                    primary: baseScheme.primary,
+                    onPrimary: baseScheme.onPrimary,
+                    surface: baseScheme.surface,
+                    onSurface: baseScheme.onSurface,
+                  ))
+            .copyWith(
+          secondary: baseScheme.secondary,
+        );
+
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: Theme.of(context).primaryColor,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
-            ),
+            colorScheme: pickerScheme,
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).primaryColor,
+                foregroundColor: baseScheme.primary,
                 textStyle:
                     const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
-            dialogBackgroundColor: Colors.white,
+            dialogTheme: DialogThemeData(backgroundColor: baseScheme.surface),
           ),
           child: child!,
         );
@@ -111,14 +125,6 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
     final dt = DateTime.tryParse(iso);
     if (dt == null) return '-';
     return DateFormat('yyyy-MM-dd').format(dt);
-  }
-
-  String _formatBreak(int? ms) {
-    if (ms == null || ms == 0) return '-';
-    final d = Duration(milliseconds: ms);
-    final h = d.inHours;
-    final m = d.inMinutes % 60;
-    return '${h}h ${m}m';
   }
 
   String _formatTotalHours(String? inIso, String? outIso, int? breakMs) {
@@ -245,6 +251,7 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Admin Timesheet')),
       drawer: const AdminSideNavigation(currentRoute: '/admin_timesheet'),
@@ -286,8 +293,8 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
             const SizedBox(height: 8),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 shape: RoundedRectangleBorder(
@@ -327,13 +334,14 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : Icon(Icons.download, size: 22),
-              label: Text('Export CSV',
+                          strokeWidth: 2, color: colorScheme.onPrimary))
+                  : Icon(Icons.download,
+                      size: 22, color: colorScheme.onPrimary),
+              label: const Text('Export CSV',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 8),
-            Row(
+            const Row(
               children: [
                 Icon(Icons.swipe, size: 18, color: Colors.grey),
                 SizedBox(width: 4),
@@ -356,8 +364,8 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
                   return SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
-                      headingRowColor:
-                          MaterialStateProperty.all(Colors.blueGrey[50]),
+                      headingRowColor: WidgetStateProperty.all(
+                          colorScheme.surfaceContainerHighest.withOpacity(0.5)),
                       columns: const [
                         DataColumn(
                             label: Text('Employee',
@@ -389,13 +397,14 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
                         (index) {
                           final rec = provider.attendanceRecords[index];
                           final user = rec.user;
-                          final status = rec.status?.toString() ?? 'present';
+                          final status = rec.status.toString() ?? 'present';
                           return DataRow(
-                            color: MaterialStateProperty.resolveWith<Color?>(
-                                (Set<MaterialState> states) {
+                            color: WidgetStateProperty.resolveWith<Color?>(
+                                (Set<WidgetState> states) {
                               return index % 2 == 0
-                                  ? Colors.white
-                                  : Colors.grey[50];
+                                  ? colorScheme.surface
+                                  : colorScheme.surfaceContainerHighest
+                                      .withOpacity(0.2);
                             }),
                             cells: [
                               DataCell(Text(
@@ -404,35 +413,35 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
                                           user['firstName'] ??
                                           '—')
                                       : '—',
-                                  style: TextStyle(fontSize: 15))),
+                                  style: const TextStyle(fontSize: 15))),
                               DataCell(Text(_formatDate(rec.date.toString()),
-                                  style: TextStyle(fontSize: 15))),
+                                  style: const TextStyle(fontSize: 15))),
                               DataCell(Text(
                                   _formatTime(rec.checkInTime?.toString()),
-                                  style: TextStyle(fontSize: 15))),
+                                  style: const TextStyle(fontSize: 15))),
                               DataCell(Text(
                                   _formatTime(rec.checkOutTime?.toString()),
-                                  style: TextStyle(fontSize: 15))),
+                                  style: const TextStyle(fontSize: 15))),
                               DataCell(Text(
                                   _formatTotalHours(
                                       rec.checkInTime?.toString(),
                                       rec.checkOutTime?.toString(),
                                       rec.totalBreakDuration),
-                                  style: TextStyle(fontSize: 15))),
+                                  style: const TextStyle(fontSize: 15))),
                               DataCell(Row(
                                 children: [
-                                  Text(_formatBreaks(rec.breaks as List?),
-                                      style: TextStyle(fontSize: 15)),
+                                  Text(_formatBreaks(rec.breaks),
+                                      style: const TextStyle(fontSize: 15)),
                                   const SizedBox(width: 8),
                                   _buildBreakBadge(rec.toJson()),
-                                  if ((rec.breaks as List?) != null &&
+                                  if (rec.breaks != null &&
                                       (rec.breaks as List).isNotEmpty)
                                     IconButton(
                                       icon: const Icon(Icons.info_outline,
                                           size: 18),
                                       tooltip: 'View break details',
                                       onPressed: () => _showBreakDetailsDialog(
-                                          context, rec.breaks as List?),
+                                          context, rec.breaks),
                                     ),
                                 ],
                               )),
@@ -441,7 +450,7 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
                                   builder: (context) {
                                     if (status == 'on_break') {
                                       // Find the last break with no end time
-                                      final breaks = rec.breaks as List?;
+                                      final breaks = rec.breaks;
                                       Map<String, dynamic>? lastBreak;
                                       if (breaks != null && breaks.isNotEmpty) {
                                         final b = breaks.lastWhere(
@@ -450,9 +459,10 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
                                               b['end'] == null,
                                           orElse: () => null,
                                         );
-                                        if (b != null)
+                                        if (b != null) {
                                           lastBreak =
                                               Map<String, dynamic>.from(b);
+                                        }
                                       }
                                       String breakType = lastBreak != null
                                           ? (lastBreak['type'] is Map &&
@@ -482,11 +492,12 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
                                             ),
                                             child: Row(
                                               children: [
-                                                Icon(Icons.pause_circle_filled,
+                                                const Icon(
+                                                    Icons.pause_circle_filled,
                                                     color: Colors.orange,
                                                     size: 18),
                                                 const SizedBox(width: 4),
-                                                Text('on break',
+                                                const Text('on break',
                                                     style: TextStyle(
                                                         color: Colors.orange,
                                                         fontWeight:
@@ -611,7 +622,6 @@ class TimesheetSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 2,
@@ -640,20 +650,24 @@ class TimesheetSummary extends StatelessWidget {
 
   Widget _buildStatItem(BuildContext context, String title, String value,
       IconData icon, Color color) {
-    final theme = Theme.of(context);
     return Column(
       children: [
         Icon(icon, color: color, size: 28),
         const SizedBox(height: 8),
         Text(
           value,
-          style: theme.textTheme.titleLarge
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
               ?.copyWith(fontWeight: FontWeight.bold, color: color),
         ),
         const SizedBox(height: 4),
         Text(
           title,
-          style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: Colors.grey[600]),
         ),
       ],
     );
@@ -709,7 +723,7 @@ Widget _buildBreakBadge(Map<String, dynamic> rec) {
   if (breaks != null && breaks.isNotEmpty) {
     final ongoing = breaks.any((b) => b['end'] == null);
     if (ongoing) {
-      return Row(
+      return const Row(
         children: [
           Icon(Icons.pause_circle_filled, color: Colors.orange, size: 18),
           SizedBox(width: 4),
@@ -727,7 +741,7 @@ Widget _buildBreakBadge(Map<String, dynamic> rec) {
         ],
       );
     } else {
-      return Row(
+      return const Row(
         children: [
           Icon(Icons.check_circle, color: Colors.blue, size: 18),
           SizedBox(width: 4),
@@ -738,7 +752,7 @@ Widget _buildBreakBadge(Map<String, dynamic> rec) {
       );
     }
   } else {
-    return Row(
+    return const Row(
       children: [
         Icon(Icons.remove_circle_outline, color: Colors.grey, size: 18),
         SizedBox(width: 4),

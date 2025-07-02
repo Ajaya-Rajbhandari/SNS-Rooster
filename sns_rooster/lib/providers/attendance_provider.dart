@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../providers/auth_provider.dart';
@@ -30,16 +31,16 @@ class AttendanceProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      print('DEBUG: Fetching attendance for userId: $userId');
+      log('DEBUG: Fetching attendance for userId: $userId');
       _attendanceRecords =
           await _attendanceService.getAttendanceHistory(userId);
-      print('DEBUG: Attendance records received: ${_attendanceRecords.length}');
+      log('DEBUG: Attendance records received: ${_attendanceRecords.length}');
       if (_attendanceRecords.isNotEmpty) {
-        print('DEBUG: Sample attendance record: ${_attendanceRecords.first}');
+        log('DEBUG: Sample attendance record: ${_attendanceRecords.first}');
       }
       _error = null;
     } catch (e) {
-      print('DEBUG: Error fetching attendance: $e');
+      log('DEBUG: Error fetching attendance: $e');
       _error = 'Network error occurred: ${e.toString()}';
     } finally {
       _isLoading = false;
@@ -82,18 +83,16 @@ class AttendanceProvider with ChangeNotifier {
         _todayStatus = fetchedStatus;
         _currentAttendance = attendanceData;
       }
-      print(
-          'DEBUG: _todayStatus after update in fetchTodayStatus: $_todayStatus');
-      print(
-          'DEBUG: _currentAttendance after update in fetchTodayStatus: $_currentAttendance');
+      log('DEBUG: _todayStatus after update in fetchTodayStatus: $_todayStatus');
+      log('DEBUG: _currentAttendance after update in fetchTodayStatus: $_currentAttendance');
     } catch (e) {
-      print('DEBUG: Error while fetching todayStatus: $e');
+      log('DEBUG: Error while fetching todayStatus: $e');
       _error = 'Failed to fetch attendance status.';
       _todayStatus = null;
       _currentAttendance = null;
     } finally {
       _isLoading = false;
-      print('DEBUG: Notifying listeners after todayStatus update');
+      log('DEBUG: Notifying listeners after todayStatus update');
       notifyListeners();
     }
   }
@@ -106,10 +105,10 @@ class AttendanceProvider with ChangeNotifier {
     try {
       _currentAttendance =
           await _attendanceService.getCurrentAttendance(userId);
-      print('DEBUG: Current attendance details: $_currentAttendance');
+      log('DEBUG: Current attendance details: $_currentAttendance');
       _error = null;
     } catch (e) {
-      print('DEBUG: Error while fetching current attendance: $e');
+      log('DEBUG: Error while fetching current attendance: $e');
       _error = 'Failed to fetch current attendance details.';
       _currentAttendance = null;
     } finally {
@@ -156,8 +155,7 @@ class AttendanceProvider with ChangeNotifier {
 
   Future<void> fetchBreakTypes(BuildContext context) async {
     try {
-      print(
-          'FETCH_BREAK_TYPES_DEBUG: Token being sent: ${_authProvider.authToken}');
+      log('FETCH_BREAK_TYPES_DEBUG: Token being sent: ${_authProvider.authToken}');
 
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/attendance/break-types'),
@@ -166,9 +164,8 @@ class AttendanceProvider with ChangeNotifier {
         },
       );
 
-      print(
-          'FETCH_BREAK_TYPES_DEBUG: Response status code: ${response.statusCode}');
-      print('FETCH_BREAK_TYPES_DEBUG: Response body: ${response.body}');
+      log('FETCH_BREAK_TYPES_DEBUG: Response status code: ${response.statusCode}');
+      log('FETCH_BREAK_TYPES_DEBUG: Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         // Handle successful response
@@ -176,7 +173,7 @@ class AttendanceProvider with ChangeNotifier {
         // Handle error response
       }
     } catch (e) {
-      print('FETCH_BREAK_TYPES_DEBUG: Error during API call: $e');
+      log('FETCH_BREAK_TYPES_DEBUG: Error during API call: $e');
     }
   }
 }

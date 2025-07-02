@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../providers/auth_provider.dart';
+import 'package:sns_rooster/utils/logger.dart';
 
 class AdminSettingsProvider with ChangeNotifier {
   final AuthProvider _authProvider;
@@ -48,7 +49,7 @@ class AdminSettingsProvider with ChangeNotifier {
       _darkModeEnabled = prefs.getBool('dark_mode_enabled') ?? false;
       notifyListeners();
     } catch (e) {
-      print('Error loading admin settings: $e');
+      log('Error loading admin settings: $e');
     }
   }
 
@@ -63,7 +64,7 @@ class AdminSettingsProvider with ChangeNotifier {
       await prefs.setBool('notifications_enabled', _notificationsEnabled);
       await prefs.setBool('dark_mode_enabled', _darkModeEnabled);
     } catch (e) {
-      print('Error saving admin settings: $e');
+      log('Error saving admin settings: $e');
     }
   }
 
@@ -102,7 +103,9 @@ class AdminSettingsProvider with ChangeNotifier {
   // Sync settings to backend
   Future<void> syncSettingsToBackend() async {
     if (!_authProvider.isAuthenticated ||
-        _authProvider.user?['role'] != 'admin') return;
+        _authProvider.user?['role'] != 'admin') {
+      return;
+    }
 
     try {
       final settings = {
@@ -123,17 +126,19 @@ class AdminSettingsProvider with ChangeNotifier {
 
       if (response.statusCode != 200) {
         final data = json.decode(response.body);
-        print('Failed to sync settings: ${data['message']}');
+        log('Failed to sync settings: ${data['message']}');
       }
     } catch (e) {
-      print('Error syncing settings to backend: $e');
+      log('Error syncing settings to backend: $e');
     }
   }
 
   // Load settings from backend
   Future<void> loadSettingsFromBackend() async {
     if (!_authProvider.isAuthenticated ||
-        _authProvider.user?['role'] != 'admin') return;
+        _authProvider.user?['role'] != 'admin') {
+      return;
+    }
 
     _isLoading = true;
     _error = null;
@@ -157,7 +162,7 @@ class AdminSettingsProvider with ChangeNotifier {
       }
     } catch (e) {
       _error = 'Failed to load settings: $e';
-      print('Error loading settings from backend: $e');
+      log('Error loading settings from backend: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
