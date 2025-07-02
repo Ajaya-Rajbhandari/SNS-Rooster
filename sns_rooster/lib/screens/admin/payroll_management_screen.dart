@@ -11,6 +11,8 @@ import 'package:open_file/open_file.dart';
 import '../../config/api_config.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import '../../providers/payroll_cycle_settings_provider.dart';
+import '../../utils/payroll_cycle_utils.dart';
 
 class PayrollManagementScreen extends StatefulWidget {
   const PayrollManagementScreen({super.key});
@@ -40,12 +42,57 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
   }
 
   void _addPayslip(BuildContext context, AdminPayrollProvider provider) async {
+    // Fetch payroll cycle settings
+    final cycleProvider =
+        Provider.of<PayrollCycleSettingsProvider>(context, listen: false);
+
+    Map<String, dynamic>? cycle = cycleProvider.settings;
+
+    // If not loaded yet, attempt to load synchronously (will await async but not block UI heavily)
+    if (cycle == null) {
+      try {
+        await cycleProvider.load();
+        cycle = cycleProvider.settings;
+      } catch (_) {}
+    }
+
+    final now = DateTime.now();
+    DateTime start;
+    DateTime end;
+
+    if (cycle != null) {
+      final period = PayrollCycleUtils.currentPeriod(cycle, reference: now);
+      start = period['start']!;
+      end = period['end']!;
+    } else {
+      // fallback to full month
+      start = DateTime(now.year, now.month, 1);
+      end = DateTime(now.year, now.month + 1, 0);
+    }
+
+    String payPeriodLabel;
+    if ((cycle?['frequency'] ?? 'Monthly') == 'Weekly') {
+      payPeriodLabel =
+          '${DateFormat('d MMM').format(start)} - ${DateFormat('d MMM').format(end)}';
+    } else {
+      payPeriodLabel = DateFormat('MMM yyyy').format(start);
+    }
+
+    final initial = {
+      'payPeriod': payPeriodLabel,
+      'periodStart': start.toIso8601String(),
+      'periodEnd': end.toIso8601String(),
+      'overtimeMultiplier': cycle?['overtimeMultiplier'] ?? 1.5,
+    };
+
     final newPayslip = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => EditPayslipDialog(
-        onSave: (_) {}, // No-op, dialog just pops with data now
+        initialData: initial,
+        onSave: (_) {}, // dialog pops with data
       ),
     );
+
     if (newPayslip != null && _selectedEmployeeId != null) {
       await provider.addPayslip(newPayslip, _selectedEmployeeId!);
       await provider.fetchPayslips(_selectedEmployeeId!);
@@ -109,7 +156,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
 
   Future<void> _downloadAllPayslips(
       BuildContext context, String employeeId, String token,
-      {bool asCsv = false}) async {
+      {bool asCsv = false, String? queryString}) async {
     try {
       final url = asCsv
           ? '${ApiConfig.baseUrl}/payroll/employee/$employeeId/csv'
@@ -245,16 +292,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
                                     final authProvider =
                                         Provider.of<AuthProvider>(context,
                                             listen: false);
-                                    final token = authProvider.token;
-                                    if (token == null || token.isEmpty) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                            content: Text(
-                                                'Auth token is missing. Cannot download.')),
-                                      );
-                                      return;
-                                    }
+                                    final token = authProvider.token ?? '';
                                     await _downloadAllPayslips(
                                         context, _selectedEmployeeId!, token,
                                         asCsv: false);
@@ -270,22 +308,77 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
                                     final authProvider =
                                         Provider.of<AuthProvider>(context,
                                             listen: false);
-                                    final token = authProvider.token;
-                                    if (token == null || token.isEmpty) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                            content: Text(
-                                                'Auth token is missing. Cannot download.')),
-                                      );
-                                      return;
-                                    }
+                                    final token = authProvider.token ?? '';
                                     await _downloadAllPayslips(
                                         context, _selectedEmployeeId!, token,
                                         asCsv: true);
                                   },
                             icon: const Icon(Icons.table_chart),
                             label: const Text('Download All (CSV)'),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: isLoading
+                                ? null
+                                : () async {
+                                    final cycleProv = Provider.of<
+                                            PayrollCycleSettingsProvider>(
+                                        context,
+                                        listen: false);
+                                    final cycle = cycleProv.settings;
+                                    if (cycle == null) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(const SnackBar(
+                                              content: Text(
+                                                  'Load payroll cycle settings first.')));
+                                      return;
+                                    }
+                                    final period =
+                                        PayrollCycleUtils.currentPeriod(cycle);
+                                    final authProvider =
+                                        Provider.of<AuthProvider>(context,
+                                            listen: false);
+                                    final token = authProvider.token ?? '';
+                                    final qs =
+                                        'start=${period['start']!.toIso8601String()}&end=${period['end']!.toIso8601String()}';
+                                    await _downloadAllPayslips(
+                                        context, _selectedEmployeeId!, token,
+                                        asCsv: false, queryString: qs);
+                                  },
+                            icon: const Icon(Icons.picture_as_pdf),
+                            label: const Text('Cycle PDF'),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: isLoading
+                                ? null
+                                : () async {
+                                    final cycleProv = Provider.of<
+                                            PayrollCycleSettingsProvider>(
+                                        context,
+                                        listen: false);
+                                    final cycle = cycleProv.settings;
+                                    if (cycle == null) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(const SnackBar(
+                                              content: Text(
+                                                  'Load payroll cycle settings first.')));
+                                      return;
+                                    }
+                                    final period =
+                                        PayrollCycleUtils.currentPeriod(cycle);
+                                    final authProvider =
+                                        Provider.of<AuthProvider>(context,
+                                            listen: false);
+                                    final token = authProvider.token ?? '';
+                                    final qs =
+                                        'start=${period['start']!.toIso8601String()}&end=${period['end']!.toIso8601String()}';
+                                    await _downloadAllPayslips(
+                                        context, _selectedEmployeeId!, token,
+                                        asCsv: true, queryString: qs);
+                                  },
+                            icon: const Icon(Icons.table_chart),
+                            label: const Text('Cycle CSV'),
                           ),
                         ],
                       ),
@@ -518,7 +611,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
                                                           listen: false);
                                                   final payslipId = slip['_id'];
                                                   final token =
-                                                      authProvider.token;
+                                                      authProvider.token ?? '';
                                                   if (payslipId == null ||
                                                       payslipId
                                                           .toString()

@@ -18,7 +18,7 @@ class PayrollAnalyticsProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  Future<void> fetchTrend({int months = 6}) async {
+  Future<void> fetchTrend({int months = 6, String freq = 'monthly'}) async {
     if (!_authProvider.isAuthenticated) return;
     _isLoading = true;
     _error = null;
@@ -28,6 +28,7 @@ class PayrollAnalyticsProvider with ChangeNotifier {
           Uri.parse('${ApiConfig.baseUrl}/analytics/admin/payroll-trend')
               .replace(queryParameters: {
         'months': months.toString(),
+        'freq': freq,
       });
       final res = await http.get(uri, headers: {
         'Content-Type': 'application/json',

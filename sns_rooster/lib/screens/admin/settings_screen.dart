@@ -16,7 +16,7 @@ class SettingsScreen extends StatelessWidget {
         foregroundColor: theme.colorScheme.onPrimary,
       ),
       drawer: const AdminSideNavigation(currentRoute: '/settings'),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

@@ -43,4 +43,7 @@ process.on('exit', async () => {
   console.log('MongoDB connection closed');
 });
 
+// Initialize background scheduler
+require('./scheduler');
+
 module.exports = server;

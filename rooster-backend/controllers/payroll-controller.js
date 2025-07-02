@@ -355,7 +355,13 @@ exports.downloadPayslipPdf = async (req, res) => {
 exports.downloadAllPayslipsPdf = async (req, res) => {
   try {
     const employeeId = req.params.employeeId;
-    const payslips = await Payroll.find({ employee: employeeId }).populate('employee');
+    const { start, end } = req.query;
+    const match = { employee: employeeId };
+    if (start && end) {
+      match.periodStart = { $gte: new Date(start) };
+      match.periodEnd = { $lte: new Date(end) };
+    }
+    const payslips = await Payroll.find(match).populate('employee');
     if (!payslips.length) {
       return res.status(404).json({ error: 'No payslips found for this employee.' });
     }
@@ -447,7 +453,13 @@ exports.downloadAllPayslipsPdf = async (req, res) => {
 exports.downloadAllPayslipsCsv = async (req, res) => {
   try {
     const employeeId = req.params.employeeId;
-    const payslips = await Payroll.find({ employee: employeeId }).populate('employee');
+    const { start, end } = req.query;
+    const match = { employee: employeeId };
+    if (start && end) {
+      match.periodStart = { $gte: new Date(start) };
+      match.periodEnd = { $lte: new Date(end) };
+    }
+    const payslips = await Payroll.find(match).populate('employee');
     if (!payslips.length) {
       return res.status(404).json({ error: 'No payslips found for this employee.' });
     }
@@ -497,6 +509,7 @@ exports.downloadAllPayslipsPdfForCurrentUser = async (req, res) => {
     }
     console.log('employeeId used for PDF download:', employee._id);
     req.params.employeeId = employee._id;
+    // Forward query params
     return exports.downloadAllPayslipsPdf(req, res);
   } catch (err) {
     console.error('Error generating PDF for current user:', err);
@@ -514,6 +527,7 @@ exports.downloadAllPayslipsCsvForCurrentUser = async (req, res) => {
     }
     console.log('employeeId used for CSV download:', employee._id);
     req.params.employeeId = employee._id;
+    // Forward query params to shared function
     return exports.downloadAllPayslipsCsv(req, res);
   } catch (err) {
     console.error('Error generating CSV for current user:', err);

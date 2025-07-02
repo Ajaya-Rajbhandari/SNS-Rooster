@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sns_rooster/utils/logger.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -47,17 +46,17 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       _error = null; // Always clear error at the start of loading
     });
 
-    log('Attempting to load users...');
+    print('Attempting to load users...');
 
     try {
       final token = Provider.of<AuthProvider>(context, listen: false).token;
-      log('Auth Token: $token');
+      print('Auth Token: $token');
 
-      log('DEBUG: ApiConfig.baseUrl = \'${ApiConfig.baseUrl}\'');
-      log('DEBUG: Auth Token = $token');
+      print('DEBUG: ApiConfig.baseUrl = \'${ApiConfig.baseUrl}\'');
+      print('DEBUG: Auth Token = $token');
 
       if (token == null || token.isEmpty) {
-        log('Authentication token is missing or empty.');
+        print('Authentication token is missing or empty.');
         setState(() {
           _error = 'Authentication token is missing.';
           _isLoading = false;
@@ -68,7 +67,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       // Add showInactive parameter to the URL
       final url =
           '${ApiConfig.baseUrl}/auth/users${_showInactive ? '?showInactive=true' : ''}';
-      log('Requesting users from: $url');
+      print('Requesting users from: $url');
 
       final response = await http.get(
         Uri.parse(url),
@@ -78,8 +77,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         },
       );
 
-      log('Response Status Code: ${response.statusCode}');
-      log('Response Body: ${response.body}');
+      print('Response Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
         // Backend returns a list, not a map
@@ -89,7 +88,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           _isLoading = false;
           _error = null; // Clear error on successful load
         });
-        log('Users loaded successfully: \\${_users.length} users');
+        print('Users loaded successfully: \\${_users.length} users');
       } else if (response.statusCode == 401) {
         setState(() {
           _error = 'Session expired or invalid token. Please log in again.';
@@ -105,7 +104,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         // Navigate to login screen
         Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
       } else {
-        log('Failed to load users. Status: ${response.statusCode}, Body: ${response.body}');
+        print(
+            'Failed to load users. Status: ${response.statusCode}, Body: ${response.body}');
         if (showErrors) {
           setState(() {
             _error =
@@ -119,9 +119,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         }
       }
     } catch (e, stackTrace) {
-      log('NETWORK ERROR during user list reload: $e');
-      log('Error loading users: $e');
-      log('Stack trace: $stackTrace');
+      print('NETWORK ERROR during user list reload: $e');
+      print('Error loading users: $e');
+      print('Stack trace: $stackTrace');
       if (showErrors) {
         setState(() {
           _error = 'Failed to load users: $e';
@@ -169,8 +169,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         }),
       );
 
-      log('Create user response status: \\${response.statusCode}');
-      log('Create user response body: \\${response.body}');
+      print('Create user response status: \\${response.statusCode}');
+      print('Create user response body: \\${response.body}');
 
       if (!mounted) return;
       final data = json.decode(response.body);

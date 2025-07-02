@@ -15,6 +15,7 @@ class AddEmployeeDialog extends StatefulWidget {
 class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _employeeIdController = TextEditingController();
+  final TextEditingController _hourlyRateController = TextEditingController();
 
   final UserService _userService = UserService();
   List<UserModel> _users = [];
@@ -65,6 +66,7 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
   @override
   void dispose() {
     _employeeIdController.dispose();
+    _hourlyRateController.dispose();
     super.dispose();
   }
 
@@ -152,6 +154,7 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
         'role': _selectedRole,
         'position': _selectedPosition,
         'department': _selectedDepartment,
+        'hourlyRate': double.tryParse(_hourlyRateController.text) ?? 0,
       };
 
       await widget.employeeService.addEmployee(newEmployeeData);
@@ -397,6 +400,31 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                         },
                         validator: (value) =>
                             value == null ? 'Please select a department' : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Hourly Rate Field
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Hourly Rate',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _hourlyRateController,
+                        decoration: const InputDecoration(
+                          labelText: 'Hourly Rate',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
                       ),
                     ],
                   ),

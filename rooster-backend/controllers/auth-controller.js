@@ -257,18 +257,31 @@ exports.updateCurrentUserProfile = async (req, res) => {
     // If profile is now complete, clear related notifications
     if (user.isProfileComplete) {
       const Notification = require('../models/Notification');
-      // Delete 'Incomplete Profile' notifications for this user
-      await Notification.deleteMany({
-        user: user._id,
-        title: 'Incomplete Profile'
-      });
-      // Delete 'Incomplete Employee Profile' notifications for admins about this user
       const fullName = `${user.firstName} ${user.lastName}`.trim();
+
+      // Remove any previous incomplete notifications for this user (self or admin notices)
+      await Notification.deleteMany({ user: user._id, title: 'Incomplete Profile' });
       await Notification.deleteMany({
         role: 'admin',
         title: 'Incomplete Employee Profile',
         message: { $regex: new RegExp(`^${fullName} has not completed their profile\.?$`, 'i') }
       });
+
+      // Create a new notification for admins about completion (avoid duplicates)
+      const existing = await Notification.findOne({
+        role: 'admin',
+        title: 'Employee Profile Completed',
+        message: `${fullName} has completed their profile.`
+      });
+      if (!existing) {
+        await Notification.create({
+          role: 'admin',
+          title: 'Employee Profile Completed',
+          message: `${fullName} has completed their profile.`,
+          type: 'info',
+          link: `/admin/employees/${user._id}`
+        });
+      }
     }
 
     // Fetch the updated user from the database to ensure fresh data is returned
@@ -360,18 +373,31 @@ exports.updateUserProfileByAdmin = async (req, res) => {
     // If profile is now complete, clear related notifications
     if (user.isProfileComplete) {
       const Notification = require('../models/Notification');
-      // Delete 'Incomplete Profile' notifications for this user
-      await Notification.deleteMany({
-        user: user._id,
-        title: 'Incomplete Profile'
-      });
-      // Delete 'Incomplete Employee Profile' notifications for admins about this user
       const fullName = `${user.firstName} ${user.lastName}`.trim();
+
+      // Remove any previous incomplete notifications for this user (self or admin notices)
+      await Notification.deleteMany({ user: user._id, title: 'Incomplete Profile' });
       await Notification.deleteMany({
         role: 'admin',
         title: 'Incomplete Employee Profile',
         message: { $regex: new RegExp(`^${fullName} has not completed their profile\.?$`, 'i') }
       });
+
+      // Create a new notification for admins about completion (avoid duplicates)
+      const existing = await Notification.findOne({
+        role: 'admin',
+        title: 'Employee Profile Completed',
+        message: `${fullName} has completed their profile.`
+      });
+      if (!existing) {
+        await Notification.create({
+          role: 'admin',
+          title: 'Employee Profile Completed',
+          message: `${fullName} has completed their profile.`,
+          type: 'info',
+          link: `/admin/employees/${user._id}`
+        });
+      }
     }
 
     res.json({ message: 'User profile updated successfully', user: user.getPublicProfile() });
@@ -511,6 +537,30 @@ exports.uploadDocument = async (req, res) => {
     user.documents.push({ type: documentType, path: filePath });
 
     await user.save();
+
+    // Notify admins about new document upload (for verification)
+    try {
+      if (req.user.role !== 'admin') {
+        const Notification = require('../models/Notification');
+        const fullName = `${user.firstName} ${user.lastName}`.trim();
+        const existing = await Notification.findOne({
+          role: 'admin',
+          title: 'Document Uploaded',
+          message: { $regex: new RegExp(`^${fullName} uploaded`, 'i') }
+        });
+        if (!existing) {
+          await Notification.create({
+            role: 'admin',
+            title: 'Document Uploaded',
+            message: `${fullName} uploaded ${documentType} for verification.`,
+            type: 'action',
+            link: `/admin/employees/${user._id}`,
+          });
+        }
+      }
+    } catch (nErr) {
+      console.error('Failed to create admin notification for document upload:', nErr);
+    }
 
     res.status(200).json({
       message: 'Document uploaded successfully',
