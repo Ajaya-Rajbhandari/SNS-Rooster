@@ -28,6 +28,7 @@ flutter run
 
 ```
 SNS-Rooster-app/
+
 ├── rooster-backend/          # Node.js backend API
 │   ├── routes/              # API route definitions
 │   ├── models/              # Database models

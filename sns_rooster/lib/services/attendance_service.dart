@@ -1,4 +1,5 @@
-import 'dart:convert';
+﻿import 'dart:convert';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:http/http.dart' as http;
 import 'package:sns_rooster/providers/auth_provider.dart';
 import '../config/api_config.dart';
@@ -22,8 +23,8 @@ class AttendanceService {
       'userId': userId,
       if (notes != null) 'notes': notes,
     });
-    print('DEBUG: Sending userId in checkIn API call: $userId');
-    print('DEBUG: Authorization header for API call: Bearer $token');
+    log('DEBUG: Sending userId in checkIn API call: $userId');
+    log('DEBUG: Authorization header for API call: Bearer $token');
     final response =
         await http.post(Uri.parse(url), headers: headers, body: body);
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -48,8 +49,8 @@ class AttendanceService {
       'userId': userId,
       if (notes != null) 'notes': notes,
     });
-    print('DEBUG: Sending userId in checkOut API call: $userId');
-    print('DEBUG: Authorization header for API call: Bearer $token');
+    log('DEBUG: Sending userId in checkOut API call: $userId');
+    log('DEBUG: Authorization header for API call: Bearer $token');
     final response =
         await http.patch(Uri.parse(url), headers: headers, body: body);
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -80,17 +81,17 @@ class AttendanceService {
       url += '?${Uri(queryParameters: queryParams).query}';
     }
 
-    print('DEBUG: Calling attendance API: $url');
+    log('DEBUG: Calling attendance API: $url');
     final response = await http.get(Uri.parse(url), headers: headers);
-    print('DEBUG: Attendance API response status: ${response.statusCode}');
-    print('DEBUG: Attendance API response body: ${response.body}');
+    log('DEBUG: Attendance API response status: ${response.statusCode}');
+    log('DEBUG: Attendance API response body: ${response.body}');
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = json.decode(response.body);
       final List<dynamic> attendanceList = data['attendance'] ?? [];
-      print('DEBUG: Parsed attendance list length: ${attendanceList.length}');
+      log('DEBUG: Parsed attendance list length: ${attendanceList.length}');
       if (attendanceList.isNotEmpty) {
-        print('DEBUG: First attendance record: ${attendanceList.first}');
+        log('DEBUG: First attendance record: ${attendanceList.first}');
       }
       return attendanceList.cast<Map<String, dynamic>>();
     } else {
@@ -161,8 +162,7 @@ class AttendanceService {
       'userId': userId,
       'breakTypeId': breakType['_id'],
     });
-    print(
-        'DEBUG: Sending break start API call for userId: $userId with breakTypeId: ${breakType['_id']}');
+    log('DEBUG: Sending break start API call for userId: $userId with breakTypeId: ${breakType['_id']}');
     final response =
         await http.post(Uri.parse(url), headers: headers, body: body);
     if (response.statusCode != 200 && response.statusCode != 201) {
@@ -184,7 +184,7 @@ class AttendanceService {
     final body = json.encode({
       'userId': userId,
     });
-    print('DEBUG: Sending break end API call for userId: $userId');
+    log('DEBUG: Sending break end API call for userId: $userId');
     final response =
         await http.patch(Uri.parse(url), headers: headers, body: body);
     if (response.statusCode != 200 && response.statusCode != 201) {
@@ -205,8 +205,7 @@ class AttendanceService {
     final url = '${ApiConfig.baseUrl}/attendance/status/$userId';
     final response = await http.get(Uri.parse(url), headers: headers);
     if (response.statusCode == 200) {
-      print(
-          'DEBUG: Raw response body from getAttendanceStatus: ${response.body}');
+      log('DEBUG: Raw response body from getAttendanceStatus: ${response.body}');
       final Map<String, dynamic> data = json.decode(response.body);
       return data['status'] as String;
     } else if (response.statusCode == 404) {
@@ -231,8 +230,7 @@ class AttendanceService {
     final url = '${ApiConfig.baseUrl}/attendance/status/$userId';
     final response = await http.get(Uri.parse(url), headers: headers);
     if (response.statusCode == 200) {
-      print(
-          'DEBUG: Raw response body from getAttendanceStatusWithData: ${response.body}');
+      log('DEBUG: Raw response body from getAttendanceStatusWithData: ${response.body}');
       final Map<String, dynamic> data = json.decode(response.body);
       return data;
     } else if (response.statusCode == 404) {

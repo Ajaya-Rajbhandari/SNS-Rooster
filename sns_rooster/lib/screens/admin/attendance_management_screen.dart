@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../providers/attendance_provider.dart';
 import '../../widgets/admin_side_navigation.dart';
 import '../../providers/admin_attendance_provider.dart';
 import '../../providers/employee_provider.dart';
@@ -22,7 +21,7 @@ class _AttendanceManagementScreenState
   String? _selectedEmployeeId;
   bool _isFiltering = false;
   int _currentPage = 1;
-  int _pageSize = 10;
+  final int _pageSize = 10;
   int _totalPages = 1;
   int _totalRecords = 0;
 
@@ -42,8 +41,8 @@ class _AttendanceManagementScreenState
     final provider =
         Provider.of<AdminAttendanceProvider>(context, listen: false);
     await provider.fetchAttendance(
-      start: _startDate != null ? _startDate!.toIso8601String() : null,
-      end: _endDate != null ? _endDate!.toIso8601String() : null,
+      start: _startDate?.toIso8601String(),
+      end: _endDate?.toIso8601String(),
       userId: _selectedEmployeeId,
       page: page,
       limit: _pageSize,
@@ -167,7 +166,8 @@ class _AttendanceManagementScreenState
                             border: Border.all(
                                 color: colorScheme.primary.withOpacity(0.3)),
                             borderRadius: BorderRadius.circular(10),
-                            color: colorScheme.surfaceVariant.withOpacity(0.3),
+                            color: colorScheme.surfaceContainerHighest
+                                .withOpacity(0.3),
                           ),
                           child: Row(
                             children: [
@@ -280,8 +280,7 @@ class _AttendanceManagementScreenState
                             if (emp.userId.isNotEmpty) employeeName = emp.name;
                           }
                           if (value == 'Export CSV') {
-                            print('DEBUG EXPORT: employeeName=' +
-                                employeeName.toString());
+                            print('DEBUG EXPORT: employeeName=$employeeName');
                             final filePath = await provider.exportAttendance(
                               start: _startDate?.toIso8601String(),
                               end: _endDate?.toIso8601String(),
@@ -337,8 +336,8 @@ class _AttendanceManagementScreenState
                             icon: const Icon(Icons.download),
                             label: const Text('Export'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Theme.of(context).primaryColor,
-                              foregroundColor: Colors.white,
+                              backgroundColor: colorScheme.primary,
+                              foregroundColor: colorScheme.onPrimary,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -402,12 +401,13 @@ class _AttendanceManagementScreenState
                     : '-';
                 final employeeEmail =
                     user != null ? (user['email'] ?? '-') : '-';
-                final status = record.status ?? 'N/A';
+                final status = record.status;
                 final breakStatus = record.breakStatus ?? '';
                 final breaks = record.breaks ?? [];
                 int? totalBreakMinutes = record.totalBreakDuration;
-                if (totalBreakMinutes != null && totalBreakMinutes < 0)
+                if (totalBreakMinutes != null && totalBreakMinutes < 0) {
                   totalBreakMinutes = 0;
+                }
                 // If value is huge, treat as ms and convert to min
                 if (totalBreakMinutes != null && totalBreakMinutes > 1440) {
                   totalBreakMinutes = (totalBreakMinutes / 60000).round();
@@ -439,7 +439,7 @@ class _AttendanceManagementScreenState
                               ),
                             ),
                             if (status != 'N/A')
-                              _statusBadge(status.toString()),
+                              _statusBadge(status.toString().split('.').last),
                           ],
                         ),
                         if (employeeEmail != '-')

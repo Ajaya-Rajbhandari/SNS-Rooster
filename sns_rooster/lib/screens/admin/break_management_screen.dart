@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
@@ -34,7 +35,7 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
   }
 
   Future<void> _fetchBreakTypes() async {
-    print('DEBUG: Entered _fetchBreakTypes');
+    log('DEBUG: Entered _fetchBreakTypes');
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final response = await http.get(
@@ -47,14 +48,14 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('DEBUG breakTypes response: ' + data.toString());
+        log('DEBUG breakTypes response: $data');
         setState(() {
           _breakTypes = List<Map<String, dynamic>>.from(data['breakTypes']);
         });
       }
     } catch (e) {
-      print('DEBUG: Caught error in _fetchBreakTypes: $e');
-      print('Error fetching break types: $e');
+      log('DEBUG: Caught error in _fetchBreakTypes: $e');
+      log('Error fetching break types: $e');
     }
   }
 
@@ -77,7 +78,7 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
 
       if (response.statusCode == 200) {
         final users = jsonDecode(response.body) as List;
-        print('DEBUG users response: ' + users.toString());
+        log('DEBUG users response: $users');
 
         // Fetch break status for each employee using AttendanceService
         List<Map<String, dynamic>> employeesWithBreakStatus = [];
@@ -95,7 +96,7 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
             Map<String, dynamic>? breakStatus;
             if (attendance != null && attendance['attendance'] != null) {
               final att = attendance['attendance'];
-              print('DEBUG: Attendance for ${user['email']}: $att');
+              log('DEBUG: Attendance for ${user['email']}: $att');
               final breaks = att['breaks'] as List<dynamic>? ?? [];
               final isOnBreak = breaks.any((b) => b['end'] == null);
               final totalBreaks = breaks.length;
@@ -137,7 +138,7 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
         });
       }
     } catch (e) {
-      print('DEBUG: Caught error in _fetchEmployees: $e');
+      log('DEBUG: Caught error in _fetchEmployees: $e');
       setState(() {
         _errorMessage = 'Error: $e';
         _isLoading = false;
@@ -221,8 +222,6 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
   }
 
   Future<Map<String, dynamic>?> _showBreakTypeDialog() async {
-    String? selectedReason;
-
     return showDialog<Map<String, dynamic>>(
       context: context,
       builder: (BuildContext context) {
@@ -275,7 +274,7 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
                                   if (breakType['minDuration'] != null ||
                                       breakType['maxDuration'] != null)
                                     Text(
-                                      'Duration: ${breakType['minDuration'] ?? 0}-${breakType['maxDuration'] ?? '∞'} min',
+                                      'Duration: ${breakType['minDuration'] ?? 0}-${breakType['maxDuration'] ?? 'âˆž'} min',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Theme.of(context)
@@ -475,10 +474,10 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
           build: (context) => pw.Table.fromTextArray(
             headers: headers,
             data: data,
-            cellStyle: pw.TextStyle(fontSize: 10),
+            cellStyle: const pw.TextStyle(fontSize: 10),
             headerStyle:
                 pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
-            headerDecoration: pw.BoxDecoration(color: PdfColors.grey300),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
             border: null,
             cellAlignment: pw.Alignment.centerLeft,
           ),
@@ -556,14 +555,10 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Start: ' +
-                                      (start != null
-                                          ? _formatDateTime(start)
-                                          : '-')),
-                                  Text('End: ' +
-                                      (end != null
-                                          ? _formatDateTime(end)
-                                          : 'Ongoing')),
+                                  Text(
+                                      'Start: ${start != null ? _formatDateTime(start) : '-'}'),
+                                  Text(
+                                      'End: ${end != null ? _formatDateTime(end) : 'Ongoing'}'),
                                   if (duration != null)
                                     Text('Duration: $duration min'),
                                 ],
@@ -651,9 +646,10 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
               child: Row(
                 children: [
-                  const Icon(Icons.download, color: Colors.white),
+                  Icon(Icons.download, color: colorScheme.onPrimary),
                   const SizedBox(width: 4),
-                  const Text('Export', style: TextStyle(color: Colors.white)),
+                  Text('Export',
+                      style: TextStyle(color: colorScheme.onPrimary)),
                 ],
               ),
             ),
@@ -687,7 +683,7 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
                       child: TextField(
                         decoration: InputDecoration(
                           labelText: 'Search employees',
-                          prefixIcon: Icon(Icons.search),
+                          prefixIcon: const Icon(Icons.search),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),

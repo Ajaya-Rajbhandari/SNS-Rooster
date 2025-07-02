@@ -152,14 +152,16 @@ class SettingsScreen extends StatelessWidget {
                       title: const Text('Payroll Cycle Settings'),
                       trailing: const Icon(Icons.arrow_forward_ios),
                       onTap: () {
-                        // Navigate to Payroll Cycle Settings
+                        Navigator.of(context)
+                            .pushNamed('/admin/payroll_cycle_settings');
                       },
                     ),
                     ListTile(
                       title: const Text('Leave Policy Settings'),
                       trailing: const Icon(Icons.arrow_forward_ios),
                       onTap: () {
-                        // Navigate to Leave Policy Settings
+                        Navigator.of(context)
+                            .pushNamed('/admin/leave_policy_settings');
                       },
                     ),
                   ],

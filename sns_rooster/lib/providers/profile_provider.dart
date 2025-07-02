@@ -1,4 +1,5 @@
-import 'dart:convert';
+﻿import 'dart:convert';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,7 +17,7 @@ class ProfileProvider with ChangeNotifier {
   DateTime? _lastUpdated;
 
   ProfileProvider(this._authProvider) {
-    print('ProfileProvider initialized');
+    log('ProfileProvider initialized');
     if (_authProvider.isAuthenticated) {
       _initializeProfile();
     }
@@ -53,7 +54,7 @@ class ProfileProvider with ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('Error loading stored profile: \$e');
+      log('Error loading stored profile: \$e');
     }
   }
 
@@ -80,7 +81,7 @@ class ProfileProvider with ChangeNotifier {
         _error = data['message'] ?? 'Failed to fetch profile';
       }
     } catch (e) {
-      print('Error fetching profile: $e');
+      log('Error fetching profile: $e');
       _error = 'Network error occurred: ${e.toString()}';
     }
   }
@@ -98,11 +99,11 @@ class ProfileProvider with ChangeNotifier {
   Future<void> _saveProfileToPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      // print('SharedPreferences instance obtained');
-      // print('Profile data to save: \$_profile');
+      // log('SharedPreferences instance obtained');
+      // log('Profile data to save: \$_profile');
       await prefs.setString(_profileKey, json.encode(_profile));
     } catch (e) {
-      // print('Error saving profile to prefs: \$e');
+      // log('Error saving profile to prefs: \$e');
     }
   }
 
@@ -124,7 +125,7 @@ class ProfileProvider with ChangeNotifier {
   /// Public method to fetch and refresh the profile.
   /// This is an alias for refreshProfile for clarity in UI code.
   Future<void> fetchProfile() async {
-    print('fetchProfile called');
+    log('fetchProfile called');
     await refreshProfile();
   }
 
@@ -158,8 +159,8 @@ class ProfileProvider with ChangeNotifier {
           await _authProvider.updateUser(_profile!);
           return true;
         } catch (e) {
-          // print('Error decoding JSON response: \$e');
-          // print('Raw response body: \${response.body}');
+          // log('Error decoding JSON response: \$e');
+          // log('Raw response body: \${response.body}');
           _error = 'Unexpected response format';
           notifyListeners();
           return false;
@@ -169,8 +170,8 @@ class ProfileProvider with ChangeNotifier {
           final data = json.decode(response.body);
           _error = data['message'] ?? 'Failed to update profile';
         } catch (e) {
-          // print('Error decoding error response: \$e');
-          // print('Raw response body: \${response.body}');
+          // log('Error decoding error response: \$e');
+          // log('Raw response body: \${response.body}');
           _error = 'Unexpected response format';
         }
         notifyListeners();
@@ -221,9 +222,8 @@ class ProfileProvider with ChangeNotifier {
             data['profile'] is Map<String, dynamic>) {
           _updateProfileData(data['profile']);
           // Debug print for avatar troubleshooting
-          print('DEBUG: Avatar field after upload: \\${_profile?['avatar']}');
-          print(
-              'DEBUG: ProfilePicture field after upload: \\${_profile?['profilePicture']}');
+          log('DEBUG: Avatar field after upload: \\${_profile?['avatar']}');
+          log('DEBUG: ProfilePicture field after upload: \\${_profile?['profilePicture']}');
           if (_disposed) return false;
           // Update AuthProvider's user data for consistency
           await _authProvider.updateUser(_profile!);
@@ -270,19 +270,19 @@ class ProfileProvider with ChangeNotifier {
       if (response.statusCode == 200) {
         final responseBody = await response.stream.bytesToString();
         final data = json.decode(responseBody);
-        print('Upload successful: $data');
+        log('Upload successful: $data');
 
         // Refresh profile data to get updated document info
         await _fetchProfileInBackground();
 
         return true;
       } else {
-        print('Upload failed with status code: ${response.statusCode}');
+        log('Upload failed with status code: ${response.statusCode}');
         _error = 'Failed to upload document';
         return false;
       }
     } catch (e) {
-      print('Error during document upload: $e');
+      log('Error during document upload: $e');
       _error = 'An error occurred during upload';
       return false;
     }
@@ -297,7 +297,7 @@ class ProfileProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_profileKey);
     } catch (e) {
-      // print('Error clearing profile: \$e');
+      // log('Error clearing profile: \$e');
     }
     if (_disposed) return;
     notifyListeners();

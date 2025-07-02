@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:provider/provider.dart';
 import '../../providers/profile_provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -157,32 +158,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } else {
       // User canceled the picker
-      print('No image selected.');
+      log('No image selected.');
     }
   }
 
   Future<void> _pickAndUploadDocument(String documentType) async {
     try {
-      print('Attempting to upload $documentType');
+      log('Attempting to upload $documentType');
 
       // File picking logic
       final picker = ImagePicker();
       final XFile? file = await picker.pickImage(source: ImageSource.gallery);
 
       if (file == null) {
-        print('No file selected.');
+        log('No file selected.');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No file selected.')),
         );
         return;
       }
 
-      print('File selected: ${file.path}');
+      log('File selected: ${file.path}');
 
       // File size validation
       final fileSize = await file.length();
       if (fileSize > 5 * 1024 * 1024) {
-        print('File size exceeds limit.');
+        log('File size exceeds limit.');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('File size must be less than 5MB.')),
         );
@@ -204,14 +205,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
 
       if (success) {
-        print('Document uploaded successfully.');
+        log('Document uploaded successfully.');
         // Refresh profile data to update UI with new document
         await profileProvider.refreshProfile();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Document uploaded successfully!')),
         );
       } else {
-        print('Failed to upload document.');
+        log('Failed to upload document.');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content:
@@ -219,7 +220,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
     } catch (e) {
-      print('Error during document upload: $e');
+      log('Error during document upload: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content:
@@ -409,7 +410,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   .replaceAll(RegExp(r'(?<!:)/{2,}'), '/');
             }
             backgroundImage = NetworkImage(fullUrl);
-            print('Constructed Avatar URL for Profile: $fullUrl');
+            log('Constructed Avatar URL for Profile: $fullUrl');
           }
         }
         return Scaffold(
@@ -933,7 +934,7 @@ class _EducationSection extends StatelessWidget {
                           ]
                               .where(
                                   (e) => e != null && e.toString().isNotEmpty)
-                              .join(' • ')),
+                              .join(' â€¢ ')),
                         ],
                       ),
                       trailing: Row(
@@ -1124,7 +1125,7 @@ class _EducationSection extends StatelessWidget {
                           educationList[idx] = newEdu;
                         }
                         // Optionally log the payload for debugging
-                        // print({'education': educationList});
+                        // log({'education': educationList});
                         final success = await profileProvider
                             .updateProfile({'education': educationList});
                         setState(() => isSaving.value = false);
@@ -1225,7 +1226,7 @@ class _CertificateSection extends StatelessWidget {
                     children: [
                       Text([issuer, date]
                           .where((e) => e != null && e.toString().isNotEmpty)
-                          .join(' • ')),
+                          .join(' â€¢ ')),
                     ],
                   ),
                   trailing: Row(

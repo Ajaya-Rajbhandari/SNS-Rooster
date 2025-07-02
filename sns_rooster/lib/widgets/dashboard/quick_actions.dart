@@ -17,7 +17,8 @@ class QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final filteredActions = actions
-        .where((action) => action.toLowerCase().contains(searchQuery.toLowerCase()))
+        .where((action) =>
+            action.toLowerCase().contains(searchQuery.toLowerCase()))
         .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,10 +40,12 @@ class QuickActions extends StatelessWidget {
         Wrap(
           spacing: 10,
           runSpacing: 10,
-          children: filteredActions.map((action) => ActionChip(
-            label: Text(action),
-            onPressed: () => onActionTap(action),
-          )).toList(),
+          children: filteredActions
+              .map((action) => ActionChip(
+                    label: Text(action),
+                    onPressed: () => onActionTap(action),
+                  ))
+              .toList(),
         ),
       ],
     );

@@ -10,6 +10,7 @@ import '../models/attendance.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:sns_rooster/utils/logger.dart';
 
 class AdminAttendanceProvider extends ChangeNotifier {
   final AuthProvider authProvider;
@@ -44,7 +45,7 @@ class AdminAttendanceProvider extends ChangeNotifier {
       final response = await http.get(uri,
           headers: token != null ? {'Authorization': 'Bearer $token'} : {});
       if (response.statusCode == 200) {
-        print('DEBUG: AdminAttendanceProvider API response: ${response.body}');
+        log('AdminAttendanceProvider API response: ${response.body}');
         final data = json.decode(response.body);
         attendanceRecords = (data['attendance'] as List<dynamic>? ?? [])
             .map((e) => Attendance.fromJson(e as Map<String, dynamic>))
@@ -99,7 +100,7 @@ class AdminAttendanceProvider extends ChangeNotifier {
           final user = rec.user;
           final employeeName =
               user != null ? (user['name'] ?? user['firstName'] ?? '-') : '-';
-          final date = rec.date?.toString() ?? '-';
+          final date = rec.date.toString();
           final checkIn = rec.checkInTime?.toString() ?? '-';
           final checkOut = rec.checkOutTime?.toString() ?? '-';
           // Calculate total hours
@@ -119,7 +120,7 @@ class AdminAttendanceProvider extends ChangeNotifier {
           // Calculate break duration
           String breakDuration = '0h 0m';
           String breakStatus = 'No Break';
-          final breaks = rec.breaks as List?;
+          final breaks = rec.breaks;
           if (breaks != null && breaks.isNotEmpty) {
             int totalMs = 0;
             final ongoing = breaks.any((b) => b['end'] == null);
@@ -148,7 +149,7 @@ class AdminAttendanceProvider extends ChangeNotifier {
           if (rec.checkInTime != null && rec.checkOutTime != null) {
             status = 'Present';
           } else if (rec.checkInTime != null) {
-            final breaks = rec.breaks as List? ?? [];
+            final breaks = rec.breaks ?? [];
             final onBreak = breaks.any((b) => b['end'] == null);
             status = onBreak ? 'On Break' : 'Clocked In';
           } else {
@@ -195,9 +196,8 @@ class AdminAttendanceProvider extends ChangeNotifier {
           datePart = '-$startStr-$endStr';
         } catch (_) {}
       }
-      final filePath = '${dir.path}/$employeePart-attendance${datePart}.csv';
-      print(
-          'DEBUG EXPORT: employeePart=$employeePart, datePart=$datePart, filePath=$filePath');
+      final filePath = '${dir.path}/$employeePart-attendance$datePart.csv';
+      log('EXPORT CSV: employeePart=$employeePart, datePart=$datePart, filePath=$filePath');
       final file = File(filePath);
       await file.writeAsString(csvString);
       return filePath;
@@ -228,7 +228,7 @@ class AdminAttendanceProvider extends ChangeNotifier {
         final user = rec.user;
         final employeeName =
             user != null ? (user['name'] ?? user['firstName'] ?? '-') : '-';
-        final date = rec.date?.toString() ?? '-';
+        final date = rec.date.toString();
         final checkIn = rec.checkInTime?.toString() ?? '-';
         final checkOut = rec.checkOutTime?.toString() ?? '-';
         String totalHours = '-';
@@ -246,7 +246,7 @@ class AdminAttendanceProvider extends ChangeNotifier {
         }
         String breakDuration = '0h 0m';
         String breakStatus = 'No Break';
-        final breaks = rec.breaks as List?;
+        final breaks = rec.breaks;
         if (breaks != null && breaks.isNotEmpty) {
           int totalMs = 0;
           final ongoing = breaks.any((b) => b['end'] == null);
@@ -274,7 +274,7 @@ class AdminAttendanceProvider extends ChangeNotifier {
         if (rec.checkInTime != null && rec.checkOutTime != null) {
           status = 'Present';
         } else if (rec.checkInTime != null) {
-          final breaks = rec.breaks as List? ?? [];
+          final breaks = rec.breaks ?? [];
           final onBreak = breaks.any((b) => b['end'] == null);
           status = onBreak ? 'On Break' : 'Clocked In';
         } else {
@@ -296,10 +296,10 @@ class AdminAttendanceProvider extends ChangeNotifier {
           build: (context) => pw.Table.fromTextArray(
             headers: headers,
             data: data,
-            cellStyle: pw.TextStyle(fontSize: 10),
+            cellStyle: const pw.TextStyle(fontSize: 10),
             headerStyle:
                 pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
-            headerDecoration: pw.BoxDecoration(color: PdfColors.grey300),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
             border: null,
             cellAlignment: pw.Alignment.centerLeft,
           ),
@@ -331,7 +331,7 @@ class AdminAttendanceProvider extends ChangeNotifier {
           datePart = '-$startStr-$endStr';
         } catch (_) {}
       }
-      final filePath = '${dir.path}/$employeePart-attendance${datePart}.pdf';
+      final filePath = '${dir.path}/$employeePart-attendance$datePart.pdf';
       final file = File(filePath);
       await file.writeAsBytes(await pdf.save());
       return filePath;
@@ -375,7 +375,7 @@ class AdminAttendanceProvider extends ChangeNotifier {
         error = 'Failed to fetch attendance: \\${response.statusCode}';
       }
     } catch (e) {
-      error = 'Error: \\${e}';
+      error = 'Error: \\$e';
     }
     isLoading = false;
     notifyListeners();

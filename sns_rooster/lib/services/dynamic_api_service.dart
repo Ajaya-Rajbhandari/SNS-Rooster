@@ -1,6 +1,5 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:http/http.dart' as http;
+﻿import 'package:http/http.dart' as http;
+import 'package:sns_rooster/utils/logger.dart';
 import '../config/api_config.dart';
 
 /// Dynamic API Service that automatically detects and uses the correct IP address
@@ -87,7 +86,7 @@ class DynamicApiService {
       // Even if we get a 404 (expected for GET on login), it means server is reachable
       return response.statusCode < 500;
     } catch (e) {
-      print('Connectivity test failed: $e');
+      log('Connectivity test failed: $e');
       return false;
     }
   }

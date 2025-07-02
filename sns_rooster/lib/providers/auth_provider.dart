@@ -1,4 +1,5 @@
-import 'dart:async';
+﻿import 'dart:async';
+import 'package:sns_rooster/utils/logger.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -36,12 +37,12 @@ class AuthProvider with ChangeNotifier {
   String? get authToken => _authToken;
 
   AuthProvider() {
-    print('AUTH PROVIDER: Initialized');
+    log('AUTH PROVIDER: Initialized');
     _loadStoredAuth(); // Add this back to load stored auth on initialization
   }
 
   Future<void> initAuth() async {
-    print('AuthProvider initAuth called.');
+    log('AuthProvider initAuth called.');
     // Force clear any existing auth state first
     await forceClearAuth();
     // Then try to load stored auth
@@ -51,26 +52,26 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> _loadStoredAuth() async {
     try {
-      print('LOAD_AUTH_DEBUG: Loading stored auth...');
+      log('LOAD_AUTH_DEBUG: Loading stored auth...');
       final prefs = await SharedPreferences.getInstance();
 
       final storedToken = prefs.getString('token');
-      print('LOAD_AUTH_DEBUG: Token retrieved from SharedPreferences: $storedToken');
+      log('LOAD_AUTH_DEBUG: Token retrieved from SharedPreferences: $storedToken');
       _authToken = storedToken;
 
       final storedUser = prefs.getString('user');
-      print('LOAD_AUTH_DEBUG: User data retrieved from SharedPreferences: $storedUser');
+      log('LOAD_AUTH_DEBUG: User data retrieved from SharedPreferences: $storedUser');
       _user = storedUser != null ? json.decode(storedUser) : null;
 
       _token = _authToken;
-      print('LOAD_AUTH_DEBUG: Assigned _authToken to _token: $_token');
+      log('LOAD_AUTH_DEBUG: Assigned _authToken to _token: $_token');
 
-      print('LOAD_AUTH_DEBUG: Final _authToken: $_authToken, Final _user: $_user');
-      print('LOAD_AUTH_DEBUG: Token after loading: $_authToken'); // Debugging log
-      print('LOAD_AUTH_DEBUG: Token loaded from SharedPreferences: $_authToken'); // Debugging log
+      log('LOAD_AUTH_DEBUG: Final _authToken: $_authToken, Final _user: $_user');
+      log('LOAD_AUTH_DEBUG: Token after loading: $_authToken'); // Debugging log
+      log('LOAD_AUTH_DEBUG: Token loaded from SharedPreferences: $_authToken'); // Debugging log
       notifyListeners();
     } catch (e) {
-      print('LOAD_AUTH_DEBUG: Error loading stored auth: $e');
+      log('LOAD_AUTH_DEBUG: Error loading stored auth: $e');
       _authToken = null;
       _user = null;
       notifyListeners();
@@ -78,24 +79,24 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> checkAuthStatus() async {
-    print('AUTH_CHECK: Starting authentication status check...');
-    print('AUTH_CHECK: Current state - isAuthenticated: $isAuthenticated, token exists: ${_token != null}, user exists: ${_user != null}');
+    log('AUTH_CHECK: Starting authentication status check...');
+    log('AUTH_CHECK: Current state - isAuthenticated: $isAuthenticated, token exists: ${_token != null}, user exists: ${_user != null}');
 
     if (_token == null) {
-      print('AUTH_CHECK: No token found, clearing user and returning.');
+      log('AUTH_CHECK: No token found, clearing user and returning.');
       _user = null;
       notifyListeners();
       return;
     }
 
     if (isTokenExpired()) {
-      print('AUTH_CHECK: Token is expired, logging out.');
+      log('AUTH_CHECK: Token is expired, logging out.');
       await logout();
       return;
     }
 
     try {
-      print('AUTH_CHECK: Verifying token with server...');
+      log('AUTH_CHECK: Verifying token with server...');
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/auth/me'),
         headers: {
@@ -104,28 +105,29 @@ class AuthProvider with ChangeNotifier {
         },
       );
 
-      print('AUTH_CHECK: Server response status: ${response.statusCode}');
-      print('AUTH_CHECK: Server response body: ${response.body}');
+      log('AUTH_CHECK: Server response status: ${response.statusCode}');
+      log('AUTH_CHECK: Server response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         _user = data['user'];
-        print('AUTH_CHECK: Token verified - User role: ${_user?['role']}');
+        log('AUTH_CHECK: Token verified - User role: ${_user?['role']}');
         notifyListeners();
       } else {
-        final errorMessage = jsonDecode(response.body)['message'] ?? 'Token verification failed';
-        print('AUTH_CHECK: $errorMessage');
+        final errorMessage =
+            jsonDecode(response.body)['message'] ?? 'Token verification failed';
+        log('AUTH_CHECK: $errorMessage');
         await logout();
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('AUTH_CHECK: Error verifying token: $e');
+      log('AUTH_CHECK: Error verifying token: $e');
       await logout();
       _error = 'Authentication failed: $e';
       notifyListeners();
     }
 
-    print('AUTH_CHECK: Authentication status check completed.');
+    log('AUTH_CHECK: Authentication status check completed.');
   }
 
   Future<Map<String, dynamic>?> registerUser(String name, String email,
@@ -152,11 +154,7 @@ class AuthProvider with ChangeNotifier {
 
       if (response.statusCode == 201) {
         // Do NOT modify _token, _user, or call _saveAuthToPrefs here for registration
-        return {
-          'success': true,
-          'user': data['user'],
-          'token': data['token']
-        };
+        return {'success': true, 'user': data['user'], 'token': data['token']};
       } else {
         _error = data['message'] ?? 'Failed to register user';
         return {'success': false, 'message': _error};
@@ -171,13 +169,13 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<bool> login(String email, String password) async {
-    print('LOGIN_DEBUG: Starting login for email: $email');
+    log('LOGIN_DEBUG: Starting login for email: $email');
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      print('LOGIN_DEBUG: Making API call to [36m${ApiConfig.baseUrl}/auth/login[0m');
+      log('LOGIN_DEBUG: Making API call to [36m${ApiConfig.baseUrl}/auth/login[0m');
 
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/auth/login'),
@@ -190,32 +188,34 @@ class AuthProvider with ChangeNotifier {
         }),
       );
 
-      print('LOGIN_DEBUG: Response status code: ${response.statusCode}');
-      print('LOGIN_DEBUG: Response body: ${response.body}');
+      log('LOGIN_DEBUG: Response status code: ${response.statusCode}');
+      log('LOGIN_DEBUG: Response body: ${response.body}');
 
       final data = jsonDecode(response.body); // Define data here
 
       if (response.statusCode == 200) {
         _authToken = data['token'];
         _token = _authToken; // Assign to _token for consistency
-        print('LOGIN_DEBUG: Token received: \\_authToken');
-        print('LOGIN_DEBUG: Assigning token to _authToken: \\${data['token']}');
+        log('LOGIN_DEBUG: Token received: \\_authToken');
+        log('LOGIN_DEBUG: Assigning token to _authToken: \\${data['token']}');
         _user = data['user'];
-        print('LOGIN_DEBUG: User data received: \\_user');
-        print('LOGIN_DEBUG: Backend token field: \\${data['token']}');
-        print('LOGIN_DEBUG: Token received from backend response: \\_authToken');
+        log('LOGIN_DEBUG: User data received: \\_user');
+        log('LOGIN_DEBUG: Backend token field: \\${data['token']}');
+        log('LOGIN_DEBUG: Token received from backend response: \\_authToken');
         await _saveAuthToPrefs();
         // --- Ensure profile is refreshed after login ---
         if (_profileProvider != null) {
-          print('LOGIN_DEBUG: Refreshing profile after login');
+          log('LOGIN_DEBUG: Refreshing profile after login');
           await _profileProvider!.fetchProfile();
         } else {
-          print('LOGIN_DEBUG: ProfileProvider is not set, cannot refresh profile');
+          log('LOGIN_DEBUG: ProfileProvider is not set, cannot refresh profile');
         }
         // --- Wait for profile to be loaded before returning ---
         if (_profileProvider != null) {
           int tries = 0;
-          while ((_profileProvider!.profile == null || _profileProvider!.isLoading) && tries < 20) {
+          while ((_profileProvider!.profile == null ||
+                  _profileProvider!.isLoading) &&
+              tries < 20) {
             await Future.delayed(const Duration(milliseconds: 100));
             tries++;
           }
@@ -223,12 +223,12 @@ class AuthProvider with ChangeNotifier {
         return true;
       } else {
         _error = data['message'] ?? 'Login failed';
-        print('LOGIN_DEBUG: Login failed: $_error');
+        log('LOGIN_DEBUG: Login failed: $_error');
         return false;
       }
     } catch (e) {
       _error = e.toString();
-      print('LOGIN_DEBUG: Exception during login: $e');
+      log('LOGIN_DEBUG: Exception during login: $e');
       return false;
     } finally {
       _isLoading = false;
@@ -280,39 +280,39 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> logout() async {
-    print('AUTH PROVIDER: Logout called');
-    print('Logging out...');
+    log('AUTH PROVIDER: Logout called');
+    log('Logging out...');
     _token = null;
     _user = null;
     _error = null;
     notifyListeners();
 
-    print('DEBUG: Starting logout process');
-    print('DEBUG: Current token: \$_token');
-    print('DEBUG: Current user: \$_user');
+    log('DEBUG: Starting logout process');
+    log('DEBUG: Current token: \$_token');
+    log('DEBUG: Current user: \$_user');
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      print('DEBUG: Clearing SharedPreferences');
+      log('DEBUG: Clearing SharedPreferences');
       await prefs.remove('token');
       await prefs.remove('user');
 
       if (_profileProvider != null) {
-        print('DEBUG: Clearing profile via ProfileProvider');
+        log('DEBUG: Clearing profile via ProfileProvider');
         await _profileProvider!.clearProfile();
       } else {
-        print('DEBUG: ProfileProvider is not set');
+        log('DEBUG: ProfileProvider is not set');
       }
       if (_attendanceProvider != null) {
-        print('DEBUG: Clearing attendance via AttendanceProvider');
+        log('DEBUG: Clearing attendance via AttendanceProvider');
         // _attendanceProvider!.clearAttendance();
       } else {
-        print('DEBUG: AttendanceProvider is not set');
+        log('DEBUG: AttendanceProvider is not set');
       }
 
-      print('DEBUG: Logout process completed');
+      log('DEBUG: Logout process completed');
     } catch (e) {
-      print('ERROR: Exception during logout: \$e');
+      log('ERROR: Exception during logout: \$e');
     }
 
     // Navigate to login screen after logout
@@ -322,16 +322,15 @@ class AuthProvider with ChangeNotifier {
           '/login',
           (route) => false,
         );
-        print('DEBUG: Navigated to login screen');
+        log('DEBUG: Navigated to login screen');
       } else {
-        print('ERROR: navigatorKey.currentContext is null, unable to navigate');
+        log('ERROR: navigatorKey.currentContext is null, unable to navigate');
         // Fallback: Restart the app or log the error
-        print('FALLBACK: Restarting app due to navigation failure');
+        log('FALLBACK: Restarting app due to navigation failure');
         runApp(const MyApp());
       }
     });
   }
-
 
   void reset() {
     _token = null;
@@ -409,35 +408,35 @@ class AuthProvider with ChangeNotifier {
           DateTime.fromMillisecondsSinceEpoch(exp * 1000);
       return expirationDate.isBefore(DateTime.now());
     } catch (e) {
-      print('Error decoding token: $e');
+      log('Error decoding token: $e');
       return true; // Invalid token
     }
   }
 
   Future<void> _saveAuthToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    print('SAVE_AUTH_DEBUG: SharedPreferences instance obtained');
+    log('SAVE_AUTH_DEBUG: SharedPreferences instance obtained');
 
     if (_authToken != null) {
-      print('SAVE_AUTH_DEBUG: Token before saving: $_authToken');
+      log('SAVE_AUTH_DEBUG: Token before saving: $_authToken');
       await prefs.setString('token', _authToken!);
-      print('SAVE_AUTH_DEBUG: Token saved to SharedPreferences: $_authToken');
+      log('SAVE_AUTH_DEBUG: Token saved to SharedPreferences: $_authToken');
     } else {
       await prefs.remove('token');
-      print('SAVE_AUTH_DEBUG: Token removed from SharedPreferences');
+      log('SAVE_AUTH_DEBUG: Token removed from SharedPreferences');
     }
 
     if (_user != null) {
       await prefs.setString('user', json.encode(_user));
-      print('SAVE_AUTH_DEBUG: User saved to SharedPreferences: $_user');
+      log('SAVE_AUTH_DEBUG: User saved to SharedPreferences: $_user');
     } else {
       await prefs.remove('user');
-      print('SAVE_AUTH_DEBUG: User removed from SharedPreferences');
+      log('SAVE_AUTH_DEBUG: User removed from SharedPreferences');
     }
   }
 
   Future<void> forceClearAuth() async {
-    print('FORCE_CLEAR_AUTH: Clearing authentication state...');
+    log('FORCE_CLEAR_AUTH: Clearing authentication state...');
     _token = null;
     _user = null;
     _error = null;
@@ -447,12 +446,12 @@ class AuthProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('token');
       await prefs.remove('user');
-      print('FORCE_CLEAR_AUTH: SharedPreferences cleared successfully.');
+      log('FORCE_CLEAR_AUTH: SharedPreferences cleared successfully.');
     } catch (e) {
-      print('FORCE_CLEAR_AUTH: Error clearing SharedPreferences: $e');
+      log('FORCE_CLEAR_AUTH: Error clearing SharedPreferences: $e');
     }
 
-    print('FORCE_CLEAR_AUTH: Authentication state cleared.');
+    log('FORCE_CLEAR_AUTH: Authentication state cleared.');
   }
 
   // Method to update user information from other providers (e.g., ProfileProvider)
@@ -463,35 +462,35 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> clearToken() async {
-    print('CLEAR_TOKEN_DEBUG: Clearing token from SharedPreferences');
+    log('CLEAR_TOKEN_DEBUG: Clearing token from SharedPreferences');
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');
     await prefs.remove('user');
     _token = null;
     _user = null;
-    print('CLEAR_TOKEN_DEBUG: Token and user data cleared');
+    log('CLEAR_TOKEN_DEBUG: Token and user data cleared');
     notifyListeners();
   }
 
   Future<void> forceRelogin(BuildContext context) async {
-    print('FORCE_RELOGIN_DEBUG: Forcing re-login');
+    log('FORCE_RELOGIN_DEBUG: Forcing re-login');
     clearToken();
     notifyListeners();
     Navigator.pushReplacementNamed(context, '/login');
-    print('FORCE_RELOGIN_DEBUG: Navigated to login screen');
+    log('FORCE_RELOGIN_DEBUG: Navigated to login screen');
   }
 
   void debugToken(String? token) {
     if (token == null) {
-      print('TOKEN_DEBUG: No token provided');
+      log('TOKEN_DEBUG: No token provided');
       return;
     }
 
     try {
       Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
-      print('TOKEN_DEBUG: Decoded token payload: $decodedToken');
+      log('TOKEN_DEBUG: Decoded token payload: $decodedToken');
     } catch (e) {
-      print('TOKEN_DEBUG: Error decoding token: $e');
+      log('TOKEN_DEBUG: Error decoding token: $e');
     }
   }
 
@@ -499,7 +498,7 @@ class AuthProvider with ChangeNotifier {
     debugToken(_authToken);
 
     if (_authToken == null || isTokenExpired(_authToken!)) {
-      print('TOKEN_EXPIRATION_CHECK_DEBUG: Token expired or null, forcing re-login');
+      log('TOKEN_EXPIRATION_CHECK_DEBUG: Token expired or null, forcing re-login');
       await forceRelogin(context);
       return;
     }

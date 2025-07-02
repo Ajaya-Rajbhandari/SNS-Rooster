@@ -140,6 +140,91 @@ exports.getLeaveTypesBreakdown = async (req, res) => {
   }
 };
 
+// GET /analytics/admin/leave-types-breakdown
+// Returns count of each leave type across all employees (optionally filtered by date range)
+exports.getLeaveTypesBreakdownAdmin = async (req, res) => {
+  try {
+    // Ensure admin user
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const { startDate, endDate } = req.query;
+    const match = {};
+    if (startDate && endDate) {
+      match.startDate = { $gte: new Date(startDate) };
+      match.endDate = { $lte: new Date(endDate) };
+    }
+
+    const breakdown = await Leave.aggregate([
+      { $match: match },
+      { $group: { _id: '$leaveType', count: { $sum: 1 } } },
+    ]);
+
+    const result = {};
+    breakdown.forEach((item) => {
+      result[item._id] = item.count;
+    });
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error', details: err.message });
+  }
+};
+
+// GET /analytics/admin/monthly-hours-trend
+// Returns total work hours aggregated per month for the last 12 months
+exports.getMonthlyHoursTrendAdmin = async (req, res) => {
+  try {
+    // Ensure admin
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    let { start, end } = req.query;
+    let startDate, endDate;
+    if (start && end) {
+      startDate = new Date(start);
+      endDate = new Date(end);
+    } else {
+      endDate = new Date();
+      startDate = new Date(endDate.getFullYear(), endDate.getMonth() - 11, 1);
+    }
+
+    // Fetch attendance records in range
+    const records = await Attendance.find({
+      date: { $gte: startDate, $lte: endDate },
+    }).lean();
+
+    // Aggregate hours per month
+    const monthMap = {}; // key: YYYY-MM
+    records.forEach((r) => {
+      if (r.checkInTime && r.checkOutTime) {
+        const workedMs = new Date(r.checkOutTime) - new Date(r.checkInTime) - (r.totalBreakDuration || 0);
+        const dt = new Date(r.date);
+        const key = `${dt.getFullYear()}-${(dt.getMonth() + 1)
+          .toString()
+          .padStart(2, '0')}`; // e.g., 2024-07
+        if (!monthMap[key]) monthMap[key] = 0;
+        monthMap[key] += workedMs;
+      }
+    });
+
+    // Convert to array and hours
+    const trend = Object.keys(monthMap)
+      .sort()
+      .map((key) => ({
+        month: key,
+        hours: +(monthMap[key] / (1000 * 60 * 60)).toFixed(1),
+      }));
+
+    res.json({ trend });
+  } catch (err) {
+    console.error('Monthly hours trend error:', err);
+    res.status(500).json({ message: 'Error computing monthly hours trend' });
+  }
+};
+
 // GET /analytics/late-checkins/:userId
 exports.getLateCheckins = async (req, res) => {
   try {
@@ -214,11 +299,18 @@ exports.getAdminOverview = async (req, res) => {
     if (!req.user || req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Admin access required' });
     }
-    const range = parseInt(req.query.range) || 7;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() - range + 1);
+    let { start, end, range } = req.query;
+    let startDate, today;
+    if (start && end) {
+      startDate = new Date(start);
+      today = new Date(end);
+    } else {
+      range = parseInt(range) || 7;
+      today = new Date();
+      today.setHours(0, 0, 0, 0);
+      startDate = new Date(today);
+      startDate.setDate(today.getDate() - range + 1);
+    }
 
     // Get all employees
     const employees = await require('../models/User').find({ role: 'employee' });
@@ -309,5 +401,164 @@ exports.getAdminOverview = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: 'Error fetching admin overview analytics', error: err.message });
+  }
+};
+
+// GET /api/analytics/summary?start=YYYY-MM-DD&end=YYYY-MM-DD
+// Returns basic KPIs for the given date range (defaults to current month)
+exports.getSummary = async (req, res) => {
+  try {
+    const start = req.query.start ? new Date(req.query.start) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const end = req.query.end ? new Date(req.query.end) : new Date();
+
+    // Total hours & overtime approximation (duration between checkIn/Out minus breaks)
+    const records = await Attendance.find({
+      date: { $gte: start, $lte: end }
+    }).lean();
+
+    let totalMs = 0;
+    let overtimeMs = 0;
+
+    records.forEach(r => {
+      if (r.checkInTime && r.checkOutTime) {
+        const worked = new Date(r.checkOutTime) - new Date(r.checkInTime) - (r.totalBreakDuration || 0);
+        totalMs += worked;
+        if (worked > 8 * 60 * 60 * 1000) {
+          overtimeMs += worked - 8 * 60 * 60 * 1000;
+        }
+      }
+    });
+
+    const totalHours = +(totalMs / (1000 * 60 * 60)).toFixed(1);
+    const overtimeHours = +(overtimeMs / (1000 * 60 * 60)).toFixed(1);
+
+    // Absence rate
+    const totalDays = records.length;
+    const absentDays = records.filter(r => (r.status || '').toLowerCase() === 'absent').length;
+    const absenceRate = totalDays ? +(absentDays / totalDays * 100).toFixed(1) : 0;
+
+    // Average check-in time
+    const checkIns = records
+      .filter(r => r.checkInTime)
+      .map(r => new Date(r.checkInTime));
+    let avgCheckIn = null;
+    if (checkIns.length) {
+      const avgMs = checkIns.reduce((a, b) => a + b.getTime(), 0) / checkIns.length;
+      avgCheckIn = new Date(avgMs);
+    }
+
+    res.json({
+      summary: {
+        totalHours,
+        overtimeHours,
+        absenceRate,
+        avgCheckIn: avgCheckIn ? avgCheckIn.toISOString() : null,
+      },
+    });
+  } catch (err) {
+    console.error('Analytics summary error:', err);
+    res.status(500).json({ message: 'Failed to compute analytics' });
+  }
+};
+
+// === ADMIN PAYROLL ANALYTICS ===
+
+// GET /analytics/admin/payroll-trend
+// Returns total gross, net and deductions aggregated per month for the last N months (default 6)
+exports.getPayrollTrendAdmin = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const months = parseInt(req.query.months) || 6;
+    const endDate = new Date();
+    const startDate = new Date(endDate.getFullYear(), endDate.getMonth() - months + 1, 1);
+
+    const trend = await Payroll.aggregate([
+      {
+        $match: {
+          issueDate: { $gte: startDate, $lte: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$issueDate' },
+            month: { $month: '$issueDate' },
+          },
+          totalGross: { $sum: '$grossPay' },
+          totalNet: { $sum: '$netPay' },
+          totalDeductions: { $sum: '$deductions' },
+        },
+      },
+      {
+        $sort: { '_id.year': 1, '_id.month': 1 },
+      },
+    ]);
+
+    const formatted = trend.map((t) => {
+      const monthStr = `${t._id.year}-${t._id.month.toString().padStart(2, '0')}`;
+      return {
+        month: monthStr,
+        totalGross: t.totalGross,
+        totalNet: t.totalNet,
+        totalDeductions: t.totalDeductions,
+      };
+    });
+
+    res.json({ trend: formatted });
+  } catch (err) {
+    console.error('Payroll trend admin error:', err);
+    res.status(500).json({ message: 'Error fetching payroll trend', error: err.message });
+  }
+};
+
+// GET /analytics/admin/payroll-deductions-breakdown
+// Returns sum of deduction types for a given month (YYYY-MM). Defaults to current month.
+exports.getPayrollDeductionsBreakdownAdmin = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const monthParam = req.query.month; // format YYYY-MM
+    let year, month;
+    if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+      [year, month] = monthParam.split('-').map((v) => parseInt(v));
+    } else {
+      const now = new Date();
+      year = now.getFullYear();
+      month = now.getMonth() + 1; // 1-12
+    }
+
+    // Calculate date range for that month
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999); // last day of month
+
+    const breakdown = await Payroll.aggregate([
+      {
+        $match: {
+          issueDate: { $gte: startDate, $lte: endDate },
+        },
+      },
+      { $unwind: '$deductionsList' },
+      {
+        $group: {
+          _id: '$deductionsList.type',
+          amount: { $sum: '$deductionsList.amount' },
+        },
+      },
+    ]);
+
+    const result = {};
+    breakdown.forEach((b) => {
+      result[b._id] = b.amount;
+    });
+
+    res.json({ breakdown: result });
+  } catch (err) {
+    console.error('Payroll deduction breakdown admin error:', err);
+    res.status(500).json({ message: 'Error fetching deduction breakdown', error: err.message });
   }
 }; 

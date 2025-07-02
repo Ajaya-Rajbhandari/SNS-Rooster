@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
@@ -13,6 +14,7 @@ import '../screens/admin/admin_timesheet_screen.dart';
 import '../screens/admin/attendance_management_screen.dart';
 import '../screens/admin/break_management_screen.dart';
 import '../screens/admin/break_types_screen.dart';
+import '../screens/admin/analytics_reports_screen.dart';
 import 'package:sns_rooster/main.dart'; // Re-added import for navigatorKey
 
 class AdminSideNavigation extends StatelessWidget {
@@ -63,7 +65,7 @@ class AdminSideNavigation extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
-                      Text('Admin',
+                      const Text('Admin',
                           style:
                               TextStyle(color: Colors.white60, fontSize: 12)),
                     ],
@@ -176,6 +178,14 @@ class AdminSideNavigation extends StatelessWidget {
                   screen: const HelpSupportScreen(),
                   colorScheme: colorScheme,
                 ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.analytics,
+                  title: 'Analytics & Reports',
+                  route: '/analytics',
+                  screen: const AdminAnalyticsScreen(),
+                  colorScheme: colorScheme,
+                ),
               ],
             ),
           ),
@@ -269,7 +279,7 @@ class AdminSideNavigation extends StatelessWidget {
 
   Future<void> _handleLogout(BuildContext context) async {
     Navigator.pop(context);
-    print('LOGOUT: Initiating logout process');
+    log('LOGOUT: Initiating logout process');
 
     // Show confirmation dialog
     final shouldLogout = await showDialog<bool>(
@@ -280,14 +290,14 @@ class AdminSideNavigation extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () {
-              print('DIALOG: Cancel button clicked');
+              log('DIALOG: Cancel button clicked');
               Navigator.pop(context, false);
             },
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
-              print('DIALOG: Logout button clicked');
+              log('DIALOG: Logout button clicked');
               Navigator.pop(context, true);
             },
             child: const Text('Logout'),
@@ -296,15 +306,15 @@ class AdminSideNavigation extends StatelessWidget {
       ),
     );
 
-    print('LOGOUT: shouldLogout value: $shouldLogout');
+    log('LOGOUT: shouldLogout value: $shouldLogout');
 
     if (shouldLogout != null && shouldLogout) {
-      print('LOGOUT: User confirmed logout');
+      log('LOGOUT: User confirmed logout');
 
       await Future.delayed(const Duration(milliseconds: 100)); // Add delay
 
       if (navigatorKey.currentContext != null) {
-        print('LOGOUT: Navigator context is available');
+        log('LOGOUT: Navigator context is available');
 
         // Show loading indicator
         showDialog(
@@ -342,11 +352,11 @@ class AdminSideNavigation extends StatelessWidget {
           // runApp(MaterialApp(
           //   home: const LoginScreen(),
           // ));
-          // print('LOGOUT: Used direct MaterialPageRoute for fallback navigation');
+          // log('LOGOUT: Used direct MaterialPageRoute for fallback navigation');
         }
       }
     } else {
-      print('LOGOUT: User canceled logout');
+      log('LOGOUT: User canceled logout');
     }
   }
 }

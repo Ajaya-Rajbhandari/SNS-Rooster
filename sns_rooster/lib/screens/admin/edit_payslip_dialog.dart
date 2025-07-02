@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:intl/intl.dart';
 
 class EditPayslipDialog extends StatefulWidget {
@@ -209,7 +210,7 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
                     const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
-            dialogBackgroundColor: Colors.white,
+            dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
           ),
           child: child!,
         );
@@ -500,8 +501,8 @@ class _EditPayslipDialogState extends State<EditPayslipDialog> {
               'netPay': double.tryParse(_netPayController.text) ?? 0,
               'adminResponse': _adminResponseController.text,
             };
-            print('DEBUG: Admin Edit Payslip Payload:');
-            print(payload);
+            log('DEBUG: Admin Edit Payslip Payload:');
+            log(payload);
             Navigator.pop(context, payload); // Just pop with the data
           },
           child: const Text('Save'),

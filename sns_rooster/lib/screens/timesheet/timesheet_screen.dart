@@ -127,7 +127,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                     const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
-            dialogBackgroundColor: Colors.white,
+            dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
           ),
           child: child!,
         );

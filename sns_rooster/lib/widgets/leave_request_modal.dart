@@ -69,12 +69,39 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
                     const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
-            dialogBackgroundColor: Colors.white,
+            dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
           ),
           child: child!,
         );
       },
     );
+  }
+
+  Future<void> _selectDate(BuildContext context, bool isFrom) async {
+    final now = DateTime.now();
+    DateTime initial = isFrom ? (fromDate ?? now) : (toDate ?? fromDate ?? now);
+
+    final picked = await showCustomDatePicker(
+      context,
+      initial,
+      firstDate: widget.disablePastDates ? now : DateTime(2000),
+    );
+
+    if (picked != null) {
+      setState(() {
+        if (isFrom) {
+          fromDate = picked;
+          isFromDateError = false;
+          // Reset toDate if it is before new fromDate
+          if (toDate != null && toDate!.isBefore(fromDate!)) {
+            toDate = null;
+          }
+        } else {
+          toDate = picked;
+          isToDateError = false;
+        }
+      });
+    }
   }
 
   @override

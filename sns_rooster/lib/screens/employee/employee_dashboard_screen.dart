@@ -8,6 +8,7 @@
 // To connect to backend, use AttendanceService and Employee model.
 
 import 'package:flutter/material.dart';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -69,8 +70,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
         }
       });
     } catch (e) {
-      print(
-          'ERROR: ProfileProvider is not accessible in EmployeeDashboardScreen: $e');
+      log('ERROR: ProfileProvider is not accessible in EmployeeDashboardScreen: $e');
     }
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?['_id'];
@@ -480,18 +480,18 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
 
 // Correct the usage of context in methods
 void _applyLeave(BuildContext context) {
-  print('EMPLOYEE DASHBOARD: Navigating to Leave Request Screen');
+  log('EMPLOYEE DASHBOARD: Navigating to Leave Request Screen');
   Navigator.pushNamed(context, '/leave_request');
 }
 
 void _openTimesheet(BuildContext context) {
-  print('EMPLOYEE DASHBOARD: Navigating to Timesheet Screen');
+  log('EMPLOYEE DASHBOARD: Navigating to Timesheet Screen');
   Navigator.pushNamed(context, '/timesheet');
 }
 
 // Add _openProfile method to _EmployeeDashboardScreenState
 void _openProfile(BuildContext context) {
-  print('EMPLOYEE DASHBOARD: Navigating to Profile Screen');
+  log('EMPLOYEE DASHBOARD: Navigating to Profile Screen');
   Navigator.pushNamed(context, '/profile');
 }
 
@@ -566,7 +566,7 @@ class _DashboardHeader extends StatelessWidget {
               ],
             ),
           ),
-          NotificationBell(iconColor: Colors.white),
+          const NotificationBell(iconColor: Colors.white),
         ],
       ),
     );

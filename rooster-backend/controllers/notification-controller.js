@@ -27,13 +27,16 @@ exports.getNotifications = async (req, res) => {
   try {
     const userId = req.user.userId;
     const role = req.user.role;
-    // Fetch notifications for the user or their role, sorted by newest first
+    // Fetch notifications:
+    // 1. Directly addressed to this user (user field matches)
+    // 2. Broadcast to this user's role with no specific user target (user is null)
+    // 3. Broadcast to everyone (role === 'all' && user is null)
     const notifications = await Notification.find({
       $or: [
         { user: userId },
-        { role: role },
-        { role: 'all' }
-      ]
+        { $and: [{ role: role }, { user: null }] },
+        { $and: [{ role: 'all' }, { user: null }] },
+      ],
     }).sort({ createdAt: -1 });
     res.json({ notifications });
   } catch (error) {
@@ -76,10 +79,10 @@ exports.markAllAsRead = async (req, res) => {
       {
         $or: [
           { user: userId },
-          { role: userRole },
-          { role: 'all' }
+          { $and: [{ role: userRole }, { user: null }] },
+          { $and: [{ role: 'all' }, { user: null }] },
         ],
-        isRead: false
+        isRead: false,
       },
       { $set: { isRead: true } }
     );
@@ -92,17 +95,31 @@ exports.markAllAsRead = async (req, res) => {
 // Delete all notifications for the current user/role
 exports.clearAllNotifications = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const userRole = req.user.role;
+    console.log('clearAllNotifications called by user:', req.user);
     await Notification.deleteMany({
       $or: [
-        { user: userId },
-        { role: userRole },
-        { role: 'all' }
-      ]
+        { user: req.user.userId },
+        { $and: [{ role: req.user.role }, { user: null }] },
+        { $and: [{ role: 'all' }, { user: null }] },
+      ],
     });
     res.status(200).json({ message: 'All notifications cleared' });
   } catch (error) {
+    console.error('Clear all notifications error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Admin-only: delete all admin notifications
+exports.clearAllAdminNotifications = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only admins can clear all admin notifications' });
+    }
+    const result = await Notification.deleteMany({ role: 'admin' });
+    res.status(200).json({ message: 'All admin notifications cleared', deletedCount: result.deletedCount });
+  } catch (error) {
+    console.error('Clear all admin notifications error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

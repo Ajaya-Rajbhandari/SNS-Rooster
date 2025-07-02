@@ -113,7 +113,16 @@ class _NotificationAlertScreenState extends State<NotificationAlertScreen> {
             if (notificationProvider.isLoading) {
               return const Center(child: CircularProgressIndicator());
             }
-            final notifications = notificationProvider.notifications;
+            final authProvider =
+                Provider.of<AuthProvider>(context, listen: false);
+            final userId = authProvider.user?['_id'];
+            final userRole = authProvider.user?['role'];
+            final notifications = notificationProvider.notifications.where((n) {
+              final isForAdminRole = n['role'] == 'admin';
+              final isBroadcast = n['role'] == 'all';
+              final isForThisAdmin = n['user'] == userId;
+              return isForAdminRole || isBroadcast || isForThisAdmin;
+            }).toList();
             if (notifications.isEmpty) {
               return Center(
                 child:
@@ -128,7 +137,7 @@ class _NotificationAlertScreenState extends State<NotificationAlertScreen> {
                   child: Row(
                     children: [
                       Icon(Icons.swipe_left, color: theme.colorScheme.primary),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text('Tip: Swipe left to delete a notification',
                           style: theme.textTheme.bodySmall
                               ?.copyWith(color: theme.colorScheme.primary)),
@@ -150,7 +159,8 @@ class _NotificationAlertScreenState extends State<NotificationAlertScreen> {
                           color: Colors.red,
                           alignment: Alignment.centerRight,
                           padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: const Icon(Icons.delete, color: Colors.white),
+                          child: Icon(Icons.delete,
+                              color: theme.colorScheme.onPrimary),
                         ),
                         onDismissed: (direction) async {
                           final authProvider =
@@ -180,7 +190,7 @@ class _NotificationAlertScreenState extends State<NotificationAlertScreen> {
                         },
                         child: Card(
                           color: isUnread
-                              ? Colors.blue[50]
+                              ? theme.colorScheme.primary.withOpacity(0.08)
                               : theme.colorScheme.surface,
                           elevation: isUnread ? 4 : 2,
                           child: ListTile(

@@ -15,4 +15,22 @@ router.get('/leave-types-breakdown', authMiddleware, analyticsController.getLeav
 // Admin Analytics endpoints
 router.get('/admin/overview', authMiddleware, analyticsController.getAdminOverview);
 
+// admin only middleware
+const adminOnly = (req, res, next) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Access denied. Admin only.' });
+  }
+  next();
+};
+
+router.get('/summary', authMiddleware, adminOnly, analyticsController.getSummary);
+
+// Admin leave types breakdown (after adminOnly defined)
+router.get('/admin/leave-types-breakdown', authMiddleware, adminOnly, analyticsController.getLeaveTypesBreakdownAdmin);
+router.get('/admin/monthly-hours-trend', authMiddleware, adminOnly, analyticsController.getMonthlyHoursTrendAdmin);
+
+// Payroll analytics
+router.get('/admin/payroll-trend', authMiddleware, adminOnly, analyticsController.getPayrollTrendAdmin);
+router.get('/admin/payroll-deductions-breakdown', authMiddleware, adminOnly, analyticsController.getPayrollDeductionsBreakdownAdmin);
+
 module.exports = router; 

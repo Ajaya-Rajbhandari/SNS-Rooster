@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sns_rooster/utils/logger.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/user_avatar.dart'; // Assuming UserAvatar is a reusable widget
@@ -30,11 +31,11 @@ class AppDrawer extends StatelessWidget {
       ),
       trailing: trailing,
       onTap: () {
-        print('APP_DRAWER: Closing drawer');
+        log('APP_DRAWER: Closing drawer');
         Navigator.pop(context); // Close the drawer
         // For dashboard, use employee_dashboard route instead of '/'
         final targetRoute = navigateToRoute(route, isAdmin);
-        print('APP_DRAWER: Navigating to route: $targetRoute');
+        log('APP_DRAWER: Navigating to route: $targetRoute');
         Navigator.pushReplacementNamed(context, targetRoute);
       },
     );
@@ -58,7 +59,7 @@ class AppDrawer extends StatelessWidget {
           if (avatarUrl.contains('/api/uploads/')) {
             avatarUrl = avatarUrl.replaceFirst('/api/uploads/', '/uploads/');
           }
-          print('APP_DRAWER: avatarUrl = $avatarUrl');
+          log('APP_DRAWER: avatarUrl = $avatarUrl');
           return ListView(
             padding: EdgeInsets.zero,
             children: <Widget>[
@@ -76,7 +77,9 @@ class AppDrawer extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      user != null && user['firstName'] != null && user['lastName'] != null
+                      user != null &&
+                              user['firstName'] != null &&
+                              user['lastName'] != null
                           ? '${user['firstName']} ${user['lastName']}'
                           : 'Guest',
                       style: theme.textTheme.headlineSmall?.copyWith(
@@ -99,7 +102,9 @@ class AppDrawer extends StatelessWidget {
                   route: '/',
                   isAdmin: isAdmin),
               _buildNavTile(context,
-                  icon: Icons.access_time, label: 'Timesheet', route: '/timesheet'),
+                  icon: Icons.access_time,
+                  label: 'Timesheet',
+                  route: '/timesheet'),
               _buildNavTile(context,
                   icon: Icons.calendar_today,
                   label: 'Leave',
@@ -109,13 +114,17 @@ class AppDrawer extends StatelessWidget {
                   label: 'Attendance',
                   route: '/attendance'),
               _buildNavTile(context,
-                  icon: Icons.monetization_on, label: 'Payroll', route: '/payroll'),
+                  icon: Icons.monetization_on,
+                  label: 'Payroll',
+                  route: '/payroll'),
               _buildNavTile(context,
                   icon: Icons.analytics,
                   label: 'Analytics & Reports',
                   route: '/analytics'),
               _buildNavTile(context,
-                  icon: Icons.person_outline, label: 'Profile', route: '/profile'),
+                  icon: Icons.person_outline,
+                  label: 'Profile',
+                  route: '/profile'),
               _buildNavTile(context,
                   icon: Icons.notifications,
                   label: 'Notifications',
@@ -129,7 +138,8 @@ class AppDrawer extends StatelessWidget {
                 ),
                 onTap: () {
                   authProvider.logout();
-                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                  Navigator.of(context)
+                      .pushNamedAndRemoveUntil('/login', (route) => false);
                 },
               ),
               const Divider(),

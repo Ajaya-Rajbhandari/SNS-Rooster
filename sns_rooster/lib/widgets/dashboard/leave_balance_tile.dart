@@ -18,7 +18,8 @@ class LeaveBalanceTile extends StatelessWidget {
       children: [
         CircleAvatar(
           backgroundColor: color.withOpacity(0.15),
-          child: Text('$days', style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+          child: Text('$days',
+              style: TextStyle(color: color, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(height: 4),
         Text(type, style: Theme.of(context).textTheme.bodySmall),

@@ -5,8 +5,8 @@ param(
 )
 
 # Configuration - Update these IPs based on your actual network setup
-$homeIP = "192.168.1.67"    # Your home network IP
-$officeIP = "10.0.0.45"     # Your office network IP (update this!)
+$homeIP = "192.168.1.68"    # Your home network IP
+$officeIP = "10.0.0.80"     # Your office network IP (update this!)
 $port = "5000"
 
 Write-Host "🔄 SNS Rooster Environment Switcher" -ForegroundColor Cyan

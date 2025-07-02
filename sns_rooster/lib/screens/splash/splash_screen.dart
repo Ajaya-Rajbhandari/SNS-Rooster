@@ -101,7 +101,8 @@ class _SplashScreenState extends State<SplashScreen> {
               const SizedBox(height: 12),
               // Tagline with stylish font
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
