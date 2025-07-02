@@ -116,7 +116,6 @@ class _NotificationAlertScreenState extends State<NotificationAlertScreen> {
             final authProvider =
                 Provider.of<AuthProvider>(context, listen: false);
             final userId = authProvider.user?['_id'];
-            final userRole = authProvider.user?['role'];
             final notifications = notificationProvider.notifications.where((n) {
               final isForAdminRole = n['role'] == 'admin';
               final isBroadcast = n['role'] == 'all';

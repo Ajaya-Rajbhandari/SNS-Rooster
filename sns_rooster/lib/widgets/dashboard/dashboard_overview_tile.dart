@@ -137,33 +137,17 @@ class DashboardOverviewTile extends StatelessWidget {
                           bool isAbsent = recordForDay.isEmpty ||
                               recordForDay['status'] == 'Absent';
 
-                          Color dayBackgroundColor = theme.colorScheme.surface;
                           String statusText = 'N/A';
-                          Color statusColor =
-                              Colors.grey.shade700; // Default status text color
 
                           if (isPresent) {
-                            dayBackgroundColor = theme.colorScheme.primary
-                                .withOpacity(0.15); // Use subtle primary
                             statusText = 'Present';
-                            statusColor =
-                                theme.colorScheme.primary; // Keep text vibrant
                           } else if (isOnLeave) {
-                            dayBackgroundColor = theme.colorScheme.tertiary
-                                .withOpacity(0.15); // Use subtle tertiary
                             statusText = 'Leave';
-                            statusColor =
-                                theme.colorScheme.tertiary; // Keep text vibrant
                           } else if (isAbsent) {
-                            dayBackgroundColor = Colors
-                                .red.shade100; // Use a very light red directly
                             statusText = 'Absent';
-                            statusColor = Colors.red
-                                .shade700; // Use a darker red for text for contrast
                           }
 
                           String checkInTime = 'N/A';
-                          String checkOutTime = 'N/A';
                           Duration workHours = Duration.zero;
 
                           if (recordForDay.isNotEmpty &&
@@ -173,7 +157,6 @@ class DashboardOverviewTile extends StatelessWidget {
                             if (recordForDay['checkOut'] != null) {
                               final co =
                                   DateTime.parse(recordForDay['checkOut']);
-                              checkOutTime = DateFormat('hh:mm a').format(co);
                               final totalBreakMs =
                                   recordForDay['totalBreakDuration'] ?? 0;
                               workHours = co.difference(ci) -

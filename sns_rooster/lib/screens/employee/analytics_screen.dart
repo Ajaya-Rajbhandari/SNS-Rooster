@@ -103,20 +103,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             final Map<String, int> attendance =
                 analyticsProvider.attendanceData;
             final List<double> workHours = analyticsProvider.workHoursData;
-            final List<String> _days = [
-              'Day 1',
-              'Day 2',
-              'Day 3',
-              'Day 4',
-              'Day 5',
-              'Day 6',
-              'Day 7'
-            ];
 
-            final int totalPresent = attendance['Present'] ?? 0;
-            final int totalAbsent = attendance['Absent'] ?? 0;
-            final int totalLeave = attendance['Leave'] ?? 0;
-            final int _totalWorkDays = totalPresent + totalAbsent + totalLeave;
+            final int _totalPresent = attendance['Present'] ?? 0;
+            final int _totalAbsent = attendance['Absent'] ?? 0;
+            final int _totalLeave = attendance['Leave'] ?? 0;
 
             final int longestStreak = analyticsProvider.longestStreak;
             final String mostProductiveDay =
