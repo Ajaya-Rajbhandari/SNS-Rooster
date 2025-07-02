@@ -701,7 +701,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             .asMap()
                                             .entries
                                             .map((entry) {
-                                          final idx = entry.key;
+                                          final _idx = entry.key;
                                           final document = entry.value;
                                           final status =
                                               document['status'] ?? 'pending';
@@ -945,8 +945,9 @@ class _EducationSection extends StatelessWidget {
                               icon: const Icon(Icons.remove_red_eye,
                                   color: Colors.blueAccent),
                               tooltip: 'View Certificate',
-                              onPressed: () => showDocumentDialog(
-                                  context, edu['certificate']),
+                              onPressed: () async {
+                                showDocumentDialog(context, edu['certificate']);
+                              },
                             ),
                           IconButton(
                             icon: const Icon(Icons.edit, color: Colors.orange),
@@ -1153,7 +1154,7 @@ class _EducationSection extends StatelessWidget {
     ); // showDialog
   }
 
-  void _deleteEducation(BuildContext context, int idx) async {
+  void _deleteEducation(BuildContext context, int? idx) async {
     final profileProvider =
         Provider.of<ProfileProvider>(context, listen: false);
     final educationList = List<Map<String, dynamic>>.from(
@@ -1169,7 +1170,9 @@ class _EducationSection extends StatelessWidget {
               onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           TextButton(
             onPressed: () async {
-              educationList.removeAt(idx);
+              if (idx != null && idx < educationList.length) {
+                educationList.removeAt(idx);
+              }
               await profileProvider.updateProfile({'education': educationList});
               Navigator.pop(ctx);
             },
@@ -1239,8 +1242,10 @@ class _CertificateSection extends StatelessWidget {
                           icon: const Icon(Icons.remove_red_eye,
                               color: Colors.blueAccent),
                           tooltip: 'View Document',
-                          onPressed: () => showDocumentDialog(
-                              context, cert['document'] ?? cert['file']),
+                          onPressed: () async {
+                            showDocumentDialog(
+                                context, cert['document'] ?? cert['file']);
+                          },
                         ),
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.orange),
@@ -1411,7 +1416,7 @@ class _CertificateSection extends StatelessWidget {
     ); // showDialog
   }
 
-  void _deleteCertificate(BuildContext context, int idx) async {
+  void _deleteCertificate(BuildContext context, int? idx) async {
     final profileProvider =
         Provider.of<ProfileProvider>(context, listen: false);
     final certList = List<Map<String, dynamic>>.from(
@@ -1427,7 +1432,9 @@ class _CertificateSection extends StatelessWidget {
               onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           TextButton(
             onPressed: () async {
-              certList.removeAt(idx);
+              if (idx != null && idx < certList.length) {
+                certList.removeAt(idx);
+              }
               await profileProvider.updateProfile({'certificates': certList});
               Navigator.pop(ctx);
             },
