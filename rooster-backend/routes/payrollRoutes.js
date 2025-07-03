@@ -5,6 +5,9 @@ const router = express.Router();
 const payrollController = require('../controllers/payroll-controller');
 const authMiddleware = require('../middleware/auth');
 
+// DEBUG: Update all payslips with latest company info
+router.post('/update-company-info', payrollController.updatePayslipsCompanyInfo);
+
 // Download all payslips for the current logged-in employee as PDF
 router.get('/employee/pdf', authMiddleware, payrollController.downloadAllPayslipsPdfForCurrentUser);
 // Download all payslips for the current logged-in employee as CSV
