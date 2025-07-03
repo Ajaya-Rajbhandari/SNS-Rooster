@@ -27,7 +27,7 @@ exports.getEmployeePayrolls = async (req, res) => {
 // Create a new payroll record
 exports.createPayroll = async (req, res) => {
   try {
-    const { employee, periodStart, periodEnd, totalHours, grossPay, netPay, deductions, deductionsList, incomesList, issueDate, payPeriod } = req.body;
+    const { employee, periodStart, periodEnd, totalHours, overtimeHours, overtimeMultiplier, grossPay, netPay, deductions, deductionsList, incomesList, issueDate, payPeriod } = req.body;
     console.log('DEBUG: createPayroll incomesList:', incomesList);
     
     // Load company information for payslip branding (same as scheduler)
@@ -39,6 +39,8 @@ exports.createPayroll = async (req, res) => {
       periodStart, 
       periodEnd, 
       totalHours, 
+      overtimeHours: overtimeHours || 0,
+      overtimeMultiplier: overtimeMultiplier || 1.5,
       grossPay, 
       netPay, 
       deductions, 
@@ -101,7 +103,7 @@ exports.updatePayroll = async (req, res) => {
   console.log('DEBUG: request body:', req.body);
   
   try {
-    const { employee, periodStart, periodEnd, totalHours, grossPay, netPay, deductions, deductionsList, incomesList, issueDate, payPeriod, adminResponse } = req.body;
+    const { employee, periodStart, periodEnd, totalHours, overtimeHours, overtimeMultiplier, grossPay, netPay, deductions, deductionsList, incomesList, issueDate, payPeriod, adminResponse } = req.body;
     console.log('DEBUG: Extracted fields from request body:');
     console.log('  - adminResponse:', adminResponse);
     console.log('  - payPeriod:', payPeriod);
@@ -134,6 +136,8 @@ exports.updatePayroll = async (req, res) => {
     payslip.periodStart = periodStart;
     payslip.periodEnd = periodEnd;
     payslip.totalHours = totalHours;
+    payslip.overtimeHours = overtimeHours || 0;
+    payslip.overtimeMultiplier = overtimeMultiplier || 1.5;
     payslip.grossPay = grossPay;
     payslip.netPay = netPay;
     payslip.deductions = deductions;
@@ -353,36 +357,50 @@ exports.downloadPayslipPdf = async (req, res) => {
     let companyX = 150;
     let companyY = currentY + 15;
     
-    // Company name
-    doc.fontSize(20).fillColor('#1a237e').text(payslip.companyInfo.name, companyX, companyY);
-    companyY += 25;
+    // Company name in black
+    doc.fontSize(16).fillColor('#000000').font('Helvetica-Bold').text(payslip.companyInfo.name, companyX, companyY);
+    companyY += 20;
     
-    // Registration number if available
+    // Registration number - always show if available
     if (payslip.companyInfo.registrationNumber) {
-      doc.fontSize(10).fillColor('#666666').text(`Registration No: ${payslip.companyInfo.registrationNumber}`, companyX, companyY);
-      companyY += 15;
+      doc.fontSize(10).fillColor('#333333').font('Helvetica').text(`Registration No: ${payslip.companyInfo.registrationNumber}`, companyX, companyY);
+      companyY += 12;
     }
     
-    // Address
+    // Address with city and country
     if (payslip.companyInfo.address) {
-      doc.fontSize(10).fillColor('#333333').text(payslip.companyInfo.address, companyX, companyY, { width: 200 });
-      companyY += 15;
+      let fullAddress = payslip.companyInfo.address;
+      if (payslip.companyInfo.city) {
+        fullAddress += `, ${payslip.companyInfo.city}`;
+      }
+      if (payslip.companyInfo.country) {
+        fullAddress += `, ${payslip.companyInfo.country}`;
+      }
+      doc.fontSize(10).fillColor('#333333').text(fullAddress, companyX, companyY, { width: 350 });
+      companyY += 12;
     }
     
-    // Contact information
-    const contactInfo = [];
-    if (payslip.companyInfo.phone) contactInfo.push(`Phone: ${payslip.companyInfo.phone}`);
-    if (payslip.companyInfo.email) contactInfo.push(`Email: ${payslip.companyInfo.email}`);
+    // Contact information (Phone and Email)
+    if (payslip.companyInfo.phone) {
+      doc.fontSize(10).fillColor('#333333').text(`Phone: ${payslip.companyInfo.phone}`, companyX, companyY);
+      companyY += 12;
+    }
     
-    if (contactInfo.length > 0) {
-      doc.fontSize(9).fillColor('#333333').text(contactInfo.join(', '), companyX, companyY, { width: 350 });
+    if (payslip.companyInfo.email) {
+      doc.fontSize(10).fillColor('#333333').text(`E-mail: ${payslip.companyInfo.email}`, companyX, companyY);
+      companyY += 12;
+    }
+    
+    // Pan No (VAT/Tax ID) - styled in blue like the original image
+    if (payslip.companyInfo.taxId) {
+      doc.fontSize(10).fillColor('#2c5aa0').font('Helvetica-Bold').text(`Pan No: ${payslip.companyInfo.taxId}`, companyX, companyY);
     }
     
     currentY += 140;
   }
   
   // Salary Slip Title in colored header
-  doc.rect(40, currentY, 520, 30).fill('#1e3a8a').stroke();
+  doc.rect(40, currentY, 520, 30).fill('#2c5aa0').stroke();
   doc.fontSize(16).fillColor('white').text('Salary Slip', 50, currentY + 8, { align: 'center', width: 500 });
   currentY += 30;
   
@@ -397,7 +415,7 @@ exports.downloadPayslipPdf = async (req, res) => {
 
     // Month header in blue background
     const monthStr = payslip.periodStart ? payslip.periodStart.toLocaleString('default', { month: 'long', year: 'numeric' }) : '-';
-    doc.rect(440, currentY, 120, 25).fill('#1e3a8a').stroke();
+    doc.rect(440, currentY, 120, 25).fill('#2c5aa0').stroke();
     doc.fillColor('white').font('Helvetica-Bold').fontSize(10).text(`Month: ${monthStr}`, 445, currentY + 8);
     currentY += 35;
 
@@ -426,8 +444,8 @@ exports.downloadPayslipPdf = async (req, res) => {
     currentY += 10;
     
     // Main table headers - Income and Deductions
-    doc.rect(40, currentY, 260, 30).fill('#1e3a8a').stroke();
-    doc.rect(300, currentY, 260, 30).fill('#1e3a8a').stroke();
+    doc.rect(40, currentY, 260, 30).fill('#2c5aa0').stroke();
+    doc.rect(300, currentY, 260, 30).fill('#2c5aa0').stroke();
     doc.fillColor('white').font('Helvetica-Bold').fontSize(14).text('Income', 45, currentY + 8);
     doc.text('Deductions', 305, currentY + 8);
     currentY += 30;
@@ -498,7 +516,7 @@ exports.downloadPayslipPdf = async (req, res) => {
     
     // Net Salary section
     const netPay = payslip.netPay ?? 0;
-    doc.rect(40, currentY, 520, 35).fill('#1e3a8a').stroke();
+    doc.rect(40, currentY, 520, 35).fill('#2c5aa0').stroke();
     doc.font('Helvetica-Bold').fontSize(14).fillColor('white');
     doc.text('Net Salary (Deposited in Account)', 45, currentY + 10);
     doc.text(netPay.toString(), 450, currentY + 10);
@@ -570,42 +588,56 @@ exports.downloadAllPayslipsPdf = async (req, res) => {
         let companyX = 150;
         let companyY = currentY + 15;
         
-        // Company name
-        doc.fontSize(20).fillColor('#1a237e').text(payslip.companyInfo.name, companyX, companyY);
-        companyY += 25;
+        // Company name in black
+        doc.fontSize(16).fillColor('#000000').font('Helvetica-Bold').text(payslip.companyInfo.name, companyX, companyY);
+        companyY += 20;
         
-        // Registration number if available
+        // Registration number - always show if available
         if (payslip.companyInfo.registrationNumber) {
-          doc.fontSize(10).fillColor('#666666').text(`Registration No: ${payslip.companyInfo.registrationNumber}`, companyX, companyY);
-          companyY += 15;
+          doc.fontSize(10).fillColor('#333333').font('Helvetica').text(`Registration No: ${payslip.companyInfo.registrationNumber}`, companyX, companyY);
+          companyY += 12;
         }
         
-        // Address
+        // Address with city and country
         if (payslip.companyInfo.address) {
-          doc.fontSize(10).fillColor('#333333').text(payslip.companyInfo.address, companyX, companyY, { width: 200 });
-          companyY += 15;
+          let fullAddress = payslip.companyInfo.address;
+          if (payslip.companyInfo.city) {
+            fullAddress += `, ${payslip.companyInfo.city}`;
+          }
+          if (payslip.companyInfo.country) {
+            fullAddress += `, ${payslip.companyInfo.country}`;
+          }
+          doc.fontSize(10).fillColor('#333333').text(fullAddress, companyX, companyY, { width: 350 });
+          companyY += 12;
         }
         
-        // Contact information
-        const contactInfo = [];
-        if (payslip.companyInfo.phone) contactInfo.push(`Phone: ${payslip.companyInfo.phone}`);
-        if (payslip.companyInfo.email) contactInfo.push(`Email: ${payslip.companyInfo.email}`);
+        // Contact information (Phone and Email)
+        if (payslip.companyInfo.phone) {
+          doc.fontSize(10).fillColor('#333333').text(`Phone: ${payslip.companyInfo.phone}`, companyX, companyY);
+          companyY += 12;
+        }
         
-        if (contactInfo.length > 0) {
-          doc.fontSize(9).fillColor('#333333').text(contactInfo.join(', '), companyX, companyY, { width: 350 });
+        if (payslip.companyInfo.email) {
+          doc.fontSize(10).fillColor('#333333').text(`E-mail: ${payslip.companyInfo.email}`, companyX, companyY);
+          companyY += 12;
+        }
+        
+        // Pan No (VAT/Tax ID) - styled in blue like the original image
+        if (payslip.companyInfo.taxId) {
+          doc.fontSize(10).fillColor('#2c5aa0').font('Helvetica-Bold').text(`Pan No: ${payslip.companyInfo.taxId}`, companyX, companyY);
         }
         
         currentY += 140;
       }
       
       // Salary Slip Title in colored header
-      doc.rect(40, currentY, 520, 30).fill('#1e3a8a').stroke();
+      doc.rect(40, currentY, 520, 30).fill('#2c5aa0').stroke();
       doc.fontSize(16).fillColor('white').text('Salary Slip', 50, currentY + 8, { align: 'center', width: 500 });
       currentY += 30;
       
       // Month header in blue background
       const monthStr = payslip.periodStart ? payslip.periodStart.toLocaleString('default', { month: 'long', year: 'numeric' }) : '-';
-      doc.rect(440, currentY, 120, 25).fill('#1e3a8a').stroke();
+      doc.rect(440, currentY, 120, 25).fill('#2c5aa0').stroke();
       doc.fillColor('white').font('Helvetica-Bold').fontSize(10).text(`Month: ${monthStr}`, 445, currentY + 8);
       currentY += 35;
 
@@ -633,8 +665,8 @@ exports.downloadAllPayslipsPdf = async (req, res) => {
       currentY += 10;
       
       // Main table headers - Income and Deductions
-      doc.rect(40, currentY, 260, 30).fill('#1e3a8a').stroke();
-      doc.rect(300, currentY, 260, 30).fill('#1e3a8a').stroke();
+      doc.rect(40, currentY, 260, 30).fill('#2c5aa0').stroke();
+      doc.rect(300, currentY, 260, 30).fill('#2c5aa0').stroke();
       doc.fillColor('white').font('Helvetica-Bold').fontSize(14).text('Income', 45, currentY + 8);
       doc.text('Deductions', 305, currentY + 8);
       currentY += 30;
@@ -704,7 +736,7 @@ exports.downloadAllPayslipsPdf = async (req, res) => {
       
       // Net Salary section
       const netPay = payslip.netPay ?? 0;
-      doc.rect(40, currentY, 520, 35).fill('#1e3a8a').stroke();
+      doc.rect(40, currentY, 520, 35).fill('#2c5aa0').stroke();
       doc.font('Helvetica-Bold').fontSize(14).fillColor('white');
       doc.text('Net Salary (Deposited in Account)', 45, currentY + 10);
       doc.text(netPay.toString(), 450, currentY + 10);
