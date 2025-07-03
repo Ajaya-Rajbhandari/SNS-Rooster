@@ -39,7 +39,7 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/attendance/admin/break-types'),
+        Uri.parse('${ApiConfig.baseUrl}/admin/break-types'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${authProvider.token}',
@@ -161,7 +161,7 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/attendance/admin/start-break/$userId'),
+        Uri.parse('${ApiConfig.baseUrl}/admin/start-break/$userId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${authProvider.token}',

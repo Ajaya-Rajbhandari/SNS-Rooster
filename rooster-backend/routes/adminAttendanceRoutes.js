@@ -16,7 +16,7 @@ const adminAuth = (req, res, next) => {
 
 // Admin: Start break for any employee
 router.post(
-  "/admin/start-break/:userId",
+  "/start-break/:userId",
   auth,
   adminAuth,
   adminAttendanceController.adminStartBreak
@@ -24,24 +24,22 @@ router.post(
 
 // Admin: End break for any employee
 router.post(
-  "/admin/end-break/:userId",
+  "/end-break/:userId",
   auth,
   adminAuth,
   adminAttendanceController.adminEndBreak
 );
 
-// General: Get available break types (for employees)
-router.get("/break-types", auth, adminAttendanceController.getBreakTypes);
-
 // Admin: Get current break status for an employee
 router.get(
-  "/admin/break-status/:userId",
+  "/break-status/:userId",
   auth,
   adminAuth,
   adminAttendanceController.getAdminBreakStatus
 );
-// Get all break types
-router.get("/admin/break-types", auth, adminAuth, async (req, res) => {
+
+// Admin: Get all break types (including inactive ones for management)
+router.get("/break-types", auth, adminAuth, async (req, res) => {
   try {
     const breakTypes = await BreakType.find({}).sort({ priority: 1 });
     res.status(200).json({ breakTypes });
@@ -52,7 +50,7 @@ router.get("/admin/break-types", auth, adminAuth, async (req, res) => {
 });
 
 // Create new break type
-router.post("/admin/break-types", auth, adminAuth, async (req, res) => {
+router.post("/break-types", auth, adminAuth, async (req, res) => {
   try {
     const breakType = new BreakType(req.body);
     await breakType.save();
@@ -70,7 +68,7 @@ router.post("/admin/break-types", auth, adminAuth, async (req, res) => {
 });
 
 // Update break type
-router.put("/admin/break-types/:id", auth, adminAuth, async (req, res) => {
+router.put("/break-types/:id", auth, adminAuth, async (req, res) => {
   try {
     const breakType = await BreakType.findByIdAndUpdate(
       req.params.id,
@@ -92,7 +90,7 @@ router.put("/admin/break-types/:id", auth, adminAuth, async (req, res) => {
 });
 
 // Delete break type (soft delete by setting isActive to false)
-router.delete("/admin/break-types/:id", auth, adminAuth, async (req, res) => {
+router.delete("/break-types/:id", auth, adminAuth, async (req, res) => {
   try {
     const breakType = await BreakType.findByIdAndUpdate(
       req.params.id,
@@ -112,7 +110,7 @@ router.delete("/admin/break-types/:id", auth, adminAuth, async (req, res) => {
 });
 
 // Patch: In the break history endpoint, set status for each record
-router.get("/admin/break-history", auth, adminAuth, async (req, res) => {
+router.get("/break-history", auth, adminAuth, async (req, res) => {
   try {
     const {
       userId,

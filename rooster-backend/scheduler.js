@@ -142,22 +142,47 @@ async function generatePayslips() {
     // skip if exists
     if (await payrollExists(emp._id, periodStart)) continue;
 
-    // compute total hours simple sum attendance
+    // compute total hours and overtime
     const attendances = await Attendance.find({
       user: emp.userId,
       date: { $gte: periodStart, $lte: periodEnd },
     });
+    
     let totalMs = 0;
+    let dailyHours = {}; // Track daily hours for overtime calculation
+    
     attendances.forEach((a) => {
       if (a.checkInTime && a.checkOutTime) {
-        totalMs += new Date(a.checkOutTime) - new Date(a.checkInTime) - (a.totalBreakDuration || 0);
+        const workMs = new Date(a.checkOutTime) - new Date(a.checkInTime) - (a.totalBreakDuration || 0);
+        totalMs += workMs;
+        
+        // Track daily hours for overtime calculation
+        const dateKey = a.date.toISOString().split('T')[0];
+        const dayHours = workMs / (1000 * 60 * 60);
+        dailyHours[dateKey] = (dailyHours[dateKey] || 0) + dayHours;
       }
     });
+    
     const totalHours = +(totalMs / (1000 * 60 * 60)).toFixed(1);
+    
+    // Calculate overtime hours (hours over 8 per day)
+    let overtimeHours = 0;
+    if (cycle.overtimeEnabled) {
+      Object.values(dailyHours).forEach(dayHours => {
+        if (dayHours > 8) {
+          overtimeHours += dayHours - 8;
+        }
+      });
+    }
+    overtimeHours = +overtimeHours.toFixed(1);
 
-    // Gross pay calculation: use employee.hourlyRate if present, otherwise default from settings or 0
+    // Gross pay calculation: regular pay + overtime pay
     const hourlyRate = emp.hourlyRate || cycle.defaultHourlyRate || 0;
-    const grossPay = +(totalHours * hourlyRate).toFixed(2);
+    const regularHours = totalHours - overtimeHours;
+    const overtimeMultiplier = cycle.overtimeMultiplier || 1.5;
+    const regularPay = regularHours * hourlyRate;
+    const overtimePay = overtimeHours * hourlyRate * overtimeMultiplier;
+    const grossPay = +(regularPay + overtimePay).toFixed(2);
 
     // Calculate taxes using tax settings
     const taxCalculation = calculateAllTaxes(grossPay, settings.taxSettings || {});
@@ -171,6 +196,8 @@ async function generatePayslips() {
       periodStart,
       periodEnd,
       totalHours,
+      overtimeHours,
+      overtimeMultiplier: cycle.overtimeMultiplier || 1.5,
       grossPay,
       netPay,
       deductions: totalDeductions,
