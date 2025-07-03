@@ -3,6 +3,7 @@ const AdminSettings = require('./models/AdminSettings');
 const Employee = require('./models/Employee');
 const Payroll = require('./models/Payroll');
 const Attendance = require('./models/Attendance');
+const { calculateAllTaxes, generateDeductionsList } = require('./utils/tax-calculator');
 
 console.log('SCHEDULER: initializing');
 
@@ -28,6 +29,38 @@ function computeMonthlyPeriod(now, cutoffDay) {
   return { start, end };
 }
 
+function computeSemiMonthlyPeriod(now) {
+  // Semi-monthly: 1st-15th and 16th-end of month
+  const mid = 15;
+  let start, end;
+  
+  if (now.getDate() <= mid) {
+    // First half of current month (1-15)
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    end = new Date(now.getFullYear(), now.getMonth(), mid);
+  } else {
+    // Second half of current month (16-end)
+    start = new Date(now.getFullYear(), now.getMonth(), mid + 1);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 0); // last day of month
+  }
+  return { start, end };
+}
+
+function computeBiWeeklyPeriod(now, startRefDay) {
+  // Bi-weekly: every 14 days from reference start date
+  const startRef = new Date(now.getFullYear(), now.getMonth(), startRefDay);
+  const diff = Math.floor((now - startRef) / (1000 * 60 * 60 * 24));
+  const cycles = Math.floor(diff / 14);
+  
+  const periodStart = new Date(startRef);
+  periodStart.setDate(startRef.getDate() + (cycles * 14));
+  
+  const periodEnd = new Date(periodStart);
+  periodEnd.setDate(periodStart.getDate() + 13);
+  
+  return { start: periodStart, end: periodEnd };
+}
+
 async function generatePayslips() {
   console.log('SCHEDULER: generatePayslips tick');
   const settings = await AdminSettings.getSettings();
@@ -44,6 +77,23 @@ async function generatePayslips() {
     const payDay = cycle.payDay || 30;
     const payDate = new Date(today.getFullYear(), today.getMonth(), payDay + (cycle.payOffset || 0));
     shouldRun = payDate.toDateString() === today.toDateString();
+  } else if (freq === 'semi-monthly') {
+    const firstPayDay = cycle.payDay1 || 15; // First pay day of month
+    const secondPayDay = cycle.payDay || 30; // Second pay day of month
+    const offset = cycle.payOffset || 0;
+    
+    const firstPayDate = new Date(today.getFullYear(), today.getMonth(), firstPayDay + offset);
+    const secondPayDate = new Date(today.getFullYear(), today.getMonth(), secondPayDay + offset);
+    
+    shouldRun = (firstPayDate.toDateString() === today.toDateString()) || 
+                (secondPayDate.toDateString() === today.toDateString());
+  } else if (freq === 'bi-weekly') {
+    const startRef = new Date(today.getFullYear(), today.getMonth(), cycle.cutoffDay || 1);
+    const diff = Math.floor((today - startRef) / (1000 * 60 * 60 * 24));
+    const offset = cycle.payOffset || 0;
+    
+    // Check if today is a bi-weekly interval (every 14 days) from start reference
+    shouldRun = (diff >= 0) && ((diff + offset) % 14 === 0);
   } else if (freq === 'weekly') {
     const weekday = cycle.payWeekday || 5; // Friday default
     let payDate = new Date(today);
@@ -73,6 +123,14 @@ async function generatePayslips() {
       const period = computeMonthlyPeriod(today, cycle.cutoffDay || 25);
       periodStart = period.start;
       periodEnd = period.end;
+    } else if (freq === 'semi-monthly') {
+      const period = computeSemiMonthlyPeriod(today);
+      periodStart = period.start;
+      periodEnd = period.end;
+    } else if (freq === 'bi-weekly') {
+      const period = computeBiWeeklyPeriod(today, cycle.cutoffDay || 1);
+      periodStart = period.start;
+      periodEnd = period.end;
     } else {
       // weekly: previous Monday-Sunday
       const start = new Date(today);
@@ -100,7 +158,13 @@ async function generatePayslips() {
     // Gross pay calculation: use employee.hourlyRate if present, otherwise default from settings or 0
     const hourlyRate = emp.hourlyRate || cycle.defaultHourlyRate || 0;
     const grossPay = +(totalHours * hourlyRate).toFixed(2);
-    const netPay = grossPay; // TODO: subtract deductions
+
+    // Calculate taxes using tax settings
+    const taxCalculation = calculateAllTaxes(grossPay, settings.taxSettings || {});
+    const deductionsList = generateDeductionsList(taxCalculation, settings.taxSettings?.currencySymbol || 'Rs.');
+    
+    const totalDeductions = taxCalculation.totalTaxes;
+    const netPay = taxCalculation.netIncome;
 
     const payslip = new Payroll({
       employee: emp._id,
@@ -109,10 +173,19 @@ async function generatePayslips() {
       totalHours,
       grossPay,
       netPay,
-      deductions: 0,
+      deductions: totalDeductions,
+      deductionsList: deductionsList,
       payPeriod: periodStart.toISOString().split('T')[0] + ' - ' + periodEnd.toISOString().split('T')[0],
       issueDate: new Date(),
       status: 'pending',
+      // Add company information for payslip branding
+      companyInfo: {
+        name: settings.companyInfo?.name || 'Your Company Name',
+        logoUrl: settings.companyInfo?.logoUrl || '',
+        address: settings.companyInfo?.address || '',
+        phone: settings.companyInfo?.phone || '',
+        email: settings.companyInfo?.email || '',
+      },
     });
     await payslip.save();
     console.log('SCHEDULER: created payslip for', emp._id.toString());

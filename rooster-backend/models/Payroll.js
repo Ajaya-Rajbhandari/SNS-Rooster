@@ -25,6 +25,13 @@ const PayrollSchema = new mongoose.Schema({
   issueDate: { type: Date, required: true },
   payPeriod: { type: String, required: true },
   adminResponse: { type: String, default: '' },
+  companyInfo: {
+    name: { type: String, default: 'Your Company Name' },
+    logoUrl: { type: String, default: '' },
+    address: { type: String, default: '' },
+    phone: { type: String, default: '' },
+    email: { type: String, default: '' }
+  },
   createdAt: { type: Date, default: Date.now }
 });
 
