@@ -316,19 +316,38 @@ exports.downloadPayslipPdf = async (req, res) => {
     doc.rect(50, currentY + 10, 80, 80).stroke();
     
     // Try to display company logo if it exists
+    console.log('=== LOGO LOADING DEBUG ===');
+    console.log('Has logoUrl:', !!payslip.companyInfo?.logoUrl);
+    console.log('LogoUrl value:', payslip.companyInfo?.logoUrl);
+    
     if (payslip.companyInfo?.logoUrl) {
       try {
         const logoPath = payslip.companyInfo.logoUrl.startsWith('http') 
           ? payslip.companyInfo.logoUrl 
           : path.join(__dirname, '..', payslip.companyInfo.logoUrl);
-        doc.image(logoPath, 55, currentY + 15, { width: 70, height: 70 });
+        console.log('Constructed logo path:', logoPath);
+        
+        const fs = require('fs');
+        const logoExists = fs.existsSync(logoPath);
+        console.log('Logo file exists:', logoExists);
+        
+        if (logoExists) {
+          doc.image(logoPath, 55, currentY + 15, { width: 70, height: 70 });
+          console.log('Logo loaded successfully into PDF');
+        } else {
+          console.log('Logo file not found, showing placeholder');
+          doc.fontSize(8).fillColor('#666666').text('LOGO', 85, currentY + 45, { align: 'center' });
+        }
       } catch (error) {
+        console.log('Logo loading error:', error.message);
         // If logo fails to load, show placeholder
         doc.fontSize(8).fillColor('#666666').text('LOGO', 85, currentY + 45, { align: 'center' });
       }
     } else {
+      console.log('No logoUrl provided, showing placeholder');
       doc.fontSize(8).fillColor('#666666').text('LOGO', 85, currentY + 45, { align: 'center' });
     }
+    console.log('========================');
     
     // Company information (right side)
     let companyX = 150;
@@ -366,6 +385,15 @@ exports.downloadPayslipPdf = async (req, res) => {
   doc.rect(40, currentY, 520, 30).fill('#1e3a8a').stroke();
   doc.fontSize(16).fillColor('white').text('Salary Slip', 50, currentY + 8, { align: 'center', width: 500 });
   currentY += 30;
+  
+  // DEBUG: Log company info for debugging
+  console.log('=== PAYSLIP COMPANY INFO DEBUG ===');
+  console.log('Company Name:', payslip.companyInfo?.name);
+  console.log('Logo URL:', payslip.companyInfo?.logoUrl);
+  console.log('Address:', payslip.companyInfo?.address);
+  console.log('Phone:', payslip.companyInfo?.phone);
+  console.log('Email:', payslip.companyInfo?.email);
+  console.log('===================================');
 
     // Month header in blue background
     const monthStr = payslip.periodStart ? payslip.periodStart.toLocaleString('default', { month: 'long', year: 'numeric' }) : '-';
@@ -781,5 +809,33 @@ exports.downloadAllPayslipsCsvForCurrentUser = async (req, res) => {
   } catch (err) {
     console.error('Error generating CSV for current user:', err);
     res.status(500).send('Failed to generate CSV');
+  }
+};
+
+// DEBUG: Force update payslips with latest company info
+exports.updatePayslipsCompanyInfo = async (req, res) => {
+  try {
+    const AdminSettings = require('../models/AdminSettings');
+    const settings = await AdminSettings.getSettings();
+    
+    const companyInfo = {
+      name: settings.companyInfo?.name || 'Your Company Name',
+      logoUrl: settings.companyInfo?.logoUrl || '',
+      address: settings.companyInfo?.address || '',
+      phone: settings.companyInfo?.phone || '',
+      email: settings.companyInfo?.email || '',
+      registrationNumber: settings.companyInfo?.registrationNumber || '',
+    };
+    
+    const result = await Payroll.updateMany({}, { companyInfo });
+    
+    res.json({ 
+      message: 'Payslips updated with latest company info',
+      updatedCount: result.modifiedCount,
+      companyInfo 
+    });
+  } catch (err) {
+    console.error('Error updating payslips company info:', err);
+    res.status(500).json({ error: err.message });
   }
 };
