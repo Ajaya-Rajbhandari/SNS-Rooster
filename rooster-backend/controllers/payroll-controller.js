@@ -2,6 +2,7 @@ const Payroll = require('../models/Payroll');
 const Employee = require('../models/Employee');
 const PDFDocument = require('pdfkit');
 const Notification = require('../models/Notification');
+const path = require('path');
 
 // Get all payrolls
 exports.getAllPayrolls = async (req, res) => {
@@ -319,7 +320,7 @@ exports.downloadPayslipPdf = async (req, res) => {
       try {
         const logoPath = payslip.companyInfo.logoUrl.startsWith('http') 
           ? payslip.companyInfo.logoUrl 
-          : `./uploads/company/${payslip.companyInfo.logoUrl}`;
+          : path.join(__dirname, '..', payslip.companyInfo.logoUrl);
         doc.image(logoPath, 55, currentY + 15, { width: 70, height: 70 });
       } catch (error) {
         // If logo fails to load, show placeholder
@@ -527,7 +528,7 @@ exports.downloadAllPayslipsPdf = async (req, res) => {
           try {
             const logoPath = payslip.companyInfo.logoUrl.startsWith('http') 
               ? payslip.companyInfo.logoUrl 
-              : `./uploads/company/${payslip.companyInfo.logoUrl}`;
+              : path.join(__dirname, '..', payslip.companyInfo.logoUrl);
             doc.image(logoPath, 55, currentY + 15, { width: 70, height: 70 });
           } catch (error) {
             // If logo fails to load, show placeholder
