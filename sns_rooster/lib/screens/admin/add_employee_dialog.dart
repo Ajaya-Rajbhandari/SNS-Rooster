@@ -20,10 +20,7 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
   final UserService _userService = UserService();
   List<UserModel> _users = [];
   UserModel? _selectedUser;
-  String? _selectedRole;
   bool _isLoadingUsers = true;
-
-  final List<String> _roles = ['employee', 'admin'];
 
   bool _isLoading = false;
   String? _error;
@@ -75,11 +72,24 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
       _isLoadingUsers = true;
     });
     try {
-      final users = await _userService.getUnassignedUsers();
-      // Filter out admin/test users
+      // Fetch all users
+      final users = await _userService.getUsers();
+      // Fetch all employees (ensure _employees is up to date)
+      if (_employees.isEmpty) {
+        await _fetchEmployees();
+      }
+      final employeeUserIds = _employees.map((e) => e['userId']).toSet();
+      // Filter: role == 'employee', not already employee, not admin/test in email
       final filtered = users.where((user) {
         final email = user.email.toLowerCase();
-        return !email.contains('admin') && !email.contains('test');
+        final username = user.email.split('@').first.toLowerCase();
+        final isEmployeeRole = user.role == 'employee';
+        final notAlreadyEmployee = !employeeUserIds.contains(user.id);
+        final notAdminOrTest = !email.contains('admin') &&
+            !email.contains('test') &&
+            !username.contains('admin') &&
+            !username.contains('test');
+        return isEmployeeRole && notAlreadyEmployee && notAdminOrTest;
       }).toList();
       setState(() {
         _users = filtered;
@@ -122,12 +132,6 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
       });
       return;
     }
-    if (_selectedRole == null) {
-      setState(() {
-        _error = 'Please select a role.';
-      });
-      return;
-    }
 
     // Extra validation: check if this user is already an employee
     final alreadyEmployee =
@@ -151,7 +155,6 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
         'lastName': _selectedUser!.lastName,
         'email': _selectedUser!.email,
         'employeeId': _employeeIdController.text.trim(),
-        'role': _selectedRole,
         'position': _selectedPosition,
         'department': _selectedDepartment,
         'hourlyRate': double.tryParse(_hourlyRateController.text) ?? 0,
@@ -267,45 +270,6 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                             ),
                           ),
                         ),
-              const SizedBox(height: 16),
-
-              // Role Selection
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Assign Role',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(
-                          hintText: 'Select role',
-                          border: OutlineInputBorder(),
-                        ),
-                        value: _selectedRole,
-                        items: _roles.map((String role) {
-                          return DropdownMenuItem<String>(
-                            value: role,
-                            child:
-                                Text(role[0].toUpperCase() + role.substring(1)),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          setState(() {
-                            _selectedRole = newValue;
-                          });
-                        },
-                        validator: (value) =>
-                            value == null ? 'Please select a role' : null,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
               const SizedBox(height: 16),
 
               // Employee ID Section

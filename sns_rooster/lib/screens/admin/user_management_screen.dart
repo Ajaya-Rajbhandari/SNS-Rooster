@@ -24,6 +24,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   String? _error;
   List<Map<String, dynamic>> _users = [];
   bool _showInactive = false; // Track whether to show inactive users
+  String? _selectedRole;
+  final List<String> _roles = ['employee', 'admin'];
 
   @override
   void initState() {
@@ -166,6 +168,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           'password': _passwordController.text,
           'firstName': _firstNameController.text,
           'lastName': _lastNameController.text,
+          'role': _selectedRole,
         }),
       );
 
@@ -314,6 +317,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final currentUserId =
+        Provider.of<AuthProvider>(context, listen: false).user?['_id'];
     return Scaffold(
       appBar: AppBar(
         title: const Text('User Management'),
@@ -428,6 +433,28 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                   onChanged: (value) {
                                     // _generateEmployeeId();
                                   },
+                                ),
+                                DropdownButtonFormField<String>(
+                                  decoration: const InputDecoration(
+                                    labelText: 'Role',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  value: _selectedRole,
+                                  items: _roles.map((String role) {
+                                    return DropdownMenuItem<String>(
+                                      value: role,
+                                      child: Text(role[0].toUpperCase() +
+                                          role.substring(1)),
+                                    );
+                                  }).toList(),
+                                  onChanged: (String? newValue) {
+                                    setState(() {
+                                      _selectedRole = newValue;
+                                    });
+                                  },
+                                  validator: (value) => value == null
+                                      ? 'Please select a role'
+                                      : null,
                                 ),
                                 const SizedBox(height: 16),
                                 ElevatedButton(
@@ -555,10 +582,33 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                           ),
                                           const SizedBox(width: 8),
                                           IconButton(
-                                            icon: const Icon(Icons.delete,
+                                            icon: Icon(Icons.delete,
                                                 color: Colors.red),
-                                            onPressed: () =>
-                                                _deleteUser(user['_id']),
+                                            onPressed: user['_id'] ==
+                                                    currentUserId
+                                                ? () {
+                                                    showDialog(
+                                                      context: context,
+                                                      builder: (context) =>
+                                                          AlertDialog(
+                                                        title: Text(
+                                                            'Action Not Allowed'),
+                                                        content: Text(
+                                                            'You cannot delete your own admin account.'),
+                                                        actions: [
+                                                          TextButton(
+                                                            onPressed: () =>
+                                                                Navigator.of(
+                                                                        context)
+                                                                    .pop(),
+                                                            child: Text('OK'),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+                                                  }
+                                                : () =>
+                                                    _deleteUser(user['_id']),
                                             tooltip: 'Delete User',
                                           ),
                                         ],
