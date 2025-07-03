@@ -28,9 +28,35 @@ exports.createPayroll = async (req, res) => {
   try {
     const { employee, periodStart, periodEnd, totalHours, grossPay, netPay, deductions, deductionsList, incomesList, issueDate, payPeriod } = req.body;
     console.log('DEBUG: createPayroll incomesList:', incomesList);
-    const payroll = new Payroll({ employee, periodStart, periodEnd, totalHours, grossPay, netPay, deductions, deductionsList, incomesList, issueDate, payPeriod });
+    
+    // Load company information for payslip branding (same as scheduler)
+    const AdminSettings = require('../models/AdminSettings');
+    const settings = await AdminSettings.getSettings();
+    
+    const payroll = new Payroll({ 
+      employee, 
+      periodStart, 
+      periodEnd, 
+      totalHours, 
+      grossPay, 
+      netPay, 
+      deductions, 
+      deductionsList, 
+      incomesList, 
+      issueDate, 
+      payPeriod,
+      // Add company information for payslip branding
+      companyInfo: {
+        name: settings.companyInfo?.name || 'Your Company Name',
+        logoUrl: settings.companyInfo?.logoUrl || '',
+        address: settings.companyInfo?.address || '',
+        phone: settings.companyInfo?.phone || '',
+        email: settings.companyInfo?.email || '',
+      },
+    });
     await payroll.save();
     console.log('DEBUG: Saved incomesList:', payroll.incomesList);
+    console.log('DEBUG: Saved companyInfo:', payroll.companyInfo);
 
     // Fetch the employee's userId for notification
     const emp = await Employee.findById(employee);
@@ -114,6 +140,17 @@ exports.updatePayroll = async (req, res) => {
     payslip.incomesList = incomesList;
     payslip.issueDate = issueDate;
     payslip.payPeriod = payPeriod;
+    
+    // Update company information if not present or outdated
+    const AdminSettings = require('../models/AdminSettings');
+    const settings = await AdminSettings.getSettings();
+    payslip.companyInfo = {
+      name: settings.companyInfo?.name || 'Your Company Name',
+      logoUrl: settings.companyInfo?.logoUrl || '',
+      address: settings.companyInfo?.address || '',
+      phone: settings.companyInfo?.phone || '',
+      email: settings.companyInfo?.email || '',
+    };
     
     if (adminResponse !== undefined) {
       console.log('DEBUG: Setting adminResponse to:', adminResponse);
@@ -262,88 +299,190 @@ exports.downloadPayslipPdf = async (req, res) => {
       return res.status(404).json({ error: 'Payslip not found' });
     }
     console.log('Payslip found:', payslip._id.toString());
-    const doc = new PDFDocument();
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=payslip-${payslip._id}.pdf`);
-    doc.pipe(res);
-    doc.fontSize(20).fillColor('#1a237e').text('Salary Slip', 50, 60, { align: 'center', width: 500 });
-    doc.moveDown();
+      const doc = new PDFDocument();
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename=payslip-${payslip._id}.pdf`);
+  doc.pipe(res);
+  
+  let currentY = 40;
+  
+  // Professional Header with Company Information
+  if (payslip.companyInfo?.name) {
+    // Company header section with border
+    doc.rect(40, currentY, 520, 120).stroke();
+    
+    // Logo placeholder (left side)
+    doc.rect(50, currentY + 10, 80, 80).stroke();
+    
+    // Try to display company logo if it exists
+    if (payslip.companyInfo?.logoUrl) {
+      try {
+        const logoPath = payslip.companyInfo.logoUrl.startsWith('http') 
+          ? payslip.companyInfo.logoUrl 
+          : `./uploads/company/${payslip.companyInfo.logoUrl}`;
+        doc.image(logoPath, 55, currentY + 15, { width: 70, height: 70 });
+      } catch (error) {
+        // If logo fails to load, show placeholder
+        doc.fontSize(8).fillColor('#666666').text('LOGO', 85, currentY + 45, { align: 'center' });
+      }
+    } else {
+      doc.fontSize(8).fillColor('#666666').text('LOGO', 85, currentY + 45, { align: 'center' });
+    }
+    
+    // Company information (right side)
+    let companyX = 150;
+    let companyY = currentY + 15;
+    
+    // Company name
+    doc.fontSize(20).fillColor('#1a237e').text(payslip.companyInfo.name, companyX, companyY);
+    companyY += 25;
+    
+    // Registration number if available
+    if (payslip.companyInfo.registrationNumber) {
+      doc.fontSize(10).fillColor('#666666').text(`Registration No: ${payslip.companyInfo.registrationNumber}`, companyX, companyY);
+      companyY += 15;
+    }
+    
+    // Address
+    if (payslip.companyInfo.address) {
+      doc.fontSize(10).fillColor('#333333').text(payslip.companyInfo.address, companyX, companyY, { width: 200 });
+      companyY += 15;
+    }
+    
+    // Contact information
+    const contactInfo = [];
+    if (payslip.companyInfo.phone) contactInfo.push(`Phone: ${payslip.companyInfo.phone}`);
+    if (payslip.companyInfo.email) contactInfo.push(`Email: ${payslip.companyInfo.email}`);
+    
+    if (contactInfo.length > 0) {
+      doc.fontSize(9).fillColor('#333333').text(contactInfo.join(', '), companyX, companyY, { width: 350 });
+    }
+    
+    currentY += 140;
+  }
+  
+  // Salary Slip Title in colored header
+  doc.rect(40, currentY, 520, 30).fill('#1e3a8a').stroke();
+  doc.fontSize(16).fillColor('white').text('Salary Slip', 50, currentY + 8, { align: 'center', width: 500 });
+  currentY += 30;
 
-    // Month row
+    // Month header in blue background
     const monthStr = payslip.periodStart ? payslip.periodStart.toLocaleString('default', { month: 'long', year: 'numeric' }) : '-';
-    doc.rect(50, 90, 500, 25).fill('#f7e6b3').stroke();
-    doc.fillColor('black').font('Helvetica-Bold').fontSize(12).text(`Month: ${monthStr}`, 55, 97);
+    doc.rect(440, currentY, 120, 25).fill('#1e3a8a').stroke();
+    doc.fillColor('white').font('Helvetica-Bold').fontSize(10).text(`Month: ${monthStr}`, 445, currentY + 8);
+    currentY += 35;
 
+    // Employee information table
     doc.fillColor('black').fontSize(11);
-    // Employee info rows
     const info = [
       ['Employee Name', `${payslip.employee.firstName} ${payslip.employee.lastName}`],
       ['Employee Code', payslip.employee.employeeId || '-'],
       ['Designation', payslip.employee.position || '-'],
       ['PAN', payslip.employee.pan || '-'],
     ];
-    let y = 115;
+    
     info.forEach(([label, value]) => {
-      doc.rect(50, y, 150, 25).stroke();
-      doc.rect(200, y, 350, 25).stroke();
-      doc.font('Helvetica-Bold').text(label, 55, y + 7);
-      doc.font('Helvetica').text(value, 205, y + 7);
-      y += 25;
+      // Left column (label)
+      doc.rect(40, currentY, 180, 25).stroke();
+      doc.fillColor('#f0f0f0').rect(40, currentY, 180, 25).fill().stroke();
+      doc.fillColor('black').font('Helvetica-Bold').text(label, 45, currentY + 8);
+      
+      // Right column (value)
+      doc.rect(220, currentY, 340, 25).stroke();
+      doc.fillColor('white').rect(220, currentY, 340, 25).fill().stroke();
+      doc.fillColor('black').font('Helvetica').text(value, 225, currentY + 8);
+      currentY += 25;
     });
 
-    // Income/Deductions table headers
-    const tableY = y;
-    doc.rect(50, tableY, 250, 25).fill('#b3d1f2').stroke();
-    doc.rect(300, tableY, 250, 25).fill('#b3d1f2').stroke();
-    doc.fillColor('black').font('Helvetica-Bold').text('Income', 55, tableY + 7);
-    doc.text('Deductions', 305, tableY + 7);
-    y = tableY + 25;
+    currentY += 10;
+    
+    // Main table headers - Income and Deductions
+    doc.rect(40, currentY, 260, 30).fill('#1e3a8a').stroke();
+    doc.rect(300, currentY, 260, 30).fill('#1e3a8a').stroke();
+    doc.fillColor('white').font('Helvetica-Bold').fontSize(14).text('Income', 45, currentY + 8);
+    doc.text('Deductions', 305, currentY + 8);
+    currentY += 30;
 
-    // Table columns
-    const colHeaderY = y;
-    doc.font('Helvetica-Bold').text('Particulars', 55, colHeaderY + 7);
-    doc.text('Amount (NPR)', 180, colHeaderY + 7);
-    doc.text('Particulars', 305, colHeaderY + 7);
-    doc.text('Amount (NPR)', 430, colHeaderY + 7);
-    doc.font('Helvetica');
-    y += 20;
+    // Column headers
+    doc.rect(40, currentY, 130, 25).fill('#e6f2ff').stroke();
+    doc.rect(170, currentY, 130, 25).fill('#e6f2ff').stroke();
+    doc.rect(300, currentY, 130, 25).fill('#e6f2ff').stroke();
+    doc.rect(430, currentY, 130, 25).fill('#e6f2ff').stroke();
+    
+    doc.fillColor('black').font('Helvetica-Bold').fontSize(11);
+    doc.text('Particulars', 45, currentY + 8);
+    doc.text('Amount (NPR)', 175, currentY + 8);
+    doc.text('Particulars', 305, currentY + 8);
+    doc.text('Amount (NPR)', 435, currentY + 8);
+    currentY += 25;
 
-    // Income and deductions rows
-    const incomes = [
-      ['Gross Pay', payslip.grossPay ?? '-'],
-    ];
+    // Income and deductions data rows
+    const incomesList = Array.isArray(payslip.incomesList) && payslip.incomesList.length > 0
+      ? payslip.incomesList.map(i => [i.type, i.amount])
+      : [['Gross Pay', payslip.grossPay ?? '-']];
     const deductionsList = Array.isArray(payslip.deductionsList) ? payslip.deductionsList : [];
     const deductions = deductionsList.length > 0
       ? deductionsList.map(d => [d.type, d.amount])
-      : [['Deductions', payslip.deductions ?? '-']];
-    const maxRows = Math.max(incomes.length, deductions.length, 5);
+      : [];
+    
+    const maxRows = Math.max(incomesList.length, deductions.length, 3);
+    
+    // Data rows
+    doc.font('Helvetica').fontSize(10);
     for (let i = 0; i < maxRows; i++) {
-      doc.text(incomes[i]?.[0] || '', 55, y + 7);
-      doc.text(incomes[i]?.[1]?.toString() || '', 180, y + 7);
-      doc.text(deductions[i]?.[0] || '', 305, y + 7);
-      doc.text(deductions[i]?.[1]?.toString() || '', 430, y + 7);
-      doc.moveTo(50, y).lineTo(550, y).stroke();
-      y += 20;
+      const rowHeight = 25;
+      
+      // Income side
+      doc.rect(40, currentY, 130, rowHeight).stroke();
+      doc.rect(170, currentY, 130, rowHeight).stroke();
+      if (incomesList[i]) {
+        doc.fillColor('black').text(incomesList[i][0], 45, currentY + 8);
+        doc.text(incomesList[i][1]?.toString() || '', 175, currentY + 8);
+      }
+      
+      // Deductions side
+      doc.rect(300, currentY, 130, rowHeight).stroke();
+      doc.rect(430, currentY, 130, rowHeight).stroke();
+      if (deductions[i]) {
+        doc.fillColor('black').text(deductions[i][0], 305, currentY + 8);
+        doc.text(deductions[i][1]?.toString() || '', 435, currentY + 8);
+      }
+      
+      currentY += rowHeight;
     }
-    // Totals
-    const totalIncome = payslip.grossPay ?? '-';
-    const totalDeductions = payslip.deductions ?? '-';
-    doc.font('Helvetica-Bold').text('Total', 55, y + 7);
-    doc.text(totalIncome.toString(), 180, y + 7);
-    doc.text('Total', 305, y + 7);
-    doc.text(totalDeductions.toString(), 430, y + 7);
-    y += 30;
-    // Net Salary row
-    // Blue background
-    const netPay = payslip.netPay ?? '-';
-    doc.rect(50, y, 500, 30).fill('#b3d1f2').stroke();
-    doc.font('Helvetica-Bold').fontSize(14).fillColor('black')
-       .text('Net Salary (Deposited in Account)', 55, y + 7);
-    doc.text(netPay.toString(), 480, y + 7);
-    doc.moveDown();
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('black').text(`Status: ${payslip.status || 'pending'}`);
+    
+    // Totals row
+    doc.rect(40, currentY, 130, 30).fill('#f0f0f0').stroke();
+    doc.rect(170, currentY, 130, 30).fill('#f0f0f0').stroke();
+    doc.rect(300, currentY, 130, 30).fill('#f0f0f0').stroke();
+    doc.rect(430, currentY, 130, 30).fill('#f0f0f0').stroke();
+    
+    const totalIncome = payslip.grossPay ?? 0;
+    const totalDeductions = payslip.deductions ?? 0;
+    
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('black');
+    doc.text('Total', 45, currentY + 10);
+    doc.text(totalIncome.toString(), 175, currentY + 10);
+    doc.text('Total', 305, currentY + 10);
+    doc.text(totalDeductions.toString(), 435, currentY + 10);
+    currentY += 40;
+    
+    // Net Salary section
+    const netPay = payslip.netPay ?? 0;
+    doc.rect(40, currentY, 520, 35).fill('#1e3a8a').stroke();
+    doc.font('Helvetica-Bold').fontSize(14).fillColor('white');
+    doc.text('Net Salary (Deposited in Account)', 45, currentY + 10);
+    doc.text(netPay.toString(), 450, currentY + 10);
+    currentY += 50;
+    
+    // Status information
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('black');
+    doc.text(`Status: ${payslip.status || 'pending'}`, 40, currentY);
+    
     if (payslip.status === 'needs_review' && payslip.employeeComment) {
-      doc.font('Helvetica').fontSize(11).fillColor('red').text(`Employee Comment: ${payslip.employeeComment}`);
+      currentY += 15;
+      doc.font('Helvetica').fontSize(9).fillColor('red');
+      doc.text(`Employee Comment: ${payslip.employeeComment}`, 40, currentY, { width: 500 });
     }
     doc.end();
   } catch (err) {
@@ -372,11 +511,76 @@ exports.downloadAllPayslipsPdf = async (req, res) => {
     doc.pipe(res);
     payslips.forEach((payslip, idx) => {
       if (idx > 0) doc.addPage();
-      doc.fontSize(20).fillColor('#1a237e').text('Salary Slip', 50, 60, { align: 'center', width: 500 });
-      doc.moveDown();
+      
+      let currentY = 40;
+      
+      // Professional Header with Company Information
+      if (payslip.companyInfo?.name) {
+        // Company header section with border
+        doc.rect(40, currentY, 520, 120).stroke();
+        
+        // Logo placeholder (left side)
+        doc.rect(50, currentY + 10, 80, 80).stroke();
+        
+        // Try to display company logo if it exists
+        if (payslip.companyInfo?.logoUrl) {
+          try {
+            const logoPath = payslip.companyInfo.logoUrl.startsWith('http') 
+              ? payslip.companyInfo.logoUrl 
+              : `./uploads/company/${payslip.companyInfo.logoUrl}`;
+            doc.image(logoPath, 55, currentY + 15, { width: 70, height: 70 });
+          } catch (error) {
+            // If logo fails to load, show placeholder
+            doc.fontSize(8).fillColor('#666666').text('LOGO', 85, currentY + 45, { align: 'center' });
+          }
+        } else {
+          doc.fontSize(8).fillColor('#666666').text('LOGO', 85, currentY + 45, { align: 'center' });
+        }
+        
+        // Company information (right side)
+        let companyX = 150;
+        let companyY = currentY + 15;
+        
+        // Company name
+        doc.fontSize(20).fillColor('#1a237e').text(payslip.companyInfo.name, companyX, companyY);
+        companyY += 25;
+        
+        // Registration number if available
+        if (payslip.companyInfo.registrationNumber) {
+          doc.fontSize(10).fillColor('#666666').text(`Registration No: ${payslip.companyInfo.registrationNumber}`, companyX, companyY);
+          companyY += 15;
+        }
+        
+        // Address
+        if (payslip.companyInfo.address) {
+          doc.fontSize(10).fillColor('#333333').text(payslip.companyInfo.address, companyX, companyY, { width: 200 });
+          companyY += 15;
+        }
+        
+        // Contact information
+        const contactInfo = [];
+        if (payslip.companyInfo.phone) contactInfo.push(`Phone: ${payslip.companyInfo.phone}`);
+        if (payslip.companyInfo.email) contactInfo.push(`Email: ${payslip.companyInfo.email}`);
+        
+        if (contactInfo.length > 0) {
+          doc.fontSize(9).fillColor('#333333').text(contactInfo.join(', '), companyX, companyY, { width: 350 });
+        }
+        
+        currentY += 140;
+      }
+      
+      // Salary Slip Title in colored header
+      doc.rect(40, currentY, 520, 30).fill('#1e3a8a').stroke();
+      doc.fontSize(16).fillColor('white').text('Salary Slip', 50, currentY + 8, { align: 'center', width: 500 });
+      currentY += 30;
+      
+      // Month header in blue background
       const monthStr = payslip.periodStart ? payslip.periodStart.toLocaleString('default', { month: 'long', year: 'numeric' }) : '-';
-      doc.rect(50, 90, 500, 25).fill('#f7e6b3').stroke();
-      doc.fillColor('black').font('Helvetica-Bold').fontSize(12).text(`Month: ${monthStr}`, 55, 97);
+      doc.rect(440, currentY, 120, 25).fill('#1e3a8a').stroke();
+      doc.fillColor('white').font('Helvetica-Bold').fontSize(10).text(`Month: ${monthStr}`, 445, currentY + 8);
+      currentY += 35;
+
+      // Employee information table
       doc.fillColor('black').fontSize(11);
       const info = [
         ['Employee Name', `${payslip.employee.firstName} ${payslip.employee.lastName}`],
@@ -384,63 +588,107 @@ exports.downloadAllPayslipsPdf = async (req, res) => {
         ['Designation', payslip.employee.position || '-'],
         ['PAN', payslip.employee.pan || '-'],
       ];
-      let y = 115;
+      
       info.forEach(([label, value]) => {
-        doc.rect(50, y, 150, 25).stroke();
-        doc.rect(200, y, 350, 25).stroke();
-        doc.font('Helvetica-Bold').text(label, 55, y + 7);
-        doc.font('Helvetica').text(value, 205, y + 7);
-        y += 25;
+        // Left column (label)
+        doc.rect(40, currentY, 180, 25).stroke();
+        doc.fillColor('#f0f0f0').rect(40, currentY, 180, 25).fill().stroke();
+        doc.fillColor('black').font('Helvetica-Bold').text(label, 45, currentY + 8);
+        
+        // Right column (value)
+        doc.rect(220, currentY, 340, 25).stroke();
+        doc.fillColor('white').rect(220, currentY, 340, 25).fill().stroke();
+        doc.fillColor('black').font('Helvetica').text(value, 225, currentY + 8);
+        currentY += 25;
       });
-      // Income/Deductions table headers
-      const tableY = y;
-      doc.rect(50, tableY, 250, 25).fill('#b3d1f2').stroke();
-      doc.rect(300, tableY, 250, 25).fill('#b3d1f2').stroke();
-      doc.fillColor('black').font('Helvetica-Bold').text('Income', 55, tableY + 7);
-      doc.text('Deductions', 305, tableY + 7);
-      y = tableY + 25;
-      // Table columns
-      const colHeaderY = y;
-      doc.font('Helvetica-Bold').text('Particulars', 55, colHeaderY + 7);
-      doc.text('Amount (NPR)', 180, colHeaderY + 7);
-      doc.text('Particulars', 305, colHeaderY + 7);
-      doc.text('Amount (NPR)', 430, colHeaderY + 7);
-      doc.font('Helvetica');
-      y += 20;
-      // Income and deductions rows
-      const incomes = Array.isArray(payslip.incomesList) && payslip.incomesList.length > 0
+      currentY += 10;
+      
+      // Main table headers - Income and Deductions
+      doc.rect(40, currentY, 260, 30).fill('#1e3a8a').stroke();
+      doc.rect(300, currentY, 260, 30).fill('#1e3a8a').stroke();
+      doc.fillColor('white').font('Helvetica-Bold').fontSize(14).text('Income', 45, currentY + 8);
+      doc.text('Deductions', 305, currentY + 8);
+      currentY += 30;
+
+      // Column headers
+      doc.rect(40, currentY, 130, 25).fill('#e6f2ff').stroke();
+      doc.rect(170, currentY, 130, 25).fill('#e6f2ff').stroke();
+      doc.rect(300, currentY, 130, 25).fill('#e6f2ff').stroke();
+      doc.rect(430, currentY, 130, 25).fill('#e6f2ff').stroke();
+      
+      doc.fillColor('black').font('Helvetica-Bold').fontSize(11);
+      doc.text('Particulars', 45, currentY + 8);
+      doc.text('Amount (NPR)', 175, currentY + 8);
+      doc.text('Particulars', 305, currentY + 8);
+      doc.text('Amount (NPR)', 435, currentY + 8);
+      currentY += 25;
+      // Income and deductions data rows
+      const incomesList = Array.isArray(payslip.incomesList) && payslip.incomesList.length > 0
         ? payslip.incomesList.map(i => [i.type, i.amount])
         : [['Gross Pay', payslip.grossPay ?? '-']];
       const deductionsList = Array.isArray(payslip.deductionsList) ? payslip.deductionsList : [];
       const deductions = deductionsList.length > 0
         ? deductionsList.map(d => [d.type, d.amount])
-        : [['Deductions', payslip.deductions ?? '-']];
-      const maxRows = Math.max(incomes.length, deductions.length, 5);
+        : [];
+      
+      const maxRows = Math.max(incomesList.length, deductions.length, 3);
+      
+      // Data rows
+      doc.font('Helvetica').fontSize(10);
       for (let i = 0; i < maxRows; i++) {
-        doc.text(incomes[i]?.[0] || '', 55, y + 7);
-        doc.text(incomes[i]?.[1]?.toString() || '', 180, y + 7);
-        doc.text(deductions[i]?.[0] || '', 305, y + 7);
-        doc.text(deductions[i]?.[1]?.toString() || '', 430, y + 7);
-        doc.moveTo(50, y).lineTo(550, y).stroke();
-        y += 20;
+        const rowHeight = 25;
+        
+        // Income side
+        doc.rect(40, currentY, 130, rowHeight).stroke();
+        doc.rect(170, currentY, 130, rowHeight).stroke();
+        if (incomesList[i]) {
+          doc.fillColor('black').text(incomesList[i][0], 45, currentY + 8);
+          doc.text(incomesList[i][1]?.toString() || '', 175, currentY + 8);
+        }
+        
+        // Deductions side
+        doc.rect(300, currentY, 130, rowHeight).stroke();
+        doc.rect(430, currentY, 130, rowHeight).stroke();
+        if (deductions[i]) {
+          doc.fillColor('black').text(deductions[i][0], 305, currentY + 8);
+          doc.text(deductions[i][1]?.toString() || '', 435, currentY + 8);
+        }
+        
+        currentY += rowHeight;
       }
-      // Totals
-      const totalIncome = payslip.grossPay ?? '-';
-      const totalDeductions = payslip.deductions ?? '-';
-      doc.font('Helvetica-Bold').text('Total', 55, y + 7);
-      doc.text(totalIncome.toString(), 180, y + 7);
-      doc.text('Total', 305, y + 7);
-      doc.text(totalDeductions.toString(), 430, y + 7);
-      y += 30;
-      // Net Salary row
-      doc.rect(50, y, 500, 30).fill('#b3d1f2').stroke();
-      doc.font('Helvetica-Bold').fontSize(14).fillColor('black')
-         .text('Net Salary (Deposited in Account)', 55, y + 7);
-      doc.text((payslip.netPay ?? '-').toString(), 480, y + 7);
-      doc.moveDown();
-      doc.font('Helvetica-Bold').fontSize(12).fillColor('black').text(`Status: ${payslip.status || 'pending'}`);
+      
+      // Totals row
+      doc.rect(40, currentY, 130, 30).fill('#f0f0f0').stroke();
+      doc.rect(170, currentY, 130, 30).fill('#f0f0f0').stroke();
+      doc.rect(300, currentY, 130, 30).fill('#f0f0f0').stroke();
+      doc.rect(430, currentY, 130, 30).fill('#f0f0f0').stroke();
+      
+      const totalIncome = payslip.grossPay ?? 0;
+      const totalDeductions = payslip.deductions ?? 0;
+      
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('black');
+      doc.text('Total', 45, currentY + 10);
+      doc.text(totalIncome.toString(), 175, currentY + 10);
+      doc.text('Total', 305, currentY + 10);
+      doc.text(totalDeductions.toString(), 435, currentY + 10);
+      currentY += 40;
+      
+      // Net Salary section
+      const netPay = payslip.netPay ?? 0;
+      doc.rect(40, currentY, 520, 35).fill('#1e3a8a').stroke();
+      doc.font('Helvetica-Bold').fontSize(14).fillColor('white');
+      doc.text('Net Salary (Deposited in Account)', 45, currentY + 10);
+      doc.text(netPay.toString(), 450, currentY + 10);
+      currentY += 50;
+      
+      // Status information
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('black');
+      doc.text(`Status: ${payslip.status || 'pending'}`, 40, currentY);
+      
       if (payslip.status === 'needs_review' && payslip.employeeComment) {
-        doc.font('Helvetica').fontSize(11).fillColor('red').text(`Employee Comment: ${payslip.employeeComment}`);
+        currentY += 15;
+        doc.font('Helvetica').fontSize(9).fillColor('red');
+        doc.text(`Employee Comment: ${payslip.employeeComment}`, 40, currentY, { width: 500 });
       }
     });
     doc.end();

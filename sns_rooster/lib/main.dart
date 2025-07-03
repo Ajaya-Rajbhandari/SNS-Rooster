@@ -18,6 +18,8 @@ import 'package:sns_rooster/screens/employee/analytics_screen.dart';
 import 'package:sns_rooster/screens/admin/notification_alert_screen.dart';
 import 'package:sns_rooster/screens/admin/leave_management_screen.dart';
 import 'package:sns_rooster/screens/admin/payroll_cycle_settings_screen.dart';
+import 'package:sns_rooster/screens/admin/tax_settings_screen.dart';
+import 'package:sns_rooster/screens/admin/company_settings_screen.dart';
 import 'package:sns_rooster/screens/admin/leave_policy_settings_screen.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
@@ -35,6 +37,8 @@ import 'package:sns_rooster/providers/admin_attendance_provider.dart';
 import 'package:sns_rooster/providers/admin_analytics_provider.dart';
 import 'package:sns_rooster/providers/payroll_analytics_provider.dart';
 import 'package:sns_rooster/providers/payroll_cycle_settings_provider.dart';
+import 'package:sns_rooster/providers/tax_settings_provider.dart';
+import 'package:sns_rooster/providers/company_settings_provider.dart';
 import 'package:sns_rooster/services/employee_service.dart';
 import 'package:sns_rooster/services/notification_service.dart';
 
@@ -141,6 +145,16 @@ class MyApp extends StatelessWidget {
           update: (context, auth, previous) =>
               PayrollCycleSettingsProvider(auth),
         ),
+        ChangeNotifierProxyProvider<AuthProvider, TaxSettingsProvider>(
+          create: (context) => TaxSettingsProvider(
+              Provider.of<AuthProvider>(context, listen: false)),
+          update: (context, auth, previous) => TaxSettingsProvider(auth),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, CompanySettingsProvider>(
+          create: (context) => CompanySettingsProvider(
+              Provider.of<AuthProvider>(context, listen: false)),
+          update: (context, auth, previous) => CompanySettingsProvider(auth),
+        ),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {
@@ -199,6 +213,9 @@ class MyApp extends StatelessWidget {
                       const LeaveManagementScreen(),
                   '/admin/payroll_cycle_settings': (context) =>
                       const PayrollCycleSettingsScreen(),
+                  '/admin/tax_settings': (context) => const TaxSettingsScreen(),
+                  '/admin/company_settings': (context) =>
+                      const CompanySettingsScreen(),
                   '/admin/leave_policy_settings': (context) =>
                       const LeavePolicySettingsScreen(),
                 },

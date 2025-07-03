@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sns_rooster/utils/logger.dart';
 import 'package:intl/intl.dart';
 
 class EditAttendanceDialog extends StatefulWidget {
@@ -252,7 +251,7 @@ class _EditAttendanceDialogState extends State<EditAttendanceDialog> {
                       })
                   .toList(),
             };
-            log('DEBUG: Saving attendance: $updated');
+            print('DEBUG: Saving attendance: $updated');
             widget.onSave(updated);
             Navigator.pop(context, updated);
           },

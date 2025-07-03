@@ -18,12 +18,16 @@ class _PayrollCycleSettingsScreenState
   String _frequency = 'Monthly';
   int _cutoffDay = 25; // day-of-month when period ends
   int _payDay = 30; // day-of-month employees are paid
+  int _payDay1 = 15; // first pay day for semi-monthly
+  int _payWeekday = 5; // day of week for weekly payroll (1=Mon, 5=Fri)
   int _payOffset = 0; // extra days offset
   bool _overtimeEnabled = true;
   double _overtimeMultiplier = 1.5;
   bool _autoGenerate = true;
   bool _notifyCycleClose = true;
   bool _notifyPayslip = true;
+  double _defaultHourlyRate =
+      0.0; // fallback rate for employees without individual rates
 
   @override
   void initState() {
@@ -39,6 +43,8 @@ class _PayrollCycleSettingsScreenState
           _frequency = s['frequency'] ?? _frequency;
           _cutoffDay = s['cutoffDay'] ?? _cutoffDay;
           _payDay = s['payDay'] ?? _payDay;
+          _payDay1 = s['payDay1'] ?? _payDay1;
+          _payWeekday = s['payWeekday'] ?? _payWeekday;
           _payOffset = s['payOffset'] ?? _payOffset;
           _overtimeEnabled = s['overtimeEnabled'] ?? _overtimeEnabled;
           _overtimeMultiplier =
@@ -46,6 +52,8 @@ class _PayrollCycleSettingsScreenState
           _autoGenerate = s['autoGenerate'] ?? _autoGenerate;
           _notifyCycleClose = s['notifyCycleClose'] ?? _notifyCycleClose;
           _notifyPayslip = s['notifyPayslip'] ?? _notifyPayslip;
+          _defaultHourlyRate =
+              (s['defaultHourlyRate'] ?? _defaultHourlyRate).toDouble();
         });
       }
     });
@@ -90,7 +98,7 @@ class _PayrollCycleSettingsScreenState
               const SizedBox(height: 12),
               _buildFrequencyField(),
               const SizedBox(height: 12),
-              if (_frequency == 'Monthly' || _frequency == 'Semi-Monthly') ...[
+              if (_frequency == 'Monthly') ...[
                 _buildNumberField(
                     label: 'Cut-off Day',
                     initial: _cutoffDay,
@@ -101,6 +109,37 @@ class _PayrollCycleSettingsScreenState
                     initial: _payDay,
                     onSaved: (v) => _payDay = v),
               ],
+              if (_frequency == 'Semi-Monthly') ...[
+                _buildNumberField(
+                    label: 'Cut-off Day',
+                    initial: _cutoffDay,
+                    onSaved: (v) => _cutoffDay = v),
+                const SizedBox(height: 12),
+                _buildNumberField(
+                    label: 'First Pay Day (1st-15th period)',
+                    initial: _payDay1,
+                    onSaved: (v) => _payDay1 = v,
+                    min: 1,
+                    max: 15),
+                const SizedBox(height: 12),
+                _buildNumberField(
+                    label: 'Second Pay Day (16th-end period)',
+                    initial: _payDay,
+                    onSaved: (v) => _payDay = v,
+                    min: 16,
+                    max: 31),
+              ],
+              if (_frequency == 'Bi-Weekly') ...[
+                _buildNumberField(
+                    label: 'Reference Start Day',
+                    initial: _cutoffDay,
+                    onSaved: (v) => _cutoffDay = v,
+                    min: 1,
+                    max: 31),
+              ],
+              if (_frequency == 'Weekly') ...[
+                _buildWeekdayField(),
+              ],
               const SizedBox(height: 12),
               _buildNumberField(
                   label: 'Pay Day Offset (days)',
@@ -108,6 +147,22 @@ class _PayrollCycleSettingsScreenState
                   onSaved: (v) => _payOffset = v,
                   min: 0,
                   max: 31),
+              const Divider(height: 32),
+              Text('Rate Settings', style: theme.textTheme.titleLarge),
+              const SizedBox(height: 12),
+              _buildDecimalField(
+                  label: 'Default Hourly Rate (NPR)',
+                  initial: _defaultHourlyRate,
+                  onSaved: (v) => _defaultHourlyRate = v,
+                  min: 0.0,
+                  max: 10000.0),
+              const SizedBox(height: 8),
+              Text(
+                'This rate will be used for employees who don\'t have an individual hourly rate set.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
               const Divider(height: 32),
               Text('Overtime', style: theme.textTheme.titleLarge),
               const SizedBox(height: 8),
@@ -221,6 +276,31 @@ class _PayrollCycleSettingsScreenState
     );
   }
 
+  Widget _buildWeekdayField() {
+    final weekdays = [
+      {'value': 1, 'label': 'Monday'},
+      {'value': 2, 'label': 'Tuesday'},
+      {'value': 3, 'label': 'Wednesday'},
+      {'value': 4, 'label': 'Thursday'},
+      {'value': 5, 'label': 'Friday'},
+      {'value': 6, 'label': 'Saturday'},
+      {'value': 7, 'label': 'Sunday'},
+    ];
+
+    return DropdownButtonFormField<int>(
+      decoration: const InputDecoration(labelText: 'Pay Day of Week'),
+      value: _payWeekday,
+      items: weekdays
+          .map((day) => DropdownMenuItem<int>(
+                value: day['value'] as int,
+                child: Text(day['label'] as String),
+              ))
+          .toList(),
+      onChanged: (v) => setState(() => _payWeekday = v ?? 5),
+      onSaved: (v) => _payWeekday = v ?? 5,
+    );
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     _formKey.currentState!.save();
@@ -230,12 +310,15 @@ class _PayrollCycleSettingsScreenState
       'frequency': _frequency,
       'cutoffDay': _cutoffDay,
       'payDay': _payDay,
+      'payDay1': _payDay1,
+      'payWeekday': _payWeekday,
       'payOffset': _payOffset,
       'overtimeEnabled': _overtimeEnabled,
       'overtimeMultiplier': _overtimeMultiplier,
       'autoGenerate': _autoGenerate,
       'notifyCycleClose': _notifyCycleClose,
       'notifyPayslip': _notifyPayslip,
+      'defaultHourlyRate': _defaultHourlyRate,
     };
 
     final provider =
@@ -254,12 +337,23 @@ class _PayrollCycleSettingsScreenState
   String _buildSummaryText() {
     final buf = StringBuffer();
     buf.write(_frequency);
-    if (_frequency.toLowerCase() == 'weekly') {
-      buf.write(
-          ' • Pay every ${_weekdayName((DateTime.monday + _payDay - 1) % 7 + 1)}');
-    } else {
-      buf.write(' • Pay Day $_payDay');
+
+    switch (_frequency) {
+      case 'Weekly':
+        buf.write(' • Pay every ${_weekdayName(_payWeekday)}');
+        break;
+      case 'Semi-Monthly':
+        buf.write(' • Pay Days $_payDay1 & $_payDay');
+        break;
+      case 'Bi-Weekly':
+        buf.write(' • Pay every 2 weeks from day $_cutoffDay');
+        break;
+      default: // Monthly
+        buf.write(' • Pay Day $_payDay');
     }
+
+    buf.write(
+        ' • Default Rate NPR ${_defaultHourlyRate.toStringAsFixed(0)}/hr');
     buf.write(' • OT ×$_overtimeMultiplier');
     return buf.toString();
   }

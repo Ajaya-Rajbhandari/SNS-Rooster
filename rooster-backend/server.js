@@ -5,6 +5,8 @@
 const app = require('./app');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
+const fs = require('fs');
+const path = require('path');
 
 // Load environment variables
 dotenv.config();
@@ -18,6 +20,21 @@ mongoose.connect(MONGODB_URI, {
   })
   .then(() => {
     console.log('Connected to MongoDB');
+    
+    // Ensure upload directories exist
+    const uploadDirs = [
+      'uploads/avatars',
+      'uploads/documents', 
+      'uploads/company'
+    ];
+    
+    uploadDirs.forEach(dir => {
+      const fullPath = path.join(__dirname, dir);
+      if (!fs.existsSync(fullPath)) {
+        fs.mkdirSync(fullPath, { recursive: true });
+        console.log(`Created upload directory: ${dir}`);
+      }
+    });
   })
   .catch((err) => console.error('MongoDB connection error:', err));
 
