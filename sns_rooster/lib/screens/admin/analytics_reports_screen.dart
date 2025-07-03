@@ -4,6 +4,10 @@ import '../../widgets/admin_side_navigation.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../providers/admin_analytics_provider.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
+import 'dart:io';
+import 'dart:typed_data';
 
 class AdminAnalyticsScreen extends StatefulWidget {
   const AdminAnalyticsScreen({super.key});
@@ -98,6 +102,119 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     _loadData();
   }
 
+  Future<void> _generateReport() async {
+    try {
+      final provider = context.read<AdminAnalyticsProvider>();
+
+      String? start, end;
+      if (_selectedRange != null) {
+        start = _fmt(_selectedRange!.start);
+        end = _fmt(_selectedRange!.end);
+      }
+
+      final reportData =
+          await provider.generateReport(start: start, end: end, format: 'pdf');
+
+      if (reportData != null && reportData is Uint8List) {
+        // Generate filename with timestamp
+        final now = DateTime.now();
+        final timestamp = DateFormat('yyyy-MM-dd_HH-mm-ss').format(now);
+        final periodText = _selectedRange != null
+            ? '${_fmt(_selectedRange!.start)}_to_${_fmt(_selectedRange!.end)}'
+            : 'last_30_days';
+        final filename = 'analytics_report_${periodText}_$timestamp.pdf';
+
+        // Get the appropriate directory based on platform
+        Directory? directory;
+        if (Platform.isAndroid) {
+          // For Android, save to external storage directory (no permissions needed)
+          directory = await getExternalStorageDirectory();
+          if (directory != null) {
+            // Create a Reports folder in the app's external storage
+            final reportsDir = Directory('${directory.path}/Reports');
+            if (!await reportsDir.exists()) {
+              await reportsDir.create(recursive: true);
+            }
+            directory = reportsDir;
+          }
+        } else if (Platform.isIOS) {
+          // For iOS, save to Documents directory
+          directory = await getApplicationDocumentsDirectory();
+        } else {
+          // For other platforms, use Documents directory
+          directory = await getApplicationDocumentsDirectory();
+        }
+
+        if (directory != null) {
+          final file = File('${directory.path}/$filename');
+          await file.writeAsBytes(reportData);
+
+          if (mounted) {
+            final friendlyPath = Platform.isAndroid
+                ? 'Android/data/com.example.sns_rooster/files/Reports/'
+                : 'Documents/';
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Report generated successfully!'),
+                    Text('Saved to: $friendlyPath$filename',
+                        style: const TextStyle(fontSize: 12)),
+                  ],
+                ),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 8),
+                action: SnackBarAction(
+                  label: 'Open',
+                  textColor: Colors.white,
+                  onPressed: () async {
+                    try {
+                      await OpenFile.open(file.path);
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Could not open file: $e'),
+                            backgroundColor: Colors.orange,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ),
+            );
+          }
+
+          // Also try to open the file automatically
+          try {
+            await OpenFile.open(file.path);
+          } catch (e) {
+            // If auto-open fails, that's okay - user can still open manually
+            print('Auto-open failed: $e');
+          }
+        } else {
+          throw Exception('Could not access storage directory');
+        }
+      } else {
+        throw Exception('No report data received or invalid format');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to generate report: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -139,15 +256,15 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       ),
       drawer: const AdminSideNavigation(currentRoute: '/analytics'),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content:
-                    Text('Report generation feature is under development.')),
-          );
-        },
-        icon: const Icon(Icons.download),
-        label: const Text('Generate Report'),
+        onPressed: analytics.isLoading ? null : () => _generateReport(),
+        icon: analytics.isLoading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.download),
+        label: Text(analytics.isLoading ? 'Generating...' : 'Generate Report'),
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
