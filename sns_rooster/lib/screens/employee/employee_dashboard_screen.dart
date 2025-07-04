@@ -26,6 +26,7 @@ import 'package:sns_rooster/utils/color_utils.dart';
 import '../../widgets/admin_side_navigation.dart';
 import '../../widgets/notification_bell.dart';
 import '../../providers/notification_provider.dart';
+import '../../services/global_notification_service.dart';
 
 /// EmployeeDashboardScreen displays the main dashboard for employees.
 //
@@ -159,10 +160,9 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?['_id'];
     if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('User not logged in. Please log in again.')),
-      );
+      final notificationService =
+          Provider.of<GlobalNotificationService>(context, listen: false);
+      notificationService.showError('User not logged in. Please log in again.');
       return;
     }
     try {
@@ -172,9 +172,9 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       await attendanceService.checkIn(userId);
       await attendanceProvider.fetchTodayStatus(userId);
       // Note: fetchTodayStatus now also fetches currentAttendance data
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Clocked in successfully!')),
-      );
+      final notificationService =
+          Provider.of<GlobalNotificationService>(context, listen: false);
+      notificationService.showSuccess('Clocked in successfully!');
     } catch (e) {
       String errorMessage = 'An error occurred while clocking in.';
       if (e.toString().contains('Already checked in for today')) {
@@ -183,11 +183,9 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
         errorMessage =
             'A duplicate entry was detected. You might have already checked in.';
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-        ),
-      );
+      final notificationService =
+          Provider.of<GlobalNotificationService>(context, listen: false);
+      notificationService.showError(errorMessage);
     }
   }
 
@@ -202,13 +200,13 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
         await attendanceService.checkOut(userId);
         await attendanceProvider.fetchTodayStatus(userId);
         // Note: fetchTodayStatus now also fetches currentAttendance data
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Clocked out successfully!')),
-        );
+        final notificationService =
+            Provider.of<GlobalNotificationService>(context, listen: false);
+        notificationService.showSuccess('Clocked out successfully!');
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to clock out: \\${e.toString()}')),
-        );
+        final notificationService =
+            Provider.of<GlobalNotificationService>(context, listen: false);
+        notificationService.showError('Failed to clock out: ${e.toString()}');
       }
     }
   }
@@ -227,9 +225,9 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     // Fetch available break types
     final breakTypes = await _fetchBreakTypes();
     if (breakTypes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No break types available')),
-      );
+      final notificationService =
+          Provider.of<GlobalNotificationService>(context, listen: false);
+      notificationService.showWarning('No break types available');
       return null;
     }
 
@@ -286,27 +284,24 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
         return List<Map<String, dynamic>>.from(data);
       } else if (response.statusCode == 401) {
         // Unauthorized: Token expired or invalid
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Session expired. Please log in again.'),
-              backgroundColor: Colors.red),
-        );
+        final notificationService =
+            Provider.of<GlobalNotificationService>(context, listen: false);
+        notificationService.showError('Session expired. Please log in again.');
         // Optionally, navigate to login screen
         Future.delayed(const Duration(seconds: 1), () {
           Navigator.of(context)
               .pushNamedAndRemoveUntil('/login', (route) => false);
         });
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text('Failed to fetch break types: ${response.statusCode}')),
-        );
+        final notificationService =
+            Provider.of<GlobalNotificationService>(context, listen: false);
+        notificationService
+            .showError('Failed to fetch break types: ${response.statusCode}');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error fetching break types: $e')),
-      );
+      final notificationService =
+          Provider.of<GlobalNotificationService>(context, listen: false);
+      notificationService.showError('Error fetching break types: $e');
     }
     return [];
   }
@@ -346,14 +341,13 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
         // Force rebuild of QuickActions by calling setState at parent level
         // and ensure AttendanceProvider notifies listeners
         // Optionally, you can also call context.read<AttendanceProvider>().notifyListeners();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Break ended successfully!')),
-        );
+        final notificationService =
+            Provider.of<GlobalNotificationService>(context, listen: false);
+        notificationService.showSuccess('Break ended successfully!');
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Failed to end break. Please try again.')),
-        );
+        final notificationService =
+            Provider.of<GlobalNotificationService>(context, listen: false);
+        notificationService.showError('Failed to end break. Please try again.');
       }
     }
   }

@@ -42,7 +42,22 @@ exports.createEmployee = async (req, res) => {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Only admins can create new employees' });
     }
-    
+
+    // Check if user exists and has 'employee' role
+    const user = await User.findById(req.body.userId);
+    if (!user) {
+      return res.status(400).json({ message: 'User not found' });
+    }
+    if (user.role !== 'employee') {
+      return res.status(400).json({ message: 'User must have the employee role to be assigned as an employee.' });
+    }
+
+    // Prevent duplicate employee records for the same user
+    const existingEmployee = await Employee.findOne({ userId: req.body.userId });
+    if (existingEmployee) {
+      return res.status(400).json({ message: 'This user is already assigned as an employee.' });
+    }
+
     const employee = new Employee({
       userId: req.body.userId,
       firstName: req.body.firstName,
@@ -60,12 +75,9 @@ exports.createEmployee = async (req, res) => {
 
     // Also update the corresponding User document with position and department
     try {
-      const userToUpdate = await User.findById(req.body.userId);
-      if (userToUpdate) {
-        if (req.body.position !== undefined) userToUpdate.position = req.body.position;
-        if (req.body.department !== undefined) userToUpdate.department = req.body.department;
-        await userToUpdate.save();
-      }
+      if (req.body.position !== undefined) user.position = req.body.position;
+      if (req.body.department !== undefined) user.department = req.body.department;
+      await user.save();
     } catch (err) {
       console.error('Warning: Failed to sync position/department to User:', err);
     }

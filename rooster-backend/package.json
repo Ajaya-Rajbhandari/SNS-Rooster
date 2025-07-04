@@ -21,7 +21,9 @@
     "mongoose": "^8.15.1",
     "multer": "^2.0.1",
     "node-cron": "^4.2.0",
-    "pdfkit": "^0.17.1"
+    "nodemailer": "^7.0.4",
+    "pdfkit": "^0.17.1",
+    "resend": "^4.6.0"
   },
   "devDependencies": {
     "jest": "^30.0.0",

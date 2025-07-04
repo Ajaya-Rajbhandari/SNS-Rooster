@@ -66,6 +66,35 @@ const userSchema = new mongoose.Schema({
     type: String, // File path or URL
     trim: true,
   },
+  
+  // Email verification fields
+  isEmailVerified: {
+    type: Boolean,
+    default: false,
+  },
+  emailVerificationToken: {
+    type: String,
+  },
+  emailVerificationExpires: {
+    type: Date,
+  },
+  
+  // Password reset fields (enhanced)
+  resetPasswordToken: String,
+  resetPasswordExpires: Date,
+  resetPasswordAttempts: {
+    type: Number,
+    default: 0,
+  },
+  resetPasswordLastAttempt: Date,
+  
+  // Account security
+  failedLoginAttempts: {
+    type: Number,
+    default: 0,
+  },
+  accountLockedUntil: Date,
+  
   documents: [
     {
       type: { type: String, trim: true }, // e.g., 'idCard', 'passport'
@@ -102,8 +131,6 @@ const userSchema = new mongoose.Schema({
   lastLogin: {
     type: Date,
   },
-  resetPasswordToken: String,
-  resetPasswordExpires: Date,
 }, {
   timestamps: true,
 });
@@ -207,6 +234,91 @@ userSchema.methods.recalculateProfileComplete = async function() {
 
   this.isProfileComplete = isComplete;
 };
+
+// Account security methods
+userSchema.virtual('isLocked').get(function() {
+  return !!(this.accountLockedUntil && this.accountLockedUntil > Date.now());
+});
+
+userSchema.methods.incrementLoginAttempts = function() {
+  // If we have previous failed attempts and now we're past the lock time
+  if (this.accountLockedUntil && this.accountLockedUntil < Date.now()) {
+    return this.updateOne({
+      $unset: {
+        failedLoginAttempts: 1,
+        accountLockedUntil: 1
+      }
+    });
+  }
+  
+  const updates = { $inc: { failedLoginAttempts: 1 } };
+  
+  // Lock account after 4 failed attempts for 2 hours
+  if (this.failedLoginAttempts + 1 >= 4 && !this.isLocked) {
+    updates.$set = {
+      accountLockedUntil: Date.now() + 2 * 60 * 60 * 1000 // 2 hours
+    };
+  }
+  
+  return this.updateOne(updates);
+};
+
+userSchema.methods.resetLoginAttempts = function() {
+  return this.updateOne({
+    $unset: {
+      failedLoginAttempts: 1,
+      accountLockedUntil: 1
+    }
+  });
+};
+
+// Email verification methods
+userSchema.methods.generateEmailVerificationToken = function() {
+  const crypto = require('crypto');
+  const token = crypto.randomBytes(32).toString('hex');
+  this.emailVerificationToken = token;
+  this.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+  return token;
+};
+
+userSchema.methods.verifyEmail = function() {
+  this.isEmailVerified = true;
+  this.emailVerificationToken = undefined;
+  this.emailVerificationExpires = undefined;
+  return this.save();
+};
+
+// Password reset security
+userSchema.methods.canRequestPasswordReset = function() {
+  const now = Date.now();
+  const oneHour = 60 * 60 * 1000;
+  
+  // Limit to 3 reset attempts per hour
+  if (this.resetPasswordAttempts >= 3 && 
+      this.resetPasswordLastAttempt && 
+      (now - this.resetPasswordLastAttempt.getTime()) < oneHour) {
+    return false;
+  }
+  
+  return true;
+};
+
+userSchema.methods.incrementPasswordResetAttempts = function() {
+  const now = Date.now();
+  const oneHour = 60 * 60 * 1000;
+  
+  // Reset counter if more than an hour has passed
+  if (this.resetPasswordLastAttempt && 
+      (now - this.resetPasswordLastAttempt.getTime()) >= oneHour) {
+    this.resetPasswordAttempts = 1;
+  } else {
+    this.resetPasswordAttempts = (this.resetPasswordAttempts || 0) + 1;
+  }
+  
+  this.resetPasswordLastAttempt = new Date();
+  return this.save();
+};
+
 const User = mongoose.model('User', userSchema);
 
 module.exports = User;

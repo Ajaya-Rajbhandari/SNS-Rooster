@@ -8,6 +8,7 @@ import '../../providers/profile_provider.dart';
 import 'package:sns_rooster/widgets/app_drawer.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../widgets/admin_side_navigation.dart';
+import '../../services/global_notification_service.dart';
 
 class LeaveRequestScreen extends StatefulWidget {
   const LeaveRequestScreen({super.key});
@@ -52,6 +53,8 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     'Unpaid Leave': Colors.grey,
   };
 
+  bool _notificationCleared = false;
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +62,17 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       _loadEmployeeAndLeaveRequests();
     });
     _selectedDay = _focusedDay; // Initialize selectedDay
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_notificationCleared) {
+      final notificationService =
+          Provider.of<GlobalNotificationService>(context, listen: false);
+      notificationService.hide();
+      _notificationCleared = true;
+    }
   }
 
   Future<void> _loadEmployeeAndLeaveRequests() async {
@@ -102,15 +116,21 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   }
 
   Future<void> _submitLeaveRequest() async {
-    if (!_formKey.currentState!.validate()) return;
+    print('DEBUG: _submitLeaveRequest called');
+    if (!_formKey.currentState!.validate()) {
+      print('DEBUG: Form not valid');
+      return;
+    }
     if (_startDate == null || _endDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select both start and end dates')),
-      );
+      print('DEBUG: Start or end date is null');
+      final notificationService =
+          Provider.of<GlobalNotificationService>(context, listen: false);
+      notificationService.showWarning('Please select both start and end dates');
       return;
     }
 
     setState(() => _isLoading = true);
+    print('DEBUG: Set _isLoading true');
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -118,28 +138,29 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
           Provider.of<LeaveRequestProvider>(context, listen: false);
       final profileProvider =
           Provider.of<ProfileProvider>(context, listen: false);
-      log('DEBUG: profileProvider.profile = ${profileProvider.profile}');
-      log('DEBUG: authProvider.user = ${authProvider.user}');
+      log('DEBUG: profileProvider.profile = \\${profileProvider.profile}');
+      log('DEBUG: authProvider.user = \\${authProvider.user}');
       // Always fetch the Employee document for the current user
       final userId = authProvider.user?['_id'];
       String? employeeId;
       if (userId != null) {
         final fetchedEmployeeId =
             await leaveProvider.fetchEmployeeIdByUserId(userId);
-        log('DEBUG: fetchEmployeeIdByUserId($userId) returned: $fetchedEmployeeId');
+        print('DEBUG: fetchedEmployeeId = $fetchedEmployeeId');
         if (fetchedEmployeeId != null) {
           employeeId = fetchedEmployeeId;
         }
       }
       if (employeeId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content:
-                  Text('Employee record not found. Please contact admin.')),
-        );
+        print('DEBUG: employeeId is null');
+        final notificationService =
+            Provider.of<GlobalNotificationService>(context, listen: false);
+        notificationService
+            .showError('Employee record not found. Please contact admin.');
         setState(() => _isLoading = false);
         return;
       }
+      print('DEBUG: Submitting leave request');
       final success = await leaveProvider.createLeaveRequest({
         'employeeId':
             employeeId, // Use Employee document _id (backend expects 'employeeId')
@@ -154,35 +175,44 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         'approverId': null,
         'comments': '',
       });
+      print('DEBUG: Leave request success = $success');
 
-      if (!mounted) return;
+      if (!mounted) {
+        print('DEBUG: Widget not mounted');
+        return;
+      }
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Leave request submitted successfully')),
-        );
+        print('DEBUG: Leave request was successful');
+        final notificationService =
+            Provider.of<GlobalNotificationService>(context, listen: false);
+        notificationService.showSuccess('Leave request submitted successfully');
         _resetForm();
 
         // Reload leave requests and balances
         if (_employeeId != null) {
+          print('DEBUG: Reloading leave requests and balances');
           await leaveProvider.getUserLeaveRequests(_employeeId!);
           await leaveProvider.fetchLeaveBalances(_employeeId!);
           setState(() {}); // Force UI update
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  leaveProvider.error ?? 'Failed to submit leave request')),
-        );
+        print('DEBUG: Leave request failed');
+        print('DEBUG: leaveProvider.error = \\${leaveProvider.error}');
+        final notificationService =
+            Provider.of<GlobalNotificationService>(context, listen: false);
+        notificationService
+            .showError(leaveProvider.error ?? 'Failed to submit leave request');
       }
     } catch (e) {
+      print('DEBUG: Exception caught: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      final notificationService =
+          Provider.of<GlobalNotificationService>(context, listen: false);
+      notificationService.showError('Error: $e');
     } finally {
       if (mounted) {
+        print('DEBUG: Set _isLoading false');
         setState(() => _isLoading = false);
       }
     }
@@ -578,7 +608,20 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            // Status legend
+            Row(
+              children: [
+                _StatusLegend(color: Colors.green, label: 'Approved'),
+                const SizedBox(width: 8),
+                _StatusLegend(color: Colors.orange, label: 'Pending'),
+                const SizedBox(width: 8),
+                _StatusLegend(color: Colors.red, label: 'Rejected'),
+                const SizedBox(width: 8),
+                _StatusLegend(color: Colors.grey, label: 'Other'),
+              ],
+            ),
+            const SizedBox(height: 8),
             if (leaveProvider.leaveRequests.isEmpty)
               Center(
                 child: Text(
@@ -610,13 +653,17 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                       ),
                       trailing: Chip(
                         label: Text(
-                          request['status'] ?? 'Pending',
+                          (request['status'] ?? 'Pending').toUpperCase(),
                           style: TextStyle(
                             color: _getStatusColor(request['status']),
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                         backgroundColor:
                             _getStatusColor(request['status']).withOpacity(0.1),
+                        side: BorderSide(
+                          color: _getStatusColor(request['status']),
+                        ),
                       ),
                     ),
                   );
@@ -674,5 +721,29 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       default:
         return Colors.grey;
     }
+  }
+}
+
+class _StatusLegend extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _StatusLegend({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(fontSize: 12)),
+      ],
+    );
   }
 }

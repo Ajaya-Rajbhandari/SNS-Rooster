@@ -3,6 +3,10 @@ const Employee = require('../models/Employee');
 const Leave = require('../models/Leave');
 const Payroll = require('../models/Payroll');
 const Notification = require('../models/Notification');
+const AdminSettings = require('../models/AdminSettings');
+const PDFDocument = require('pdfkit');
+const fs = require('fs');
+const path = require('path');
 
 // GET /analytics/attendance/:userId
 exports.getAttendanceAnalytics = async (req, res) => {
@@ -663,4 +667,312 @@ exports.getPayrollDeductionsBreakdownAdmin = async (req, res) => {
     console.error('Payroll deduction breakdown admin error:', err);
     res.status(500).json({ message: 'Error fetching deduction breakdown', error: err.message });
   }
-}; 
+};
+
+// GET /analytics/admin/generate-report
+// Generates a comprehensive analytics report as PDF
+exports.generateReport = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const { start, end, format = 'pdf' } = req.query;
+    
+    // Set default date range (last 30 days)
+    const endDate = end ? new Date(end) : new Date();
+    const startDate = start ? new Date(start) : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // Collect all analytics data including company information
+    const [
+      summaryData,
+      monthlyHoursData,
+      leaveBreakdownData,
+      attendanceData,
+      employeeData,
+      payrollData,
+      companyData
+    ] = await Promise.all([
+      getSummaryData(startDate, endDate),
+      getMonthlyHoursData(startDate, endDate),
+      getLeaveBreakdownData(startDate, endDate),
+      getAttendanceData(startDate, endDate),
+      getEmployeeData(),
+      getPayrollData(startDate, endDate),
+      getCompanyData()
+    ]);
+
+    if (format === 'pdf') {
+      // Generate PDF report
+      const doc = new PDFDocument({ margin: 50 });
+      const filename = `analytics-report-${startDate.toISOString().split('T')[0]}-to-${endDate.toISOString().split('T')[0]}.pdf`;
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+      doc.pipe(res);
+
+      // Add report content
+      await generatePDFContent(doc, {
+        startDate,
+        endDate,
+        summary: summaryData,
+        monthlyHours: monthlyHoursData,
+        leaveBreakdown: leaveBreakdownData,
+        attendance: attendanceData,
+        employees: employeeData,
+        payroll: payrollData,
+        company: companyData
+      });
+
+      doc.end();
+    } else {
+      // Return JSON data for other formats
+      res.json({
+        reportPeriod: {
+          start: startDate.toISOString().split('T')[0],
+          end: endDate.toISOString().split('T')[0]
+        },
+        summary: summaryData,
+        monthlyHours: monthlyHoursData,
+        leaveBreakdown: leaveBreakdownData,
+        attendance: attendanceData,
+        employees: employeeData,
+        payroll: payrollData
+      });
+    }
+
+  } catch (err) {
+    console.error('Report generation error:', err);
+    res.status(500).json({ message: 'Error generating report', error: err.message });
+  }
+};
+
+// Helper functions for data collection
+async function getSummaryData(startDate, endDate) {
+  const records = await Attendance.find({
+    date: { $gte: startDate, $lte: endDate }
+  }).lean();
+
+  let totalMs = 0, overtimeMs = 0;
+  let presentDays = 0, absentDays = 0, leaveDays = 0;
+
+  records.forEach(r => {
+    const status = (r.status || '').toLowerCase();
+    if (status === 'present' || status === 'completed') presentDays++;
+    else if (status === 'absent') absentDays++;
+    else if (status === 'leave') leaveDays++;
+
+    if (r.checkInTime && r.checkOutTime) {
+      const worked = new Date(r.checkOutTime) - new Date(r.checkInTime) - (r.totalBreakDuration || 0);
+      totalMs += worked;
+      if (worked > 8 * 60 * 60 * 1000) {
+        overtimeMs += worked - 8 * 60 * 60 * 1000;
+      }
+    }
+  });
+
+  const totalHours = +(totalMs / (1000 * 60 * 60)).toFixed(1);
+  const overtimeHours = +(overtimeMs / (1000 * 60 * 60)).toFixed(1);
+  const totalDays = records.length;
+  const absenceRate = totalDays ? +(absentDays / totalDays * 100).toFixed(1) : 0;
+
+  return {
+    totalHours,
+    overtimeHours,
+    absenceRate,
+    presentDays,
+    absentDays,
+    leaveDays,
+    totalDays
+  };
+}
+
+async function getMonthlyHoursData(startDate, endDate) {
+  const records = await Attendance.find({
+    date: { $gte: startDate, $lte: endDate }
+  }).lean();
+
+  const monthMap = {};
+  records.forEach(r => {
+    if (r.checkInTime && r.checkOutTime && r.date) {
+      const monthKey = `${r.date.getFullYear()}-${(r.date.getMonth() + 1).toString().padStart(2, '0')}`;
+      const worked = (new Date(r.checkOutTime) - new Date(r.checkInTime) - (r.totalBreakDuration || 0)) / (1000 * 60 * 60);
+      monthMap[monthKey] = (monthMap[monthKey] || 0) + worked;
+    }
+  });
+
+  return Object.entries(monthMap).map(([month, hours]) => ({
+    month,
+    hours: +hours.toFixed(1)
+  }));
+}
+
+async function getLeaveBreakdownData(startDate, endDate) {
+  const leaves = await Leave.find({
+    startDate: { $gte: startDate },
+    endDate: { $lte: endDate }
+  }).lean();
+
+  const breakdown = {};
+  leaves.forEach(leave => {
+    breakdown[leave.leaveType] = (breakdown[leave.leaveType] || 0) + 1;
+  });
+
+  return breakdown;
+}
+
+async function getAttendanceData(startDate, endDate) {
+  const records = await Attendance.find({
+    date: { $gte: startDate, $lte: endDate }
+  }).populate('user', 'firstName lastName email').lean();
+
+  return records.map(r => ({
+    date: r.date,
+    employee: r.user ? `${r.user.firstName} ${r.user.lastName}` : 'Unknown',
+    status: r.status,
+    checkIn: r.checkInTime,
+    checkOut: r.checkOutTime,
+    totalBreakDuration: r.totalBreakDuration || 0
+  }));
+}
+
+async function getEmployeeData() {
+  const employees = await Employee.find({}).lean();
+  return {
+    total: employees.length,
+    active: employees.filter(e => e.status === 'active').length,
+    inactive: employees.filter(e => e.status !== 'active').length
+  };
+}
+
+async function getPayrollData(startDate, endDate) {
+  const payrolls = await Payroll.find({
+    issueDate: { $gte: startDate, $lte: endDate }
+  }).lean();
+
+  const totalGross = payrolls.reduce((sum, p) => sum + (p.grossPay || 0), 0);
+  const totalNet = payrolls.reduce((sum, p) => sum + (p.netPay || 0), 0);
+  const totalDeductions = payrolls.reduce((sum, p) => sum + (p.deductions || 0), 0);
+
+  return {
+    totalGross,
+    totalNet,
+    totalDeductions,
+    payrollCount: payrolls.length
+  };
+}
+
+async function getCompanyData() {
+  try {
+    const settings = await AdminSettings.getSettings();
+    return settings?.companyInfo || {
+      name: 'Company Name',
+      address: 'Company Address',
+      phone: 'N/A',
+      email: 'N/A',
+      logoUrl: null
+    };
+  } catch (error) {
+    console.error('Error fetching company data:', error);
+    return {
+      name: 'Company Name',
+      address: 'Company Address', 
+      phone: 'N/A',
+      email: 'N/A',
+      logoUrl: null
+    };
+  }
+}
+
+async function generatePDFContent(doc, data) {
+  const { startDate, endDate, summary, monthlyHours, leaveBreakdown, attendance, employees, payroll, company } = data;
+
+  // Company header
+  if (company.logoUrl) {
+    try {
+      const logoPath = path.join(__dirname, '../public', company.logoUrl);
+      if (fs.existsSync(logoPath)) {
+        doc.image(logoPath, 50, 50, { width: 80, height: 80 });
+      }
+    } catch (err) {
+      console.log('Logo loading error:', err.message);
+    }
+  }
+
+  // Company information (right side)
+  const companyTextX = company.logoUrl ? 150 : 50;
+  doc.fontSize(16).text(company.name || 'Company Name', companyTextX, 60, { align: 'left' });
+  doc.fontSize(10).text(company.address || 'Company Address', companyTextX, 80);
+  if (company.phone) doc.text(`Phone: ${company.phone}`, companyTextX, 95);
+  if (company.email) doc.text(`Email: ${company.email}`, companyTextX, 110);
+
+  // Add some spacing after company header
+  doc.moveDown(4);
+
+  // Title
+  doc.fontSize(24).text('Analytics Report', { align: 'center' });
+  doc.moveDown();
+  
+  // Report period
+  doc.fontSize(14).text(`Report Period: ${startDate.toDateString()} to ${endDate.toDateString()}`, { align: 'center' });
+  doc.moveDown(2);
+
+  // Executive Summary
+  doc.fontSize(18).text('Executive Summary', { underline: true });
+  doc.moveDown();
+  doc.fontSize(12);
+  doc.text(`Total Working Hours: ${summary.totalHours} hours`);
+  doc.text(`Overtime Hours: ${summary.overtimeHours} hours`);
+  doc.text(`Absence Rate: ${summary.absenceRate}%`);
+  doc.text(`Present Days: ${summary.presentDays}`);
+  doc.text(`Absent Days: ${summary.absentDays}`);
+  doc.text(`Leave Days: ${summary.leaveDays}`);
+  doc.moveDown(2);
+
+  // Employee Overview
+  doc.fontSize(18).text('Employee Overview', { underline: true });
+  doc.moveDown();
+  doc.fontSize(12);
+  doc.text(`Total Employees: ${employees.total}`);
+  doc.text(`Active Employees: ${employees.active}`);
+  doc.text(`Inactive Employees: ${employees.inactive}`);
+  doc.moveDown(2);
+
+  // Monthly Hours Breakdown
+  if (monthlyHours.length > 0) {
+    doc.fontSize(18).text('Monthly Hours Worked', { underline: true });
+    doc.moveDown();
+    doc.fontSize(12);
+    monthlyHours.forEach(item => {
+      doc.text(`${item.month}: ${item.hours} hours`);
+    });
+    doc.moveDown(2);
+  }
+
+  // Leave Type Breakdown
+  if (Object.keys(leaveBreakdown).length > 0) {
+    doc.fontSize(18).text('Leave Type Distribution', { underline: true });
+    doc.moveDown();
+    doc.fontSize(12);
+    Object.entries(leaveBreakdown).forEach(([type, count]) => {
+      doc.text(`${type}: ${count} applications`);
+    });
+    doc.moveDown(2);
+  }
+
+  // Payroll Summary
+  if (payroll.payrollCount > 0) {
+    doc.fontSize(18).text('Payroll Summary', { underline: true });
+    doc.moveDown();
+    doc.fontSize(12);
+    doc.text(`Total Gross Pay: $${payroll.totalGross.toFixed(2)}`);
+    doc.text(`Total Net Pay: $${payroll.totalNet.toFixed(2)}`);
+    doc.text(`Total Deductions: $${payroll.totalDeductions.toFixed(2)}`);
+    doc.text(`Payroll Records: ${payroll.payrollCount}`);
+    doc.moveDown(2);
+  }
+
+  // Footer
+  doc.fontSize(10).text(`Report generated on ${new Date().toDateString()}`, { align: 'center' });
+} 

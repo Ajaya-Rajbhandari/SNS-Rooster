@@ -7,6 +7,7 @@ import '../../providers/profile_provider.dart';
 import '../../utils/logger.dart';
 import '../../widgets/admin_side_navigation.dart';
 import '../../widgets/user_avatar.dart';
+import 'package:sns_rooster/services/global_notification_service.dart';
 
 class AdminProfileScreen extends StatefulWidget {
   const AdminProfileScreen({Key? key}) : super(key: key);
@@ -34,6 +35,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
   String? _error;
   String? _success;
   File? _selectedImage;
+  bool _isEditingProfile = false;
 
   @override
   void initState() {
@@ -210,6 +212,14 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
     }
   }
 
+  void _clearPasswordError() {
+    if (_error != null) {
+      setState(() {
+        _error = null;
+      });
+    }
+  }
+
   Future<void> _changePassword() async {
     if (_newPasswordController.text != _confirmPasswordController.text) {
       setState(() {
@@ -242,6 +252,8 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
         setState(() {
           _success = 'Password changed successfully!';
         });
+        GlobalNotificationService()
+            .showSuccess('Password changed successfully!');
         _currentPasswordController.clear();
         _newPasswordController.clear();
         _confirmPasswordController.clear();
@@ -257,17 +269,37 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
         setState(() {
           _error = result['message'] ?? 'Failed to change password.';
         });
+        GlobalNotificationService()
+            .showError(result['message'] ?? 'Failed to change password.');
       }
     } catch (e) {
       log('Error changing password: $e');
       setState(() {
         _error = 'An error occurred while changing your password.';
       });
+      GlobalNotificationService()
+          .showError('An error occurred while changing your password.');
     } finally {
       setState(() {
         _isPasswordLoading = false;
       });
     }
+  }
+
+  void _startEditProfile() {
+    setState(() {
+      _isEditingProfile = true;
+    });
+  }
+
+  void _cancelEditProfile() {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    setState(() {
+      _nameController.text = user?['firstName'] ?? '';
+      _emailController.text = user?['email'] ?? '';
+      _phoneController.text = user?['phone'] ?? '';
+      _isEditingProfile = false;
+    });
   }
 
   Widget _buildHeroSection() {
@@ -405,6 +437,13 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+                const Spacer(),
+                if (!_isEditingProfile)
+                  IconButton(
+                    icon: const Icon(Icons.edit),
+                    tooltip: 'Edit',
+                    onPressed: _startEditProfile,
+                  ),
               ],
             ),
             const SizedBox(height: 24),
@@ -416,6 +455,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                     controller: _nameController,
                     label: 'Full Name',
                     icon: Icons.person,
+                    readOnly: !_isEditingProfile,
                     validator: (value) => value == null || value.trim().isEmpty
                         ? 'Please enter your name'
                         : null,
@@ -426,11 +466,12 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                     label: 'Email Address',
                     icon: Icons.email,
                     keyboardType: TextInputType.emailAddress,
+                    readOnly: !_isEditingProfile,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Please enter your email';
                       }
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}\$')
                           .hasMatch(value)) {
                         return 'Please enter a valid email address';
                       }
@@ -443,40 +484,103 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                     label: 'Phone Number',
                     icon: Icons.phone,
                     keyboardType: TextInputType.phone,
+                    readOnly: !_isEditingProfile,
                   ),
                   const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _saveProfile,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.colorScheme.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                  if (_isEditingProfile)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 50,
+                            child: ElevatedButton(
+                              onPressed: _isLoading
+                                  ? null
+                                  : () async {
+                                      await _saveProfile();
+                                      setState(() {
+                                        _isEditingProfile = false;
+                                      });
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: theme.colorScheme.primary,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 2,
                               ),
-                            )
-                          : const Text(
-                              'Save Changes',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                                Colors.white),
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Save Changes',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SizedBox(
+                            height: 50,
+                            child: OutlinedButton(
+                              onPressed: _cancelEditProfile,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: theme.colorScheme.primary,
+                                side: BorderSide(
+                                    color: theme.colorScheme.primary),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
+                  if (!_isEditingProfile)
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              theme.colorScheme.primary.withOpacity(0.5),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
+                        ),
+                        child: const Text(
+                          'Save Changes',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -595,6 +699,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
     required IconData icon,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
+    bool readOnly = false,
   }) {
     final theme = Theme.of(context);
 
@@ -602,6 +707,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
+      readOnly: readOnly,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: theme.colorScheme.primary),
@@ -641,6 +747,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
     return TextFormField(
       controller: controller,
       obscureText: !showPassword,
+      onChanged: (_) => _clearPasswordError(),
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: theme.colorScheme.primary),

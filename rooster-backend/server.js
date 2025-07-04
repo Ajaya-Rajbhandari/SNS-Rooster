@@ -2,16 +2,19 @@
 // This file imports app.js, connects to MongoDB, and starts the server.
 // Always use `node server.js` or `nodemon server.js` to run the backend.
 
+const dotenv = require('dotenv');
+
+// Load environment variables FIRST, before any other imports
+dotenv.config();
+
 const app = require('./app');
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
 
-// Load environment variables
-dotenv.config();
-
 console.log('DEBUG: JWT_SECRET value from dotenv:', process.env.JWT_SECRET);
+console.log('DEBUG: EMAIL_PROVIDER from dotenv:', process.env.EMAIL_PROVIDER);
+console.log('DEBUG: RESEND_API_KEY from dotenv:', process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.slice(0, 6) + '...' : undefined);
 
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/sns-rooster';

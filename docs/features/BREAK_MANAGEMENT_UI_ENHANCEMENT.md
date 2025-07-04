@@ -37,6 +37,44 @@ This document describes the UI/UX improvements made to the Break Management scre
 - The UI logic checks for `checkInTime`, `checkOutTime`, and breaks with `end == null` to determine status and available actions.
 - The modal uses a helper to format date/times for readability.
 
+# Break Management UI Enhancement (Admin Attendance)
+
+## Overview
+This document describes the enhancements made to the break management feature in the Admin Attendance screen of the SNS Rooster app.
+
+## Features Implemented
+
+### 1. Break Type Selection Dialog
+- When the admin taps **Start Break**, a dialog appears listing all available break types.
+- Break types are fetched from the backend (`/attendance/break-types` endpoint).
+- Each break type displays:
+  - Icon (from backend, mapped to Material icons)
+  - Color accent
+  - Display name
+  - Description (if available)
+- The admin selects a break type, which is sent to the backend to start the break.
+
+### 2. Current Break Display
+- While on break, the UI shows:
+  - The selected break type (icon, color, name)
+  - A live timer for the current break duration
+- The break type and timer are shown in the **Today's Time** card.
+
+### 3. End Break
+- The admin can end the break with a single tap.
+- The UI and backend are updated accordingly.
+
+## Technical Details
+- Break types are fetched using an authenticated GET request to `/attendance/break-types`.
+- The break type selection dialog uses `SimpleDialog` and Material icons.
+- The selected break type is sent to the backend when starting a break.
+- The UI updates in real time to reflect break status and duration.
+
+## UX Improvements
+- Quick Actions are now at the top for immediate access.
+- All break actions are visually distinct and easy to use.
+- The break type selection dialog is modern, colorful, and user-friendly.
+
 ---
 
-**Last updated:** 2025-06-30 
+**Last updated:** $(date +%Y-%m-%d) 

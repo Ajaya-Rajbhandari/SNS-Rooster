@@ -33,4 +33,7 @@ router.get('/admin/monthly-hours-trend', authMiddleware, adminOnly, analyticsCon
 router.get('/admin/payroll-trend', authMiddleware, adminOnly, analyticsController.getPayrollTrendAdmin);
 router.get('/admin/payroll-deductions-breakdown', authMiddleware, adminOnly, analyticsController.getPayrollDeductionsBreakdownAdmin);
 
+// Report generation
+router.get('/admin/generate-report', authMiddleware, adminOnly, analyticsController.generateReport);
+
 module.exports = router; 

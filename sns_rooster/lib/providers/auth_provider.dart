@@ -18,12 +18,18 @@ class AuthProvider with ChangeNotifier {
   String? _error;
   final bool _isLoggingOut = false;
   final _navigatorKey = GlobalKey<NavigatorState>();
+  bool _rememberMe = false;
 
   // Test credentials for developer convenience
   static const String devEmployeeEmail = 'employee2@snsrooster.com';
   static const String devEmployeePassword = 'Employee@456';
   static const String devAdminEmail = 'admin@snsrooster.com';
   static const String devAdminPassword = 'Admin@123';
+
+  // Add new keys for storing credentials
+  static const String _rememberMeKey = 'remember_me';
+  static const String _savedEmailKey = 'saved_email';
+  static const String _savedPasswordKey = 'saved_password';
 
   bool get isAuthenticated => _token != null && !isTokenExpired();
   bool get isLoading => _isLoading;
@@ -35,6 +41,15 @@ class AuthProvider with ChangeNotifier {
 
   // Getter for authToken
   String? get authToken => _authToken;
+
+  // Add fields for saved credentials
+  String? _savedEmail;
+  String? _savedPassword;
+  String? get savedEmail => _savedEmail;
+  String? get savedPassword => _savedPassword;
+
+  // Add a public getter for rememberMe
+  bool get rememberMe => _rememberMe;
 
   AuthProvider() {
     log('AUTH PROVIDER: Initialized');
@@ -65,6 +80,16 @@ class AuthProvider with ChangeNotifier {
 
       _token = _authToken;
       log('LOAD_AUTH_DEBUG: Assigned _authToken to _token: $_token');
+
+      // Load Remember Me and credentials
+      _rememberMe = prefs.getBool(_rememberMeKey) ?? false;
+      if (_rememberMe) {
+        _savedEmail = prefs.getString(_savedEmailKey);
+        _savedPassword = prefs.getString(_savedPasswordKey);
+      } else {
+        _savedEmail = null;
+        _savedPassword = null;
+      }
 
       log('LOAD_AUTH_DEBUG: Final _authToken: $_authToken, Final _user: $_user');
       log('LOAD_AUTH_DEBUG: Token after loading: $_authToken'); // Debugging log
@@ -175,7 +200,7 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      log('LOGIN_DEBUG: Making API call to [36m${ApiConfig.baseUrl}/auth/login[0m');
+      log('LOGIN_DEBUG: Making API call to  ${ApiConfig.baseUrl}/auth/login');
 
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/auth/login'),
@@ -196,13 +221,23 @@ class AuthProvider with ChangeNotifier {
       if (response.statusCode == 200) {
         _authToken = data['token'];
         _token = _authToken; // Assign to _token for consistency
-        log('LOGIN_DEBUG: Token received: \\_authToken');
-        log('LOGIN_DEBUG: Assigning token to _authToken: \\${data['token']}');
+        log('LOGIN_DEBUG: Token received: _authToken');
         _user = data['user'];
-        log('LOGIN_DEBUG: User data received: \\_user');
-        log('LOGIN_DEBUG: Backend token field: \\${data['token']}');
-        log('LOGIN_DEBUG: Token received from backend response: \\_authToken');
-        await _saveAuthToPrefs();
+        log('LOGIN_DEBUG: User data received: _user');
+        log('LOGIN_DEBUG: Backend token field: ${data['token']}');
+        log('LOGIN_DEBUG: Token received from backend response: _authToken');
+        final prefs = await SharedPreferences.getInstance();
+        if (_rememberMe) {
+          await _saveAuthToPrefs();
+          await prefs.setBool(_rememberMeKey, true);
+          await prefs.setString(_savedEmailKey, email);
+          await prefs.setString(_savedPasswordKey, password);
+        } else {
+          // Do NOT clear in-memory state; just avoid saving credentials
+          await prefs.setBool(_rememberMeKey, false);
+          await prefs.remove(_savedEmailKey);
+          await prefs.remove(_savedPasswordKey);
+        }
         // --- Ensure profile is refreshed after login ---
         if (_profileProvider != null) {
           log('LOGIN_DEBUG: Refreshing profile after login');
@@ -288,14 +323,19 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     log('DEBUG: Starting logout process');
-    log('DEBUG: Current token: \$_token');
-    log('DEBUG: Current user: \$_user');
+    log('DEBUG: Current token: $_token');
+    log('DEBUG: Current user: $_user');
 
     try {
       final prefs = await SharedPreferences.getInstance();
       log('DEBUG: Clearing SharedPreferences');
       await prefs.remove('token');
       await prefs.remove('user');
+      if (!_rememberMe) {
+        await prefs.setBool(_rememberMeKey, false);
+        await prefs.remove(_savedEmailKey);
+        await prefs.remove(_savedPasswordKey);
+      }
 
       if (_profileProvider != null) {
         log('DEBUG: Clearing profile via ProfileProvider');
@@ -312,7 +352,7 @@ class AuthProvider with ChangeNotifier {
 
       log('DEBUG: Logout process completed');
     } catch (e) {
-      log('ERROR: Exception during logout: \$e');
+      log('ERROR: Exception during logout: $e');
     }
 
     // Navigate to login screen after logout
@@ -330,6 +370,8 @@ class AuthProvider with ChangeNotifier {
         runApp(const MyApp());
       }
     });
+
+    await _clearAuthFromPrefs();
   }
 
   void reset() {
@@ -435,6 +477,17 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  Future<void> _clearAuthFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    log('CLEAR_AUTH_DEBUG: Clearing authentication state from SharedPreferences');
+    await prefs.remove('token');
+    await prefs.remove('user');
+    _token = null;
+    _user = null;
+    log('CLEAR_AUTH_DEBUG: Authentication state cleared from SharedPreferences');
+    notifyListeners();
+  }
+
   Future<void> forceClearAuth() async {
     log('FORCE_CLEAR_AUTH: Clearing authentication state...');
     _token = null;
@@ -504,5 +557,99 @@ class AuthProvider with ChangeNotifier {
     }
 
     // ...existing code for fetching break types...
+  }
+
+  void setRememberMe(bool value) {
+    _rememberMe = value;
+    notifyListeners();
+  }
+
+  Future<Map<String, dynamic>> updateProfile(
+      Map<String, dynamic> updates) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      final response = await http.patch(
+        Uri.parse('${ApiConfig.baseUrl}/auth/me'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_token',
+        },
+        body: json.encode(updates),
+      );
+      final data = json.decode(response.body);
+      if (response.statusCode == 200) {
+        _user = data['profile'] ?? _user;
+        await _saveAuthToPrefs();
+        notifyListeners();
+        return {'success': true, 'user': _user};
+      } else {
+        _error = data['message'] ?? 'Failed to update profile';
+        return {'success': false, 'message': _error};
+      }
+    } catch (e) {
+      _error = e.toString();
+      return {'success': false, 'message': _error};
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> changePassword(
+      String currentPassword, String newPassword) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      final response = await http.patch(
+        Uri.parse('${ApiConfig.baseUrl}/auth/me'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_token',
+        },
+        body: json.encode({
+          'password': newPassword,
+          'currentPassword': currentPassword,
+        }),
+      );
+      final data = json.decode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true};
+      } else {
+        _error = data['message'] ?? 'Failed to change password';
+        return {'success': false, 'message': _error};
+      }
+    } catch (e) {
+      _error = e.toString();
+      return {'success': false, 'message': _error};
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // Add methods to save and clear credentials
+  Future<void> saveCredentials(String email, String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_rememberMeKey, true);
+    await prefs.setString(_savedEmailKey, email);
+    await prefs.setString(_savedPasswordKey, password);
+    _savedEmail = email;
+    _savedPassword = password;
+    _rememberMe = true;
+    notifyListeners();
+  }
+
+  Future<void> clearSavedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_rememberMeKey, false);
+    await prefs.remove(_savedEmailKey);
+    await prefs.remove(_savedPasswordKey);
+    _savedEmail = null;
+    _savedPassword = null;
+    _rememberMe = false;
+    notifyListeners();
   }
 }

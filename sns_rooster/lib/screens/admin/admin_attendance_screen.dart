@@ -9,6 +9,7 @@ import '../../services/attendance_service.dart';
 import '../../config/api_config.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../widgets/admin_side_navigation.dart';
 
 class AdminAttendanceScreen extends StatefulWidget {
   const AdminAttendanceScreen({Key? key}) : super(key: key);
@@ -356,6 +357,7 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
             ),
           ],
         ),
+        drawer: const AdminSideNavigation(currentRoute: '/admin_attendance'),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(

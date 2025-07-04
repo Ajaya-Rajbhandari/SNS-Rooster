@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const User = require('../models/User');
 const Employee = require('../models/Employee');
+const emailService = require('../services/emailService');
 
 exports.login = async (req, res) => {
   try {
@@ -15,14 +16,40 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
+    if (user.isLocked) {
+      try {
+        await emailService.sendAccountLockedEmail(user);
+      } catch (emailError) {
+        console.error('Failed to send account locked email:', emailError);
+      }
+      
+      return res.status(401).json({ 
+        message: 'Account is temporarily locked due to too many failed login attempts. Please try again later or contact support.',
+        accountLocked: true,
+        lockUntil: user.accountLockedUntil
+      });
+    }
+
     if (!user.isActive) {
       return res.status(401).json({ message: 'Account is deactivated' });
     }
 
+    if (process.env.NODE_ENV === 'production' && !user.isEmailVerified) {
+      return res.status(401).json({ 
+        message: 'Please verify your email address before logging in. Check your email for verification instructions.',
+        emailNotVerified: true
+      });
+    }
+
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      await user.incrementLoginAttempts();
       return res.status(401).json({ message: 'Invalid email or password' });
-    }    user.lastLogin = new Date();
+    }
+
+    await user.resetLoginAttempts();
+    
+    user.lastLogin = new Date();
     await user.save();
 
     if (!process.env.JWT_SECRET) {
@@ -36,11 +63,13 @@ exports.login = async (req, res) => {
           userId: user._id,
           email: user.email,
           role: user.role,
-          isProfileComplete: user.isProfileComplete
+          isProfileComplete: user.isProfileComplete,
+          isEmailVerified: user.isEmailVerified
         },
         process.env.JWT_SECRET,
         { expiresIn: '24h' }
       );
+      
       res.json({
         token,
         user: user.getPublicProfile()
@@ -56,34 +85,56 @@ exports.login = async (req, res) => {
 };
 
 exports.register = async (req, res) => {
+  console.log('DEBUG: /api/auth/register endpoint hit');
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Only admins can register new users' });
     }
 
-    const { email, password, firstName, lastName, role, department, position } = req.body;
+    const { email, password, firstName, lastName, role, department, position, sendWelcomeEmail = true } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: 'Email already registered' });
     }
 
+    const tempPassword = password || crypto.randomBytes(8).toString('hex');
+
+    const isDev = process.env.NODE_ENV !== 'production';
     const user = new User({
       email,
-      password,
+      password: tempPassword,
       firstName,
       lastName,
       role: role || 'employee',
       department,
       position,
-      isProfileComplete: false
+      isProfileComplete: false,
+      isEmailVerified: isDev ? true : false // Auto-verify in dev, require in prod
     });
 
     await user.save();
 
+    const verificationToken = user.generateEmailVerificationToken();
+    await user.save();
+
+    try {
+      if (sendWelcomeEmail) {
+        await emailService.sendWelcomeEmail(user, !password ? tempPassword : null);
+      }
+      
+      await emailService.sendVerificationEmail(user, verificationToken);
+      
+      console.log(`✅ User registered and emails sent to ${email}`);
+    } catch (emailError) {
+      console.error('Email sending failed:', emailError);
+    }
+
     res.status(201).json({
-      message: 'User registered successfully',
-      user: user.getPublicProfile()
+      message: 'User registered successfully. Verification email sent.',
+      user: user.getPublicProfile(),
+      requiresEmailVerification: true,
+      tempPassword: process.env.NODE_ENV === 'development' ? (!password ? tempPassword : undefined) : undefined
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -91,7 +142,74 @@ exports.register = async (req, res) => {
   }
 };
 
+exports.verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({ message: 'Verification token is required' });
+    }
+
+    const user = await User.findOne({
+      emailVerificationToken: token,
+      emailVerificationExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ 
+        message: 'Invalid or expired verification token. Please request a new verification email.',
+        expired: true
+      });
+    }
+
+    await user.verifyEmail();
+
+    res.json({ 
+      message: 'Email verified successfully! You can now log in to your account.',
+      verified: true
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.resendVerificationEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.json({ message: 'If your email is registered, you will receive verification instructions.' });
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({ message: 'Email is already verified' });
+    }
+
+    const verificationToken = user.generateEmailVerificationToken();
+    await user.save();
+
+    try {
+      await emailService.sendVerificationEmail(user, verificationToken);
+      console.log(`✅ Verification email resent to ${email}`);
+    } catch (emailError) {
+      console.error('Failed to resend verification email:', emailError);
+      return res.status(500).json({ message: 'Failed to send verification email' });
+    }
+
+    res.json({ 
+      message: 'Verification email sent successfully. Please check your inbox.',
+      sent: true
+    });
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 exports.requestPasswordReset = async (req, res) => {
+  console.log('DEBUG: /api/auth/reset-password endpoint hit');
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
@@ -100,10 +218,27 @@ exports.requestPasswordReset = async (req, res) => {
       return res.json({ message: 'If your email is registered, you will receive password reset instructions' });
     }
 
+    if (!user.canRequestPasswordReset()) {
+      return res.status(429).json({ 
+        message: 'Too many password reset attempts. Please wait one hour before trying again.',
+        rateLimited: true
+      });
+    }
+
+    await user.incrementPasswordResetAttempts();
+
     const resetToken = crypto.randomBytes(32).toString('hex');
     user.resetPasswordToken = resetToken;
     user.resetPasswordExpires = Date.now() + 3600000;
     await user.save();
+
+    try {
+      await emailService.sendPasswordResetEmail(user, resetToken);
+      console.log(`✅ Password reset email sent to ${email}`);
+    } catch (emailError) {
+      console.error('Failed to send password reset email:', emailError);
+      return res.status(500).json({ message: 'Failed to send password reset email' });
+    }
 
     res.json({
       message: 'Password reset instructions sent to your email',
@@ -120,21 +255,34 @@ exports.resetPassword = async (req, res) => {
     const { token } = req.params;
     const { password } = req.body;
 
+    if (!password || password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    }
+
     const user = await User.findOne({
       resetPasswordToken: token,
       resetPasswordExpires: { $gt: Date.now() }
     });
 
     if (!user) {
-      return res.status(400).json({ message: 'Invalid or expired reset token' });
+      return res.status(400).json({ 
+        message: 'Invalid or expired reset token. Please request a new password reset.',
+        expired: true
+      });
     }
 
     user.password = password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
+    user.resetPasswordAttempts = 0;
+    user.resetPasswordLastAttempt = undefined;
+    
     await user.save();
 
-    res.json({ message: 'Password has been reset successfully' });
+    res.json({ 
+      message: 'Password has been reset successfully. You can now log in with your new password.',
+      success: true
+    });
   } catch (error) {
     console.error('Password reset error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -172,7 +320,8 @@ exports.updateCurrentUserProfile = async (req, res) => {
     const updates = Object.keys(req.body);
     const allowedUpdates = [
       'firstName', 'lastName', 'email', 'department', 'position', 'phone', 'address', 'dateOfBirth', 'gender', 'profilePicture', 'password',
-      'education', 'certificates', 'emergencyContact', 'emergencyPhone', 'emergencyRelationship'
+      'education', 'certificates', 'emergencyContact', 'emergencyPhone', 'emergencyRelationship',
+      'currentPassword'
     ];
     const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
 
@@ -187,8 +336,27 @@ exports.updateCurrentUserProfile = async (req, res) => {
 
     // Handle password change separately to ensure hashing
     if (req.body.password) {
+      // 1. Require currentPassword
+      if (!req.body.currentPassword) {
+        return res.status(400).json({ message: 'Current password is required to change your password.' });
+      }
+      // 2. Check current password
+      const isMatch = await user.comparePassword(req.body.currentPassword);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Current password is incorrect.' });
+      }
+      // 3. Prevent using the same password
+      const isSame = await user.comparePassword(req.body.password);
+      if (isSame) {
+        return res.status(400).json({ message: 'New password must be different from the current password.' });
+      }
+      // 4. Password policy (example: min 6 chars)
+      if (req.body.password.length < 6) {
+        return res.status(400).json({ message: 'New password must be at least 6 characters long.' });
+      }
       user.password = req.body.password; // Mongoose pre-save hook will hash this
       delete req.body.password; // Remove from body to avoid direct assignment
+      delete req.body.currentPassword;
     }
 
     // Handle profile picture upload
@@ -451,51 +619,30 @@ exports.getUserById = async (req, res) => {
 
 exports.deleteUser = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Only admins can delete users' });
+    // Prevent self-deletion for admins
+    if (req.user.userId === req.params.id) {
+      const self = await User.findById(req.user.userId);
+      if (self && self.role === 'admin') {
+        return res.status(400).json({ message: 'You cannot delete your own admin account.' });
+      }
     }
-    const user = await User.findByIdAndDelete(req.params.id);
-    if (!user) {
+
+    // Check if the user to delete is an admin
+    const userToDelete = await User.findById(req.params.id);
+    if (!userToDelete) {
       return res.status(404).json({ message: 'User not found' });
     }
-    // Delete avatar if not default
-    if (user.avatar && user.avatar !== '/uploads/avatars/default-avatar.png') {
-      const avatarPath = path.join(__dirname, '..', user.avatar);
-      fs.unlink(avatarPath, (err) => {
-        if (err) {
-          if (err.code === 'ENOENT') {
-            // File already deleted or never existed, ignore
-          } else if (err.code === 'EPERM') {
-            console.warn('Warning: Could not delete avatar due to permission error:', err);
-          } else {
-            console.error('Error deleting avatar:', err);
-          }
-        }
-      });
+    if (userToDelete.role === 'admin') {
+      const adminCount = await User.countDocuments({ role: 'admin' });
+      if (adminCount <= 1) {
+        return res.status(400).json({ message: 'At least one admin must remain.' });
+      }
     }
-    // Delete all files in documents array
-    if (user.documents && Array.isArray(user.documents)) {
-      user.documents.forEach(doc => {
-        if (doc.path) {
-          const docPath = path.join(__dirname, '..', doc.path);
-          fs.unlink(docPath, (err) => {
-            if (err) {
-              if (err.code === 'ENOENT') {
-                // File already deleted or never existed, ignore
-              } else if (err.code === 'EPERM') {
-                console.warn('Warning: Could not delete document due to permission error:', err);
-              } else {
-                console.error('Error deleting document:', err);
-              }
-            }
-          });
-        }
-      });
-    }
-    res.json({ message: 'User deleted successfully' });
+
+    await User.findByIdAndDelete(req.params.id);
+    res.status(200).json({ message: 'User deleted successfully' });
   } catch (error) {
-    console.error('Delete user error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: error.message });
   }
 };
 
