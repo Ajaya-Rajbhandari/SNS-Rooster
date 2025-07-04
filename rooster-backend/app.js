@@ -19,7 +19,10 @@ const adminSettingsRoutes = require('./routes/adminSettingsRoutes');
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['https://sns-rooster-8cca5.web.app'],
+  credentials: true, // Only needed if you use cookies/auth
+}));
 app.use(express.json()); // For parsing application/json
 app.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
 
