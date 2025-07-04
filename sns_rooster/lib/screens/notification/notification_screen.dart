@@ -7,6 +7,7 @@ import '../../widgets/app_drawer.dart';
 import '../../providers/auth_provider.dart';
 import 'package:http/http.dart' as http;
 import '../../config/api_config.dart';
+import '../../services/global_notification_service.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -188,16 +189,17 @@ class _NotificationScreenState extends State<NotificationScreen> {
               if (response.statusCode == 200) {
                 Provider.of<NotificationProvider>(context, listen: false)
                     .fetchNotifications();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('All notifications marked as read.')),
-                );
+                final notificationService =
+                    Provider.of<GlobalNotificationService>(context,
+                        listen: false);
+                notificationService
+                    .showSuccess('All notifications marked as read.');
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content:
-                          Text('Failed to mark all as read: ${response.body}')),
-                );
+                final notificationService =
+                    Provider.of<GlobalNotificationService>(context,
+                        listen: false);
+                notificationService
+                    .showError('Failed to mark all as read: ${response.body}');
               }
             },
           ),
@@ -225,15 +227,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
               if (response.statusCode == 200) {
                 Provider.of<NotificationProvider>(context, listen: false)
                     .fetchNotifications();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('All notifications cleared.')),
-                );
+                final notificationService =
+                    Provider.of<GlobalNotificationService>(context,
+                        listen: false);
+                notificationService.showSuccess('All notifications cleared.');
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text(
-                          'Failed to clear notifications: ${response.body}')),
-                );
+                final notificationService =
+                    Provider.of<GlobalNotificationService>(context,
+                        listen: false);
+                notificationService.showError(
+                    'Failed to clear notifications: ${response.body}');
               }
             },
           ),
@@ -341,16 +344,19 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                   Provider.of<NotificationProvider>(context,
                                           listen: false)
                                       .fetchNotifications();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text('Notification deleted.')),
-                                  );
+                                  final notificationService =
+                                      Provider.of<GlobalNotificationService>(
+                                          context,
+                                          listen: false);
+                                  notificationService
+                                      .showSuccess('Notification deleted.');
                                 } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                        content: Text(
-                                            'Failed to delete notification: \\${response.body}')),
-                                  );
+                                  final notificationService =
+                                      Provider.of<GlobalNotificationService>(
+                                          context,
+                                          listen: false);
+                                  notificationService.showError(
+                                      'Failed to delete notification: ${response.body}');
                                 }
                               },
                               child: Card(

@@ -16,6 +16,10 @@ router.post("/reset-password", authController.requestPasswordReset);
 // Reset password with token
 router.post("/reset-password/:token", authController.resetPassword);
 
+// Email verification routes
+router.get("/verify-email", authController.verifyEmail);
+router.post("/resend-verification", authController.resendVerificationEmail);
+
 // Get current user profile
 router.get("/me", auth, authController.getCurrentUserProfile);
 

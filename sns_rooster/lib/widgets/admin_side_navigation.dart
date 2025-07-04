@@ -2,6 +2,7 @@
 import 'package:sns_rooster/utils/logger.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/profile_provider.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
 import '../screens/admin/employee_management_screen.dart';
 import '../screens/admin/payroll_management_screen.dart';
@@ -15,6 +16,9 @@ import '../screens/admin/attendance_management_screen.dart';
 import '../screens/admin/break_management_screen.dart';
 import '../screens/admin/break_types_screen.dart';
 import '../screens/admin/analytics_reports_screen.dart';
+import '../screens/admin/admin_profile_screen.dart';
+import '../screens/admin/admin_attendance_screen.dart';
+import '../widgets/user_avatar.dart';
 import 'package:sns_rooster/main.dart'; // Re-added import for navigatorKey
 
 class AdminSideNavigation extends StatelessWidget {
@@ -30,6 +34,8 @@ class AdminSideNavigation extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
     return Drawer(
       child: Column(
         children: [
@@ -39,11 +45,10 @@ class AdminSideNavigation extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
             child: Row(
               children: [
-                CircleAvatar(
+                UserAvatar(
+                  avatarUrl:
+                      profileProvider.profile?['avatar'] ?? user?['avatar'],
                   radius: 28,
-                  backgroundColor: Colors.white,
-                  child: Icon(Icons.admin_panel_settings,
-                      size: 36, color: colorScheme.primary),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -51,7 +56,7 @@ class AdminSideNavigation extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        user?['name'] ?? 'Admin User',
+                        user?['firstName'] ?? 'Admin User',
                         style: theme.textTheme.titleMedium?.copyWith(
                             color: Colors.white, fontWeight: FontWeight.bold),
                         maxLines: 1,
@@ -65,7 +70,7 @@ class AdminSideNavigation extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
-                      const Text('Admin',
+                      const Text('Administrator',
                           style:
                               TextStyle(color: Colors.white60, fontSize: 12)),
                     ],
@@ -75,6 +80,24 @@ class AdminSideNavigation extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
+          // Add My Profile link
+          _buildDrawerItem(
+            context,
+            icon: Icons.account_circle,
+            title: 'My Profile',
+            route: '/admin_profile',
+            screen: const AdminProfileScreen(),
+            colorScheme: colorScheme,
+          ),
+          // Add My Attendance link
+          _buildDrawerItem(
+            context,
+            icon: Icons.access_time,
+            title: 'My Attendance',
+            route: '/admin_attendance',
+            screen: const AdminAttendanceScreen(),
+            colorScheme: colorScheme,
+          ),
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,

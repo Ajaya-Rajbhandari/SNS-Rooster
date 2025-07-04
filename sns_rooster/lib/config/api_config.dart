@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sns_rooster/utils/logger.dart';
 
 /// API Configuration for SNS Rooster App
@@ -19,22 +19,14 @@ class ApiConfig {
   /// Get the appropriate base URL based on platform and environment
   static String get baseUrl {
     if (kIsWeb) {
-      // Web platform always uses localhost
-      return 'http://localhost:$port/api';
-    } else if (Platform.isAndroid || Platform.isIOS) {
-      // Check if running on emulator or physical device
-      String ip = const String.fromEnvironment('API_HOST', defaultValue: '');
-
-      if (ip.isEmpty) {
-        // No API_HOST defined, use fallback IP for physical devices
-        // For physical devices, always use the actual machine IP
-        ip = fallbackIP; // 192.168.1.80 - works for physical devices
-      }
-
-      return 'http://$ip:$port/api';
+      // For web, use relative path (assumes backend is served from same domain)
+      return '';
+    } else if (Platform.isAndroid) {
+      // Android emulator
+      return 'http://10.0.2.2:5000';
     } else {
-      // Default for other platforms (desktop, etc.)
-      return 'http://localhost:$port/api';
+      // iOS simulator, desktop, etc.
+      return 'http://localhost:5000';
     }
   }
 

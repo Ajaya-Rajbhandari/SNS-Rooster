@@ -21,6 +21,8 @@ import 'package:sns_rooster/screens/admin/payroll_cycle_settings_screen.dart';
 import 'package:sns_rooster/screens/admin/tax_settings_screen.dart';
 import 'package:sns_rooster/screens/admin/company_settings_screen.dart';
 import 'package:sns_rooster/screens/admin/leave_policy_settings_screen.dart';
+import 'package:sns_rooster/screens/admin/admin_profile_screen.dart';
+import 'package:sns_rooster/screens/admin/admin_attendance_screen.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
 import 'package:sns_rooster/providers/profile_provider.dart';
@@ -41,6 +43,8 @@ import 'package:sns_rooster/providers/tax_settings_provider.dart';
 import 'package:sns_rooster/providers/company_settings_provider.dart';
 import 'package:sns_rooster/services/employee_service.dart';
 import 'package:sns_rooster/services/notification_service.dart';
+import 'package:sns_rooster/services/global_notification_service.dart';
+import 'package:sns_rooster/widgets/global_notification_banner.dart';
 
 void main() {
   log('MAIN: Initializing navigatorKey');
@@ -60,6 +64,9 @@ class MyApp extends StatelessWidget {
       providers: [
         Provider<RouteObserver<ModalRoute<void>>>(
           create: (_) => RouteObserver<ModalRoute<void>>(),
+        ),
+        ChangeNotifierProvider<GlobalNotificationService>(
+          create: (_) => GlobalNotificationService(),
         ),
         ChangeNotifierProvider(create: (context) {
           final authProvider = AuthProvider();
@@ -218,6 +225,17 @@ class MyApp extends StatelessWidget {
                       const CompanySettingsScreen(),
                   '/admin/leave_policy_settings': (context) =>
                       const LeavePolicySettingsScreen(),
+                  '/admin_profile': (context) => const AdminProfileScreen(),
+                  '/admin_attendance': (context) =>
+                      const AdminAttendanceScreen(),
+                },
+                builder: (context, child) {
+                  return Stack(
+                    children: [
+                      child!,
+                      const GlobalNotificationBanner(),
+                    ],
+                  );
                 },
               );
             },

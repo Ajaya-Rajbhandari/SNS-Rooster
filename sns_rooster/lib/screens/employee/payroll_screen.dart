@@ -12,6 +12,7 @@ import '../../providers/auth_provider.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../../widgets/admin_side_navigation.dart';
+import '../../services/global_notification_service.dart';
 // Import to access the RouteObserver
 
 class PayrollScreen extends StatefulWidget {
@@ -70,16 +71,15 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
         await file.writeAsBytes(response.bodyBytes);
         await OpenFile.open(file.path);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text('Failed to download PDF: \\${response.statusCode}')),
-        );
+        final notificationService =
+            Provider.of<GlobalNotificationService>(context, listen: false);
+        notificationService
+            .showError('Failed to download PDF: \\${response.statusCode}');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error downloading PDF: $e')),
-      );
+      final notificationService =
+          Provider.of<GlobalNotificationService>(context, listen: false);
+      notificationService.showError('Error downloading PDF: $e');
     }
   }
 
@@ -105,18 +105,19 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
         final file = File('${downloadsDir.path}/all-payslips.$ext');
         await file.writeAsBytes(response.bodyBytes);
         await OpenFile.open(file.path);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('File saved to: ${file.path}')),
-        );
+        final notificationService =
+            Provider.of<GlobalNotificationService>(context, listen: false);
+        notificationService.showSuccess('File saved to: ${file.path}');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to download: ${response.statusCode}')),
-        );
+        final notificationService =
+            Provider.of<GlobalNotificationService>(context, listen: false);
+        notificationService
+            .showError('Failed to download: ${response.statusCode}');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error downloading: $e')),
-      );
+      final notificationService =
+          Provider.of<GlobalNotificationService>(context, listen: false);
+      notificationService.showError('Error downloading: $e');
     }
   }
 
@@ -388,19 +389,21 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
                                   final token = authProvider.token;
                                   if (payslipId == null ||
                                       payslipId.toString().isEmpty) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text(
-                                              'Payslip ID is missing. Cannot download PDF.')),
-                                    );
+                                    final notificationService =
+                                        Provider.of<GlobalNotificationService>(
+                                            context,
+                                            listen: false);
+                                    notificationService.showError(
+                                        'Payslip ID is missing. Cannot download PDF.');
                                     return;
                                   }
                                   if (token == null || token.isEmpty) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text(
-                                              'Auth token is missing. Cannot download PDF.')),
-                                    );
+                                    final notificationService =
+                                        Provider.of<GlobalNotificationService>(
+                                            context,
+                                            listen: false);
+                                    notificationService.showError(
+                                        'Auth token is missing. Cannot download PDF.');
                                     return;
                                   }
                                   await _downloadPayslipPdf(
@@ -444,12 +447,12 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
                                     onPressed: () async {
                                       await payrollProvider.updatePayslipStatus(
                                           slip['_id'], 'approved');
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                            content:
-                                                Text('Payslip acknowledged.')),
-                                      );
+                                      final notificationService = Provider.of<
+                                              GlobalNotificationService>(
+                                          context,
+                                          listen: false);
+                                      notificationService
+                                          .showSuccess('Payslip acknowledged.');
                                     },
                                   ),
                                   const SizedBox(height: 8),
@@ -494,12 +497,12 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
                                             .updatePayslipStatus(
                                                 slip['_id'], 'needs_review',
                                                 comment: comment.trim());
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                              content: Text(
-                                                  'Clarification requested.')),
-                                        );
+                                        final notificationService = Provider.of<
+                                                GlobalNotificationService>(
+                                            context,
+                                            listen: false);
+                                        notificationService.showSuccess(
+                                            'Clarification requested.');
                                       }
                                     },
                                   ),

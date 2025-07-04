@@ -8,6 +8,7 @@ import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/widgets/app_drawer.dart';
 import 'package:sns_rooster/widgets/admin_side_navigation.dart';
 import 'attendance_detail_widgets.dart';
+import '../../services/global_notification_service.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -107,13 +108,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       final file = File(path);
       await file.writeAsString(csvString);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Attendance data exported to $path')),
-      );
+      final notificationService =
+          Provider.of<GlobalNotificationService>(context, listen: false);
+      notificationService.showSuccess('Attendance data exported to $path');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to export data: $e')),
-      );
+      final notificationService =
+          Provider.of<GlobalNotificationService>(context, listen: false);
+      notificationService.showError('Failed to export data: $e');
     }
   }
 
@@ -313,11 +314,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       if (value == 'Export CSV') {
                         await exportToCSV();
                       } else if (value == 'Export PDF') {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content:
-                                  Text('PDF export is not yet implemented.')),
-                        );
+                        final notificationService =
+                            Provider.of<GlobalNotificationService>(context,
+                                listen: false);
+                        notificationService
+                            .showInfo('PDF export is not yet implemented.');
                       } else if (value == 'Refresh') {
                         await fetchAttendanceData();
                       }

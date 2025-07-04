@@ -11,6 +11,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/admin_settings_provider.dart';
 import '../../widgets/admin_side_navigation.dart';
 import 'package:flutter/services.dart';
+import 'package:sns_rooster/services/global_notification_service.dart';
 
 void showDocumentDialog(BuildContext context, String? url) {
   if (url == null || url.isEmpty) return;
@@ -144,17 +145,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
       if (success) {
         // Optionally, show a success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Profile picture updated successfully!')),
-        );
+        GlobalNotificationService()
+            .showSuccess('Profile picture updated successfully!');
       } else {
         // Optionally, show an error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(profileProvider.error ??
-                  'Failed to update profile picture.')),
-        );
+        GlobalNotificationService().showError(
+            profileProvider.error ?? 'Failed to update profile picture.');
       }
     } else {
       // User canceled the picker
@@ -172,9 +168,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (file == null) {
         log('No file selected.');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No file selected.')),
-        );
+        GlobalNotificationService().showError('No file selected.');
         return;
       }
 
@@ -184,9 +178,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final fileSize = await file.length();
       if (fileSize > 5 * 1024 * 1024) {
         log('File size exceeds limit.');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('File size must be less than 5MB.')),
-        );
+        GlobalNotificationService()
+            .showError('File size must be less than 5MB.');
         return;
       }
 
@@ -208,24 +201,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         log('Document uploaded successfully.');
         // Refresh profile data to update UI with new document
         await profileProvider.refreshProfile();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Document uploaded successfully!')),
-        );
+        GlobalNotificationService()
+            .showSuccess('Document uploaded successfully!');
       } else {
         log('Failed to upload document.');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text(profileProvider.error ?? 'Failed to upload document.')),
-        );
+        GlobalNotificationService()
+            .showError(profileProvider.error ?? 'Failed to upload document.');
       }
     } catch (e) {
       log('Error during document upload: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content:
-                Text('An error occurred during upload. Please try again.')),
-      );
+      GlobalNotificationService()
+          .showError('An error occurred during upload. Please try again.');
     }
   }
 
@@ -236,38 +222,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String phone = _phoneController.text.trim();
     String email = _emailController.text.trim();
     String address = _addressController.text.trim();
-    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+    final emailRegex = RegExp(
+        r"^[a-zA-Z0-9.!#\$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*");
 
     if (firstName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('First name is required.')),
-      );
+      GlobalNotificationService().showError('First name is required.');
       return;
     }
     if (lastName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Last name is required.')),
-      );
+      GlobalNotificationService().showError('Last name is required.');
       return;
     }
     if (email.isEmpty || !emailRegex.hasMatch(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid email address.')),
-      );
+      GlobalNotificationService()
+          .showError('Please enter a valid email address.');
       return;
     }
     if (phone.isEmpty || phone.length < 8) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content:
-                Text('Please enter a valid phone number (at least 8 digits).')),
-      );
+      GlobalNotificationService()
+          .showError('Please enter a valid phone number (at least 8 digits).');
       return;
     }
     if (address.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Address is required.')),
-      );
+      GlobalNotificationService().showError('Address is required.');
       return;
     }
 
@@ -286,14 +263,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       await profileProvider.updateProfile(updates);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Personal information updated successfully!')),
-      );
+      GlobalNotificationService()
+          .showSuccess('Personal information updated successfully!');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update personal information: $e')),
-      );
+      GlobalNotificationService()
+          .showError('Failed to update personal information: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -310,23 +284,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _emergencyContactRelationshipController.text.trim();
 
     if (emergencyContact.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Emergency contact name is required.')),
-      );
+      GlobalNotificationService()
+          .showError('Emergency contact name is required.');
       return;
     }
     if (emergencyPhone.isEmpty || emergencyPhone.length < 8) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                'Please enter a valid emergency contact phone (at least 8 digits).')),
-      );
+      GlobalNotificationService().showError(
+          'Please enter a valid emergency contact phone (at least 8 digits).');
       return;
     }
     if (emergencyRelationship.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Relationship is required.')),
-      );
+      GlobalNotificationService().showError('Relationship is required.');
       return;
     }
 
@@ -344,14 +312,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       await profileProvider.updateProfile(updates);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Emergency contact updated successfully!')),
-      );
+      GlobalNotificationService()
+          .showSuccess('Emergency contact updated successfully!');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update emergency contact: $e')),
-      );
+      GlobalNotificationService()
+          .showError('Failed to update emergency contact: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -1152,9 +1117,8 @@ class _EducationSection extends StatelessWidget {
                         setState(() => isSaving.value = false);
                         if (success) {
                           Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('Education saved.')));
+                          GlobalNotificationService()
+                              .showSuccess('Education saved.');
                         } else {
                           setState(() => errorText.value =
                               profileProvider.error ?? 'Failed to save.');
@@ -1413,9 +1377,8 @@ class _CertificateSection extends StatelessWidget {
                           setState(() => isSaving.value = false);
                           if (success) {
                             Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Certificate saved.')));
+                            GlobalNotificationService()
+                                .showSuccess('Certificate saved.');
                           } else {
                             setState(() => errorText.value =
                                 profileProvider.error ?? 'Failed to save.');

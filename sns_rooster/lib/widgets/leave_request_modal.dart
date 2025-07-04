@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../services/global_notification_service.dart';
 
 class LeaveRequestModal extends StatefulWidget {
   final DateTime? initialFromDate;
@@ -256,26 +258,20 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
                     isToDateError ||
                     isLeaveTypeError ||
                     isReasonError) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Please fill all required fields before submitting.',
-                      ),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
+                  final notificationService =
+                      Provider.of<GlobalNotificationService>(context,
+                          listen: false);
+                  notificationService.showWarning(
+                      'Please fill all required fields before submitting.');
                   return;
                 }
 
                 if (toDate!.isBefore(fromDate!)) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'To Date cannot be earlier than From Date.',
-                      ),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
+                  final notificationService =
+                      Provider.of<GlobalNotificationService>(context,
+                          listen: false);
+                  notificationService
+                      .showWarning('To Date cannot be earlier than From Date.');
                   return;
                 }
 
@@ -285,6 +281,12 @@ class _LeaveRequestModalState extends State<LeaveRequestModal> {
                   leaveType!,
                   widget.reasonController.text,
                 );
+
+                final notificationService =
+                    Provider.of<GlobalNotificationService>(context,
+                        listen: false);
+                notificationService
+                    .showSuccess('Leave request submitted successfully!');
               },
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 50),

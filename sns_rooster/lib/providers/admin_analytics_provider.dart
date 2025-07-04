@@ -156,4 +156,50 @@ class AdminAnalyticsProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<dynamic> generateReport(
+      {String? start, String? end, String format = 'pdf'}) async {
+    if (!_authProvider.isAuthenticated) return null;
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final uri =
+          Uri.parse('${ApiConfig.baseUrl}/analytics/admin/generate-report')
+              .replace(
+        queryParameters: {
+          if (start != null) 'start': start,
+          if (end != null) 'end': end,
+          'format': format,
+        },
+      );
+
+      final res = await http.get(uri, headers: {
+        'Authorization': 'Bearer ${_authProvider.token}',
+        // Don't set Content-Type for PDF requests to allow proper binary handling
+        if (format != 'pdf') 'Content-Type': 'application/json',
+      });
+
+      if (res.statusCode == 200) {
+        if (format == 'pdf') {
+          // Return the PDF bytes for download
+          return res.bodyBytes;
+        } else {
+          // Return JSON data
+          return json.decode(res.body);
+        }
+      } else {
+        _error =
+            'Failed to generate report: ${res.statusCode} ${res.reasonPhrase}';
+        throw Exception(_error);
+      }
+    } catch (e) {
+      _error = e.toString();
+      throw e;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 }

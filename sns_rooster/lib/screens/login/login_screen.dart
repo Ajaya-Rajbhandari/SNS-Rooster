@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../employee/employee_dashboard_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
+import '../../services/global_notification_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,15 +15,18 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen> with RouteAware {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
-  bool _autoFill = true;
+  bool _autoFill = false;
   final bool _autoLogin = false;
   String _selectedRole = 'admin';
+  bool _rememberMe = false;
+
+  int _failedLoginCount = 0; // Track failed login attempts
 
   // Test credentials for developer convenience
   static const String _devEmployeeEmail = 'testuser@example.com';
@@ -30,31 +34,75 @@ class _LoginScreenState extends State<LoginScreen> {
   static const String _devAdminEmail = 'admin@snsrooster.com';
   static const String _devAdminPassword = 'Admin@123';
 
-  @override
-  void initState() {
-    super.initState();
-    _updateAutoFillFields();
-  }
+  RouteObserver<ModalRoute<void>>? _routeObserver;
 
-  void _updateAutoFillFields() {
-    if (_autoFill) {
-      _emailController.text =
-          _selectedRole == 'admin' ? _devAdminEmail : _devEmployeeEmail;
-      _passwordController.text =
-          _selectedRole == 'admin' ? _devAdminPassword : _devEmployeePassword;
-      if (_autoLogin) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted) _login();
-        });
-      }
-    }
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _routeObserver =
+        Provider.of<RouteObserver<ModalRoute<void>>>(context, listen: false);
+    _routeObserver?.subscribe(this, ModalRoute.of(context)!);
   }
 
   @override
   void dispose() {
+    _routeObserver?.unsubscribe(this);
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    // Called when coming back to this screen
+    _handleScreenVisible();
+  }
+
+  @override
+  void didPush() {
+    // Called when this screen is pushed
+    _handleScreenVisible();
+  }
+
+  void _handleScreenVisible() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.savedEmail != null &&
+        authProvider.savedPassword != null &&
+        authProvider.rememberMe) {
+      _emailController.text = authProvider.savedEmail!;
+      _passwordController.text = authProvider.savedPassword!;
+      _rememberMe = true;
+    } else {
+      _emailController.clear();
+      _passwordController.clear();
+      _rememberMe = false;
+      // Debug auto-fill removed for production
+      // _updateAutoFillFields();
+    }
+    setState(() {}); // Refresh UI
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Initial fill handled in didPush
+    // Debug auto-fill removed for production
+    // _updateAutoFillFields();
+  }
+
+  void _updateAutoFillFields() {
+    // Debug auto-fill removed for production
+    // if (_autoFill) {
+    //   _emailController.text =
+    //       _selectedRole == 'admin' ? _devAdminEmail : _devEmployeeEmail;
+    //   _passwordController.text =
+    //       _selectedRole == 'admin' ? _devAdminPassword : _devEmployeePassword;
+    //   if (_autoLogin) {
+    //     Future.delayed(const Duration(milliseconds: 300), () {
+    //       if (mounted) _login();
+    //     });
+    //   }
+    // }
   }
 
   Future<void> _login() async {
@@ -73,6 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (success) {
+        _failedLoginCount = 0; // Reset on success
         log('LOGIN SCREEN: Login successful');
         // Ensure ProfileProvider is refreshed for the new user
         final profileProvider =
@@ -92,23 +141,22 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       } else {
+        _failedLoginCount++;
         log('LOGIN SCREEN: Login failed');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(authProvider.error ?? 'Login failed'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        final notificationService =
+            Provider.of<GlobalNotificationService>(context, listen: false);
+        notificationService.showError(authProvider.error ?? 'Login failed');
+        if (_failedLoginCount == 2) {
+          notificationService.showInfo(
+              'Tip: After 4 failed attempts, your account will be temporarily locked.');
+        }
       }
     } catch (e) {
       log('LOGIN SCREEN: Error during login: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('An error occurred during login'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      final notificationService =
+          Provider.of<GlobalNotificationService>(context, listen: false);
+      notificationService.showError('An error occurred during login');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -232,52 +280,38 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    if (kDebugMode) ...[
-                      DropdownButtonFormField<String>(
-                        value: _selectedRole,
-                        decoration: InputDecoration(
-                          labelText: 'Role',
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'employee',
-                            child: Text('Employee'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'admin',
-                            child: Text('Admin'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              _selectedRole = value;
-                              _updateAutoFillFields();
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      SwitchListTile(
-                        title: const Text(
-                          'Auto-fill Credentials',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                        value: _autoFill,
-                        onChanged: (value) {
-                          setState(() {
-                            _autoFill = value;
-                            _updateAutoFillFields();
-                          });
-                        },
-                      ),
-                    ],
+                    SwitchListTile(
+                      title: Text('Remember Me'),
+                      value: _rememberMe,
+                      onChanged: (val) {
+                        setState(() {
+                          _rememberMe = val;
+                        });
+                        final authProvider =
+                            Provider.of<AuthProvider>(context, listen: false);
+                        authProvider.setRememberMe(val);
+                        if (val) {
+                          // Save current credentials immediately
+                          authProvider.saveCredentials(
+                              _emailController.text, _passwordController.text);
+                        } else {
+                          // Clear saved credentials immediately
+                          authProvider.clearSavedCredentials();
+                        }
+                      },
+                    ),
                     const SizedBox(height: 24),
+                    if (_failedLoginCount >= 2 && _failedLoginCount < 4)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: Text(
+                          'Tip: After 4 failed attempts, your account will be temporarily locked.',
+                          style: TextStyle(
+                              color: Colors.orange,
+                              fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                     ElevatedButton(
                       onPressed: _isLoading ? null : _login,
                       style: ElevatedButton.styleFrom(

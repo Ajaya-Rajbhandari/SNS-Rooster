@@ -16,9 +16,6 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const adminSettingsRoutes = require('./routes/adminSettingsRoutes');
 
-// Load environment variables
-dotenv.config();
-
 const app = express();
 
 // Middleware
