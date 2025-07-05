@@ -23,6 +23,7 @@ import 'package:sns_rooster/screens/admin/company_settings_screen.dart';
 import 'package:sns_rooster/screens/admin/leave_policy_settings_screen.dart';
 import 'package:sns_rooster/screens/admin/admin_profile_screen.dart';
 import 'package:sns_rooster/screens/admin/admin_attendance_screen.dart';
+import 'package:sns_rooster/screens/auth/reset_password_screen.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
 import 'package:sns_rooster/providers/profile_provider.dart';
@@ -228,6 +229,7 @@ class MyApp extends StatelessWidget {
                   '/admin_profile': (context) => const AdminProfileScreen(),
                   '/admin_attendance': (context) =>
                       const AdminAttendanceScreen(),
+                  '/reset-password': (context) => const ResetPasswordScreen(),
                 },
                 builder: (context, child) {
                   return Stack(

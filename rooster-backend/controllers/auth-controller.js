@@ -798,10 +798,30 @@ exports.forgotPasswordNotifyAdmin = async (req, res) => {
     user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
     await user.save();
     await emailService.sendPasswordResetEmail(user, resetToken);
+    // Create global notification for admins
+    const Notification = require('../models/Notification');
+    await Notification.create({
+      user: null,
+      role: 'admin',
+      title: 'Password Reset Requested',
+      message: `User ${user.email} has requested a password reset.`,
+      type: 'info',
+      link: `/admin/employees/${user._id}`
+    });
     return res.json({ message: "A password reset link has been sent to your email." });
   }
 
   // Notify admin
   await emailService.sendAdminForgotPasswordNotification(user);
+  // Create global notification for admins
+  const Notification = require('../models/Notification');
+  await Notification.create({
+    user: null,
+    role: 'admin',
+    title: 'Password Reset Requested',
+    message: `User ${user.email} has requested a password reset.`,
+    type: 'info',
+    link: `/admin/employees/${user._id}`
+  });
   res.json({ message: "The admin has been notified. They will contact you with a new password." });
 };
