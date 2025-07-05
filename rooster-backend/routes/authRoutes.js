@@ -53,4 +53,7 @@ router.get('/users/:id/profile', auth, authController.getUserById);
 // Add route to toggle user active status (admin only)
 router.patch('/users/:id', auth, authController.toggleUserActive);
 
+// Forgot password route (notifies admin or sends reset link to admin users)
+router.post("/forgot-password", authController.forgotPasswordNotifyAdmin);
+
 module.exports = router;

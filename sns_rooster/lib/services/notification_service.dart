@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:sns_rooster/config/api_config.dart';
+import '../../config/api_config.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 
 class NotificationService {

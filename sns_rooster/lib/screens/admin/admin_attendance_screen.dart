@@ -221,7 +221,7 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
       final attendanceProvider =
           Provider.of<AttendanceProvider>(context, listen: false);
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/attendance/break-types'),
+        Uri.parse('${ApiConfig.baseUrl}/api/attendance/break-types'),
         headers: {
           'Authorization':
               'Bearer ${Provider.of<AuthProvider>(context, listen: false).token}',

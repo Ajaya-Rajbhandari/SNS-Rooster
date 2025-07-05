@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
-import '../config/api_config.dart';
+import '../../config/api_config.dart';
 import '../providers/auth_provider.dart';
 
 class CompanySettingsService {
@@ -12,7 +12,7 @@ class CompanySettingsService {
 
   Future<Map<String, dynamic>?> fetchSettings() async {
     if (!_authProvider.isAuthenticated) return null;
-    final uri = Uri.parse('${ApiConfig.baseUrl}/admin/settings/company');
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/admin/settings/company');
     final res = await http.get(uri, headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ${_authProvider.token}',
@@ -25,7 +25,7 @@ class CompanySettingsService {
 
   Future<void> saveSettings(Map<String, dynamic> data) async {
     if (!_authProvider.isAuthenticated) return;
-    final uri = Uri.parse('${ApiConfig.baseUrl}/admin/settings/company');
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/admin/settings/company');
     final res = await http.put(uri,
         headers: {
           'Content-Type': 'application/json',
@@ -43,7 +43,8 @@ class CompanySettingsService {
       throw Exception('Not authenticated');
     }
 
-    final uri = Uri.parse('${ApiConfig.baseUrl}/admin/settings/company/logo');
+    final uri =
+        Uri.parse('${ApiConfig.baseUrl}/api/admin/settings/company/logo');
 
     var request = http.MultipartRequest('POST', uri);
     request.headers['Authorization'] = 'Bearer ${_authProvider.token}';

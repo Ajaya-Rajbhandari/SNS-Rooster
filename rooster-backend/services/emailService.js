@@ -197,6 +197,14 @@ class EmailService {
     return this.sendEmail(user.email, subject, htmlContent);
   }
 
+  // Notify admin of user password reset request
+  async sendAdminForgotPasswordNotification(user) {
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@yourcompany.com';
+    const subject = `Password Reset Requested for ${user.email}`;
+    const htmlContent = `<p>User <strong>${user.email}</strong> has requested a password reset.</p><p>Please log in to the admin panel to reset their password and notify them of the new credentials.</p>`;
+    return this.sendEmail(adminEmail, subject, htmlContent);
+  }
+
   // Email Templates
   getEmailVerificationTemplate(user, verificationUrl) {
     return `

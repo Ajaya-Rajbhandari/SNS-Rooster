@@ -1,4 +1,5 @@
 ﻿import 'dart:convert';
+import 'dart:typed_data';
 import 'package:sns_rooster/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -283,6 +284,41 @@ class ProfileProvider with ChangeNotifier {
       }
     } catch (e) {
       log('Error during document upload: $e');
+      _error = 'An error occurred during upload';
+      return false;
+    }
+  }
+
+  Future<bool> uploadDocumentWeb(
+      Uint8List fileBytes, String fileName, String documentType) async {
+    _error = null;
+    if (!_authProvider.isAuthenticated || _authProvider.token == null) {
+      _error = 'User not authenticated';
+      return false;
+    }
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${ApiConfig.baseUrl}/auth/upload-document'),
+      );
+      request.headers['Authorization'] = 'Bearer ${_authProvider.token}';
+      request.fields['documentType'] = documentType;
+      request.files.add(
+          http.MultipartFile.fromBytes('file', fileBytes, filename: fileName));
+      final response = await request.send();
+      if (response.statusCode == 200) {
+        final responseBody = await response.stream.bytesToString();
+        final data = json.decode(responseBody);
+        log('Upload successful: $data');
+        await _fetchProfileInBackground();
+        return true;
+      } else {
+        log('Upload failed with status code: [31m${response.statusCode}[0m');
+        _error = 'Failed to upload document';
+        return false;
+      }
+    } catch (e) {
+      log('Error during document upload (web): $e');
       _error = 'An error occurred during upload';
       return false;
     }

@@ -2,7 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPre
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:sns_rooster/models/user_model.dart';
-import 'package:sns_rooster/config/api_config.dart'; // Import ApiConfig
+import '../../config/api_config.dart'; // Import ApiConfig
 
 class UserService {
   // Use ApiConfig.baseUrl
