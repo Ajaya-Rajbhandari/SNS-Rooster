@@ -326,20 +326,14 @@ class EmailService {
             <div class="content">
                 <h2>Hello ${user.firstName},</h2>
                 <p>Welcome to the SNS Rooster HR System! Your account has been successfully created by your administrator.</p>
-                
-                ${tempPassword ? `
                 <div class="credentials">
                     <h3>Your Login Credentials:</h3>
                     <p><strong>Email:</strong> ${user.email}</p>
-                    <p><strong>Temporary Password:</strong> ${tempPassword}</p>
-                    <p><em>Please change your password after first login for security.</em></p>
+                    <p><strong>Password:</strong> ${tempPassword || '[Set by admin]'}</p>
+                    <p><em><strong>Important:</strong> Please change your password after your first login for security.</em></p>
                 </div>
-                ` : ''}
-                
                 <p>Before you can access the system, please verify your email address and complete your profile.</p>
-                
                 <a href="${loginUrl}" class="button">Access HR System</a>
-                
                 <h3>What's Next?</h3>
                 <ol>
                     <li>Verify your email address (check for a separate verification email)</li>
@@ -347,7 +341,6 @@ class EmailService {
                     <li>Complete your employee profile</li>
                     <li>Set up your preferences</li>
                 </ol>
-                
                 <p>If you have any questions, please contact your HR administrator.</p>
             </div>
             <div class="footer">
