@@ -1,6 +1,6 @@
 ﻿import 'package:http/http.dart' as http;
 import 'package:sns_rooster/utils/logger.dart';
-import '../config/api_config.dart';
+import '../../config/api_config.dart';
 
 /// Dynamic API Service that automatically detects and uses the correct IP address
 /// for connecting to the backend server without manual configuration.

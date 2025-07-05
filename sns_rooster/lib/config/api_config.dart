@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:sns_rooster/utils/logger.dart';
 
 /// API Configuration for SNS Rooster App
@@ -10,7 +10,7 @@ class ApiConfig {
   // Network Configuration - Update these IPs based on your setup
   static const String homeIP =
       '10.0.2.2'; // Android emulator maps to host localhost
-  static const String fallbackIP = '192.168.1.80';
+  static const String fallbackIP = '192.168.1.68';
   // '192.168.1.68'; // Actual machine IP as fallback (updated to current IP)
   static const String officeIP =
       '10.0.0.45'; // Your office network IP (update this!)
@@ -19,14 +19,14 @@ class ApiConfig {
   /// Get the appropriate base URL based on platform and environment
   static String get baseUrl {
     if (kIsWeb) {
-      // For web, use relative path (assumes backend is served from same domain)
-      return '';
+      // For web, use the deployed backend URL
+      return 'https://sns-rooster.onrender.com/api';
     } else if (Platform.isAndroid) {
       // Android emulator
-      return 'http://10.0.2.2:5000';
+      return 'http://10.0.2.2:5000/api';
     } else {
       // iOS simulator, desktop, etc.
-      return 'http://localhost:5000';
+      return 'http://localhost:5000/api';
     }
   }
 

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:sns_rooster/providers/auth_provider.dart';
-import '../config/api_config.dart';
+import '../../config/api_config.dart';
 
 class EmployeeService {
   final AuthProvider authProvider;

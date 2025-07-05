@@ -783,3 +783,25 @@ exports.toggleUserActive = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+exports.forgotPasswordNotifyAdmin = async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+  if (!user) {
+    return res.json({ message: "If your email is registered, the admin will be notified." });
+  }
+
+  if (user.role === 'admin') {
+    // Standard admin reset: send reset link to admin's email
+    const resetToken = require('crypto').randomBytes(32).toString('hex');
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    await user.save();
+    await emailService.sendPasswordResetEmail(user, resetToken);
+    return res.json({ message: "A password reset link has been sent to your email." });
+  }
+
+  // Notify admin
+  await emailService.sendAdminForgotPasswordNotification(user);
+  res.json({ message: "The admin has been notified. They will contact you with a new password." });
+};

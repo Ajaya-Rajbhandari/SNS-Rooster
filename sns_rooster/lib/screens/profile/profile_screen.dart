@@ -12,6 +12,8 @@ import '../../providers/admin_settings_provider.dart';
 import '../../widgets/admin_side_navigation.dart';
 import 'package:flutter/services.dart';
 import 'package:sns_rooster/services/global_notification_service.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 void showDocumentDialog(BuildContext context, String? url) {
   if (url == null || url.isEmpty) return;
@@ -162,20 +164,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       log('Attempting to upload $documentType');
 
-      // File picking logic
-      final picker = ImagePicker();
-      final XFile? file = await picker.pickImage(source: ImageSource.gallery);
+      // File picking logic (cross-platform)
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'png', 'doc', 'docx'],
+      );
 
-      if (file == null) {
+      if (result == null) {
         log('No file selected.');
         GlobalNotificationService().showError('No file selected.');
         return;
       }
 
-      log('File selected: ${file.path}');
+      final file = result.files.first;
+      log('File selected: ${file.name}');
 
       // File size validation
-      final fileSize = await file.length();
+      final fileSize = file.size;
       if (fileSize > 5 * 1024 * 1024) {
         log('File size exceeds limit.');
         GlobalNotificationService()
@@ -183,15 +188,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
-      // Upload logic
       setState(() {
         _isLoading = true;
       });
 
       final profileProvider =
           Provider.of<ProfileProvider>(context, listen: false);
-      final success =
-          await profileProvider.uploadDocument(file.path, documentType);
+      bool success = false;
+      if (kIsWeb) {
+        // On web, upload using bytes
+        success = await profileProvider.uploadDocumentWeb(
+            file.bytes!, file.name, documentType);
+      } else {
+        // On mobile/desktop, upload using file path
+        success =
+            await profileProvider.uploadDocument(file.path!, documentType);
+      }
 
       setState(() {
         _isLoading = false;
@@ -199,7 +211,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (success) {
         log('Document uploaded successfully.');
-        // Refresh profile data to update UI with new document
         await profileProvider.refreshProfile();
         GlobalNotificationService()
             .showSuccess('Document uploaded successfully!');
