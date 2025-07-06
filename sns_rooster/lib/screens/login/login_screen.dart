@@ -181,165 +181,199 @@ class _LoginScreenState extends State<LoginScreen> with RouteAware {
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Image.asset(
-                      'assets/images/logo.png',
-                      width: 120,
-                      height: 120,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth >= 900) {
+                // Desktop: Centered, constrained width
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: _buildLoginForm(theme),
+                  ),
+                );
+              } else {
+                // Mobile/tablet: Full width with padding
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(24.0),
+                  child: _buildLoginForm(theme),
+                );
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoginForm(ThemeData theme) {
+    return Card(
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+      ),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 36),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Image.asset(
+                'assets/images/logo.png',
+                width: 120,
+                height: 120,
+              ),
+              const SizedBox(height: 32),
+              Text(
+                'Welcome Back',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.primary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Sign in to continue',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: Colors.black54,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              TextFormField(
+                controller: _emailController,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: const Icon(Icons.email),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your email';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _passwordController,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  prefixIcon: const Icon(Icons.lock),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
                     ),
-                    const SizedBox(height: 32),
-                    Text(
-                      'Welcome Back',
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                      textAlign: TextAlign.center,
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                obscureText: _obscurePassword,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your password';
+                  }
+                  return null;
+                },
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/forgot_password');
+                  },
+                  child: Text(
+                    'Forgot Password?',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.primary,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Sign in to continue',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: Colors.white70,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 32),
-                    TextFormField(
-                      controller: _emailController,
-                      decoration: InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: const Icon(Icons.email),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your email';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passwordController,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: const Icon(Icons.lock),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      obscureText: _obscurePassword,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your password';
-                        }
-                        return null;
-                      },
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/forgot_password');
-                        },
-                        child: Text(
-                          'Forgot Password?',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    SwitchListTile(
-                      title: const Text('Remember Me'),
-                      value: _rememberMe,
-                      onChanged: (val) {
-                        setState(() {
-                          _rememberMe = val;
-                        });
-                        final authProvider =
-                            Provider.of<AuthProvider>(context, listen: false);
-                        authProvider.setRememberMe(val);
-                        if (val) {
-                          // Save current credentials immediately
-                          authProvider.saveCredentials(
-                              _emailController.text, _passwordController.text);
-                        } else {
-                          // Clear saved credentials immediately
-                          authProvider.clearSavedCredentials();
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    if (_failedLoginCount >= 2 && _failedLoginCount < 4)
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 12.0),
-                        child: Text(
-                          'Tip: After 4 failed attempts, your account will be temporarily locked.',
-                          style: TextStyle(
-                              color: Colors.orange,
-                              fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ElevatedButton(
-                      onPressed: _isLoading ? null : _login,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: theme.colorScheme.secondary,
-                        foregroundColor: Colors.black,
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.black),
-                              ),
-                            )
-                          : const Text(
-                              'Login',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(height: 24),
+              SwitchListTile(
+                title: Text(
+                  'Remember Me',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: Colors.black87,
+                  ),
+                ),
+                value: _rememberMe,
+                onChanged: (val) {
+                  setState(() {
+                    _rememberMe = val;
+                  });
+                  final authProvider =
+                      Provider.of<AuthProvider>(context, listen: false);
+                  authProvider.setRememberMe(val);
+                  if (val) {
+                    // Save current credentials immediately
+                    authProvider.saveCredentials(
+                        _emailController.text, _passwordController.text);
+                  } else {
+                    // Clear saved credentials immediately
+                    authProvider.clearSavedCredentials();
+                  }
+                },
+                activeColor: theme.colorScheme.primary,
+                contentPadding: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 24),
+              if (_failedLoginCount >= 2 && _failedLoginCount < 4)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12.0),
+                  child: Text(
+                    'Tip: After 4 failed attempts, your account will be temporarily locked.',
+                    style: TextStyle(
+                        color: Colors.orange, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _login,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text(
+                        'Login',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+            ],
           ),
         ),
       ),

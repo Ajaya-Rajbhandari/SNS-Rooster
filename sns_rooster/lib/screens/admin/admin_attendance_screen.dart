@@ -221,7 +221,7 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
       final attendanceProvider =
           Provider.of<AttendanceProvider>(context, listen: false);
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/attendance/break-types'),
+        Uri.parse('${ApiConfig.baseUrl}/attendance/break-types'),
         headers: {
           'Authorization':
               'Bearer ${Provider.of<AuthProvider>(context, listen: false).token}',
@@ -311,7 +311,9 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
           Provider.of<AttendanceProvider>(context, listen: false);
       await attendanceProvider.endBreak(userId);
       setState(() {
-        _currentBreakType = null;
+        _isOnBreak = false;
+        _breakStartTime = null;
+        _breakDuration = Duration.zero;
       });
       await _loadCurrentStatus();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -360,372 +362,396 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
         drawer: const AdminSideNavigation(currentRoute: '/admin_attendance'),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Profile Avatar & Greeting
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor: Colors.white,
-                          backgroundImage:
-                              (avatarUrl != null && avatarUrl.isNotEmpty)
-                                  ? _getAvatarProvider(avatarUrl)
-                                  : null,
-                          child: (avatarUrl == null || avatarUrl.isEmpty)
-                              ? const Icon(Icons.person,
-                                  size: 32, color: Colors.blue)
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth >= 1200) {
+                    // Desktop mode: center and constrain width
+                    return Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1100),
+                        child: _buildMainContent(),
+                      ),
+                    );
+                  } else {
+                    // Mobile/tablet mode: full width
+                    return _buildMainContent();
+                  }
+                },
+              ),
+      ),
+    );
+  }
+
+  Widget _buildMainContent() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final user = authProvider.user;
+    final avatarUrl = user?['avatar'] as String?;
+    final name = user?['firstName'] ?? 'Admin';
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Profile Avatar & Greeting
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: Colors.white,
+                backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
+                    ? _getAvatarProvider(avatarUrl)
+                    : null,
+                child: (avatarUrl == null || avatarUrl.isEmpty)
+                    ? const Icon(Icons.person, size: 32, color: Colors.blue)
+                    : null,
+              ),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Hello, $name!',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Welcome back',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white.withOpacity(0.85),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          // Quick Actions (moved to top)
+          Card(
+            elevation: 8,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  const Text(
+                    'Quick Actions',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _currentStatus == 'Not Clocked In'
+                              ? _clockIn
                               : null,
-                        ),
-                        const SizedBox(width: 16),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Hello, $name!',
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Welcome back',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.white.withOpacity(0.85),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    // Quick Actions (moved to top)
-                    Card(
-                      elevation: 8,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20)),
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          children: [
-                            const Text(
-                              'Quick Actions',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    onPressed:
-                                        _currentStatus == 'Not Clocked In'
-                                            ? _clockIn
-                                            : null,
-                                    icon: const Icon(Icons.login),
-                                    label: const Text('Clock In'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 16),
-                                      textStyle: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold),
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12)),
-                                      elevation: 4,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    onPressed: _currentStatus == 'Clocked In'
-                                        ? _clockOut
-                                        : null,
-                                    icon: const Icon(Icons.logout),
-                                    label: const Text('Clock Out'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 16),
-                                      textStyle: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold),
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12)),
-                                      elevation: 4,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (_currentStatus == 'Clocked In' &&
-                                !_isOnBreak) ...[
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: _startBreak,
-                                  icon: const Icon(Icons.coffee),
-                                  label: const Text('Start Break'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.orange,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 16),
-                                    textStyle: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12)),
-                                    elevation: 4,
-                                  ),
-                                ),
-                              ),
-                            ],
-                            if (_isOnBreak) ...[
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: _endBreak,
-                                  icon: const Icon(Icons.stop),
-                                  label: const Text('End Break'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.purple,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 16),
-                                    textStyle: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12)),
-                                    elevation: 4,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
+                          icon: const Icon(Icons.login),
+                          label: const Text('Clock In'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            textStyle: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            elevation: 4,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    // Live Clock
-                    Card(
-                      elevation: 8,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20)),
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          children: [
-                            const Text(
-                              'Current Time',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            ScaleTransition(
-                              scale: _clockAnimation,
-                              child: Text(
-                                DateFormat('HH:mm:ss').format(_currentTime),
-                                style: const TextStyle(
-                                  fontSize: 38,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1976D2),
-                                  letterSpacing: 2,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              DateFormat('EEEE, MMMM d, yyyy')
-                                  .format(_currentTime),
-                              style: const TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    // Status Card
-                    Card(
-                      elevation: 8,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20)),
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          children: [
-                            const Text(
-                              'Current Status',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 20, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: _getStatusColor().withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(_getStatusIcon(),
-                                      color: _getStatusColor(), size: 22),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    _currentStatus,
-                                    style: TextStyle(
-                                      color: _getStatusColor(),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    // Today's Time
-                    Card(
-                      elevation: 8,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20)),
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          children: [
-                            const Text(
-                              "Today's Time",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 15),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: [
-                                _buildTimeDisplay('Clock In', _clockInTime,
-                                    icon: Icons.login, color: Colors.green),
-                                _buildTimeDisplay('Clock Out', _clockOutTime,
-                                    icon: Icons.logout, color: Colors.red),
-                              ],
-                            ),
-                            const SizedBox(height: 15),
-                            _buildTimeDisplay('Total Work Time', null,
-                                customText: _formatDuration(_totalWorkTime),
-                                icon: Icons.access_time,
-                                color: Colors.blue),
-                            if (_isOnBreak) ...[
-                              const SizedBox(height: 15),
-                              _buildBreakInfo(),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    // Weekly Summary Card
-                    if (_weeklyStats != null) ...[
-                      Card(
-                        elevation: 8,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20)),
-                        margin: const EdgeInsets.symmetric(vertical: 6),
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            children: [
-                              const Text(
-                                'This Week Summary',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 15),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceAround,
-                                children: [
-                                  _buildStatCard(
-                                      'Days Present',
-                                      _weeklyStats!['daysPresent']
-                                              ?.toString() ??
-                                          '0',
-                                      Icons.check_circle,
-                                      Colors.green),
-                                  _buildStatCard(
-                                      'Total Hours',
-                                      _formatDurationFromMinutes(
-                                          _weeklyStats!['totalHours'] ?? 0),
-                                      Icons.access_time,
-                                      Colors.blue),
-                                ],
-                              ),
-                              const SizedBox(height: 15),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceAround,
-                                children: [
-                                  _buildStatCard(
-                                      'Avg. Hours/Day',
-                                      _formatDurationFromMinutes(
-                                          _weeklyStats!['averageHoursPerDay'] ??
-                                              0),
-                                      Icons.trending_up,
-                                      Colors.orange),
-                                  _buildStatCard(
-                                      'Break Time',
-                                      _formatDurationFromMinutes(
-                                          _weeklyStats!['totalBreakTime'] ?? 0),
-                                      Icons.coffee,
-                                      Colors.purple),
-                                ],
-                              ),
-                            ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed:
+                              _currentStatus == 'Clocked In' ? _clockOut : null,
+                          icon: const Icon(Icons.logout),
+                          label: const Text('Clock Out'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            textStyle: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            elevation: 4,
                           ),
                         ),
                       ),
                     ],
-                    const SizedBox(height: 10),
+                  ),
+                  if (_currentStatus == 'Clocked In' && !_isOnBreak) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _startBreak,
+                        icon: const Icon(Icons.coffee),
+                        label: const Text('Start Break'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          textStyle: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          elevation: 4,
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (_isOnBreak) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _endBreak,
+                        icon: const Icon(Icons.stop),
+                        label: const Text('End Break'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.purple,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          textStyle: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          elevation: 4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Live Clock
+          Card(
+            elevation: 8,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  const Text(
+                    'Current Time',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ScaleTransition(
+                    scale: _clockAnimation,
+                    child: Text(
+                      DateFormat('HH:mm:ss').format(_currentTime),
+                      style: const TextStyle(
+                        fontSize: 38,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1976D2),
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    DateFormat('EEEE, MMMM d, yyyy').format(_currentTime),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Status Card
+          Card(
+            elevation: 8,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  const Text(
+                    'Current Status',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor().withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_getStatusIcon(),
+                            color: _getStatusColor(), size: 22),
+                        const SizedBox(width: 8),
+                        Text(
+                          _currentStatus,
+                          style: TextStyle(
+                            color: _getStatusColor(),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        if (_isOnBreak && _breakStartTime != null) ...[
+                          const SizedBox(width: 16),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Break started at: ' +
+                                    DateFormat('HH:mm')
+                                        .format(_breakStartTime!.toLocal()),
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              Text(
+                                'Break duration: ' +
+                                    _formatDuration(_breakDuration),
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Today's Time
+          Card(
+            elevation: 8,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  const Text(
+                    "Today's Time",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildTimeDisplay('Clock In', _clockInTime,
+                          icon: Icons.login, color: Colors.green),
+                      _buildTimeDisplay('Clock Out', _clockOutTime,
+                          icon: Icons.logout, color: Colors.red),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  _buildTimeDisplay('Total Work Time', null,
+                      customText: _formatDuration(_totalWorkTime),
+                      icon: Icons.access_time,
+                      color: Colors.blue),
+                  if (_isOnBreak) ...[
+                    const SizedBox(height: 15),
+                    _buildBreakInfo(),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Weekly Summary Card
+          if (_weeklyStats != null) ...[
+            Card(
+              elevation: 8,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  children: [
+                    const Text(
+                      'This Week Summary',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatCard(
+                            'Days Present',
+                            _weeklyStats!['daysPresent']?.toString() ?? '0',
+                            Icons.check_circle,
+                            Colors.green),
+                        _buildStatCard(
+                            'Total Hours',
+                            _formatDurationFromMinutes(
+                                _weeklyStats!['totalHours'] ?? 0),
+                            Icons.access_time,
+                            Colors.blue),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatCard(
+                            'Avg. Hours/Day',
+                            _formatDurationFromMinutes(
+                                _weeklyStats!['averageHoursPerDay'] ?? 0),
+                            Icons.trending_up,
+                            Colors.orange),
+                        _buildStatCard(
+                            'Break Time',
+                            _formatDurationFromMinutes(
+                                _weeklyStats!['totalBreakTime'] ?? 0),
+                            Icons.coffee,
+                            Colors.purple),
+                      ],
+                    ),
                   ],
                 ),
               ),
+            ),
+          ],
+          const SizedBox(height: 10),
+        ],
       ),
     );
   }
@@ -752,7 +778,9 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
         const SizedBox(height: 5),
         Text(
           customText ??
-              (time != null ? DateFormat('HH:mm').format(time) : '--:--'),
+              (time != null
+                  ? DateFormat('HH:mm').format(time.toLocal())
+                  : '--:--'),
           style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,

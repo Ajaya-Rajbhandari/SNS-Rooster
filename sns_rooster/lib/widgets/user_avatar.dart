@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart'; // Added import
 import 'package:flutter/material.dart';
 import '../config/api_config.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class UserAvatar extends StatelessWidget {
   final String? avatarUrl;
@@ -32,7 +33,12 @@ class UserAvatar extends StatelessWidget {
         errorWidget: (context, url, error) => CircleAvatar(
           radius: radius,
           backgroundColor: Colors.grey[200],
-          child: Icon(Icons.person, size: radius, color: Colors.grey[400]),
+          child: SvgPicture.asset(
+            'assets/images/default-avatar.png',
+            width: radius * 2,
+            height: radius * 2,
+            fit: BoxFit.cover,
+          ),
         ),
         imageBuilder: (context, imageProvider) => CircleAvatar(
           radius: radius,
