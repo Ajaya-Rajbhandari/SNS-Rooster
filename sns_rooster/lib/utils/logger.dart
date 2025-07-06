@@ -6,3 +6,9 @@ void log(Object? message) {
     debugPrint(message.toString());
   }
 }
+
+class Logger {
+  static void info(Object? message) => log('[INFO] $message');
+  static void warning(Object? message) => log('[WARNING] $message');
+  static void error(Object? message) => log('[ERROR] $message');
+}
