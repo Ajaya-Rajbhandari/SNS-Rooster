@@ -53,12 +53,7 @@ class AppDrawer extends StatelessWidget {
         builder: (context, profileProvider, child) {
           final profile = profileProvider.profile;
           final avatarPath = profile?['avatar'] ?? profile?['profilePicture'];
-          var avatarUrl = avatarPath != null
-              ? '${ApiConfig.baseUrl}$avatarPath'
-              : '${ApiConfig.baseUrl}/uploads/avatars/default-avatar.png';
-          if (avatarUrl.contains('/api/uploads/')) {
-            avatarUrl = avatarUrl.replaceFirst('/api/uploads/', '/uploads/');
-          }
+          var avatarUrl = avatarPath ?? '/uploads/avatars/default-avatar.png';
           log('APP_DRAWER: avatarUrl = $avatarUrl');
           return ListView(
             padding: EdgeInsets.zero,
