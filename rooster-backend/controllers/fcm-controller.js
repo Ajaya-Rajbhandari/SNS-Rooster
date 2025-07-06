@@ -2,30 +2,17 @@ const FCMToken = require('../models/FCMToken');
 const User = require('../models/User');
 const admin = require('firebase-admin');
 
-// Initialize Firebase Admin SDK
+// Use the secret file for service account credentials (Render/secure cloud setup)
 let firebaseApp;
 try {
   // Check if Firebase is already initialized
   firebaseApp = admin.app();
 } catch (error) {
-  // Initialize Firebase Admin SDK
-  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    // Use environment variable (for cloud deployment)
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    firebaseApp = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-  } else {
-    // Use local file (for development)
-    try {
-      const serviceAccount = require('../serviceAccountKey.json');
-      firebaseApp = admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-      });
-    } catch (fileError) {
-      console.warn('Firebase Admin SDK not initialized - service account not found');
-    }
-  }
+  // Use the secret file path
+  const serviceAccount = require('/etc/secrets/serviceAccountKey.json');
+  firebaseApp = admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
 }
 
 // Save FCM token for a user
