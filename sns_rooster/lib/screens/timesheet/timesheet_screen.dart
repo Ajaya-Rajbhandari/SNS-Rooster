@@ -558,7 +558,15 @@ class _TimesheetScreenState extends State<TimesheetScreen>
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final isAdmin = authProvider.user?['role'] == 'admin';
+    final user = authProvider.user;
+    if (user == null) {
+      // Not logged in, show fallback or redirect
+      return Scaffold(
+        body: Center(child: Text('Not logged in. Please log in.')),
+      );
+    }
+    final userId = user['_id']?.toString() ?? user['id']?.toString();
+    final isAdmin = user['role'] == 'admin';
     if (isAdmin) {
       return Scaffold(
         appBar: AppBar(title: const Text('Timesheet')),
@@ -909,8 +917,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
           ),
         ),
       ),
-      floatingActionButton: (authProvider.user != null &&
-              authProvider.user!['role'] == 'admin')
+      floatingActionButton: (user != null && user['role'] == 'admin')
           ? FloatingActionButton.extended(
               onPressed: () {
                 showModalBottomSheet<Map<String, dynamic>>(

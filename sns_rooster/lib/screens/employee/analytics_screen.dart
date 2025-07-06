@@ -64,7 +64,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final isAdmin = authProvider.user?['role'] == 'admin';
+    final user = authProvider.user;
+    if (user == null) {
+      // Not logged in, show fallback or redirect
+      return Scaffold(
+        body: Center(child: Text('Not logged in. Please log in.')),
+      );
+    }
+    final isAdmin = user['role'] == 'admin';
     if (isAdmin) {
       // Directly show admin analytics screen for admins
       return const AdminAnalyticsScreen();
@@ -104,9 +111,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 analyticsProvider.attendanceData;
             final List<double> workHours = analyticsProvider.workHoursData;
 
-            final int _totalPresent = attendance['Present'] ?? 0;
-            final int _totalAbsent = attendance['Absent'] ?? 0;
-            final int _totalLeave = attendance['Leave'] ?? 0;
+            final int totalPresent = attendance['Present'] ?? 0;
+            final int totalAbsent = attendance['Absent'] ?? 0;
+            final int totalLeave = attendance['Leave'] ?? 0;
 
             final int longestStreak = analyticsProvider.longestStreak;
             final String mostProductiveDay =

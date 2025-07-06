@@ -241,19 +241,16 @@ class AuthProvider with ChangeNotifier {
         // --- Ensure profile is refreshed after login ---
         if (_profileProvider != null) {
           log('LOGIN_DEBUG: Refreshing profile after login');
-          await _profileProvider!.fetchProfile();
-        } else {
-          log('LOGIN_DEBUG: ProfileProvider is not set, cannot refresh profile');
-        }
-        // --- Wait for profile to be loaded before returning ---
-        if (_profileProvider != null) {
+          await _profileProvider?.fetchProfile();
           int tries = 0;
-          while ((_profileProvider!.profile == null ||
-                  _profileProvider!.isLoading) &&
+          while (((_profileProvider?.profile == null ||
+                  _profileProvider?.isLoading == true)) &&
               tries < 20) {
             await Future.delayed(const Duration(milliseconds: 100));
             tries++;
           }
+        } else {
+          log('LOGIN_DEBUG: ProfileProvider is not set, cannot refresh profile');
         }
         return true;
       } else {
@@ -339,7 +336,7 @@ class AuthProvider with ChangeNotifier {
 
       if (_profileProvider != null) {
         log('DEBUG: Clearing profile via ProfileProvider');
-        await _profileProvider!.clearProfile();
+        await _profileProvider?.clearProfile();
       } else {
         log('DEBUG: ProfileProvider is not set');
       }
@@ -365,9 +362,7 @@ class AuthProvider with ChangeNotifier {
         log('DEBUG: Navigated to login screen');
       } else {
         log('ERROR: navigatorKey.currentContext is null, unable to navigate');
-        // Fallback: Restart the app or log the error
-        log('FALLBACK: Restarting app due to navigation failure');
-        runApp(const MyApp());
+        // Fallback: Log the error, do not restart the app
       }
     });
 

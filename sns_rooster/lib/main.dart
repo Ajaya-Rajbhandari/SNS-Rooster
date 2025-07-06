@@ -47,8 +47,12 @@ import 'package:sns_rooster/services/employee_service.dart';
 import 'package:sns_rooster/services/notification_service.dart';
 import 'package:sns_rooster/services/global_notification_service.dart';
 import 'package:sns_rooster/widgets/global_notification_banner.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'web_url_strategy_stub.dart'
+    if (dart.library.html) 'web_url_strategy.dart';
 
 void main() {
+  setWebUrlStrategy();
   log('MAIN: Initializing navigatorKey');
   log('MAIN: Starting MyApp with AuthProvider');
   runApp(const MyApp());
@@ -192,14 +196,15 @@ class MyApp extends StatelessWidget {
                 darkTheme: darkTheme,
                 themeMode: (authProvider.isAuthenticated &&
                         authProvider.user?['role'] == 'admin' &&
-                        adminSettings.darkModeEnabled)
+                        (adminSettings.darkModeEnabled ?? false))
                     ? ThemeMode.dark
                     : ThemeMode.light,
                 navigatorObservers: [
                   Provider.of<RouteObserver<ModalRoute<void>>>(context)
                 ],
-                initialRoute: '/splash',
+                // initialRoute: '/splash',
                 routes: {
+                  '/': (context) => const SplashScreen(),
                   '/splash': (context) => const SplashScreen(),
                   '/login': (context) => const LoginScreen(),
                   '/admin_dashboard': (context) => const AdminDashboardScreen(),
@@ -234,9 +239,10 @@ class MyApp extends StatelessWidget {
                   '/verify-email': (context) => const VerifyEmailScreen(),
                 },
                 builder: (context, child) {
+                  if (child == null) return const SizedBox.shrink();
                   return Stack(
                     children: [
-                      child!,
+                      child,
                       const GlobalNotificationBanner(),
                     ],
                   );

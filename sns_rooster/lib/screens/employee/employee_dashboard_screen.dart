@@ -389,8 +389,16 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final isAdmin = authProvider.user?['role'] == 'admin';
+    final authProvider = context.read<AuthProvider>();
+    final user = authProvider.user;
+    if (user == null) {
+      // Not logged in, show fallback or redirect
+      return Scaffold(
+        body: Center(child: Text('Not logged in. Please log in.')),
+      );
+    }
+    final uid = user['_id'] as String;
+    final isAdmin = user['role'] == 'admin';
     if (isAdmin) {
       return Scaffold(
         appBar: AppBar(title: const Text('Employee Dashboard')),

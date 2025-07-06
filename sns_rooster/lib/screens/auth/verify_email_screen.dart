@@ -18,6 +18,9 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   @override
   void initState() {
     super.initState();
+    final uri = Uri.base;
+    print('VerifyEmailScreen: uri = $uri');
+    print('VerifyEmailScreen: token = ${uri.queryParameters['token']}');
     _verifyEmail();
   }
 
