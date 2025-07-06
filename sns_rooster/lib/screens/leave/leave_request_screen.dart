@@ -237,7 +237,14 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final isAdmin = authProvider.user?['role'] == 'admin';
+    final user = authProvider.user;
+    if (user == null) {
+      // Not logged in, show fallback or redirect
+      return Scaffold(
+        body: Center(child: Text('Not logged in. Please log in.')),
+      );
+    }
+    final isAdmin = user['role'] == 'admin';
     if (isAdmin) {
       return Scaffold(
         appBar: AppBar(title: const Text('Leave Request')),
@@ -610,14 +617,14 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
             ),
             const SizedBox(height: 8),
             // Status legend
-            Row(
+            const Row(
               children: [
                 _StatusLegend(color: Colors.green, label: 'Approved'),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 _StatusLegend(color: Colors.orange, label: 'Pending'),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 _StatusLegend(color: Colors.red, label: 'Rejected'),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 _StatusLegend(color: Colors.grey, label: 'Other'),
               ],
             ),
@@ -742,7 +749,7 @@ class _StatusLegend extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: 12)),
+        Text(label, style: const TextStyle(fontSize: 12)),
       ],
     );
   }

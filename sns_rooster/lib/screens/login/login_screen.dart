@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:sns_rooster/utils/logger.dart';
-import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
@@ -21,9 +20,9 @@ class _LoginScreenState extends State<LoginScreen> with RouteAware {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
-  bool _autoFill = false;
+  final bool _autoFill = false;
   final bool _autoLogin = false;
-  String _selectedRole = 'admin';
+  final String _selectedRole = 'admin';
   bool _rememberMe = false;
 
   int _failedLoginCount = 0; // Track failed login attempts
@@ -281,7 +280,7 @@ class _LoginScreenState extends State<LoginScreen> with RouteAware {
                     ),
                     const SizedBox(height: 24),
                     SwitchListTile(
-                      title: Text('Remember Me'),
+                      title: const Text('Remember Me'),
                       value: _rememberMe,
                       onChanged: (val) {
                         setState(() {
@@ -302,8 +301,8 @@ class _LoginScreenState extends State<LoginScreen> with RouteAware {
                     ),
                     const SizedBox(height: 24),
                     if (_failedLoginCount >= 2 && _failedLoginCount < 4)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12.0),
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 12.0),
                         child: Text(
                           'Tip: After 4 failed attempts, your account will be temporarily locked.',
                           style: TextStyle(

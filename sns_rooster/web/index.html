@@ -33,6 +33,18 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <script>
+    alert("JS workaround running! Path: " + window.location.pathname + " Search: " + window.location.search);
+    if (
+      window.location.pathname === "/" &&
+      (window.location.search.includes("verify-email") || window.location.search.includes("reset-password"))
+    ) {
+      var target = window.location.search.includes("verify-email")
+        ? "/verify-email" + window.location.search
+        : "/reset-password" + window.location.search;
+      window.history.replaceState({}, "", target);
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
