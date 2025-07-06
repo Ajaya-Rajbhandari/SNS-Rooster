@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_provider.dart';
 import '../config/api_config.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class ProfileProvider with ChangeNotifier {
   final AuthProvider _authProvider;
@@ -189,7 +190,8 @@ class ProfileProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> updateProfilePicture(String imagePath) async {
+  Future<bool> updateProfilePicture(
+      {String? imagePath, Uint8List? imageBytes, String? fileName}) async {
     _isLoading = true;
     _error = null;
     if (_disposed) return false;
@@ -207,26 +209,36 @@ class ProfileProvider with ChangeNotifier {
         'PATCH',
         Uri.parse('${ApiConfig.baseUrl}/auth/me'),
       );
-
       request.headers['Authorization'] = 'Bearer ${_authProvider.token}';
-      request.files.add(await http.MultipartFile.fromPath(
-        'profilePicture',
-        imagePath,
-      ));
-
+      if (kIsWeb) {
+        if (imageBytes == null || fileName == null) {
+          _error = 'No image selected';
+          _isLoading = false;
+          notifyListeners();
+          return false;
+        }
+        request.files.add(http.MultipartFile.fromBytes(
+            'profilePicture', imageBytes,
+            filename: fileName));
+      } else {
+        if (imagePath == null) {
+          _error = 'No image selected';
+          _isLoading = false;
+          notifyListeners();
+          return false;
+        }
+        if (kIsWeb) throw UnsupportedError('fromPath is not supported on web');
+        request.files.add(
+            await http.MultipartFile.fromPath('profilePicture', imagePath));
+      }
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['profile'] != null &&
             data['profile'] is Map<String, dynamic>) {
           _updateProfileData(data['profile']);
-          // Debug print for avatar troubleshooting
-          log('DEBUG: Avatar field after upload: \\${_profile?['avatar']}');
-          log('DEBUG: ProfilePicture field after upload: \\${_profile?['profilePicture']}');
           if (_disposed) return false;
-          // Update AuthProvider's user data for consistency
           await _authProvider.updateUser(_profile!);
           return true;
         } else {
@@ -251,46 +263,11 @@ class ProfileProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> uploadDocument(String filePath, String documentType) async {
-    _error = null;
-    if (!_authProvider.isAuthenticated || _authProvider.token == null) {
-      _error = 'User not authenticated';
-      return false;
-    }
-
-    try {
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('${ApiConfig.baseUrl}/auth/upload-document'), // Corrected URL
-      );
-      request.headers['Authorization'] = 'Bearer ${_authProvider.token}';
-      request.fields['documentType'] = documentType;
-      request.files.add(await http.MultipartFile.fromPath('file', filePath));
-
-      final response = await request.send();
-      if (response.statusCode == 200) {
-        final responseBody = await response.stream.bytesToString();
-        final data = json.decode(responseBody);
-        log('Upload successful: $data');
-
-        // Refresh profile data to get updated document info
-        await _fetchProfileInBackground();
-
-        return true;
-      } else {
-        log('Upload failed with status code: ${response.statusCode}');
-        _error = 'Failed to upload document';
-        return false;
-      }
-    } catch (e) {
-      log('Error during document upload: $e');
-      _error = 'An error occurred during upload';
-      return false;
-    }
-  }
-
-  Future<bool> uploadDocumentWeb(
-      Uint8List fileBytes, String fileName, String documentType) async {
+  Future<bool> uploadDocument(
+      {String? filePath,
+      Uint8List? fileBytes,
+      String? fileName,
+      required String documentType}) async {
     _error = null;
     if (!_authProvider.isAuthenticated || _authProvider.token == null) {
       _error = 'User not authenticated';
@@ -303,22 +280,32 @@ class ProfileProvider with ChangeNotifier {
       );
       request.headers['Authorization'] = 'Bearer ${_authProvider.token}';
       request.fields['documentType'] = documentType;
-      request.files.add(
-          http.MultipartFile.fromBytes('file', fileBytes, filename: fileName));
+      if (kIsWeb) {
+        if (fileBytes == null || fileName == null) {
+          _error = 'No file selected';
+          return false;
+        }
+        request.files.add(http.MultipartFile.fromBytes('file', fileBytes,
+            filename: fileName));
+      } else {
+        if (filePath == null) {
+          _error = 'No file selected';
+          return false;
+        }
+        if (kIsWeb) throw UnsupportedError('fromPath is not supported on web');
+        request.files.add(await http.MultipartFile.fromPath('file', filePath));
+      }
       final response = await request.send();
       if (response.statusCode == 200) {
         final responseBody = await response.stream.bytesToString();
         final data = json.decode(responseBody);
-        log('Upload successful: $data');
         await _fetchProfileInBackground();
         return true;
       } else {
-        log('Upload failed with status code: [31m${response.statusCode}[0m');
         _error = 'Failed to upload document';
         return false;
       }
     } catch (e) {
-      log('Error during document upload (web): $e');
       _error = 'An error occurred during upload';
       return false;
     }

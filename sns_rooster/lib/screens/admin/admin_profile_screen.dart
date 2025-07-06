@@ -8,6 +8,7 @@ import '../../utils/logger.dart';
 import '../../widgets/admin_side_navigation.dart';
 import '../../widgets/user_avatar.dart';
 import 'package:sns_rooster/services/global_notification_service.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AdminProfileScreen extends StatefulWidget {
   const AdminProfileScreen({Key? key}) : super(key: key);
@@ -34,7 +35,8 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
   bool _showConfirmPassword = false;
   String? _error;
   String? _success;
-  File? _selectedImage;
+  XFile? _selectedImageWeb;
+  File? _selectedImageMobile;
   bool _isEditingProfile = false;
 
   @override
@@ -65,10 +67,13 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
         maxHeight: 512,
         imageQuality: 85,
       );
-
       if (pickedFile != null) {
         setState(() {
-          _selectedImage = File(pickedFile.path);
+          if (kIsWeb) {
+            _selectedImageWeb = pickedFile;
+          } else {
+            _selectedImageMobile = File(pickedFile.path);
+          }
         });
         await _uploadProfilePicture();
       }
@@ -81,38 +86,40 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
   }
 
   Future<void> _uploadProfilePicture() async {
-    if (_selectedImage == null) return;
-
+    if (kIsWeb && _selectedImageWeb == null) return;
+    if (!kIsWeb && _selectedImageMobile == null) return;
     setState(() {
       _isUploadingAvatar = true;
       _error = null;
       _success = null;
     });
-
     try {
       final profileProvider =
           Provider.of<ProfileProvider>(context, listen: false);
-      final success =
-          await profileProvider.updateProfilePicture(_selectedImage!.path);
-
-      if (success) {
-        setState(() {
-          _success = 'Profile picture updated successfully!';
-          _selectedImage = null;
-        });
-        // Clear success message after 3 seconds
-        Future.delayed(const Duration(seconds: 3), () {
-          if (mounted) {
-            setState(() {
-              _success = null;
-            });
-          }
-        });
+      if (kIsWeb) {
+        final bytes = await _selectedImageWeb!.readAsBytes();
+        await profileProvider.updateProfilePicture(
+          imageBytes: bytes,
+          fileName: _selectedImageWeb!.name,
+        );
       } else {
-        setState(() {
-          _error = profileProvider.error ?? 'Failed to update profile picture.';
-        });
+        await profileProvider.updateProfilePicture(
+          imagePath: _selectedImageMobile!.path,
+        );
       }
+      setState(() {
+        _success = 'Profile picture updated successfully!';
+        _selectedImageWeb = null;
+        _selectedImageMobile = null;
+      });
+      // Clear success message after 3 seconds
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            _success = null;
+          });
+        }
+      });
     } catch (e) {
       log('Error uploading profile picture: $e');
       setState(() {
@@ -331,17 +338,23 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
           Stack(
             children: [
               // Profile Picture
-              _selectedImage != null
+              _selectedImageWeb != null
                   ? CircleAvatar(
                       radius: 50,
-                      backgroundImage: FileImage(_selectedImage!),
+                      backgroundImage: FileImage(File(_selectedImageWeb!.path)),
                       backgroundColor: Colors.white,
                     )
-                  : UserAvatar(
-                      avatarUrl:
-                          profileProvider.profile?['avatar'] ?? user?['avatar'],
-                      radius: 50,
-                    ),
+                  : _selectedImageMobile != null
+                      ? CircleAvatar(
+                          radius: 50,
+                          backgroundImage: FileImage(_selectedImageMobile!),
+                          backgroundColor: Colors.white,
+                        )
+                      : UserAvatar(
+                          avatarUrl: profileProvider.profile?['avatar'] ??
+                              user?['avatar'],
+                          radius: 50,
+                        ),
               // Upload Button Overlay
               Positioned(
                 bottom: 0,

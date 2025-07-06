@@ -34,7 +34,7 @@
 </head>
 <body>
   <script>
-    alert("JS workaround running! Path: " + window.location.pathname + " Search: " + window.location.search);
+    // If the path is / and there is a query string with verify-email or reset-password, rewrite the path
     if (
       window.location.pathname === "/" &&
       (window.location.search.includes("verify-email") || window.location.search.includes("reset-password"))

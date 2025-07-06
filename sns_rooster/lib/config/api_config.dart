@@ -22,8 +22,8 @@ class ApiConfig {
       // For web, use the deployed backend URL
       return 'https://sns-rooster.onrender.com/api';
     } else if (Platform.isAndroid) {
-      // Android emulator
-      return 'http://10.0.2.2:5000/api';
+      // For Android, also use the deployed backend URL
+      return 'https://sns-rooster.onrender.com/api';
     } else {
       // iOS simulator, desktop, etc.
       return 'http://localhost:5000/api';

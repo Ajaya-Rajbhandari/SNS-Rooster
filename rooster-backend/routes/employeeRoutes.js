@@ -40,6 +40,9 @@ router.get('/user/:userId', authMiddleware, employeeController.getEmployeeByUser
 // Document verification (admin only)
 router.patch('/users/:userId/documents/:docId/verify', authMiddleware, employeeController.verifyUserDocument);
 
+// Admin: Change user password
+router.patch('/:id/password', authMiddleware, employeeController.adminChangeUserPassword);
+
 console.log('EMPLOYEE ROUTES: Registering /dashboard route');
 
 // Catch-all debug route for unmatched requests

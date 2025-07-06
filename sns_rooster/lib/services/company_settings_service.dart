@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import '../../config/api_config.dart';
 import '../providers/auth_provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:typed_data';
 
 class CompanySettingsService {
   final AuthProvider _authProvider;
@@ -42,13 +44,13 @@ class CompanySettingsService {
     if (!_authProvider.isAuthenticated) {
       throw Exception('Not authenticated');
     }
-
+    if (kIsWeb) {
+      throw UnsupportedError('Use uploadLogoWeb for web uploads');
+    }
     final uri =
         Uri.parse('${ApiConfig.baseUrl}/api/admin/settings/company/logo');
-
     var request = http.MultipartRequest('POST', uri);
     request.headers['Authorization'] = 'Bearer ${_authProvider.token}';
-
     // Add the file to the request
     var multipartFile = await http.MultipartFile.fromPath(
       'logo',
@@ -57,11 +59,30 @@ class CompanySettingsService {
           MediaType('image', 'jpeg'), // Default to jpeg, backend will validate
     );
     request.files.add(multipartFile);
-
     // Send the request
     var streamedResponse = await request.send();
     var response = await http.Response.fromStream(streamedResponse);
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      final error = json.decode(response.body);
+      throw Exception(error['message'] ?? 'Failed to upload logo');
+    }
+  }
 
+  Future<Map<String, dynamic>> uploadLogoWeb(
+      Uint8List fileBytes, String fileName) async {
+    if (!_authProvider.isAuthenticated) {
+      throw Exception('Not authenticated');
+    }
+    final uri =
+        Uri.parse('${ApiConfig.baseUrl}/api/admin/settings/company/logo');
+    var request = http.MultipartRequest('POST', uri);
+    request.headers['Authorization'] = 'Bearer ${_authProvider.token}';
+    request.files.add(
+        http.MultipartFile.fromBytes('logo', fileBytes, filename: fileName));
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
     if (response.statusCode == 200) {
       return json.decode(response.body);
     } else {
