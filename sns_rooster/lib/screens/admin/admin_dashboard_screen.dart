@@ -111,314 +111,328 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ],
       ),
       drawer: const AdminSideNavigation(currentRoute: '/admin_dashboard'),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_isLoading) ...[
-              const Center(child: CircularProgressIndicator()),
-            ] else if (_errorMessage != null) ...[
-              Center(
-                  child: Text('Error: $_errorMessage',
-                      style: TextStyle(color: theme.colorScheme.error))),
-            ] else ...[
-              // --- Modern Analytics Section ---
-              Column(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= 1200) {
+            // Desktop: Centered, constrained width
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1100),
+                child: _buildMainContent(theme, colorScheme, userName, now),
+              ),
+            );
+          } else {
+            // Mobile/tablet: Full width
+            return _buildMainContent(theme, colorScheme, userName, now);
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildMainContent(
+      ThemeData theme, ColorScheme colorScheme, String userName, DateTime now) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_isLoading) ...[
+            const Center(child: CircularProgressIndicator()),
+          ] else if (_errorMessage != null) ...[
+            Center(
+                child: Text('Error: $_errorMessage',
+                    style: TextStyle(color: theme.colorScheme.error))),
+          ] else ...[
+            // --- Modern Analytics Section ---
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Welcome, $userName!',
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  DateFormat('EEEE, MMMM d, y').format(now),
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(color: colorScheme.onSurface.withOpacity(0.7)),
+                ),
+                const SizedBox(height: 24),
+                // Modern Stat Card Row
+                _buildStatCardRow(),
+                const SizedBox(height: 24),
+                // Attendance Pie Chart
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Today\'s Attendance',
+                            style: theme.textTheme.titleLarge),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                            height: 200, child: _buildAttendancePieChart()),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Upcoming Events (placeholder)
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Upcoming Events',
+                                style: theme.textTheme.titleLarge),
+                            TextButton(
+                                onPressed: () {},
+                                child: const Text('View All')),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        const Text('No upcoming events.'),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Recent Activities (placeholder)
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Recent Activities',
+                                style: theme.textTheme.titleLarge),
+                            TextButton(
+                                onPressed: () {},
+                                child: const Text('View All')),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        const Text('No recent activities.'),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Department Stats Table
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Department-wise Attendance',
+                            style: theme.textTheme.titleLarge),
+                        const SizedBox(height: 16),
+                        _buildDepartmentStatsTable(),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // TODO: Implement Upcoming Events and Recent Activities with real data
+              ],
+            ),
+            const SizedBox(height: 24),
+          ],
+          Text(
+            'Quick Actions & Shortcuts',
+            style: theme.textTheme.titleLarge,
+          ),
+          const SizedBox(height: 16),
+          _buildPaginatedQuickActions(context),
+          const SizedBox(height: 24),
+          Text(
+            'Real-Time Data & Analytics',
+            style: theme.textTheme.titleLarge,
+          ),
+          const SizedBox(height: 16),
+          Card(
+            elevation: 4,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Welcome, $userName!',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface),
+                    'Charts & Graphs',
+                    style: theme.textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
+                  // Only show chart if real data is available
+                  if (_dashboardData['chartData'] != null &&
+                      (_dashboardData['chartData']['attendance'] as List)
+                          .isNotEmpty)
+                    _buildChartsSection(theme),
+                  const SizedBox(height: 24),
                   Text(
-                    DateFormat('EEEE, MMMM d, y').format(now),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                        color: colorScheme.onSurface.withOpacity(0.7)),
+                    'Live Metrics',
+                    style: theme.textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 24),
-                  // Modern Stat Card Row
-                  _buildStatCardRow(),
-                  const SizedBox(height: 24),
-                  // Attendance Pie Chart
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Today\'s Attendance',
-                              style: theme.textTheme.titleLarge),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                              height: 200, child: _buildAttendancePieChart()),
-                        ],
-                      ),
+                  const SizedBox(height: 16),
+                  // Only show metrics if real data is available
+                  if (_dashboardData['quickStats'] != null)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildSummaryItem(
+                          context,
+                          icon: Icons.people,
+                          label: 'Employees',
+                          value: _dashboardData['quickStats']['totalEmployees']
+                              .toString(),
+                        ),
+                        _buildSummaryItem(
+                          context,
+                          icon: Icons.payments,
+                          label: 'Payslips',
+                          value: (_dashboardData['payslipCount'] ?? '-')
+                              .toString(),
+                        ),
+                        _buildSummaryItem(
+                          context,
+                          icon: Icons.notifications,
+                          label: 'Notifications',
+                          value: (_dashboardData['notificationCount'] ?? '-')
+                              .toString(),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Upcoming Events (placeholder)
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('Upcoming Events',
-                                  style: theme.textTheme.titleLarge),
-                              TextButton(
-                                  onPressed: () {},
-                                  child: const Text('View All')),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          const Text('No upcoming events.'),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Recent Activities (placeholder)
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('Recent Activities',
-                                  style: theme.textTheme.titleLarge),
-                              TextButton(
-                                  onPressed: () {},
-                                  child: const Text('View All')),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          const Text('No recent activities.'),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Department Stats Table
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Department-wise Attendance',
-                              style: theme.textTheme.titleLarge),
-                          const SizedBox(height: 16),
-                          _buildDepartmentStatsTable(),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  // TODO: Implement Upcoming Events and Recent Activities with real data
                 ],
               ),
-              const SizedBox(height: 24),
-            ],
-            Text(
-              'Quick Actions & Shortcuts',
-              style: theme.textTheme.titleLarge,
             ),
-            const SizedBox(height: 16),
-            _buildPaginatedQuickActions(context),
-            const SizedBox(height: 24),
-            Text(
-              'Real-Time Data & Analytics',
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Charts & Graphs',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    // Only show chart if real data is available
-                    if (_dashboardData['chartData'] != null &&
-                        (_dashboardData['chartData']['attendance'] as List)
-                            .isNotEmpty)
-                      _buildChartsSection(theme),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Live Metrics',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    // Only show metrics if real data is available
-                    if (_dashboardData['quickStats'] != null)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _buildSummaryItem(
-                            context,
-                            icon: Icons.people,
-                            label: 'Employees',
-                            value: _dashboardData['quickStats']
-                                    ['totalEmployees']
-                                .toString(),
-                          ),
-                          _buildSummaryItem(
-                            context,
-                            icon: Icons.payments,
-                            label: 'Payslips',
-                            value: (_dashboardData['payslipCount'] ?? '-')
-                                .toString(),
-                          ),
-                          _buildSummaryItem(
-                            context,
-                            icon: Icons.notifications,
-                            label: 'Notifications',
-                            value: (_dashboardData['notificationCount'] ?? '-')
-                                .toString(),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Notifications & Alerts',
+            style: theme.textTheme.titleLarge,
+          ),
+          const SizedBox(height: 16),
+          _buildAlertsSection(context),
+          const SizedBox(height: 24),
+          Text(
+            'Employee Management',
+            style: theme.textTheme.titleLarge,
+          ),
+          const SizedBox(height: 16),
+          Card(
+            elevation: 4,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Employee Directory',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: EmployeeService(
+                            Provider.of<AuthProvider>(context, listen: false))
+                        .getEmployees(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      } else if (snapshot.hasError) {
+                        return Center(
+                            child: Text(
+                                'Failed to load employees: \\${snapshot.error}'));
+                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return const Center(child: Text('No employees found.'));
+                      }
+                      final employees = snapshot.data!;
+                      return SizedBox(
+                        height: 200,
+                        child: ListView.separated(
+                          itemCount: employees.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, i) {
+                            final emp = employees[i];
+                            return ListTile(
+                              leading: const Icon(Icons.person),
+                              title: Text(
+                                ((emp['firstName'] ?? '') +
+                                            ' ' +
+                                            (emp['lastName'] ?? ''))
+                                        .trim()
+                                        .isEmpty
+                                    ? 'No Name'
+                                    : ((emp['firstName'] ?? '') +
+                                            ' ' +
+                                            (emp['lastName'] ?? ''))
+                                        .trim(),
+                              ),
+                              subtitle:
+                                  Text(emp['department'] ?? 'No Department'),
+                              trailing: Text(
+                                  emp['isActive'] == true
+                                      ? 'Active'
+                                      : 'Inactive',
+                                  style: TextStyle(
+                                      color: emp['isActive'] == true
+                                          ? Colors.green
+                                          : Colors.red)),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      // Navigate to Add Employee screen
+                    },
+                    icon: const Icon(Icons.person_add),
+                    label: const Text('Add New Employee'),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 24),
-            Text(
-              'Notifications & Alerts',
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            _buildAlertsSection(context),
-            const SizedBox(height: 24),
-            Text(
-              'Employee Management',
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Employee Directory',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    FutureBuilder<List<Map<String, dynamic>>>(
-                      future: EmployeeService(
-                              Provider.of<AuthProvider>(context, listen: false))
-                          .getEmployees(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        } else if (snapshot.hasError) {
-                          return Center(
-                              child: Text(
-                                  'Failed to load employees: \\${snapshot.error}'));
-                        } else if (!snapshot.hasData ||
-                            snapshot.data!.isEmpty) {
-                          return const Center(
-                              child: Text('No employees found.'));
-                        }
-                        final employees = snapshot.data!;
-                        return SizedBox(
-                          height: 200,
-                          child: ListView.separated(
-                            itemCount: employees.length,
-                            separatorBuilder: (_, __) =>
-                                const Divider(height: 1),
-                            itemBuilder: (context, i) {
-                              final emp = employees[i];
-                              return ListTile(
-                                leading: const Icon(Icons.person),
-                                title: Text(
-                                  ((emp['firstName'] ?? '') +
-                                              ' ' +
-                                              (emp['lastName'] ?? ''))
-                                          .trim()
-                                          .isEmpty
-                                      ? 'No Name'
-                                      : ((emp['firstName'] ?? '') +
-                                              ' ' +
-                                              (emp['lastName'] ?? ''))
-                                          .trim(),
-                                ),
-                                subtitle:
-                                    Text(emp['department'] ?? 'No Department'),
-                                trailing: Text(
-                                    emp['isActive'] == true
-                                        ? 'Active'
-                                        : 'Inactive',
-                                    style: TextStyle(
-                                        color: emp['isActive'] == true
-                                            ? Colors.green
-                                            : Colors.red)),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        // Navigate to Add Employee screen
-                      },
-                      icon: const Icon(Icons.person_add),
-                      label: const Text('Add New Employee'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Payroll Insights',
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            // --- Payroll Insights Section ---
-            const _PayrollInsightsSection(),
-            const SizedBox(height: 24),
-            // Placeholder sections removed (Help & Support, Security & Compliance, Integration)
-          ],
-        ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Payroll Insights',
+            style: theme.textTheme.titleLarge,
+          ),
+          const SizedBox(height: 16),
+          // --- Payroll Insights Section ---
+          const _PayrollInsightsSection(),
+          const SizedBox(height: 24),
+          // Placeholder sections removed (Help & Support, Security & Compliance, Integration)
+        ],
       ),
     );
   }
@@ -759,38 +773,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   while (pageActions.length < 4) {
                     pageActions.add(Container());
                   }
-                  return Column(
-                    children: [
-                      Row(
-                        children: pageActions
-                            .sublist(0, 2)
-                            .map((card) => Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: AspectRatio(
-                                      aspectRatio: 1.2,
-                                      child: card,
+                  return SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        Row(
+                          children: pageActions
+                              .sublist(0, 2)
+                              .map((card) => Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: AspectRatio(
+                                        aspectRatio: 1.2,
+                                        child: card,
+                                      ),
                                     ),
-                                  ),
-                                ))
-                            .toList(),
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: pageActions
-                            .sublist(2, 4)
-                            .map((card) => Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: AspectRatio(
-                                      aspectRatio: 1.2,
-                                      child: card,
+                                  ))
+                              .toList(),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: pageActions
+                              .sublist(2, 4)
+                              .map((card) => Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: AspectRatio(
+                                        aspectRatio: 1.2,
+                                        child: card,
+                                      ),
                                     ),
-                                  ),
-                                ))
-                            .toList(),
-                      ),
-                    ],
+                                  ))
+                              .toList(),
+                        ),
+                      ],
+                    ),
                   );
                 },
               ),
@@ -1066,8 +1082,9 @@ class _PayrollInsightsSectionState extends State<_PayrollInsightsSection> {
                             interval: 1,
                             getTitlesWidget: (value, meta) {
                               final idx = value.toInt();
-                              if (idx < 0 || idx >= trend.length)
+                              if (idx < 0 || idx >= trend.length) {
                                 return const SizedBox.shrink();
+                              }
                               final mStr =
                                   (trend[idx]['month'] as String).substring(5);
                               return Padding(
@@ -1189,7 +1206,7 @@ class _PayrollInsightsSectionState extends State<_PayrollInsightsSection> {
               _buildSummaryCard(
                   context,
                   'Next Pay Run',
-                  DateFormat('d MMM').format(nextPayDate!),
+                  DateFormat('d MMM').format(nextPayDate),
                   Icons.calendar_today,
                   Colors.purple),
           ],

@@ -426,55 +426,64 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
           if (profile == null) {
             return const Center(child: Text('No profile data available.'));
           }
-          // Only save profile to SharedPreferences if it has changed
-          if (_lastSavedProfileJson != json.encode(profile)) {
-            _saveProfileToSharedPreferences(profile);
-            _lastSavedProfileJson = json.encode(profile);
-          }
-          return SingleChildScrollView(
-            child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Use Consumer to always get latest profile data
-                  Consumer<ProfileProvider>(
-                    builder: (context, profileProvider, _) {
-                      final profile = profileProvider.profile;
-                      return _DashboardHeader(profile: profile);
-                    },
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth >= 1200) {
+                // Desktop mode: center and constrain width
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1100),
+                    child: _buildMainContent(profile),
                   ),
-                  const SizedBox(height: 28),
-                  const StatusCard(), const SizedBox(height: 28),
-                  Text(
-                    'Quick Actions',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  _QuickActions(
-                    isOnBreak: _isOnBreak,
-                    clockIn: _clockIn,
-                    clockOut: _clockOut,
-                    startBreak: _startBreak,
-                    endBreak: _endBreak,
-                    applyLeave: _applyLeave,
-                    openTimesheet: _openTimesheet,
-                    openProfile: _openProfile,
-                  ),
-                  const SizedBox(height: 28),
-                  // Remove DocumentListItem widgets from dashboard
-                  // DocumentListItem(label: 'ID Card', filePath: 'https://example.com/id_card.png', fileType: 'image'),
-                  // DocumentListItem(label: 'Passport', filePath: 'https://example.com/passport.png', fileType: 'image'),
-                  // DocumentListItem(label: 'Resume', filePath: 'https://example.com/resume.pdf', fileType: 'pdf'),
-                ],
-              ),
-            ),
+                );
+              } else {
+                // Mobile/tablet mode: full width
+                return _buildMainContent(profile);
+              }
+            },
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildMainContent(Map<String, dynamic> profile) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Consumer<ProfileProvider>(
+              builder: (context, profileProvider, _) {
+                final profile = profileProvider.profile;
+                return _DashboardHeader(profile: profile);
+              },
+            ),
+            const SizedBox(height: 28),
+            const StatusCard(),
+            const SizedBox(height: 28),
+            Text(
+              'Quick Actions',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            _QuickActions(
+              isOnBreak: _isOnBreak,
+              clockIn: _clockIn,
+              clockOut: _clockOut,
+              startBreak: _startBreak,
+              endBreak: _endBreak,
+              applyLeave: _applyLeave,
+              openTimesheet: _openTimesheet,
+              openProfile: _openProfile,
+            ),
+            const SizedBox(height: 28),
+          ],
+        ),
       ),
     );
   }
