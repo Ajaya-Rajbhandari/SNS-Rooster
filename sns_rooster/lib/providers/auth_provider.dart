@@ -9,6 +9,7 @@ import '../providers/profile_provider.dart';
 import '../config/api_config.dart';
 import '../main.dart'; // Import main.dart to access MyApp class
 import '../providers/attendance_provider.dart';
+import '../services/fcm_service.dart';
 
 class AuthProvider with ChangeNotifier {
   String? _token;
@@ -470,6 +471,11 @@ class AuthProvider with ChangeNotifier {
       await prefs.remove('user');
       log('SAVE_AUTH_DEBUG: User removed from SharedPreferences');
     }
+
+    // Save FCM token to backend if user is authenticated
+    if (_authToken != null && _user != null) {
+      await _saveFCMTokenToBackend();
+    }
   }
 
   Future<void> _clearAuthFromPrefs() async {
@@ -646,5 +652,41 @@ class AuthProvider with ChangeNotifier {
     _savedPassword = null;
     _rememberMe = false;
     notifyListeners();
+  }
+
+  // Save FCM token to backend
+  Future<void> _saveFCMTokenToBackend() async {
+    try {
+      final fcmToken = FCMService().fcmToken;
+      if (fcmToken == null) {
+        log('FCM: No FCM token available to save');
+        return;
+      }
+
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/auth/fcm-token'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_authToken',
+        },
+        body: json.encode({
+          'fcmToken': fcmToken,
+          'userId': _user?['id'],
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        log('FCM: Token saved to backend successfully');
+
+        // Subscribe to role-based topics
+        if (_user?['role'] != null) {
+          await FCMService().subscribeToRoleTopics(_user!['role']);
+        }
+      } else {
+        log('FCM: Failed to save token to backend: ${response.statusCode}');
+      }
+    } catch (e) {
+      log('FCM: Error saving token to backend: $e');
+    }
   }
 }
