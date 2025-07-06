@@ -120,7 +120,7 @@ exports.register = async (req, res) => {
 
     try {
       if (sendWelcomeEmail) {
-        await emailService.sendWelcomeEmail(user, !password ? tempPassword : null);
+        await emailService.sendWelcomeEmail(user, tempPassword);
       }
       
       await emailService.sendVerificationEmail(user, verificationToken);

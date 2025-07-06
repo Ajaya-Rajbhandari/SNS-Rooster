@@ -161,7 +161,7 @@ class EmailService {
 
   // Email verification
   async sendVerificationEmail(user, verificationToken) {
-    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
+    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/#/verify-email?token=${verificationToken}`;
     
     const subject = 'Verify Your Email Address - SNS Rooster HR';
     const htmlContent = this.getEmailVerificationTemplate(user, verificationUrl);
@@ -171,7 +171,7 @@ class EmailService {
 
   // Password reset
   async sendPasswordResetEmail(user, resetToken) {
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/#/reset-password?token=${resetToken}`;
     
     const subject = 'Password Reset Request - SNS Rooster HR';
     const htmlContent = this.getPasswordResetTemplate(user, resetUrl);
@@ -313,7 +313,6 @@ class EmailService {
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
             .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
             .content { padding: 30px 20px; background: #f9f9f9; }
-            .button { display: inline-block; padding: 12px 30px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
             .footer { padding: 20px; text-align: center; color: #666; font-size: 12px; }
             .credentials { background: #e8f5e8; border: 1px solid #4CAF50; padding: 15px; border-radius: 5px; margin: 20px 0; }
         </style>
@@ -332,11 +331,11 @@ class EmailService {
                     <p><strong>Password:</strong> ${tempPassword || '[Set by admin]'}</p>
                     <p><em><strong>Important:</strong> Please change your password after your first login for security.</em></p>
                 </div>
-                <p>Before you can access the system, please verify your email address and complete your profile.</p>
-                <a href="${loginUrl}" class="button">Access HR System</a>
+                <p><strong>Before you can access the system, you must verify your email address.</strong></p>
+                <p>You will receive a separate email with a verification link. Please click the link in that email to verify your account. Once verified, you can log in and complete your profile.</p>
                 <h3>What's Next?</h3>
                 <ol>
-                    <li>Verify your email address (check for a separate verification email)</li>
+                    <li>Check your inbox for a verification email and verify your email address</li>
                     <li>Log in to the system</li>
                     <li>Complete your employee profile</li>
                     <li>Set up your preferences</li>

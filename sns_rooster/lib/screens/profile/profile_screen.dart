@@ -141,7 +141,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
       final profileProvider =
           Provider.of<ProfileProvider>(context, listen: false);
-      bool success = await profileProvider.updateProfilePicture(image.path);
+      bool success;
+      if (kIsWeb) {
+        final bytes = await image.readAsBytes();
+        success = await profileProvider.updateProfilePicture(
+            imageBytes: bytes, fileName: image.name);
+      } else {
+        success =
+            await profileProvider.updateProfilePicture(imagePath: image.path);
+      }
       setState(() {
         _isLoading = false;
       });
@@ -197,12 +205,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       bool success = false;
       if (kIsWeb) {
         // On web, upload using bytes
-        success = await profileProvider.uploadDocumentWeb(
-            file.bytes!, file.name, documentType);
+        success = await profileProvider.uploadDocument(
+            fileBytes: file.bytes!,
+            fileName: file.name,
+            documentType: documentType);
       } else {
         // On mobile/desktop, upload using file path
-        success =
-            await profileProvider.uploadDocument(file.path!, documentType);
+        success = await profileProvider.uploadDocument(
+            filePath: file.path!, documentType: documentType);
       }
 
       setState(() {
@@ -1031,8 +1041,10 @@ class _EducationSection extends StatelessWidget {
                                 final profileProvider =
                                     Provider.of<ProfileProvider>(context,
                                         listen: false);
-                                final success = await profileProvider
-                                    .uploadDocument(file.path, 'education');
+                                final success =
+                                    await profileProvider.uploadDocument(
+                                        filePath: file.path,
+                                        documentType: 'education');
                                 if (success) {
                                   await profileProvider.refreshProfile();
                                   final updatedProfile =
@@ -1314,8 +1326,10 @@ class _CertificateSection extends StatelessWidget {
                                 final profileProvider =
                                     Provider.of<ProfileProvider>(context,
                                         listen: false);
-                                final success = await profileProvider
-                                    .uploadDocument(file.path, 'certificates');
+                                final success =
+                                    await profileProvider.uploadDocument(
+                                        filePath: file.path,
+                                        documentType: 'certificates');
                                 if (success) {
                                   await profileProvider.refreshProfile();
                                   final updatedProfile =

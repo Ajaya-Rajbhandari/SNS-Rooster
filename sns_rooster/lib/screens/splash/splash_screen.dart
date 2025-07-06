@@ -28,16 +28,11 @@ class _SplashScreenState extends State<SplashScreen> {
     final uri = Uri.base;
     final path = uri.path;
     final fullUri = uri.toString();
-    print('Splash path: ' + path); // DEBUG PRINT
-    print('Splash full uri: ' + fullUri); // DEBUG PRINT
     if (fullUri.contains('/verify-email')) {
-      print('Splash: Navigating to /verify-email');
       Navigator.of(context).pushReplacementNamed('/verify-email');
     } else if (fullUri.contains('/reset-password')) {
-      print('Splash: Navigating to /reset-password');
       Navigator.of(context).pushReplacementNamed('/reset-password');
     } else if (authProvider.isAuthenticated) {
-      print('Splash: Navigating to dashboard');
       if (authProvider.user?['role'] == 'admin') {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
@@ -48,7 +43,6 @@ class _SplashScreenState extends State<SplashScreen> {
         );
       }
     } else {
-      print('Splash: Navigating to login');
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
