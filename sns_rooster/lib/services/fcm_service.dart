@@ -47,7 +47,17 @@ class FCMService {
 
       // Get FCM token
       _fcmToken = await _firebaseMessaging.getToken();
-      Logger.info('FCM Token: $_fcmToken');
+      Logger.info('FCM Token: [32m[1m[4m[47m$_fcmToken[0m');
+      if (_fcmToken != null) {
+        // Print the FCM token to the debug console for developer
+        // (This makes it easy to copy for Firebase Console testing)
+        // ignore: avoid_print
+        print('==== FCM TOKEN FOR TESTING ====');
+        // ignore: avoid_print
+        print(_fcmToken);
+        // ignore: avoid_print
+        print('===============================');
+      }
 
       // Listen for token refresh
       _firebaseMessaging.onTokenRefresh.listen((newToken) {

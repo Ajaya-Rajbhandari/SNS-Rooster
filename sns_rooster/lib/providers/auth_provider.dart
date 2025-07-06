@@ -253,6 +253,33 @@ class AuthProvider with ChangeNotifier {
         } else {
           log('LOGIN_DEBUG: ProfileProvider is not set, cannot refresh profile');
         }
+        // --- Send FCM token to backend after login ---
+        try {
+          final fcmToken = await FCMService().fcmToken ??
+              await FCMService()
+                  .initialize()
+                  .then((_) => FCMService().fcmToken);
+          if (fcmToken != null) {
+            final fcmResponse = await http.post(
+              Uri.parse('${ApiConfig.baseUrl}/fcm-token'),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $_token',
+              },
+              body: jsonEncode({
+                'fcmToken': fcmToken,
+                'platform': 'android',
+                'appVersion': '1.0.0',
+                'deviceModel': 'flutter-app',
+              }),
+            );
+            log('LOGIN_DEBUG: Sent FCM token to backend. Status: [32m${fcmResponse.statusCode}[0m, Body: ${fcmResponse.body}');
+          } else {
+            log('LOGIN_DEBUG: No FCM token available to send to backend.');
+          }
+        } catch (e) {
+          log('LOGIN_DEBUG: Failed to send FCM token to backend: $e');
+        }
         return true;
       } else {
         _error = data['message'] ?? 'Login failed';
