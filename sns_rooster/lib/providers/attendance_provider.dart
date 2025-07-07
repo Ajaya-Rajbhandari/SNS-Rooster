@@ -133,14 +133,25 @@ class AttendanceProvider with ChangeNotifier {
     }
   }
 
-  Future<void> endBreak(String userId) async {
+  Future<bool> endBreak(String userId) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
-      await _attendanceService.endBreak(userId);
+      final response = await _attendanceService.endBreak(userId);
+      // If the service returns a response object, check for success
+      if (response != null &&
+          response['message'] == 'Break ended successfully') {
+        return true;
+      } else {
+        _error = response != null && response['message'] != null
+            ? response['message']
+            : 'Failed to end break.';
+        return false;
+      }
     } catch (e) {
       _error = e.toString();
+      return false;
     } finally {
       _isLoading = false;
       notifyListeners();
