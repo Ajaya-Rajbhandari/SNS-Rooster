@@ -5,6 +5,8 @@ import '../../providers/auth_provider.dart';
 import '../login/login_screen.dart';
 import '../employee/employee_dashboard_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
+import '../auth/verify_email_screen.dart';
+import '../../utils/hash_fragment.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -21,17 +23,33 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuth() async {
-    await Future.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
+    // Poll for the hash fragment for up to 2 seconds
+    String fragment = '';
+    for (int i = 0; i < 20; i++) {
+      fragment = getHashFragment();
+      print('Polling for hash fragment: $fragment');
+      if (fragment.isNotEmpty) break;
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
+    print('SplashScreen (universal): fragment: $fragment');
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final uri = Uri.base;
-    final path = uri.path;
-    final fullUri = uri.toString();
-    if (fullUri.contains('/verify-email')) {
-      Navigator.of(context).pushReplacementNamed('/verify-email');
-    } else if (fullUri.contains('/reset-password')) {
-      Navigator.of(context).pushReplacementNamed('/reset-password');
+    if (fragment.startsWith('/verify-email')) {
+      final fakeUri = Uri.parse('http://dummy$fragment');
+      final token = fakeUri.queryParameters['token'];
+      print('SplashScreen: Navigating to VerifyEmailScreen with token: $token');
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => const VerifyEmailScreen(),
+        ),
+      );
+    } else if (fragment.startsWith('/reset-password')) {
+      final fakeUri = Uri.parse('http://dummy$fragment');
+      final token = fakeUri.queryParameters['token'];
+      print('SplashScreen: Navigating to ResetPassword with token: $token');
+      Navigator.of(context)
+          .pushReplacementNamed('/reset-password', arguments: {'token': token});
     } else if (authProvider.isAuthenticated) {
       if (authProvider.user?['role'] == 'admin') {
         Navigator.of(context).pushReplacement(

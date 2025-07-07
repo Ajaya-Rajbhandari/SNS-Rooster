@@ -9,7 +9,7 @@ try {
   firebaseApp = admin.app();
 } catch (error) {
   // Use the secret file path
-  const serviceAccount = require('/etc/secrets/serviceAccountKey.json');
+  const serviceAccount = require('../serviceAccountKey.json');
   firebaseApp = admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
   });
