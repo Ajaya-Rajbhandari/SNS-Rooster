@@ -171,7 +171,7 @@ class AttendanceService {
     }
   }
 
-  Future<void> endBreak(String userId) async {
+  Future<Map<String, dynamic>?> endBreak(String userId) async {
     final token = authProvider.token;
     if (token == null) {
       throw Exception('No valid token found');
@@ -187,9 +187,16 @@ class AttendanceService {
     log('DEBUG: Sending break end API call for userId: $userId');
     final response =
         await http.patch(Uri.parse(url), headers: headers, body: body);
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception(
-          'Failed to end break: ${response.statusCode} ${response.body}');
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return json.decode(response.body);
+    } else {
+      // Try to return the error message from the backend if available
+      try {
+        return json.decode(response.body);
+      } catch (_) {
+        throw Exception(
+            'Failed to end break: {response.statusCode} {response.body}');
+      }
     }
   }
 
