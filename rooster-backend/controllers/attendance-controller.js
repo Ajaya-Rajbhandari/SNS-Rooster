@@ -225,23 +225,14 @@ exports.startBreak = async (req, res) => {
 exports.endBreak = async (req, res) => {
   try {
     const userId = req.user.userId;
-    
-    // Use UTC for date comparison to match other methods
+
+    // Use UTC for date comparison to match DB storage and avoid timezone issues
     const now = new Date();
-    const today = new Date(
-      Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate(),
-        0,
-        0,
-        0,
-        0
-      )
-    );
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
     const tomorrow = new Date(today);
     tomorrow.setUTCDate(today.getUTCDate() + 1);
 
+    // Find attendance for today (UTC)
     const attendance = await Attendance.findOne({
       user: userId,
       date: { $gte: today, $lt: tomorrow },
@@ -251,8 +242,7 @@ exports.endBreak = async (req, res) => {
 
     if (!attendance) {
       return res.status(400).json({
-        message:
-          "Cannot end break: User not checked in or already checked out.",
+        message: "Cannot end break: User not checked in or already checked out.",
       });
     }
 
@@ -265,20 +255,16 @@ exports.endBreak = async (req, res) => {
       return res.status(400).json({ message: "Not currently on break." });
     }
 
-    console.log("DEBUG: Last break before ending:", lastBreak);
+    // End the break and calculate duration
     lastBreak.end = new Date();
     lastBreak.duration = lastBreak.end.getTime() - lastBreak.start.getTime();
-    console.log("DEBUG: Last break after setting end:", lastBreak);
     attendance.markModified("breaks"); // Ensure subdocument is saved
     attendance.totalBreakDuration = attendance.breaks.reduce(
       (sum, b) => sum + (b.duration || 0),
       0
     );
-    console.log("DEBUG: Attendance status before update:", attendance.status);
     attendance.status = "clocked_in";
-    console.log("DEBUG: Attendance status after update:", attendance.status);
     await attendance.save();
-    console.log("DEBUG: Attendance after save:", attendance);
 
     res.status(200).json({ message: "Break ended successfully", attendance });
   } catch (error) {
