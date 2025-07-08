@@ -22,8 +22,19 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   }
 
   Future<void> _verifyEmail() async {
+    String? token;
     final uri = Uri.base;
-    final token = uri.queryParameters['token'];
+
+    // Try to get token from query parameters (for non-web or direct deep links)
+    token = uri.queryParameters['token'];
+
+    // If not found, try to extract from hash (for web hash routing)
+    if (token == null || token.isEmpty) {
+      final hash = uri.fragment; // e.g. "/verify-email?token=..."
+      final hashUri = Uri.parse(hash.startsWith('/') ? hash : '/$hash');
+      token = hashUri.queryParameters['token'];
+    }
+
     if (token == null || token.isEmpty) {
       setState(() {
         _isLoading = false;
