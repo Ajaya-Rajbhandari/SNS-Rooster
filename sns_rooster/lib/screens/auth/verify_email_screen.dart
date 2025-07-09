@@ -4,7 +4,8 @@ import 'dart:convert';
 import '../../config/api_config.dart';
 
 class VerifyEmailScreen extends StatefulWidget {
-  const VerifyEmailScreen({Key? key}) : super(key: key);
+  final String? token;
+  const VerifyEmailScreen({Key? key, this.token}) : super(key: key);
 
   @override
   State<VerifyEmailScreen> createState() => _VerifyEmailScreenState();
@@ -22,17 +23,39 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   }
 
   Future<void> _verifyEmail() async {
-    String? token;
+    String? token = widget.token;
     final uri = Uri.base;
+    print('VerifyEmailScreen: uri = $uri');
 
     // Try to get token from query parameters (for non-web or direct deep links)
-    token = uri.queryParameters['token'];
+    if (token == null || token.isEmpty) {
+      token = uri.queryParameters['token'];
+      print('VerifyEmailScreen: token from queryParameters = $token');
+    }
 
     // If not found, try to extract from hash (for web hash routing)
     if (token == null || token.isEmpty) {
-      final hash = uri.fragment; // e.g. "/verify-email?token=..."
-      final hashUri = Uri.parse(hash.startsWith('/') ? hash : '/$hash');
-      token = hashUri.queryParameters['token'];
+      try {
+        final hash = uri.fragment; // e.g. "/verify-email?token=..."
+        print('VerifyEmailScreen: hash fragment = $hash');
+        if (hash.contains('token=')) {
+          // Remove leading slash if present
+          final hashUri =
+              Uri.parse(hash.startsWith('/') ? hash.substring(1) : hash);
+          token = hashUri.queryParameters['token'];
+          print('VerifyEmailScreen: token from hashUri = $token');
+        } else {
+          print('VerifyEmailScreen: No token found in hash fragment.');
+        }
+      } catch (e) {
+        print('VerifyEmailScreen: Error parsing hash fragment: $e');
+        setState(() {
+          _isLoading = false;
+          _success = false;
+          _message = 'Invalid verification link.';
+        });
+        return;
+      }
     }
 
     if (token == null || token.isEmpty) {
@@ -44,10 +67,13 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       return;
     }
     try {
+      print(
+          'VerifyEmailScreen: Sending HTTP request to: \'${ApiConfig.baseUrl}/auth/verify-email?token=$token\'');
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/auth/verify-email?token=$token'),
         headers: {'Content-Type': 'application/json'},
       );
+      print('VerifyEmailScreen: HTTP response status: ${response.statusCode}');
       if (response.statusCode == 200) {
         setState(() {
           _isLoading = false;
@@ -55,14 +81,24 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
           _message = 'Your email has been verified! You can now log in.';
         });
       } else {
-        final data = jsonDecode(response.body);
-        setState(() {
-          _isLoading = false;
-          _success = false;
-          _message = data['message'] ?? 'Verification failed.';
-        });
+        try {
+          final data = jsonDecode(response.body);
+          setState(() {
+            _isLoading = false;
+            _success = false;
+            _message = data['message'] ?? 'Verification failed.';
+          });
+        } catch (e) {
+          print('VerifyEmailScreen: Error decoding response: $e');
+          setState(() {
+            _isLoading = false;
+            _success = false;
+            _message = 'Verification failed (invalid server response).';
+          });
+        }
       }
     } catch (e) {
+      print('VerifyEmailScreen: Network or other error: $e');
       setState(() {
         _isLoading = false;
         _success = false;

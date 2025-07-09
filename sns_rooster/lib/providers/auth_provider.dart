@@ -227,9 +227,12 @@ class AuthProvider with ChangeNotifier {
         log('LOGIN_DEBUG: User data received: _user');
         log('LOGIN_DEBUG: Backend token field: ${data['token']}');
         log('LOGIN_DEBUG: Token received from backend response: _authToken');
+
+        // Always save auth token and user data to SharedPreferences
+        await _saveAuthToPrefs();
+
         final prefs = await SharedPreferences.getInstance();
         if (_rememberMe) {
-          await _saveAuthToPrefs();
           await prefs.setBool(_rememberMeKey, true);
           await prefs.setString(_savedEmailKey, email);
           await prefs.setString(_savedPasswordKey, password);
@@ -255,7 +258,7 @@ class AuthProvider with ChangeNotifier {
         }
         // --- Send FCM token to backend after login ---
         try {
-          final fcmToken = await FCMService().fcmToken ??
+          final fcmToken = FCMService().fcmToken ??
               await FCMService()
                   .initialize()
                   .then((_) => FCMService().fcmToken);

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/global_notification_service.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../../config/api_config.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -32,29 +30,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       _isLoading = true;
     });
 
+    final notificationService =
+        Provider.of<GlobalNotificationService>(context, listen: false);
+
     try {
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/auth/forgot-password'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': _emailController.text}),
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: _emailController.text.trim(),
       );
-
-      final notificationService =
-          Provider.of<GlobalNotificationService>(context, listen: false);
-
-      if (response.statusCode == 200) {
-        notificationService
-            .showSuccess('Password reset link sent to your email.');
-        Navigator.pop(context);
-      } else {
-        final data = jsonDecode(response.body);
-        notificationService
-            .showError(data['message'] ?? 'Failed to send reset link.');
-      }
+      notificationService
+          .showSuccess('Password reset link sent to your email.');
+      Navigator.pop(context);
+    } on FirebaseAuthException catch (e) {
+      notificationService.showError(e.message ?? 'Failed to send reset link.');
     } catch (e) {
-      final notificationService =
-          Provider.of<GlobalNotificationService>(context, listen: false);
-      notificationService.showError('Error: ${e.toString()}');
+      notificationService.showError('Error:  ${e.toString()}');
     } finally {
       setState(() {
         _isLoading = false;

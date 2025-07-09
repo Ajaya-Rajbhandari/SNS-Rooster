@@ -63,3 +63,6 @@ coverage/
 *.temp
 .cache/
 .temp/
+
+# FVM Version Cache
+.fvm/
