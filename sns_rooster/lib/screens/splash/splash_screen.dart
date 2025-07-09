@@ -35,35 +35,63 @@ class _SplashScreenState extends State<SplashScreen> {
     print('SplashScreen (universal): fragment: $fragment');
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    // 1. Handle verification or reset-password first
     if (fragment.startsWith('/verify-email')) {
       final fakeUri = Uri.parse('http://dummy$fragment');
       final token = fakeUri.queryParameters['token'];
       print('SplashScreen: Navigating to VerifyEmailScreen with token: $token');
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => const VerifyEmailScreen(),
-        ),
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => VerifyEmailScreen(token: token),
+            ),
+          );
+        }
+      });
+      return;
     } else if (fragment.startsWith('/reset-password')) {
       final fakeUri = Uri.parse('http://dummy$fragment');
       final token = fakeUri.queryParameters['token'];
       print('SplashScreen: Navigating to ResetPassword with token: $token');
-      Navigator.of(context)
-          .pushReplacementNamed('/reset-password', arguments: {'token': token});
-    } else if (authProvider.isAuthenticated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/reset-password',
+              arguments: {'token': token});
+        }
+      });
+      return;
+    }
+
+    // 2. If no special hash, proceed with auth check
+    if (authProvider.isAuthenticated) {
       if (authProvider.user?['role'] == 'admin') {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
-        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+            );
+          }
+        });
       } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const EmployeeDashboardScreen()),
-        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                  builder: (_) => const EmployeeDashboardScreen()),
+            );
+          }
+        });
       }
     } else {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          );
+        }
+      });
     }
   }
 

@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "1057834197554",
-    "project_id": "sns-rooster",
-    "storage_bucket": "sns-rooster.firebasestorage.app"
+    "project_number": "901502276055",
+    "project_id": "sns-rooster-8cca5",
+    "storage_bucket": "sns-rooster-8cca5.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1057834197554:android:c7fc4b1876d572751dd22b",
+        "mobilesdk_app_id": "1:901502276055:android:d90130ca4462ccc68f7b92",
         "android_client_info": {
-          "package_name": "com.example.sns_rooster"
+          "package_name": "com.snstech.sns_rooster"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBgGCS5WWFLSbDTVYaNWUbEVwku6qmnAEo"
+          "current_key": "AIzaSyBWg9ySUE_XSpPF4T5Og1FLoazIZR8Orqg"
         }
       ],
       "services": {
@@ -26,15 +26,15 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1057834197554:android:593c08d47ff9aca61dd22b",
+        "mobilesdk_app_id": "1:901502276055:android:e6650638399db0978f7b92",
         "android_client_info": {
-          "package_name": "con.snstech.snsrooster"
+          "package_name": "com.snstech.sns_rooster"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBgGCS5WWFLSbDTVYaNWUbEVwku6qmnAEo"
+          "current_key": "AIzaSyBWg9ySUE_XSpPF4T5Og1FLoazIZR8Orqg"
         }
       ],
       "services": {

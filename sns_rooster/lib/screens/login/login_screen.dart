@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../employee/employee_dashboard_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,9 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
-  bool _autoFill = true;
-  final bool _autoLogin = false;
-  String _selectedRole = 'admin';
+  bool _rememberMe = false;
 
   // Test credentials for developer convenience
   static const String _devEmployeeEmail = 'testuser@example.com';
@@ -31,20 +30,18 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _updateAutoFillFields();
+    _loadSavedCredentials();
   }
 
-  void _updateAutoFillFields() {
-    if (_autoFill) {
-      _emailController.text =
-          _selectedRole == 'admin' ? _devAdminEmail : _devEmployeeEmail;
-      _passwordController.text =
-          _selectedRole == 'admin' ? _devAdminPassword : _devEmployeePassword;
-      if (_autoLogin) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted) _login();
-        });
-      }
+  void _loadSavedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final remember = prefs.getBool('rememberMe') ?? false;
+    if (remember) {
+      setState(() {
+        _rememberMe = true;
+        _emailController.text = prefs.getString('savedEmail') ?? '';
+        _passwordController.text = prefs.getString('savedPassword') ?? '';
+      });
     }
   }
 
@@ -56,7 +53,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    print('LOGIN SCREEN: Initiating login process');
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -71,20 +67,26 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (success) {
-        print('LOGIN SCREEN: Login successful');
+        final prefs = await SharedPreferences.getInstance();
+        if (_rememberMe) {
+          await prefs.setString('savedEmail', _emailController.text);
+          await prefs.setString('savedPassword', _passwordController.text);
+          await prefs.setBool('rememberMe', true);
+        } else {
+          await prefs.remove('savedEmail');
+          await prefs.remove('savedPassword');
+          await prefs.setBool('rememberMe', false);
+        }
         if (authProvider.user?['role'] == 'admin') {
-          print('LOGIN SCREEN: Navigating to AdminDashboardScreen');
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
           );
         } else {
-          print('LOGIN SCREEN: Navigating to EmployeeDashboardScreen');
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const EmployeeDashboardScreen()),
           );
         }
       } else {
-        print('LOGIN SCREEN: Login failed');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(authProvider.error ?? 'Login failed'),
@@ -93,8 +95,6 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
-      print('LOGIN SCREEN: Error during login: $e');
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('An error occurred during login'),
@@ -108,9 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print('LOGIN SCREEN: BuildContext is ${context.hashCode}');
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    print('LOGIN SCREEN: AuthProvider user data: ${authProvider.user}');
 
     final theme = Theme.of(context);
     return Scaffold(
@@ -224,52 +222,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    if (kDebugMode) ...[
-                      DropdownButtonFormField<String>(
-                        value: _selectedRole,
-                        decoration: InputDecoration(
-                          labelText: 'Role',
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'employee',
-                            child: Text('Employee'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'admin',
-                            child: Text('Admin'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              _selectedRole = value;
-                              _updateAutoFillFields();
-                            });
-                          }
-                        },
+                    SwitchListTile(
+                      title: const Text(
+                        'Remember Me',
+                        style: TextStyle(color: Colors.white),
                       ),
-                      const SizedBox(height: 8),
-                      SwitchListTile(
-                        title: const Text(
-                          'Auto-fill Credentials',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                        value: _autoFill,
-                        onChanged: (value) {
-                          setState(() {
-                            _autoFill = value;
-                            _updateAutoFillFields();
-                          });
-                        },
-                      ),
-                    ],
-                    const SizedBox(height: 24),
+                      value: _rememberMe,
+                      onChanged: (value) {
+                        setState(() {
+                          _rememberMe = value;
+                        });
+                      },
+                    ),
                     ElevatedButton(
                       onPressed: _isLoading ? null : _login,
                       style: ElevatedButton.styleFrom(
