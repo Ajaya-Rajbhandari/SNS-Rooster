@@ -263,20 +263,24 @@ class AuthProvider with ChangeNotifier {
                   .initialize()
                   .then((_) => FCMService().fcmToken);
           if (fcmToken != null) {
+            final requestBody = {
+              'fcmToken': fcmToken,
+              'platform': 'android',
+              'appVersion': '1.0.0',
+              'deviceModel': 'flutter-app',
+            };
+            log('LOGIN_DEBUG: Sending FCM token to backend: $requestBody');
+            log('LOGIN_DEBUG: Using token: $_token');
+
             final fcmResponse = await http.post(
               Uri.parse('${ApiConfig.baseUrl}/fcm-token'),
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer $_token',
               },
-              body: jsonEncode({
-                'fcmToken': fcmToken,
-                'platform': 'android',
-                'appVersion': '1.0.0',
-                'deviceModel': 'flutter-app',
-              }),
+              body: jsonEncode(requestBody),
             );
-            log('LOGIN_DEBUG: Sent FCM token to backend. Status: [32m${fcmResponse.statusCode}[0m, Body: ${fcmResponse.body}');
+            log('LOGIN_DEBUG: FCM token response. Status:  [32m${fcmResponse.statusCode} [0m, Body: ${fcmResponse.body}');
           } else {
             log('LOGIN_DEBUG: No FCM token available to send to backend.');
           }
@@ -689,17 +693,24 @@ class AuthProvider with ChangeNotifier {
         return;
       }
 
+      final requestBody = {
+        'fcmToken': fcmToken,
+        'userId': _user?['_id'], // Use _id instead of id
+      };
+
+      log('FCM: Sending FCM token to backend: $requestBody');
+      log('FCM: Using auth token: $_authToken');
+
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/auth/fcm-token'),
+        Uri.parse('${ApiConfig.baseUrl}/fcm-token'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $_authToken',
         },
-        body: json.encode({
-          'fcmToken': fcmToken,
-          'userId': _user?['id'],
-        }),
+        body: json.encode(requestBody),
       );
+
+      log('FCM: Backend response: ${response.statusCode} ${response.body}');
 
       if (response.statusCode == 200) {
         log('FCM: Token saved to backend successfully');

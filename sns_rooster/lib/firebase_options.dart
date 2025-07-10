@@ -85,4 +85,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'sns-rooster-8cca5.firebasestorage.app',
     measurementId: 'G-D3ZXD85DKS',
   );
+
 }

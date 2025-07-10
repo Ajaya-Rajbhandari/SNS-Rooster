@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/logger.dart';
+import 'dart:typed_data';
 
 class FCMService {
   static final FCMService _instance = FCMService._internal();
@@ -14,6 +15,24 @@ class FCMService {
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
+
+  // Add these fields inside the class
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
+  static const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'high_importance_channel', // id (must match AndroidManifest.xml)
+    'High Importance Notifications', // title
+    description: 'This channel is used for important notifications.',
+    importance: Importance.high,
+  );
+
+  Future<void> setupNotificationChannel() async {
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+  }
 
   String? _fcmToken;
   bool _isInitialized = false;
@@ -45,7 +64,7 @@ class FCMService {
 
       // Get FCM token
       _fcmToken = await _firebaseMessaging.getToken();
-      Logger.info('FCM Token: [32m[1m[4m[47m$_fcmToken[0m');
+      Logger.info('FCM Token:  [32m [1m [4m [47m$_fcmToken [0m');
       if (_fcmToken != null) {
         // Print the FCM token to the debug console for developer
         // (This makes it easy to copy for Firebase Console testing)
@@ -113,6 +132,8 @@ class FCMService {
       initializationSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
+
+    await setupNotificationChannel();
   }
 
   // Handle foreground messages
@@ -143,14 +164,16 @@ class FCMService {
 
   // Show local notification
   Future<void> _showLocalNotification(RemoteMessage message) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'sns_rooster_channel',
-      'SNS Rooster Notifications',
+      'high_importance_channel', // <-- must match manifest and channel setup
+      'High Importance Notifications',
       channelDescription: 'Notifications for SNS Rooster app',
       importance: Importance.max,
       priority: Priority.high,
       showWhen: true,
+      vibrationPattern: Int64List.fromList([0, 500, 250, 500]),
+      enableVibration: true,
     );
 
     const DarwinNotificationDetails iOSPlatformChannelSpecifics =
@@ -160,7 +183,7 @@ class FCMService {
       presentSound: true,
     );
 
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
       iOS: iOSPlatformChannelSpecifics,
     );
@@ -249,7 +272,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Initialize Firebase for background handling
   await Firebase.initializeApp();
 
-  Logger.info('FCM: Background message received: ${message.messageId}');
+  Logger.info(
+      'FCM: Background message received:  [32m [1m [4m [47m${message.messageId} [0m');
 
   // Handle background message data
   Logger.info('FCM: Background message data: ${message.data}');
