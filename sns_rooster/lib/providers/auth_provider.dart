@@ -263,29 +263,26 @@ class AuthProvider with ChangeNotifier {
                   .initialize()
                   .then((_) => FCMService().fcmToken);
           if (fcmToken != null) {
-            final requestBody = {
-              'fcmToken': fcmToken,
-              'platform': 'android',
-              'appVersion': '1.0.0',
-              'deviceModel': 'flutter-app',
-            };
-            log('LOGIN_DEBUG: Sending FCM token to backend: $requestBody');
-            log('LOGIN_DEBUG: Using token: $_token');
-
             final fcmResponse = await http.post(
               Uri.parse('${ApiConfig.baseUrl}/fcm-token'),
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer $_token',
               },
-              body: jsonEncode(requestBody),
+              body: jsonEncode({
+                'fcmToken': fcmToken,
+                'platform': 'android',
+                'appVersion': '1.0.0',
+                'deviceModel': 'flutter-app',
+              }),
             );
-            log('LOGIN_DEBUG: FCM token response. Status:  [32m${fcmResponse.statusCode} [0m, Body: ${fcmResponse.body}');
+            print(
+                'FCM: Token registration ${fcmResponse.statusCode == 200 ? "✅ SUCCESS" : "❌ FAILED"} (${fcmResponse.statusCode})');
           } else {
-            log('LOGIN_DEBUG: No FCM token available to send to backend.');
+            print('FCM: ❌ No token available');
           }
         } catch (e) {
-          log('LOGIN_DEBUG: Failed to send FCM token to backend: $e');
+          print('FCM: ❌ Registration failed: $e');
         }
         return true;
       } else {
@@ -689,17 +686,9 @@ class AuthProvider with ChangeNotifier {
     try {
       final fcmToken = FCMService().fcmToken;
       if (fcmToken == null) {
-        log('FCM: No FCM token available to save');
+        print('FCM: ❌ No token available');
         return;
       }
-
-      final requestBody = {
-        'fcmToken': fcmToken,
-        'userId': _user?['_id'], // Use _id instead of id
-      };
-
-      log('FCM: Sending FCM token to backend: $requestBody');
-      log('FCM: Using auth token: $_authToken');
 
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/fcm-token'),
@@ -707,23 +696,23 @@ class AuthProvider with ChangeNotifier {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $_authToken',
         },
-        body: json.encode(requestBody),
+        body: json.encode({
+          'fcmToken': fcmToken,
+          'userId': _user?['_id'],
+        }),
       );
 
-      log('FCM: Backend response: ${response.statusCode} ${response.body}');
-
       if (response.statusCode == 200) {
-        log('FCM: Token saved to backend successfully');
-
+        print('FCM: ✅ Token saved to backend');
         // Subscribe to role-based topics
         if (_user?['role'] != null) {
           await FCMService().subscribeToRoleTopics(_user!['role']);
         }
       } else {
-        log('FCM: Failed to save token to backend: ${response.statusCode}');
+        print('FCM: ❌ Save failed (${response.statusCode})');
       }
     } catch (e) {
-      log('FCM: Error saving token to backend: $e');
+      print('FCM: ❌ Save error: $e');
     }
   }
 }

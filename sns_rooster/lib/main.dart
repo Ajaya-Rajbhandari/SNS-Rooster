@@ -86,7 +86,9 @@ void main() async {
 
   // Try to get the FCM token directly (for debugging)
   String? token = await FirebaseMessaging.instance.getToken();
-  print('FCM Token (main): $token');
+  if (token != null) {
+    print('FCM: ✅ Token ready');
+  }
 
   // Initialize FCM Service
   await FCMService().initialize();
