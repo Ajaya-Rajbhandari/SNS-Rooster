@@ -352,7 +352,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = authProvider.user;
     if (user == null) {
       // Not logged in, show fallback or redirect
-      return Scaffold(
+      return const Scaffold(
         body: Center(child: Text('Not logged in. Please log in.')),
       );
     }
@@ -376,35 +376,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // Always update text fields with latest profile data
         _loadUserDataInternal(profileProvider);
         String? avatarUrl = profileProvider.profile?['avatar'];
+        if (avatarUrl == null || avatarUrl.isEmpty) {
+          avatarUrl = profileProvider.profile?['profilePicture'];
+        }
+        if (avatarUrl == null || avatarUrl.isEmpty) {
+          avatarUrl = '/uploads/avatars/default-avatar.png';
+        }
         ImageProvider? backgroundImage;
-        if (avatarUrl != null && avatarUrl.isNotEmpty) {
-          if (avatarUrl.startsWith('http')) {
-            backgroundImage = NetworkImage(avatarUrl);
-          } else {
-            String imageBaseUrl = ApiConfig.baseUrl;
-            if (imageBaseUrl.endsWith('/api')) {
-              imageBaseUrl = imageBaseUrl.substring(
-                  0, imageBaseUrl.length - '/api'.length);
-            }
-            String fullUrl = (imageBaseUrl.endsWith('/') ||
-                    avatarUrl.startsWith('/'))
-                ? "$imageBaseUrl${avatarUrl.startsWith('/') ? avatarUrl.substring(1) : avatarUrl}"
-                : "$imageBaseUrl/$avatarUrl";
-            fullUrl = fullUrl.replaceFirst('//', '/').replaceFirst(':/', '://');
-            if (avatarUrl.startsWith('/uploads') &&
-                imageBaseUrl.endsWith('/')) {
-              fullUrl =
-                  "${imageBaseUrl.substring(0, imageBaseUrl.length - 1)}$avatarUrl";
-            } else if (!avatarUrl.startsWith('/') &&
-                !imageBaseUrl.endsWith('/')) {
-              fullUrl = "$imageBaseUrl/$avatarUrl";
-            } else {
-              fullUrl = "$imageBaseUrl$avatarUrl"
-                  .replaceAll(RegExp(r'(?<!:)/{2,}'), '/');
-            }
-            backgroundImage = NetworkImage(fullUrl);
-            log('Constructed Avatar URL for Profile: $fullUrl');
+        if (avatarUrl.startsWith('http')) {
+          backgroundImage = NetworkImage(avatarUrl);
+        } else {
+          String imageBaseUrl = ApiConfig.baseUrl;
+          if (imageBaseUrl.endsWith('/api')) {
+            imageBaseUrl =
+                imageBaseUrl.substring(0, imageBaseUrl.length - '/api'.length);
           }
+          String fullUrl = (imageBaseUrl.endsWith('/') ||
+                  avatarUrl.startsWith('/'))
+              ? "$imageBaseUrl${avatarUrl.startsWith('/') ? avatarUrl.substring(1) : avatarUrl}"
+              : "$imageBaseUrl/$avatarUrl";
+          fullUrl = fullUrl.replaceFirst('//', '/').replaceFirst(':/', '://');
+          if (avatarUrl.startsWith('/uploads') && imageBaseUrl.endsWith('/')) {
+            fullUrl =
+                "${imageBaseUrl.substring(0, imageBaseUrl.length - 1)}$avatarUrl";
+          } else if (!avatarUrl.startsWith('/') &&
+              !imageBaseUrl.endsWith('/')) {
+            fullUrl = "$imageBaseUrl/$avatarUrl";
+          } else {
+            fullUrl = "$imageBaseUrl$avatarUrl"
+                .replaceAll(RegExp(r'(?<!:)/{2,}'), '/');
+          }
+          backgroundImage = NetworkImage(fullUrl);
+          log('Constructed Avatar URL for Profile: $fullUrl');
         }
         return Scaffold(
           appBar: AppBar(
@@ -445,6 +448,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     Text(
                                       profile?['email'] ?? '',
                                       style: theme.textTheme.bodyMedium,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    // Employment Type/Subtype display
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.work_outline,
+                                            size: 18, color: Colors.blueGrey),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Employment: '
+                                          '${(profile?['employeeType'] ?? 'Not set')}'
+                                          '${(profile?['employeeSubType'] != null && (profile?['employeeSubType'] as String).isNotEmpty) ? ' - ${profile?['employeeSubType']}' : ''}',
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                                  fontWeight: FontWeight.w500),
+                                        ),
+                                      ],
                                     ),
                                     const SizedBox(height: 8),
                                     ElevatedButton.icon(

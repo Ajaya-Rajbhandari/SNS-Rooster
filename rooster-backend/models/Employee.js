@@ -56,6 +56,16 @@ const employeeSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  employeeType: {
+    type: String,
+    enum: ['Permanent', 'Temporary'],
+    default: 'Permanent',
+  },
+  employeeSubType: {
+    type: String,
+    enum: ['Full-time', 'Part-time', 'Casual', null],
+    default: null,
+  },
   // Add other employee-related fields as needed
 });
 

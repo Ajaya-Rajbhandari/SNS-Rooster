@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import '../providers/profile_provider.dart';
 import '../config/api_config.dart';
-import '../main.dart'; // Import main.dart to access MyApp class
+// Import main.dart to access MyApp class
 import '../providers/attendance_provider.dart';
 import '../services/fcm_service.dart';
 
@@ -305,22 +305,18 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // TODO: Replace with real API call (e.g., POST $_baseUrl/auth/forgot-password).
-      // Example:
-      // final response = await http.post(
-      //   Uri.parse('$_baseUrl/auth/forgot-password'),
-      //   headers: {'Content-Type': 'application/json'},
-      //   body: json.encode({'email': email}),
-      // );
-      // if (response.statusCode == 200) {
-      //   return true;
-      // } else {
-      //   final data = json.decode(response.body);
-      //   _error = data['message'] ?? 'Failed to send password reset email';
-      //   return false;
-      // }
-      throw UnimplementedError(
-          "Real API call for password reset not implemented.");
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/auth/forgot-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email}),
+      );
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        final data = json.decode(response.body);
+        _error = data['message'] ?? 'Failed to send password reset email';
+        return false;
+      }
     } catch (e) {
       _error = e.toString();
       return false;
