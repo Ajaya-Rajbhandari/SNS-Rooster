@@ -52,6 +52,20 @@ import 'package:firebase_core/firebase_core.dart';
 import 'web_url_strategy_stub.dart'
     if (dart.library.html) 'web_url_strategy.dart';
 import 'firebase_options.dart';
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
+// Add this import for web notification permission
+import 'web_notification_permission_stub.dart'
+    if (dart.library.html) 'web_notification_permission_web.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+Future<void> requestAndroidNotificationPermission() async {
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    final status = await Permission.notification.request();
+    print('Android notification permission: $status');
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,6 +74,19 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Request notification permission on web
+  if (kIsWeb) {
+    final permission = await requestWebNotificationPermission();
+    print('Web notification permission: ' + permission.toString());
+  }
+
+  // Request Android notification permission (Android 13+)
+  await requestAndroidNotificationPermission();
+
+  // Try to get the FCM token directly (for debugging)
+  String? token = await FirebaseMessaging.instance.getToken();
+  print('FCM Token (main): $token');
 
   // Initialize FCM Service
   await FCMService().initialize();
