@@ -222,7 +222,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final user = authProvider.user;
     if (user == null) {
       // Not logged in, show fallback or redirect
-      return Scaffold(
+      return const Scaffold(
         body: Center(child: Text('Not logged in. Please log in.')),
       );
     }

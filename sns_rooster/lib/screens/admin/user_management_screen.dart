@@ -582,7 +582,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                           ),
                                           const SizedBox(width: 8),
                                           IconButton(
-                                            icon: Icon(Icons.delete,
+                                            icon: const Icon(Icons.delete,
                                                 color: Colors.red),
                                             onPressed: user['_id'] ==
                                                     currentUserId
@@ -591,9 +591,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                                       context: context,
                                                       builder: (context) =>
                                                           AlertDialog(
-                                                        title: Text(
+                                                        title: const Text(
                                                             'Action Not Allowed'),
-                                                        content: Text(
+                                                        content: const Text(
                                                             'You cannot delete your own admin account.'),
                                                         actions: [
                                                           TextButton(
@@ -601,7 +601,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                                                 Navigator.of(
                                                                         context)
                                                                     .pop(),
-                                                            child: Text('OK'),
+                                                            child: const Text(
+                                                                'OK'),
                                                           ),
                                                         ],
                                                       ),

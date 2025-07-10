@@ -196,7 +196,7 @@ class AdminAnalyticsProvider with ChangeNotifier {
       }
     } catch (e) {
       _error = e.toString();
-      throw e;
+      rethrow;
     } finally {
       _isLoading = false;
       notifyListeners();

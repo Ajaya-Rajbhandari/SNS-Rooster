@@ -73,7 +73,7 @@ class _PayrollCycleSettingsScreenState
             children: [
               // Summary banner
               Card(
-                color: theme.colorScheme.surfaceVariant,
+                color: theme.colorScheme.surfaceContainerHighest,
                 elevation: 1,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),

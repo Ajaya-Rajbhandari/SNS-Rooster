@@ -69,7 +69,7 @@ class GlobalNotificationService extends ChangeNotifier {
 
   void showError(String message,
       {Duration? duration, VoidCallback? onDismiss}) {
-    print('DEBUG: showError called with message: ' + message);
+    print('DEBUG: showError called with message: $message');
     show(
       message: message,
       type: GlobalNotificationType.error,

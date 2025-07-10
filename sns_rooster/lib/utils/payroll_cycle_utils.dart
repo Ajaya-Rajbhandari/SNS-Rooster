@@ -1,5 +1,3 @@
-import 'package:intl/intl.dart';
-
 class PayrollCycleUtils {
   /// Compute current cycle period (start & end dates) based on cycle settings
   /// Supported frequencies: Monthly, Semi-Monthly, Bi-Weekly, Weekly
@@ -84,7 +82,7 @@ class PayrollCycleUtils {
   static Map<String, DateTime> _semiMonthlyPeriod(
       Map<String, dynamic> cycle, DateTime now) {
     // Assume first cycle: 1-15, second: 16-end
-    final mid = 15;
+    const mid = 15;
     DateTime start, end;
     if (now.day <= mid) {
       // we're in second half of previous month?
