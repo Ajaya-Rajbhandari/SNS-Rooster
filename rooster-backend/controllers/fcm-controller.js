@@ -18,16 +18,12 @@ try {
 // Save FCM token for a user
 exports.saveFCMToken = async (req, res) => {
   try {
-    console.log('FCM DEBUG: Received FCM token registration request');
-    console.log('FCM DEBUG: Request body:', req.body);
-    console.log('FCM DEBUG: User from JWT:', req.user);
-    
     const { fcmToken, userId } = req.body;
     const requestingUserId = req.user.id;
 
     // Validate input
     if (!fcmToken) {
-      console.log('FCM DEBUG: No FCM token provided in request');
+      console.log('FCM: ❌ No token provided');
       return res.status(400).json({ message: 'FCM token is required' });
     }
 
@@ -37,15 +33,13 @@ exports.saveFCMToken = async (req, res) => {
     }
 
     const targetUserId = userId || requestingUserId;
-    console.log('FCM DEBUG: Target user ID:', targetUserId);
 
     // Check if user exists
     const user = await User.findById(targetUserId);
     if (!user) {
-      console.log('FCM DEBUG: User not found with ID:', targetUserId);
+      console.log('FCM: ❌ User not found');
       return res.status(404).json({ message: 'User not found' });
     }
-    console.log('FCM DEBUG: User found:', user.email);
 
     // Save or update FCM token
     const tokenData = {
@@ -59,14 +53,13 @@ exports.saveFCMToken = async (req, res) => {
       lastUsed: new Date()
     };
 
-    const savedToken = await FCMToken.findOneAndUpdate(
+    await FCMToken.findOneAndUpdate(
       { userId: targetUserId },
       tokenData,
       { upsert: true, new: true }
     );
     
-    console.log('FCM DEBUG: FCM token saved/updated successfully');
-    console.log('FCM DEBUG: Saved token document:', savedToken);
+    console.log('FCM: ✅ Token saved for user:', user.email);
 
     res.status(200).json({ message: 'FCM token saved successfully' });
   } catch (error) {
