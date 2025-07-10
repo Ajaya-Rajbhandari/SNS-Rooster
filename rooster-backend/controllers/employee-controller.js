@@ -69,6 +69,8 @@ exports.createEmployee = async (req, res) => {
       department: req.body.department,
       hourlyRate: req.body.hourlyRate,
       monthlySalary: req.body.monthlySalary,
+      employeeType: req.body.employeeType,
+      employeeSubType: req.body.employeeSubType,
     });
 
     const newEmployee = await employee.save();

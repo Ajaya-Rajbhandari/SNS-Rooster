@@ -129,14 +129,12 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         if (Platform.isAndroid) {
           // For Android, save to external storage directory (no permissions needed)
           directory = await getExternalStorageDirectory();
-          if (directory != null) {
-            // Create a Reports folder in the app's external storage
-            final reportsDir = Directory('${directory.path}/Reports');
-            if (!await reportsDir.exists()) {
-              await reportsDir.create(recursive: true);
-            }
-            directory = reportsDir;
+          // Create a Reports folder in the app's external storage
+          final reportsDir = Directory('${directory?.path}/Reports');
+          if (!await reportsDir.exists()) {
+            await reportsDir.create(recursive: true);
           }
+          directory = reportsDir;
         } else if (Platform.isIOS) {
           // For iOS, save to Documents directory
           directory = await getApplicationDocumentsDirectory();
@@ -145,59 +143,55 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           directory = await getApplicationDocumentsDirectory();
         }
 
-        if (directory != null) {
-          final file = File('${directory.path}/$filename');
-          await file.writeAsBytes(reportData);
+        final file = File('${directory.path}/$filename');
+        await file.writeAsBytes(reportData);
 
-          if (mounted) {
-            final friendlyPath = Platform.isAndroid
-                ? 'Android/data/com.example.sns_rooster/files/Reports/'
-                : 'Documents/';
+        if (mounted) {
+          final friendlyPath = Platform.isAndroid
+              ? 'Android/data/com.example.sns_rooster/files/Reports/'
+              : 'Documents/';
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Report generated successfully!'),
-                    Text('Saved to: $friendlyPath$filename',
-                        style: const TextStyle(fontSize: 12)),
-                  ],
-                ),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 8),
-                action: SnackBarAction(
-                  label: 'Open',
-                  textColor: Colors.white,
-                  onPressed: () async {
-                    try {
-                      await OpenFile.open(file.path);
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Could not open file: $e'),
-                            backgroundColor: Colors.orange,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                ),
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Report generated successfully!'),
+                  Text('Saved to: $friendlyPath$filename',
+                      style: const TextStyle(fontSize: 12)),
+                ],
               ),
-            );
-          }
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 8),
+              action: SnackBarAction(
+                label: 'Open',
+                textColor: Colors.white,
+                onPressed: () async {
+                  try {
+                    await OpenFile.open(file.path);
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Could not open file: $e'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+            ),
+          );
+        }
 
-          // Also try to open the file automatically
-          try {
-            await OpenFile.open(file.path);
-          } catch (e) {
-            // If auto-open fails, that's okay - user can still open manually
-            print('Auto-open failed: $e');
-          }
-        } else {
-          throw Exception('Could not access storage directory');
+        // Also try to open the file automatically
+        try {
+          await OpenFile.open(file.path);
+        } catch (e) {
+          // If auto-open fails, that's okay - user can still open manually
+          print('Auto-open failed: $e');
         }
       } else {
         throw Exception('No report data received or invalid format');

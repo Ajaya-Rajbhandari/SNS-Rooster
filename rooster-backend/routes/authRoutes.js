@@ -11,10 +11,10 @@ router.post("/login", authController.login);
 router.post("/register", auth, authController.register);
 
 // Request password reset
-router.post("/reset-password", authController.requestPasswordReset);
+// router.post("/reset-password", authController.requestPasswordReset);
 
-// Reset password with token
-router.post("/reset-password/:token", authController.resetPassword);
+// Reset password (token in body)
+router.post("/reset-password", authController.resetPassword);
 
 // Email verification routes
 router.get("/verify-email", authController.verifyEmail);
@@ -54,6 +54,6 @@ router.get('/users/:id/profile', auth, authController.getUserById);
 router.patch('/users/:id', auth, authController.toggleUserActive);
 
 // Forgot password route (notifies admin or sends reset link to admin users)
-router.post("/forgot-password", authController.forgotPasswordNotifyAdmin);
+router.post("/forgot-password", authController.forgotPassword);
 
 module.exports = router;

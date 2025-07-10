@@ -273,6 +273,20 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                                     ),
                                     Text(employee['position'] ?? 'N/A',
                                         style: theme.textTheme.bodyMedium),
+                                    // Employment Type/Subtype
+                                    if (employee['employeeType'] != null &&
+                                        employee['employeeType']
+                                            .toString()
+                                            .isNotEmpty)
+                                      Text(
+                                        'Employment: '
+                                        '${employee['employeeType']}'
+                                        '${employee['employeeSubType'] != null && employee['employeeSubType'].toString().isNotEmpty ? ' - ${employee['employeeSubType']}' : ''}',
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.blueGrey),
+                                      ),
                                     Text(employee['email'] ?? 'N/A',
                                         style: theme.textTheme.bodySmall),
                                   ],

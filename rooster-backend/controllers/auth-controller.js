@@ -11,7 +11,18 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // DEBUG LOGGING START
+    console.log('--- LOGIN DEBUG ---');
+    console.log('Login attempt:', { email, password });
     const user = await User.findOne({ email });
+    console.log('User found:', !!user);
+    if (user) {
+      console.log('DB hash:', user.password);
+      const isMatch = await user.comparePassword(password);
+      console.log('Password match:', isMatch);
+    }
+    // DEBUG LOGGING END
+
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
@@ -215,7 +226,7 @@ exports.requestPasswordReset = async (req, res) => {
     const user = await User.findOne({ email });
 
     if (!user) {
-      return res.json({ message: 'If your email is registered, you will receive password reset instructions' });
+      return res.json({ message: 'If your email is registered, you will receive a reset code.' });
     }
 
     if (!user.canRequestPasswordReset()) {
@@ -251,63 +262,69 @@ exports.requestPasswordReset = async (req, res) => {
 };
 
 exports.resetPassword = async (req, res) => {
-  try {
-    const { token } = req.params;
-    const { password } = req.body;
-
-    if (!password || password.length < 6) {
-      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
-    }
-
-    const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() }
-    });
-
-    if (!user) {
-      return res.status(400).json({ 
-        message: 'Invalid or expired reset token. Please request a new password reset.',
-        expired: true
-      });
-    }
-
-    user.password = password;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
-    user.resetPasswordAttempts = 0;
-    user.resetPasswordLastAttempt = undefined;
-    
-    await user.save();
-
-    res.json({ 
-      message: 'Password has been reset successfully. You can now log in with your new password.',
-      success: true
-    });
-  } catch (error) {
-    console.error('Password reset error:', error);
-    res.status(500).json({ message: 'Server error' });
+  console.log('RESET DEBUG: Entered resetPassword function');
+  const { token, newPassword, confirmPassword } = req.body;
+  if (!token || !newPassword || !confirmPassword) {
+    console.log('RESET DEBUG: Missing required fields', { token, newPassword, confirmPassword });
+    return res.status(400).json({ message: 'Token, new password, and confirm password are required.' });
   }
+  if (newPassword !== confirmPassword) {
+    console.log('RESET DEBUG: Passwords do not match', { newPassword, confirmPassword });
+    return res.status(400).json({ message: 'Passwords do not match.' });
+  }
+  const user = await User.findOne({
+    resetPasswordToken: token,
+    resetPasswordExpires: { $gt: Date.now() }
+  });
+  console.log('RESET DEBUG: User found for token?', !!user, 'Token:', token);
+  if (!user) {
+    console.log('RESET DEBUG: No user found for token or token expired', { token });
+    return res.status(400).json({ message: 'Invalid or expired reset code.' });
+  }
+  console.log('RESET DEBUG: Found user for reset:', user.email);
+  user.password = newPassword;
+  console.log('RESET DEBUG: About to save new password:', newPassword);
+  try {
+    await user.save();
+    console.log('RESET DEBUG: Saved user, new hash:', user.password);
+  } catch (err) {
+    console.error('RESET DEBUG: Error saving user:', err);
+  }
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpires = undefined;
+  user.resetPasswordAttempts = 0;
+  user.resetPasswordLastAttempt = undefined;
+  await user.save();
+  res.json({ message: 'Password has been reset successfully. You can now log in with your new password.' });
 };
 
 exports.getCurrentUserProfile = async (req, res) => {
   try {
+    console.log('!!! /auth/me endpoint hit !!!', req.user ? req.user.userId : 'NO USER');
     const user = await User.findById(req.user.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
     // Enrich with employee position/department if needed
+    let extraFields = {};
     try {
       const empRecord = await Employee.findOne({ userId: user._id });
+      console.log('EMP RECORD for user', user._id, ':', empRecord);
       if (empRecord) {
         if (!user.position && empRecord.position) user.position = empRecord.position;
         if (!user.department && empRecord.department) user.department = empRecord.department;
+        // Add employment type/subtype to extraFields for response
+        extraFields.employeeType = empRecord.employeeType;
+        extraFields.employeeSubType = empRecord.employeeSubType;
       }
     } catch (err) {
       console.error('Warning: Failed to enrich user profile with employee info:', err);
     }
 
-    res.json({ profile: user.getPublicProfile() });
+    // Merge extraFields into the public profile response
+    const publicProfile = { ...user.getPublicProfile(), ...extraFields };
+    res.json({ profile: publicProfile });
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -784,44 +801,21 @@ exports.toggleUserActive = async (req, res) => {
   }
 };
 
-exports.forgotPasswordNotifyAdmin = async (req, res) => {
+exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
   const user = await User.findOne({ email });
   if (!user) {
-    return res.json({ message: "If your email is registered, the admin will be notified." });
+    return res.json({ message: "If your email is registered, you will receive a reset code." });
   }
 
-  if (user.role === 'admin') {
-    // Standard admin reset: send reset link to admin's email
-    const resetToken = require('crypto').randomBytes(32).toString('hex');
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
-    await user.save();
-    await emailService.sendPasswordResetEmail(user, resetToken);
-    // Create global notification for admins
-    const Notification = require('../models/Notification');
-    await Notification.create({
-      user: null,
-      role: 'admin',
-      title: 'Password Reset Requested',
-      message: `User ${user.email} has requested a password reset.`,
-      type: 'info',
-      link: `/admin/employees/${user._id}`
-    });
-    return res.json({ message: "A password reset link has been sent to your email." });
-  }
+  // Generate a 6-digit numeric code (or use a secure random string if preferred)
+  const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+  user.resetPasswordToken = resetCode;
+  user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+  await user.save();
 
-  // Notify admin
-  await emailService.sendAdminForgotPasswordNotification(user);
-  // Create global notification for admins
-  const Notification = require('../models/Notification');
-  await Notification.create({
-    user: null,
-    role: 'admin',
-    title: 'Password Reset Requested',
-    message: `User ${user.email} has requested a password reset.`,
-    type: 'info',
-    link: `/admin/employees/${user._id}`
-  });
-  res.json({ message: "The admin has been notified. They will contact you with a new password." });
+  // Send password reset code to the user (not a link)
+  await emailService.sendPasswordResetCode(user, resetCode);
+
+  return res.json({ message: "If your email is registered, you will receive a reset code." });
 };

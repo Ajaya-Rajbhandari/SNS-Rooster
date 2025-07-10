@@ -7,6 +7,9 @@ import 'package:sns_rooster/utils/logger.dart';
 /// This class manages API endpoints for different environments and platforms.
 /// It automatically detects the platform and provides the appropriate base URL.
 class ApiConfig {
+  /// Manual toggle for local vs production backend
+  static const bool useLocal = true; // Set to false for production
+
   // Network Configuration - Update these IPs based on your setup
   static const String homeIP =
       '10.0.2.2'; // Android emulator maps to host localhost
@@ -18,15 +21,18 @@ class ApiConfig {
 
   /// Get the appropriate base URL based on platform and environment
   static String get baseUrl {
-    if (kIsWeb) {
-      // For web, use the deployed backend URL
-      return 'https://sns-rooster.onrender.com/api';
-    } else if (Platform.isAndroid) {
-      // For Android, also use the deployed backend URL
-      return 'https://sns-rooster.onrender.com/api';
+    if (useLocal) {
+      // Use local backend for all platforms
+      if (kIsWeb) {
+        return 'http://localhost:5000/api';
+      } else if (Platform.isAndroid) {
+        return 'http://10.0.2.2:5000/api';
+      } else {
+        return 'http://localhost:5000/api';
+      }
     } else {
-      // iOS simulator, desktop, etc.
-      return 'http://localhost:5000/api';
+      // Use production backend
+      return 'https://sns-rooster.onrender.com/api';
     }
   }
 

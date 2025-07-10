@@ -49,6 +49,19 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
     'Finance',
     'Other'
   ];
+  final List<String> employeeTypes = [
+    'Permanent',
+    'Temporary',
+  ];
+  final List<String> permanentTypes = [
+    'Full-time',
+    'Part-time',
+  ];
+  final List<String> temporaryTypes = [
+    'Casual',
+  ];
+  String? _selectedEmployeeType;
+  String? _selectedEmployeeSubType;
 
   String? _selectedPosition;
   String? _selectedDepartment;
@@ -133,6 +146,20 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
       return;
     }
 
+    if (_selectedEmployeeType == null) {
+      setState(() {
+        _error = 'Please select an employee type.';
+      });
+      return;
+    }
+
+    if (_selectedEmployeeSubType == null) {
+      setState(() {
+        _error = 'Please select a subtype.';
+      });
+      return;
+    }
+
     // Extra validation: check if this user is already an employee
     final alreadyEmployee =
         _employees.any((emp) => emp['userId'] == _selectedUser!.id);
@@ -157,6 +184,8 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
         'employeeId': _employeeIdController.text.trim(),
         'position': _selectedPosition,
         'department': _selectedDepartment,
+        'employeeType': _selectedEmployeeType,
+        'employeeSubType': _selectedEmployeeSubType,
         'hourlyRate': double.tryParse(_hourlyRateController.text) ?? 0,
       };
 
@@ -365,6 +394,96 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                         validator: (value) =>
                             value == null ? 'Please select a department' : null,
                       ),
+                    ],
+                  ),
+                ),
+              ),
+              // Employee Type Dropdowns
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Employee Type',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        decoration: const InputDecoration(
+                          hintText: 'Select employee type',
+                          border: OutlineInputBorder(),
+                        ),
+                        value: _selectedEmployeeType,
+                        items: employeeTypes.map((String type) {
+                          return DropdownMenuItem<String>(
+                            value: type,
+                            child: Text(type),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _selectedEmployeeType = newValue;
+                            // Set default subtype when type changes
+                            if (newValue == 'Permanent') {
+                              _selectedEmployeeSubType = 'Full-time';
+                            } else if (newValue == 'Temporary') {
+                              _selectedEmployeeSubType = 'Casual';
+                            } else {
+                              _selectedEmployeeSubType = null;
+                            }
+                          });
+                        },
+                        validator: (value) => value == null
+                            ? 'Please select an employee type'
+                            : null,
+                      ),
+                      const SizedBox(height: 8),
+                      if (_selectedEmployeeType == 'Permanent')
+                        DropdownButtonFormField<String>(
+                          decoration: const InputDecoration(
+                            hintText: 'Select permanent type',
+                            border: OutlineInputBorder(),
+                          ),
+                          value: _selectedEmployeeSubType,
+                          items: permanentTypes.map((String type) {
+                            return DropdownMenuItem<String>(
+                              value: type,
+                              child: Text(type),
+                            );
+                          }).toList(),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _selectedEmployeeSubType = newValue;
+                            });
+                          },
+                          validator: (value) => value == null
+                              ? 'Please select a permanent type'
+                              : null,
+                        ),
+                      if (_selectedEmployeeType == 'Temporary')
+                        DropdownButtonFormField<String>(
+                          decoration: const InputDecoration(
+                            hintText: 'Select temporary type',
+                            border: OutlineInputBorder(),
+                          ),
+                          value: _selectedEmployeeSubType,
+                          items: temporaryTypes.map((String type) {
+                            return DropdownMenuItem<String>(
+                              value: type,
+                              child: Text(type),
+                            );
+                          }).toList(),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _selectedEmployeeSubType = newValue;
+                            });
+                          },
+                          validator: (value) => value == null
+                              ? 'Please select a temporary type'
+                              : null,
+                        ),
                     ],
                   ),
                 ),
