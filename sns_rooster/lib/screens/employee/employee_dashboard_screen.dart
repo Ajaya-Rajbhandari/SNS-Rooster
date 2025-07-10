@@ -45,7 +45,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     with RouteAware {
   bool _isOnBreak = false;
   bool _profileDialogShown = false;
-  String _lastSavedProfileJson = "";
+  final String _lastSavedProfileJson = "";
 
   RouteObserver<ModalRoute<void>>? _routeObserver;
 
@@ -393,7 +393,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     final user = authProvider.user;
     if (user == null) {
       // Not logged in, show fallback or redirect
-      return Scaffold(
+      return const Scaffold(
         body: Center(child: Text('Not logged in. Please log in.')),
       );
     }

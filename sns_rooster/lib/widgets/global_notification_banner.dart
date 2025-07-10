@@ -74,8 +74,8 @@ class _GlobalNotificationBannerState extends State<GlobalNotificationBanner>
 
   @override
   Widget build(BuildContext context) {
-    final _service = Provider.of<GlobalNotificationService>(context);
-    final notification = _service.currentNotification;
+    final service = Provider.of<GlobalNotificationService>(context);
+    final notification = service.currentNotification;
     if (notification == null) return const SizedBox.shrink();
     final duration = notification.duration ?? const Duration(seconds: 1);
     return Positioned(
@@ -98,7 +98,7 @@ class _GlobalNotificationBannerState extends State<GlobalNotificationBanner>
                   decoration: BoxDecoration(
                     color: _getColor(notification.type),
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
+                    boxShadow: const [
                       BoxShadow(
                         color: Colors.black26,
                         blurRadius: 8,
@@ -123,7 +123,7 @@ class _GlobalNotificationBannerState extends State<GlobalNotificationBanner>
                       IconButton(
                         icon: const Icon(Icons.close, color: Colors.white),
                         onPressed: () {
-                          _service.hide();
+                          service.hide();
                           notification.onDismiss?.call();
                         },
                       ),

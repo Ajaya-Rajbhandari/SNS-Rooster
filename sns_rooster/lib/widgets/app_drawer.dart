@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/user_avatar.dart'; // Assuming UserAvatar is a reusable widget
 import '../../providers/profile_provider.dart';
-import '../config/api_config.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});

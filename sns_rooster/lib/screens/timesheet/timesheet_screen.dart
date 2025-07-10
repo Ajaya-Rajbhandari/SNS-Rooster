@@ -561,7 +561,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
     final user = authProvider.user;
     if (user == null) {
       // Not logged in, show fallback or redirect
-      return Scaffold(
+      return const Scaffold(
         body: Center(child: Text('Not logged in. Please log in.')),
       );
     }
@@ -917,7 +917,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
           ),
         ),
       ),
-      floatingActionButton: (user != null && user['role'] == 'admin')
+      floatingActionButton: (user['role'] == 'admin')
           ? FloatingActionButton.extended(
               onPressed: () {
                 showModalBottomSheet<Map<String, dynamic>>(

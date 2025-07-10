@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../providers/company_settings_provider.dart';
-import '../../services/company_settings_service.dart';
 
 class CompanySettingsScreen extends StatefulWidget {
   const CompanySettingsScreen({super.key});
@@ -178,7 +177,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                   decoration: BoxDecoration(
                     border: Border.all(color: theme.colorScheme.outline),
                     borderRadius: BorderRadius.circular(8),
-                    color: theme.colorScheme.surfaceVariant,
+                    color: theme.colorScheme.surfaceContainerHighest,
                   ),
                   child: logoUrl.isNotEmpty
                       ? ClipRRect(
@@ -495,7 +494,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
         Text('Additional Information', style: theme.textTheme.titleLarge),
         const SizedBox(height: 12),
         Card(
-          color: theme.colorScheme.surfaceVariant,
+          color: theme.colorScheme.surfaceContainerHighest,
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Column(

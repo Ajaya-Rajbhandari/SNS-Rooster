@@ -624,17 +624,14 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Break started at: ' +
-                                    DateFormat('HH:mm')
-                                        .format(_breakStartTime!.toLocal()),
+                                'Break started at: ${DateFormat('HH:mm').format(_breakStartTime!.toLocal())}',
                                 style: const TextStyle(
                                   fontSize: 14,
                                   color: Colors.black54,
                                 ),
                               ),
                               Text(
-                                'Break duration: ' +
-                                    _formatDuration(_breakDuration),
+                                'Break duration: ${_formatDuration(_breakDuration)}',
                                 style: const TextStyle(
                                   fontSize: 14,
                                   color: Colors.black54,

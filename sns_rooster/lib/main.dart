@@ -48,7 +48,6 @@ import 'package:sns_rooster/services/notification_service.dart';
 import 'package:sns_rooster/services/global_notification_service.dart';
 import 'package:sns_rooster/services/fcm_service.dart';
 import 'package:sns_rooster/widgets/global_notification_banner.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_core/firebase_core.dart';
 import 'web_url_strategy_stub.dart'
     if (dart.library.html) 'web_url_strategy.dart';

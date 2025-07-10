@@ -48,14 +48,6 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
 
     Map<String, dynamic>? cycle = cycleProvider.settings;
 
-    // If not loaded yet, attempt to load synchronously (will await async but not block UI heavily)
-    if (cycle == null) {
-      try {
-        await cycleProvider.load();
-        cycle = cycleProvider.settings;
-      } catch (_) {}
-    }
-
     final now = DateTime.now();
     DateTime start;
     DateTime end;
@@ -625,8 +617,7 @@ class _PayrollManagementScreenState extends State<PayrollManagementScreen> {
                                                     );
                                                     return;
                                                   }
-                                                  if (token == null ||
-                                                      token.isEmpty) {
+                                                  if (token.isEmpty) {
                                                     ScaffoldMessenger.of(
                                                             context)
                                                         .showSnackBar(

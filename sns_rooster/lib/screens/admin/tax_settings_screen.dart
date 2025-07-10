@@ -134,7 +134,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
 
   Widget _buildSummaryCard(ThemeData theme) {
     return Card(
-      color: theme.colorScheme.surfaceVariant,
+      color: theme.colorScheme.surfaceContainerHighest,
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Padding(
@@ -337,8 +337,9 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                 validator: (v) {
                   if (v == null || v.isEmpty) return 'Required';
                   final num? rate = double.tryParse(v);
-                  if (rate == null || rate < 0 || rate > 100)
+                  if (rate == null || rate < 0 || rate > 100) {
                     return 'Must be between 0 and 100';
+                  }
                   return null;
                 },
                 onSaved: (v) => _socialSecurityRate = double.tryParse(v!) ?? 0,
