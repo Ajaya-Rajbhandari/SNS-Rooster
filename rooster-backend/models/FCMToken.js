@@ -29,7 +29,6 @@ const fcmTokenSchema = new mongoose.Schema({
 });
 
 // Index for efficient queries
-fcmTokenSchema.index({ userId: 1 });
 fcmTokenSchema.index({ fcmToken: 1 });
 
 module.exports = mongoose.model('FCMToken', fcmTokenSchema); 
