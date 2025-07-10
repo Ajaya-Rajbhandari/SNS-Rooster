@@ -3,12 +3,12 @@ const User = require("../models/User");
 const BreakType = require("../models/BreakType");
 
 exports.checkIn = async (req, res) => {
-  console.log("DEBUG: /check-in req.body:", req.body);
-  console.log("DEBUG: /check-in req.user:", req.user);
-  console.log("DEBUG: Authorization header:", req.header("Authorization"));
-  console.log("DEBUG: req.user at start of /check-in:", req.user);
-  console.log("DEBUG: req.user before accessing userId:", req.user);
-  console.log("DEBUG: Type of req.user:", typeof req.user);
+  // console.log("DEBUG: /check-in req.body:", req.body);
+  // console.log("DEBUG: /check-in req.user:", req.user);
+  // console.log("DEBUG: Authorization header:", req.header("Authorization"));
+  // console.log("DEBUG: req.user at start of /check-in:", req.user);
+  // console.log("DEBUG: req.user before accessing userId:", req.user);
+  // console.log("DEBUG: Type of req.user:", typeof req.user);
 
   if (!req.user || typeof req.user !== "object") {
     console.error(

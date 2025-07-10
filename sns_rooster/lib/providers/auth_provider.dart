@@ -138,6 +138,10 @@ class AuthProvider with ChangeNotifier {
         final data = jsonDecode(response.body);
         _user = data['user'];
         log('AUTH_CHECK: Token verified - User role: ${_user?['role']}');
+
+        // Send FCM token to backend after successful auth verification
+        await _saveFCMTokenToBackend();
+
         notifyListeners();
       } else {
         final errorMessage =
