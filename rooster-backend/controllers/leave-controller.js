@@ -1,6 +1,8 @@
 const Leave = require('../models/Leave');
 const Employee = require('../models/Employee');
 const Notification = require('../models/Notification');
+const { sendNotificationToUser, sendNotificationToTopic } = require('../services/notificationService');
+const FCMToken = require('../models/FCMToken');
 
 // Apply for leave
 exports.applyLeave = async (req, res) => {
@@ -34,15 +36,13 @@ exports.applyLeave = async (req, res) => {
     await leave.save();
     // Notify all admins
     const employee = await Employee.findById(employeeId);
-    const adminNotification = new Notification({
-      role: 'admin',
-      title: 'New Leave Request Submitted',
-      message: `${employee?.firstName || 'An employee'} ${employee?.lastName || ''} has submitted a leave request from ${start.toDateString()} to ${end.toDateString()}.`,
-      type: 'action',
-      link: '/admin/leave_management',
-      isRead: false,
-    });
-    await adminNotification.save();
+    // FCM: Notify all admins via topic
+    await sendNotificationToTopic(
+      'admins',
+      'New Leave Request Submitted',
+      `${employee?.firstName || 'An employee'} ${employee?.lastName || ''} has submitted a leave request from ${start.toDateString()} to ${end.toDateString()}.`,
+      { type: 'leave', leaveId: leave._id.toString() }
+    );
     res.status(201).json({ message: 'Leave application submitted successfully.', leave });
   } catch (error) {
     res.status(500).json({ message: 'Error applying for leave.', error: error.message });
@@ -116,6 +116,16 @@ exports.approveLeaveRequest = async (req, res) => {
       isRead: false,
     });
     await employeeNotification.save();
+    // FCM: Notify the employee
+    const tokenDoc = await FCMToken.findOne({ userId: leave.employee?._id });
+    if (tokenDoc && tokenDoc.fcmToken) {
+      await sendNotificationToUser(
+        tokenDoc.fcmToken,
+        'Leave Request Approved',
+        `Your leave request from ${leave.startDate.toDateString()} to ${leave.endDate.toDateString()} has been approved.`,
+        { type: 'leave', leaveId: leave._id.toString(), status: 'Approved' }
+      );
+    }
     res.json({
       message: 'Leave request approved.',
       leave: {
@@ -156,6 +166,16 @@ exports.rejectLeaveRequest = async (req, res) => {
       isRead: false,
     });
     await employeeNotification.save();
+    // FCM: Notify the employee
+    const tokenDoc = await FCMToken.findOne({ userId: leave.employee?._id });
+    if (tokenDoc && tokenDoc.fcmToken) {
+      await sendNotificationToUser(
+        tokenDoc.fcmToken,
+        'Leave Request Rejected',
+        `Your leave request from ${leave.startDate.toDateString()} to ${leave.endDate.toDateString()} has been rejected.`,
+        { type: 'leave', leaveId: leave._id.toString(), status: 'Rejected' }
+      );
+    }
     res.json({
       message: 'Leave request rejected.',
       leave: {
