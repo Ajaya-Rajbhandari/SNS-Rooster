@@ -113,6 +113,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           _resetMessage = 'Password has been reset! You can now log in.';
           _resetSuccess = true;
         });
+        // Redirect to login after 2 seconds
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.of(context).pushReplacementNamed('/login');
+          }
+        });
       } else {
         final data = convert.json.decode(response.body);
         setState(() {
