@@ -1,6 +1,13 @@
 const mongoose = require('mongoose');
 
 const adminSettingsSchema = new mongoose.Schema({
+  // Company Association
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    required: true,
+    index: true
+  },
   // Profile feature settings
   educationSectionEnabled: {
     type: Boolean,

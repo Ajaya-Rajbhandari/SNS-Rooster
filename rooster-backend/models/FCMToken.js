@@ -1,11 +1,17 @@
 const mongoose = require('mongoose');
 
 const fcmTokenSchema = new mongoose.Schema({
+  // Company Association
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    required: true,
+    index: true
+  },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
-    unique: true
+    required: true
   },
   fcmToken: {
     type: String,
@@ -28,7 +34,8 @@ const fcmTokenSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for efficient queries
+// Indexes for efficient queries
 fcmTokenSchema.index({ fcmToken: 1 });
+fcmTokenSchema.index({ companyId: 1, userId: 1 }, { unique: true });
 
 module.exports = mongoose.model('FCMToken', fcmTokenSchema); 

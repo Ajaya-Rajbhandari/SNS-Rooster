@@ -19,6 +19,11 @@ exports.checkIn = async (req, res) => {
       .json({ message: "Authentication error: req.user is invalid" });
   }
 
+  if (!req.company || !req.company._id) {
+    console.error("ERROR: company context is missing in /check-in route");
+    return res.status(500).json({ message: "Company context is missing" });
+  }
+
   try {
     const userId = req.user.userId;
     if (!userId) {
@@ -66,6 +71,7 @@ exports.checkIn = async (req, res) => {
       user: userId,
       date: today,
       checkInTime: new Date(),
+      companyId: req.company._id, // <-- Set companyId from company context
     });
 
     await attendance.save();

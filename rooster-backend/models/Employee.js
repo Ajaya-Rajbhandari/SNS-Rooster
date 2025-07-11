@@ -1,6 +1,13 @@
 const mongoose = require('mongoose');
 
 const employeeSchema = new mongoose.Schema({
+  // Company Association
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    required: true,
+    index: true
+  },
   firstName: {
     type: String,
     required: true,
@@ -14,14 +21,12 @@ const employeeSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
     trim: true,
     lowercase: true
   },
   employeeId: {
     type: String,
     required: true,
-    unique: true,
     trim: true
   },
   hireDate: {
@@ -68,6 +73,10 @@ const employeeSchema = new mongoose.Schema({
   },
   // Add other employee-related fields as needed
 });
+
+// Compound unique indexes for multi-tenant support
+employeeSchema.index({ companyId: 1, email: 1 }, { unique: true });
+employeeSchema.index({ companyId: 1, employeeId: 1 }, { unique: true });
 
 const Employee = mongoose.model('Employee', employeeSchema);
 

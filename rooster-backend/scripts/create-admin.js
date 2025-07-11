@@ -1,15 +1,22 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const Company = require('../models/Company');
 
 async function createAdminUser() {
   try {
-    // Connect to MongoDB
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/sns-rooster');
     console.log('Connected to MongoDB');
 
+    // Find the company (adjust the domain as needed)
+    const company = await Company.findOne({ domain: 'snsrooster.com' });
+    if (!company) {
+      console.error('Company not found!');
+      process.exit(1);
+    }
+
     // Check if admin already exists
-    const existingAdmin = await User.findOne({ email: 'admin@snsrooster.com' });
+    const existingAdmin = await User.findOne({ email: 'admin@snsrooster.com', companyId: company._id });
     if (existingAdmin) {
       console.log('Admin user already exists');
       process.exit(0);
@@ -17,11 +24,13 @@ async function createAdminUser() {
 
     // Create admin user
     const admin = new User({
-      name: 'Admin User',
+      firstName: 'Admin',
+      lastName: 'User',
       email: 'admin@snsrooster.com',
       password: 'Admin@123',
       role: 'admin',
-      isActive: true
+      isActive: true,
+      companyId: company._id // <-- Set companyId here
     });
 
     await admin.save();
