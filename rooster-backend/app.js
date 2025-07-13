@@ -24,7 +24,8 @@ app.use(cors({
   origin: [
     'https://sns-rooster-8cca5.web.app',
     'https://sns-rooster.onrender.com',
-    'http://localhost:3000'
+    'http://localhost:3000',
+    'http://192.168.1.119:8080' // <-- add this line!
   ],
   credentials: true, // Only needed if you use cookies/auth
 }));
