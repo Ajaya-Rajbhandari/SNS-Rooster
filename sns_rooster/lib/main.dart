@@ -70,32 +70,57 @@ Future<void> requestAndroidNotificationPermission() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Global error handler for Flutter errors
+  FlutterError.onError = (FlutterErrorDetails details) {
+    print('FlutterError: ${details.exception}');
+    print('Stack trace: ${details.stack}');
+  };
+
+  print('DEBUG: main() started');
+
   // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  print('DEBUG: Firebase initialized');
+
   // Request notification permission on web
   if (kIsWeb) {
-    final permission = await requestWebNotificationPermission();
-    print('Web notification permission: ' + permission.toString());
+    try {
+      final permission = await requestWebNotificationPermission();
+      print('Web notification permission: ' + permission.toString());
+    } catch (e) {
+      print('Web notification permission failed: $e');
+      // Continue without notifications for iOS Safari compatibility
+    }
   }
 
   // Request Android notification permission (Android 13+)
   await requestAndroidNotificationPermission();
 
   // Try to get the FCM token directly (for debugging)
-  String? token = await FirebaseMessaging.instance.getToken();
-  if (token != null) {
-    print('FCM: ✅ Token ready');
+  try {
+    String? token = await FirebaseMessaging.instance.getToken();
+    if (token != null) {
+      print('FCM: ✅ Token ready');
+    }
+  } catch (e) {
+    print('FCM token generation failed: $e');
+    // Continue without FCM for iOS Safari compatibility
   }
 
-  // Initialize FCM Service
-  await FCMService().initialize();
+  // Initialize FCM Service with error handling
+  try {
+    await FCMService().initialize();
+  } catch (e) {
+    print('FCM Service initialization failed: $e');
+    // Continue without FCM for iOS Safari compatibility
+  }
 
   setWebUrlStrategy();
-  log('MAIN: Initializing navigatorKey');
-  log('MAIN: Starting MyApp with AuthProvider');
+  print('DEBUG: Initializing navigatorKey');
+  print('DEBUG: Starting MyApp with AuthProvider');
   runApp(const MyApp());
 }
 
@@ -106,6 +131,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print('DEBUG: MyApp.build() called');
     log('MAIN: Building MaterialApp with navigatorKey');
     return MultiProvider(
       providers: [

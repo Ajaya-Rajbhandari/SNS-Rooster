@@ -8,7 +8,7 @@ import 'package:sns_rooster/utils/logger.dart';
 /// It automatically detects the platform and provides the appropriate base URL.
 class ApiConfig {
   /// Manual toggle for local vs production backend
-  static const bool useLocal = false; // Set to false for production
+  static const bool useLocal = true; // Set to false for production
 
   // Network Configuration - Update these IPs based on your setup
   static const String homeIP =
@@ -24,7 +24,10 @@ class ApiConfig {
     if (useLocal) {
       // Use local backend for all platforms
       if (kIsWeb) {
-        return 'http://localhost:5000/api';
+        final url =
+            'http://192.168.1.119:5000/api'; // Use your actual IP for web
+        print('DEBUG: Web app using API URL: $url');
+        return url;
       } else if (Platform.isAndroid) {
         return 'http://10.0.2.2:5000/api';
       } else {

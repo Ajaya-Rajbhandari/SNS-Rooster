@@ -342,13 +342,11 @@ exports.getAdminOverview = async (req, res) => {
 
     try {
       console.time('presentAttendance');
+      // Count as present if checked in today (regardless of check-out)
       const presentAttendance = await Attendance.find({
         user: { $in: employeeIds },
         date: { $gte: todayStart, $lte: todayEnd },
-        $or: [
-          { status: { $in: ['present', 'completed'] } },
-          { $and: [{ checkInTime: { $ne: null } }, { checkOutTime: { $ne: null } }] },
-        ],
+        checkInTime: { $ne: null }
       }).distinct('user');
       console.timeEnd('presentAttendance');
 
