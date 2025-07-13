@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const adminSettingsController = require('../controllers/admin-settings-controller');
 const auth = require('../middleware/auth');
-const upload = require('../middleware/upload');
+const companyUpload = require('../gcsCompanyUpload');
 
 // Admin only middleware
 const adminOnly = (req, res, next) => {
@@ -29,7 +29,7 @@ router.put('/tax', auth, adminOnly, adminSettingsController.updateTaxSettings);
 // Company information settings
 router.get('/company', auth, adminOnly, adminSettingsController.getCompanyInfo);
 router.put('/company', auth, adminOnly, adminSettingsController.updateCompanyInfo);
-router.post('/company/logo', auth, adminOnly, upload.single('logo'), adminSettingsController.uploadCompanyLogo);
+router.post('/company/logo', auth, adminOnly, companyUpload.single('logo'), adminSettingsController.uploadCompanyLogo);
 
 // POST /api/admin/settings/reset - Reset settings to defaults
 router.post('/reset', auth, adminOnly, adminSettingsController.resetAdminSettings);
