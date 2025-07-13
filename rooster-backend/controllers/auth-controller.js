@@ -378,17 +378,9 @@ exports.updateCurrentUserProfile = async (req, res) => {
 
     // Handle profile picture upload
     if (req.file) {
-      const oldProfilePicture = user.profilePicture;
-      const newAvatarPath = `/uploads/avatars/${req.file.filename}`;
-      user.profilePicture = newAvatarPath;
-      user.avatar = newAvatarPath; // Always set both fields
-      // Delete old profile picture if it exists and is not the default
-      if (oldProfilePicture && oldProfilePicture !== '/uploads/avatars/default-avatar.png') {
-        const oldPath = path.join(__dirname, '..', oldProfilePicture);
-        fs.unlink(oldPath, (err) => {
-          if (err) console.error('Error deleting old profile picture:', err);
-        });
-      }
+      // Save the GCS URL (req.file.path) to user.profilePicture and user.avatar
+      user.profilePicture = req.file.path;
+      user.avatar = req.file.path;
     }
 
     // --- BEGIN: Ensure education/certificates document fields are mapped correctly ---
@@ -509,17 +501,8 @@ exports.updateUserProfileByAdmin = async (req, res) => {
 
     // Handle profile picture upload (if admin is updating it)
     if (req.file) {
-      const oldProfilePicture = user.profilePicture;
-      const newAvatarPath = `/uploads/avatars/${req.file.filename}`;
-      user.profilePicture = newAvatarPath;
-      user.avatar = newAvatarPath; // Always set both fields
-      // Delete old profile picture if it exists and is not the default
-      if (oldProfilePicture && oldProfilePicture !== '/uploads/avatars/default-avatar.png') {
-        const oldPath = path.join(__dirname, '..', oldProfilePicture);
-        fs.unlink(oldPath, (err) => {
-          if (err) console.error('Error deleting old profile picture:', err);
-        });
-      }
+      user.profilePicture = req.file.path;
+      user.avatar = req.file.path;
     }
 
     // Sanity check: ensure avatar/profilePicture never include '/api/uploads/'
@@ -688,20 +671,10 @@ exports.uploadDocument = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized to upload document' });
     }
 
-    const filePath = `/uploads/documents/${req.file.filename}`;
+    const filePath = req.file.path; // GCS public URL
 
-    // Remove all previous documents of the same type (and delete their files)
+    // Remove all previous documents of the same type (no need to delete local files)
     user.documents = user.documents || [];
-    const docsToRemove = user.documents.filter(doc => doc.type === documentType);
-    for (const doc of docsToRemove) {
-      if (doc.path && doc.path !== filePath) { // Don't delete the new file
-        const docPath = path.join(__dirname, '..', doc.path);
-        fs.unlink(docPath, (err) => {
-          if (err && err.code !== 'ENOENT') console.error('Error deleting old document:', err);
-        });
-      }
-    }
-    // Keep only documents not of this type
     user.documents = user.documents.filter(doc => doc.type !== documentType);
     // Add the new document
     user.documents.push({ type: documentType, path: filePath });

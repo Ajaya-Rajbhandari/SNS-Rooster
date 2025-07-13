@@ -213,46 +213,20 @@ exports.uploadCompanyLogo = async (req, res) => {
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
     if (!allowedTypes.includes(req.file.mimetype)) {
-      // Clean up uploaded file
-      fs.unlinkSync(req.file.path);
       return res.status(400).json({ message: 'Invalid file type. Only JPEG, PNG and GIF are allowed' });
     }
 
     // Validate file size (max 5MB)
     const maxSize = 5 * 1024 * 1024; // 5MB
     if (req.file.size > maxSize) {
-      // Clean up uploaded file
-      fs.unlinkSync(req.file.path);
       return res.status(400).json({ message: 'File too large. Maximum size is 5MB' });
     }
 
-    // Generate unique filename
-    const timestamp = Date.now();
-    const extension = path.extname(req.file.originalname);
-    const filename = `company-logo-${timestamp}${extension}`;
-    const logoPath = `uploads/company/${filename}`;
-    const fullPath = path.join(__dirname, '..', logoPath);
-
-    // Ensure upload directory exists
-    const uploadDir = path.dirname(fullPath);
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    // Move file to permanent location
-    fs.renameSync(req.file.path, fullPath);
+    const logoPath = req.file.path; // GCS public URL
 
     // Update company info with new logo URL
     const settings = await AdminSettings.getSettings();
     
-    // Delete old logo file if exists
-    if (settings.companyInfo?.logoUrl) {
-      const oldLogoPath = path.join(__dirname, '..', settings.companyInfo.logoUrl);
-      if (fs.existsSync(oldLogoPath)) {
-        fs.unlinkSync(oldLogoPath);
-      }
-    }
-
     // Update with new logo URL
     const updatedSettings = await AdminSettings.updateSettings({
       companyInfo: { ...settings.companyInfo, logoUrl: logoPath }
@@ -264,10 +238,6 @@ exports.uploadCompanyLogo = async (req, res) => {
       companyInfo: updatedSettings.companyInfo
     });
   } catch (error) {
-    // Clean up uploaded file on error
-    if (req.file?.path && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
     console.error('Upload company logo error:', error);
     res.status(500).json({ message: 'Failed to upload company logo' });
   }
