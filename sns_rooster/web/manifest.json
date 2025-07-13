@@ -1,13 +1,14 @@
 {
-    "name": "sns_rooster",
-    "short_name": "sns_rooster",
+    "name": "SNS HR",
+    "short_name": "SNS HR",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#1E88E5",
     "theme_color": "#1E88E5",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "description": "SNS Rooster - Employee Management System",
+    "orientation": "any",
     "prefer_related_applications": false,
+    "scope": "/",
     "icons": [
         {
             "src": "icons/Icon-192.png",

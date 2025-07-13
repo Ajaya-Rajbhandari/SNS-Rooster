@@ -135,9 +135,24 @@ class _EditAttendanceDialogState extends State<EditAttendanceDialog> {
               subtitle: Text(_checkInTime != null
                   ? DateFormat('HH:mm').format(_checkInTime!.toLocal())
                   : '-'),
-              trailing: IconButton(
-                icon: const Icon(Icons.access_time),
-                onPressed: () => _pickTime(context, true),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.access_time),
+                    onPressed: () => _pickTime(context, true),
+                  ),
+                  if (_checkInTime != null)
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      tooltip: 'Clear Check In',
+                      onPressed: () {
+                        setState(() {
+                          _checkInTime = null;
+                        });
+                      },
+                    ),
+                ],
               ),
             ),
             ListTile(
@@ -145,9 +160,24 @@ class _EditAttendanceDialogState extends State<EditAttendanceDialog> {
               subtitle: Text(_checkOutTime != null
                   ? DateFormat('HH:mm').format(_checkOutTime!.toLocal())
                   : '-'),
-              trailing: IconButton(
-                icon: const Icon(Icons.access_time),
-                onPressed: () => _pickTime(context, false),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.access_time),
+                    onPressed: () => _pickTime(context, false),
+                  ),
+                  if (_checkOutTime != null)
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      tooltip: 'Clear Check Out',
+                      onPressed: () {
+                        setState(() {
+                          _checkOutTime = null;
+                        });
+                      },
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 16),

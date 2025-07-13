@@ -43,7 +43,7 @@ router.get("/", auth, async (req, res) => {
     }
     if (employeeId) filter.user = employeeId;
     const attendanceRecords = await Attendance.find(filter)
-      .populate("user", "firstName lastName email role")
+      .populate("user", "firstName lastName email role userId")
       .populate("breaks.type", "displayName");
     res.json({ attendance: attendanceRecords });
   } catch (error) {
@@ -210,5 +210,8 @@ router.get('/analytics/leave-types-breakdown', analyticsController.getLeaveTypes
 router.get('/analytics/late-checkins/:userId', analyticsController.getLateCheckins);
 router.get('/analytics/avg-checkout/:userId', analyticsController.getAverageCheckoutTime);
 router.get('/analytics/recent-activity/:userId', analyticsController.getRecentActivity);
+
+// GET /attendance/today-list?status=present|absent|onleave
+router.get('/today-list', auth, attendanceController.getTodayEmployeeList);
 
 module.exports = router;

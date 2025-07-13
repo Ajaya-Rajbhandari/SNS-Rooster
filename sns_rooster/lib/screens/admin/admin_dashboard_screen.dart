@@ -553,33 +553,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         'value':
             _dashboardData['quickStats']?['totalEmployees'].toString() ?? '0',
         'icon': Icons.people,
-        'color': Theme.of(context).colorScheme.primary
+        'color': Theme.of(context).colorScheme.primary,
+        'onTap': null,
       },
       {
         'title': 'Present',
         'value':
             _dashboardData['quickStats']?['presentToday'].toString() ?? '0',
         'icon': Icons.check_circle,
-        'color': Colors.green
+        'color': Colors.green,
+        'onTap': () => _showEmployeeListModal('Present'),
       },
       {
         'title': 'On Leave',
         'value': _dashboardData['quickStats']?['onLeave'].toString() ?? '0',
         'icon': Icons.event_busy,
-        'color': Theme.of(context).colorScheme.secondary
+        'color': Theme.of(context).colorScheme.secondary,
+        'onTap': () => _showEmployeeListModal('On Leave'),
       },
       {
         'title': 'Absent',
         'value': _dashboardData['quickStats']?['absentToday'].toString() ?? '0',
         'icon': Icons.cancel,
-        'color': Colors.red
+        'color': Colors.red,
+        'onTap': () => _showEmployeeListModal('Absent'),
       },
       {
         'title': 'Pending',
         'value':
             _dashboardData['quickStats']?['pendingRequests'].toString() ?? '0',
         'icon': Icons.pending_actions,
-        'color': Colors.orange
+        'color': Colors.orange,
+        'onTap': null,
       },
     ];
     return SizedBox(
@@ -590,16 +595,122 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, i) => SizedBox(
           width: 160,
-          child: _buildStatCard(
-            context,
-            stats[i]['title'] as String,
-            stats[i]['value'] as String,
-            stats[i]['icon'] as IconData,
-            stats[i]['color'] as Color,
-          ),
+          child: stats[i]['onTap'] != null
+              ? GestureDetector(
+                  onTap: stats[i]['onTap'] as void Function(),
+                  child: _buildStatCard(
+                    context,
+                    stats[i]['title'] as String,
+                    stats[i]['value'] as String,
+                    stats[i]['icon'] as IconData,
+                    stats[i]['color'] as Color,
+                  ),
+                )
+              : _buildStatCard(
+                  context,
+                  stats[i]['title'] as String,
+                  stats[i]['value'] as String,
+                  stats[i]['icon'] as IconData,
+                  stats[i]['color'] as Color,
+                ),
         ),
       ),
     );
+  }
+
+  void _showEmployeeListModal(String status) async {
+    // Fetch the latest attendance data for today from the backend
+    // For now, use a simple API call to /api/attendance/today-list?status=present/absent/onleave
+    // Or filter from _dashboardData if available
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Employees: $status'),
+          content: FutureBuilder<List<Map<String, dynamic>>>(
+            future: _fetchEmployeesByStatus(status),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox(
+                    height: 100,
+                    child: Center(child: CircularProgressIndicator()));
+              } else if (snapshot.hasError) {
+                return Text('Error: \\${snapshot.error}');
+              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Text('No employees found.');
+              }
+              final employees = snapshot.data!;
+              return SizedBox(
+                width: 300,
+                height: 400,
+                child: ListView.separated(
+                  itemCount: employees.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, i) {
+                    final emp = employees[i];
+                    return ListTile(
+                      leading: const Icon(Icons.person),
+                      title: Text(((emp['firstName'] ?? '') +
+                              ' ' +
+                              (emp['lastName'] ?? ''))
+                          .trim()),
+                      subtitle: Text(emp['email'] ?? ''),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _statusToParam(String status) {
+    switch (status.toLowerCase()) {
+      case 'present':
+        return 'present';
+      case 'absent':
+        return 'absent';
+      case 'on leave':
+        return 'onleave';
+      default:
+        return status.toLowerCase();
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchEmployeesByStatus(
+      String status) async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.token;
+      final statusParam = _statusToParam(status);
+      final response = await http.get(
+        Uri.parse(
+            '${ApiConfig.baseUrl}/attendance/today-list?status=$statusParam'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['employees'] != null && data['employees'] is List) {
+          return List<Map<String, dynamic>>.from(data['employees']);
+        }
+      } else {
+        log('Failed to fetch employees by status: \\${response.body}');
+      }
+    } catch (e) {
+      log('Error fetching employees by status: $e');
+    }
+    return [];
   }
 
   Widget _buildAttendancePieChart() {

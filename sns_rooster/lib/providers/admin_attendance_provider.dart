@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:sns_rooster/utils/logger.dart';
+import '../../widgets/role_filter_chip.dart';
 
 class AdminAttendanceProvider extends ChangeNotifier {
   final AuthProvider authProvider;
@@ -348,22 +349,25 @@ class AdminAttendanceProvider extends ChangeNotifier {
     String? userId,
     int? page,
     int? limit,
+    String role = 'all',
   }) async {
     isLoading = true;
     error = null;
     notifyListeners();
     try {
       final params = <String, String>{};
-      if (start != null) params['start'] = start;
-      if (end != null) params['end'] = end;
+      if (start != null) params['startDate'] = start;
+      if (end != null) params['endDate'] = end;
       if (userId != null) params['userId'] = userId;
       if (page != null) params['page'] = page.toString();
       if (limit != null) params['limit'] = limit.toString();
-      final uri = Uri.parse('${ApiConfig.baseUrl}/attendance')
+      params['role'] = role;
+      final uri = Uri.parse('${ApiConfig.baseUrl}/admin/attendance')
           .replace(queryParameters: params);
       final token = authProvider.token;
       final response = await http.get(uri,
           headers: token != null ? {'Authorization': 'Bearer $token'} : {});
+      print('DEBUG: fetchAttendanceLegacy response: ${response.body}');
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         attendanceRecords = (data['attendance'] as List<dynamic>? ?? [])
@@ -372,10 +376,10 @@ class AdminAttendanceProvider extends ChangeNotifier {
         total = data['total'] as int?;
         page = data['page'] as int?;
       } else {
-        error = 'Failed to fetch attendance: \\${response.statusCode}';
+        error = 'Failed to fetch attendance: ${response.statusCode}';
       }
     } catch (e) {
-      error = 'Error: \\$e';
+      error = 'Error: $e';
     }
     isLoading = false;
     notifyListeners();

@@ -8,7 +8,7 @@ import 'package:sns_rooster/utils/logger.dart';
 /// It automatically detects the platform and provides the appropriate base URL.
 class ApiConfig {
   /// Manual toggle for local vs production backend
-  static const bool useLocal = true; // Set to false for production
+  static const bool useLocal = false; // Set to false for production
 
   // Network Configuration - Update these IPs based on your setup
   static const String homeIP =
