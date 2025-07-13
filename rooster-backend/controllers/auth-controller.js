@@ -656,8 +656,14 @@ exports.deleteUser = async (req, res) => {
       }
     }
 
+    // Cascade delete: Remove Employee and Attendance records for this user
+    const Employee = require('../models/Employee');
+    const Attendance = require('../models/Attendance');
+    await Employee.deleteOne({ userId: userToDelete._id });
+    await Attendance.deleteMany({ user: userToDelete._id });
+
     await User.findByIdAndDelete(req.params.id);
-    res.status(200).json({ message: 'User deleted successfully' });
+    res.status(200).json({ message: 'User, employee, and attendance records deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

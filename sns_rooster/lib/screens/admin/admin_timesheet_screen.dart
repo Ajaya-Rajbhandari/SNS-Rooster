@@ -7,6 +7,8 @@ import '../../providers/employee_provider.dart';
 import 'edit_attendance_dialog.dart';
 import 'package:flutter/scheduler.dart';
 import '../../models/employee.dart';
+import '../../models/attendance.dart';
+import '../../widgets/role_filter_chip.dart';
 
 class AdminTimesheetScreen extends StatefulWidget {
   const AdminTimesheetScreen({Key? key}) : super(key: key);
@@ -20,16 +22,48 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
   String? _selectedEmployeeId;
   List<Employee> _employeeList = [];
   bool isExporting = false;
+  String? _selectedRole; // Add this
+
+  // Helper for today
+  DateTimeRange get _todayRange {
+    final now = DateTime.now();
+    return DateTimeRange(
+        start: DateTime(now.year, now.month, now.day),
+        end: DateTime(now.year, now.month, now.day));
+  }
+
+  // Helper for yesterday
+  DateTimeRange get _yesterdayRange {
+    final now = DateTime.now();
+    final yesterday = now.subtract(Duration(days: 1));
+    return DateTimeRange(
+        start: DateTime(yesterday.year, yesterday.month, yesterday.day),
+        end: DateTime(yesterday.year, yesterday.month, yesterday.day));
+  }
+
+  // Helper for this week (Mon-Sun)
+  DateTimeRange get _thisWeekRange {
+    final now = DateTime.now();
+    final start = now.subtract(Duration(days: now.weekday - 1));
+    final end = start.add(Duration(days: 6));
+    return DateTimeRange(
+        start: DateTime(start.year, start.month, start.day),
+        end: DateTime(end.year, end.month, end.day));
+  }
+
+  // Helper for this month
+  DateTimeRange get _thisMonthRange {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, 1);
+    final end = DateTime(now.year, now.month + 1, 0);
+    return DateTimeRange(start: start, end: end);
+  }
 
   @override
   void initState() {
     super.initState();
-    _dateRange = DateTimeRange(
-      start: DateTime(DateTime.now().year, DateTime.now().month, 1),
-      end: DateTime(DateTime.now().year, DateTime.now().month + 1, 0),
-    );
+    _dateRange = _todayRange;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // Fetch employees for dropdown
       final employeeProvider =
           Provider.of<EmployeeProvider>(context, listen: false);
       await employeeProvider.getEmployees();
@@ -41,6 +75,7 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
         start: DateFormat('yyyy-MM-dd').format(_dateRange!.start),
         end: DateFormat('yyyy-MM-dd').format(_dateRange!.end),
         userId: _selectedEmployeeId,
+        role: _selectedRole == 'employee' ? 'employee' : 'all',
       );
     });
   }
@@ -99,6 +134,7 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
         start: DateFormat('yyyy-MM-dd').format(picked.start),
         end: DateFormat('yyyy-MM-dd').format(picked.end),
         userId: _selectedEmployeeId,
+        role: _selectedRole == 'employee' ? 'employee' : 'all',
       );
     }
   }
@@ -110,6 +146,7 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
       start: DateFormat('yyyy-MM-dd').format(_dateRange!.start),
       end: DateFormat('yyyy-MM-dd').format(_dateRange!.end),
       userId: employeeId,
+      role: _selectedRole == 'employee' ? 'employee' : 'all',
     );
   }
 
@@ -249,118 +286,307 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
     );
   }
 
+  void _handleEditAttendance(
+      BuildContext context, Map<String, dynamic> rec) async {
+    final updated = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => EditAttendanceDialog(
+        initialData: rec,
+        onSave: (data) => Navigator.of(context).pop(data),
+      ),
+    );
+    if (updated != null) {
+      final provider =
+          Provider.of<AdminAttendanceProvider>(context, listen: false);
+      final success = await provider.editAttendance(
+          rec['id'] ?? rec['attendanceId'] ?? rec['_id'] ?? '', updated);
+      if (success) {
+        if (!mounted) return;
+        // Automatically reset filters to show all records after edit
+        setState(() {
+          _selectedEmployeeId = null;
+          _selectedRole = null;
+          _dateRange = _todayRange;
+        });
+        _fetchAttendanceData();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Attendance updated successfully.')),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(provider.error ?? 'Failed to update attendance.')),
+        );
+      }
+    }
+  }
+
+  List<Map<String, dynamic>> _filteredRecords(List records) {
+    return records.where((rec) {
+      final user =
+          rec is Map<String, dynamic> ? rec['user'] : (rec as dynamic).user;
+      if (user == null ||
+          (user is Map &&
+              (user['firstName'] == null || user['lastName'] == null))) {
+        return false;
+      }
+      if (_selectedEmployeeId != null && _selectedEmployeeId!.isNotEmpty) {
+        // Use _id for matching
+        final userId = user is Map ? user['_id']?.toString() : user.toString();
+        print('Comparing userId: $userId with selected: $_selectedEmployeeId');
+        if (userId != _selectedEmployeeId) return false;
+      }
+      return true;
+    }).map<Map<String, dynamic>>((rec) {
+      return rec is Map<String, dynamic> ? rec : (rec as dynamic).toJson();
+    }).toList();
+  }
+
+  void _setQuickRange(DateTimeRange range) {
+    setState(() => _dateRange = range);
+    Provider.of<AdminAttendanceProvider>(context, listen: false)
+        .fetchAttendanceLegacy(
+      start: DateFormat('yyyy-MM-dd').format(range.start),
+      end: DateFormat('yyyy-MM-dd').format(range.end),
+      userId: _selectedEmployeeId,
+      role: _selectedRole == 'employee' ? 'employee' : 'all',
+    );
+  }
+
+  void _refreshData() {
+    Provider.of<AdminAttendanceProvider>(context, listen: false)
+        .fetchAttendanceLegacy(
+      start: DateFormat('yyyy-MM-dd').format(_dateRange!.start),
+      end: DateFormat('yyyy-MM-dd').format(_dateRange!.end),
+      userId: _selectedEmployeeId,
+      role: _selectedRole == 'employee' ? 'employee' : 'all',
+    );
+  }
+
+  void _selectDateRange() async {
+    final picked = await _showCustomDateRangePicker(context, _dateRange);
+    if (picked != null) {
+      setState(() => _dateRange = picked);
+      _fetchAttendanceData();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Admin Timesheet')),
-      drawer: const AdminSideNavigation(currentRoute: '/admin_timesheet'),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: _pickDateRange,
-                    icon: const Icon(Icons.date_range),
-                    label: Text(_dateRange == null
-                        ? 'Select Date Range'
-                        : '${DateFormat('MMM d, yyyy').format(_dateRange!.start)} - ${DateFormat('MMM d, yyyy').format(_dateRange!.end)}'),
-                  ),
-                  const SizedBox(width: 16),
-                  DropdownButton<String>(
-                    value: _selectedEmployeeId,
-                    hint: const Text('All Employees'),
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: null,
-                        child: Text('All Employees'),
-                      ),
-                      ..._employeeList.map((emp) => DropdownMenuItem<String>(
-                            value: emp.userId,
-                            child: Text('${emp.firstName} ${emp.lastName}'),
-                          )),
-                    ],
-                    onChanged: _onEmployeeChanged,
-                  ),
-                ],
-              ),
+      appBar: AppBar(
+        title: const Text('Admin Timesheet'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshData,
+          ),
+        ],
+      ),
+      drawer: const AdminSideNavigation(currentRoute: '/timesheet'),
+      body: Column(
+        children: [
+          // Filter Section
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
             ),
-            const SizedBox(height: 8),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-                foregroundColor: colorScheme.onPrimary,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 4,
-                shadowColor: Colors.black26,
-              ),
-              onPressed: isExporting
-                  ? null
-                  : () async {
-                      setState(() => isExporting = true);
-                      final provider = Provider.of<AdminAttendanceProvider>(
-                          context,
-                          listen: false);
-                      final filePath = await provider.exportAttendance(
-                        start:
-                            DateFormat('yyyy-MM-dd').format(_dateRange!.start),
-                        end: DateFormat('yyyy-MM-dd').format(_dateRange!.end),
-                        userId: _selectedEmployeeId,
-                      );
-                      setState(() => isExporting = false);
-                      if (filePath != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('CSV exported to: $filePath')),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content: Text(
-                                  provider.error ?? 'Failed to export CSV')),
-                        );
-                      }
-                    },
-              icon: isExporting
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: colorScheme.onPrimary))
-                  : Icon(Icons.download,
-                      size: 22, color: colorScheme.onPrimary),
-              label: const Text('Export CSV',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
-            const SizedBox(height: 8),
-            const Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.swipe, size: 18, color: Colors.grey),
-                SizedBox(width: 4),
-                Text('Swipe left/right to see more',
-                    style: TextStyle(color: Colors.grey, fontSize: 12)),
+                // Date Range Filter
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.calendar_today),
+                        label: Text(
+                          '${DateFormat('MMM dd').format(_dateRange!.start)} - ${DateFormat('MMM dd').format(_dateRange!.end)}',
+                        ),
+                        onPressed: _selectDateRange,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: _clearFilters,
+                      tooltip: 'Clear Filters',
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 8),
+
+                // Quick Date Filters
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _QuickFilterBtn(
+                        label: 'Today',
+                        selected: _dateRange != null &&
+                            _dateRange!.start == _todayRange.start &&
+                            _dateRange!.end == _todayRange.end,
+                        onTap: () => _setQuickRange(_todayRange),
+                      ),
+                      const SizedBox(width: 8),
+                      _QuickFilterBtn(
+                        label: 'Yesterday',
+                        selected: _dateRange != null &&
+                            _dateRange!.start == _yesterdayRange.start &&
+                            _dateRange!.end == _yesterdayRange.end,
+                        onTap: () => _setQuickRange(_yesterdayRange),
+                      ),
+                      const SizedBox(width: 8),
+                      _QuickFilterBtn(
+                        label: 'This Week',
+                        selected: _dateRange != null &&
+                            _dateRange!.start == _thisWeekRange.start &&
+                            _dateRange!.end == _thisWeekRange.end,
+                        onTap: () => _setQuickRange(_thisWeekRange),
+                      ),
+                      const SizedBox(width: 8),
+                      _QuickFilterBtn(
+                        label: 'This Month',
+                        selected: _dateRange != null &&
+                            _dateRange!.start == _thisMonthRange.start &&
+                            _dateRange!.end == _thisMonthRange.end,
+                        onTap: () => _setQuickRange(_thisMonthRange),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Employee Filter
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedEmployeeId,
+                        decoration: const InputDecoration(
+                          labelText: 'Filter by Employee',
+                          border: OutlineInputBorder(),
+                          contentPadding:
+                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('All Employees'),
+                          ),
+                          ..._employeeList.map((emp) => DropdownMenuItem(
+                                value: emp.userId,
+                                child: Text('${emp.firstName} ${emp.lastName}'),
+                              )),
+                        ],
+                        onChanged: _onEmployeeChanged,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                // Role Filter
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Filter by Role:',
+                      style: TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 8),
+                    RoleFilterChip(
+                      selectedRole: _selectedRole,
+                      onRoleChanged: _onRoleChanged,
+                    ),
+                  ],
+                ),
               ],
             ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: Consumer<AdminAttendanceProvider>(
-                builder: (context, provider, child) {
+          ),
+
+          // --- Table Section ---
+          Expanded(
+            child: Consumer<AdminAttendanceProvider>(
+              builder: (context, provider, child) {
+                try {
                   if (provider.isLoading) {
                     return const Center(child: CircularProgressIndicator());
                   } else if (provider.error != null) {
+                    debugPrint(
+                        'AdminTimesheetScreen: Provider error: ${provider.error}');
                     return Center(child: Text('Error: ${provider.error}'));
-                  } else if (provider.attendanceRecords.isEmpty) {
-                    return const Center(
-                        child: Text('No attendance records found.'));
                   }
+                  final filtered = _filteredRecords(provider.attendanceRecords);
+                  debugPrint(
+                      'AdminTimesheetScreen: Filtered records count: ${filtered.length}');
+                  if (filtered.isEmpty) {
+                    debugPrint(
+                        'AdminTimesheetScreen: Provider state: isLoading=${provider.isLoading}, error=${provider.error}, attendanceRecords=${provider.attendanceRecords.length}');
+                    return const Center(
+                        child: Text('No attendance records found.',
+                            style:
+                                TextStyle(fontSize: 16, color: Colors.grey)));
+                  }
+                  // Responsive: Use ListView on mobile, DataTable on wide screens
+                  final isWide = MediaQuery.of(context).size.width > 700;
+                  if (!isWide) {
+                    // Mobile: Card list
+                    return ListView.separated(
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final rec = filtered[index];
+                        final user = rec is Map<String, dynamic>
+                            ? rec['user']
+                            : (rec as dynamic).user;
+                        final name = user != null &&
+                                user['firstName'] != null &&
+                                user['lastName'] != null
+                            ? '${user['firstName']} ${user['lastName']}'
+                            : user != null && user['email'] != null
+                                ? user['email']
+                                : '(Deleted)';
+                        return Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          child: ListTile(
+                            title: Text(name,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold)),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                    'Date: ${_formatDate(rec['date']?.toString())}'),
+                                Text(
+                                    'Check In: ${_formatTime(rec['checkInTime']?.toString())}'),
+                                Text(
+                                    'Check Out: ${_formatTime(rec['checkOutTime']?.toString())}'),
+                                Text(
+                                    'Total Hours: ${_formatTotalHours(rec['checkInTime']?.toString(), rec['checkOutTime']?.toString(), rec['totalBreakDuration'])}'),
+                                Text('Status: ${rec['status'] ?? 'present'}'),
+                              ],
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.edit),
+                              onPressed: () =>
+                                  _handleEditAttendance(context, rec),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  }
+                  // Desktop/tablet: DataTable
                   return SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
@@ -383,9 +609,6 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
                             label: Text('Total Hours',
                                 style: TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(
-                            label: Text('Break',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
                             label: Text('Status',
                                 style: TextStyle(fontWeight: FontWeight.bold))),
                         DataColumn(
@@ -393,11 +616,19 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
                                 style: TextStyle(fontWeight: FontWeight.bold))),
                       ],
                       rows: List<DataRow>.generate(
-                        provider.attendanceRecords.length,
+                        filtered.length,
                         (index) {
-                          final rec = provider.attendanceRecords[index];
-                          final user = rec.user;
-                          final status = rec.status.toString() ?? 'present';
+                          final rec = filtered[index];
+                          final user = rec is Map<String, dynamic>
+                              ? rec['user']
+                              : (rec as dynamic).user;
+                          final name = user != null &&
+                                  user['firstName'] != null &&
+                                  user['lastName'] != null
+                              ? '${user['firstName']} ${user['lastName']}'
+                              : user != null && user['email'] != null
+                                  ? user['email']
+                                  : '(Deleted)';
                           return DataRow(
                             color: WidgetStateProperty.resolveWith<Color?>(
                                 (Set<WidgetState> states) {
@@ -407,188 +638,33 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
                                       .withOpacity(0.2);
                             }),
                             cells: [
-                              DataCell(Text(
-                                  user != null
-                                      ? (user['name'] ??
-                                          user['firstName'] ??
-                                          '—')
-                                      : '—',
-                                  style: const TextStyle(fontSize: 15))),
-                              DataCell(Text(_formatDate(rec.date.toString()),
+                              DataCell(Text(name,
                                   style: const TextStyle(fontSize: 15))),
                               DataCell(Text(
-                                  _formatTime(rec.checkInTime?.toString()),
+                                  _formatDate(rec['date']?.toString()),
                                   style: const TextStyle(fontSize: 15))),
                               DataCell(Text(
-                                  _formatTime(rec.checkOutTime?.toString()),
+                                  _formatTime(rec['checkInTime']?.toString()),
+                                  style: const TextStyle(fontSize: 15))),
+                              DataCell(Text(
+                                  _formatTime(rec['checkOutTime']?.toString()),
                                   style: const TextStyle(fontSize: 15))),
                               DataCell(Text(
                                   _formatTotalHours(
-                                      rec.checkInTime?.toString(),
-                                      rec.checkOutTime?.toString(),
-                                      rec.totalBreakDuration),
+                                      rec['checkInTime']?.toString(),
+                                      rec['checkOutTime']?.toString(),
+                                      rec['totalBreakDuration']),
                                   style: const TextStyle(fontSize: 15))),
-                              DataCell(Row(
-                                children: [
-                                  Text(_formatBreaks(rec.breaks),
-                                      style: const TextStyle(fontSize: 15)),
-                                  const SizedBox(width: 8),
-                                  _buildBreakBadge(rec.toJson()),
-                                  if (rec.breaks != null &&
-                                      (rec.breaks as List).isNotEmpty)
-                                    IconButton(
-                                      icon: const Icon(Icons.info_outline,
-                                          size: 18),
-                                      tooltip: 'View break details',
-                                      onPressed: () => _showBreakDetailsDialog(
-                                          context, rec.breaks),
-                                    ),
-                                ],
-                              )),
-                              DataCell(
-                                Builder(
-                                  builder: (context) {
-                                    if (status == 'on_break') {
-                                      // Find the last break with no end time
-                                      final breaks = rec.breaks;
-                                      Map<String, dynamic>? lastBreak;
-                                      if (breaks != null && breaks.isNotEmpty) {
-                                        final b = breaks.lastWhere(
-                                          (b) =>
-                                              b['start'] != null &&
-                                              b['end'] == null,
-                                          orElse: () => null,
-                                        );
-                                        if (b != null) {
-                                          lastBreak =
-                                              Map<String, dynamic>.from(b);
-                                        }
-                                      }
-                                      String breakType = lastBreak != null
-                                          ? (lastBreak['type'] is Map &&
-                                                  lastBreak['type']
-                                                          ['displayName'] !=
-                                                      null
-                                              ? lastBreak['type']['displayName']
-                                              : lastBreak['type']?.toString() ??
-                                                  '-')
-                                          : '-';
-                                      DateTime? breakStart =
-                                          lastBreak != null &&
-                                                  lastBreak['start'] != null
-                                              ? DateTime.tryParse(
-                                                  lastBreak['start'].toString())
-                                              : null;
-                                      return Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: Colors.orange
-                                                  .withOpacity(0.15),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                const Icon(
-                                                    Icons.pause_circle_filled,
-                                                    color: Colors.orange,
-                                                    size: 18),
-                                                const SizedBox(width: 4),
-                                                const Text('on break',
-                                                    style: TextStyle(
-                                                        color: Colors.orange,
-                                                        fontWeight:
-                                                            FontWeight.bold)),
-                                                if (breakType != '-') ...[
-                                                  const SizedBox(width: 6),
-                                                  Text('($breakType)',
-                                                      style: TextStyle(
-                                                          color: Colors
-                                                              .orange[700],
-                                                          fontWeight:
-                                                              FontWeight.w500)),
-                                                ],
-                                                if (breakStart != null) ...[
-                                                  const SizedBox(width: 8),
-                                                  _LiveBreakTimer(
-                                                      start: breakStart),
-                                                ]
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    } else {
-                                      return Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: _statusColor(status)
-                                              .withOpacity(0.15),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: Text(status,
-                                            style: TextStyle(
-                                                color: _statusColor(status),
-                                                fontWeight: FontWeight.bold)),
-                                      );
-                                    }
-                                  },
-                                ),
-                              ),
-                              DataCell(Row(
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit),
-                                    onPressed: () async {
-                                      final updated = await showDialog<
-                                          Map<String, dynamic>>(
-                                        context: context,
-                                        builder: (context) =>
-                                            EditAttendanceDialog(
-                                          initialData: rec.toJson(),
-                                          onSave:
-                                              (_) {}, // No-op, handled by dialog pop
-                                        ),
-                                      );
-                                      if (updated != null) {
-                                        final provider = Provider.of<
-                                                AdminAttendanceProvider>(
-                                            context,
-                                            listen: false);
-                                        final success =
-                                            await provider.editAttendance(
-                                                rec.id ?? '', updated);
-                                        if (success) {
-                                          await provider.fetchAttendanceLegacy(
-                                            start: DateFormat('yyyy-MM-dd')
-                                                .format(_dateRange!.start),
-                                            end: DateFormat('yyyy-MM-dd')
-                                                .format(_dateRange!.end),
-                                            userId: _selectedEmployeeId,
-                                          );
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            const SnackBar(
-                                                content: Text(
-                                                    'Attendance updated successfully.')),
-                                          );
-                                        } else {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            SnackBar(
-                                                content: Text(provider.error ??
-                                                    'Failed to update attendance.')),
-                                          );
-                                        }
-                                      }
-                                    },
-                                  ),
-                                ],
+                              DataCell(Text(
+                                  rec['status']?.toString() ?? 'present',
+                                  style: TextStyle(
+                                      fontSize: 15,
+                                      color: _statusColor(
+                                          rec['status']?.toString())))),
+                              DataCell(IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () =>
+                                    _handleEditAttendance(context, rec),
                               )),
                             ],
                           );
@@ -596,13 +672,54 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
                       ),
                     ),
                   );
-                },
-              ),
+                } catch (e, st) {
+                  debugPrint(
+                      'AdminTimesheetScreen: Exception in build: ${e.toString()}\n${st.toString()}');
+                  return Center(
+                      child: Text(
+                          'An unexpected error occurred. Please try again.'));
+                }
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+  }
+
+  void _onRoleChanged(String? role) {
+    setState(() {
+      _selectedRole = role;
+    });
+    _fetchAttendanceData();
+  }
+
+  void _fetchAttendanceData() {
+    final provider =
+        Provider.of<AdminAttendanceProvider>(context, listen: false);
+    String role = 'all';
+    if (_selectedRole == 'employee') {
+      role = 'employee';
+    } else if (_selectedRole == 'admin') {
+      role = 'admin';
+    }
+    debugPrint(
+        'AdminTimesheetScreen: Fetching attendance with params: start=${DateFormat('yyyy-MM-dd').format(_dateRange!.start)}, end=${DateFormat('yyyy-MM-dd').format(_dateRange!.end)}, userId=$_selectedEmployeeId, role=$role');
+    provider.fetchAttendanceLegacy(
+      start: DateFormat('yyyy-MM-dd').format(_dateRange!.start),
+      end: DateFormat('yyyy-MM-dd').format(_dateRange!.end),
+      userId: _selectedEmployeeId,
+      role: role,
+    );
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _selectedEmployeeId = null;
+      _selectedRole = null;
+      _dateRange = _todayRange;
+    });
+    _fetchAttendanceData();
   }
 }
 
@@ -759,6 +876,32 @@ Widget _buildBreakBadge(Map<String, dynamic> rec) {
         Text('No Break',
             style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
       ],
+    );
+  }
+}
+
+class _QuickFilterBtn extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _QuickFilterBtn(
+      {required this.label, required this.selected, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      style: OutlinedButton.styleFrom(
+        backgroundColor: selected
+            ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+            : null,
+        side: BorderSide(
+            color: selected
+                ? Theme.of(context).colorScheme.primary
+                : Colors.grey.shade300),
+      ),
+      onPressed: onTap,
+      child: Text(label,
+          style: TextStyle(
+              color: selected ? Theme.of(context).colorScheme.primary : null)),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/leave_provider.dart';
 import '../../models/leave_request.dart';
 import '../../widgets/admin_side_navigation.dart';
+import '../../widgets/role_filter_chip.dart';
 import 'dart:async';
 
 class LeaveManagementScreen extends StatefulWidget {
@@ -16,6 +17,7 @@ class LeaveManagementScreen extends StatefulWidget {
 class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
   String _selectedFilter = 'All';
   String _searchQuery = '';
+  String? _selectedRole;
   int _currentPage = 1;
   final int _pageSize = 10;
   final List<String> _filters = ['Pending', 'Approved', 'Rejected', 'All'];
@@ -50,7 +52,16 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
       await _apiServiceCompleter.future;
       log('DEBUG: Initiating fetchLeaveRequests');
       log('DEBUG: Authorization header being sent: ${await leaveProvider.getAuthorizationHeader()}');
-      await leaveProvider.fetchLeaveRequests();
+      String role = 'all';
+      if (_selectedRole == 'employee') {
+        role = 'employee';
+      } else if (_selectedRole == 'admin') {
+        role = 'admin';
+      }
+      await leaveProvider.fetchLeaveRequests(
+        includeAdmins: _selectedRole != 'employee',
+        role: role,
+      );
       log('DEBUG: Leave requests fetched successfully. Total requests: ${leaveProvider.leaveRequests.length}');
     } catch (e) {
       if (e is FormatException) {
@@ -89,6 +100,13 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
       _searchQuery = query;
       _currentPage = 1;
     });
+  }
+
+  void _onRoleChanged(String? role) {
+    setState(() {
+      _selectedRole = role;
+    });
+    _fetchLeaveRequests();
   }
 
   @override
@@ -141,245 +159,284 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
         ],
       ),
       drawer: const AdminSideNavigation(currentRoute: '/leave_management'),
-      body: Consumer<LeaveProvider>(
-        builder: (context, provider, child) {
-          if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final leaveRequests = provider.leaveRequests
-              .where((request) {
-                final statusStr = request.status.toString().split('.').last;
-                if (_selectedFilter != 'All' &&
-                    statusStr.toLowerCase() != _selectedFilter.toLowerCase()) {
-                  return false;
+      body: Column(
+        children: [
+          // Role Filter Section
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Filter by Role:',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 8),
+                RoleFilterChip(
+                  selectedRole: _selectedRole,
+                  onRoleChanged: _onRoleChanged,
+                ),
+              ],
+            ),
+          ),
+          // Main Content
+          Expanded(
+            child: Consumer<LeaveProvider>(
+              builder: (context, provider, child) {
+                if (provider.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
                 }
-                if (_searchQuery.isNotEmpty &&
-                    !('${request.employeeName} ${request.department}'
-                        .toLowerCase()
-                        .contains(_searchQuery.toLowerCase()))) {
-                  return false;
-                }
-                return true;
-              })
-              .skip((_currentPage - 1) * _pageSize)
-              .take(_pageSize)
-              .toList();
 
-          if (leaveRequests.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.event_busy, size: 64, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No ${_selectedFilter.toLowerCase()} leave requests',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
+                final leaveRequests = provider.leaveRequests
+                    .where((request) {
+                      final statusStr =
+                          request.status.toString().split('.').last;
+                      if (_selectedFilter != 'All' &&
+                          statusStr.toLowerCase() !=
+                              _selectedFilter.toLowerCase()) {
+                        return false;
+                      }
+                      if (_searchQuery.isNotEmpty &&
+                          !('${request.employeeName} ${request.department}'
+                              .toLowerCase()
+                              .contains(_searchQuery.toLowerCase()))) {
+                        return false;
+                      }
+                      return true;
+                    })
+                    .skip((_currentPage - 1) * _pageSize)
+                    .take(_pageSize)
+                    .toList();
+
+                if (leaveRequests.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.event_busy,
+                            size: 64, color: Colors.grey[400]),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No ${_selectedFilter.toLowerCase()} leave requests',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-            );
-          }
+                  );
+                }
 
-          return Column(
-            children: [
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: leaveRequests.length,
-                  itemBuilder: (context, index) {
-                    final request = leaveRequests[index];
-                    final isProcessing = _processingRequestIndex == index;
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      child: Padding(
+                return Column(
+                  children: [
+                    Expanded(
+                      child: ListView.builder(
                         padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                        itemCount: leaveRequests.length,
+                        itemBuilder: (context, index) {
+                          final request = leaveRequests[index];
+                          final isProcessing = _processingRequestIndex == index;
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(
-                                        request.employeeName,
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              request.employeeName,
+                                              style: const TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              request.leaveType
+                                                  .toString()
+                                                  .split('.')
+                                                  .last,
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
+                                      _buildStatusChip(request.status),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildDateRange(
+                                          request.startDate,
+                                          request.endDate,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
                                       Text(
-                                        request.leaveType
-                                            .toString()
-                                            .split('.')
-                                            .last,
-                                        style: TextStyle(
-                                          color: Colors.grey[600],
+                                        '${request.duration} days',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                     ],
                                   ),
-                                ),
-                                _buildStatusChip(request.status),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildDateRange(
-                                    request.startDate,
-                                    request.endDate,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Text(
-                                  '${request.duration} days',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (request.reason.isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              Text(
-                                'Reason:',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.grey[700],
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(request.reason),
-                            ],
-                            if (request.status ==
-                                LeaveRequestStatus.pending) ...[
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton(
-                                      onPressed: isProcessing
-                                          ? null
-                                          : () async {
-                                              setState(() {
-                                                _processingRequestIndex = index;
-                                              });
-                                              try {
-                                                await provider
-                                                    .rejectLeaveRequest(
-                                                        request.id);
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  const SnackBar(
-                                                      content: Text(
-                                                          'Leave request rejected.')),
-                                                );
-                                              } catch (e) {
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  SnackBar(
-                                                      content: Text(
-                                                          'Error rejecting leave request: $e')),
-                                                );
-                                              } finally {
-                                                setState(() {
-                                                  _processingRequestIndex =
-                                                      null;
-                                                });
-                                              }
-                                            },
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: Colors.red,
+                                  if (request.reason.isNotEmpty) ...[
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Reason:',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey[700],
                                       ),
-                                      child: const Text('Reject'),
                                     ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      onPressed: isProcessing
-                                          ? null
-                                          : () async {
-                                              setState(() {
-                                                _processingRequestIndex = index;
-                                              });
-                                              try {
-                                                await provider
-                                                    .approveLeaveRequest(
-                                                        request.id);
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  const SnackBar(
-                                                      content: Text(
-                                                          'Leave request approved.')),
-                                                );
-                                              } catch (e) {
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  SnackBar(
-                                                      content: Text(
-                                                          'Error approving leave request: $e')),
-                                                );
-                                              } finally {
-                                                setState(() {
-                                                  _processingRequestIndex =
-                                                      null;
-                                                });
-                                              }
-                                            },
-                                      child: const Text('Approve'),
+                                    const SizedBox(height: 4),
+                                    Text(request.reason),
+                                  ],
+                                  if (request.status ==
+                                      LeaveRequestStatus.pending) ...[
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: OutlinedButton(
+                                            onPressed: isProcessing
+                                                ? null
+                                                : () async {
+                                                    setState(() {
+                                                      _processingRequestIndex =
+                                                          index;
+                                                    });
+                                                    try {
+                                                      await provider
+                                                          .rejectLeaveRequest(
+                                                              request.id);
+                                                      ScaffoldMessenger.of(
+                                                              context)
+                                                          .showSnackBar(
+                                                        const SnackBar(
+                                                            content: Text(
+                                                                'Leave request rejected.')),
+                                                      );
+                                                    } catch (e) {
+                                                      ScaffoldMessenger.of(
+                                                              context)
+                                                          .showSnackBar(
+                                                        SnackBar(
+                                                            content: Text(
+                                                                'Error rejecting leave request: $e')),
+                                                      );
+                                                    } finally {
+                                                      setState(() {
+                                                        _processingRequestIndex =
+                                                            null;
+                                                      });
+                                                    }
+                                                  },
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: Colors.red,
+                                            ),
+                                            child: const Text('Reject'),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: ElevatedButton(
+                                            onPressed: isProcessing
+                                                ? null
+                                                : () async {
+                                                    setState(() {
+                                                      _processingRequestIndex =
+                                                          index;
+                                                    });
+                                                    try {
+                                                      await provider
+                                                          .approveLeaveRequest(
+                                                              request.id);
+                                                      ScaffoldMessenger.of(
+                                                              context)
+                                                          .showSnackBar(
+                                                        const SnackBar(
+                                                            content: Text(
+                                                                'Leave request approved.')),
+                                                      );
+                                                    } catch (e) {
+                                                      ScaffoldMessenger.of(
+                                                              context)
+                                                          .showSnackBar(
+                                                        SnackBar(
+                                                            content: Text(
+                                                                'Error approving leave request: $e')),
+                                                      );
+                                                    } finally {
+                                                      setState(() {
+                                                        _processingRequestIndex =
+                                                            null;
+                                                      });
+                                                    }
+                                                  },
+                                            child: const Text('Approve'),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
+                                  ],
                                 ],
                               ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    if (_currentPage > 1)
-                      ElevatedButton(
-                        onPressed: () {
-                          setState(() {
-                            _currentPage--;
-                          });
+                            ),
+                          );
                         },
-                        child: const Text('Previous'),
                       ),
-                    if (leaveRequests.length == _pageSize)
-                      ElevatedButton(
-                        onPressed: () {
-                          setState(() {
-                            _currentPage++;
-                          });
-                        },
-                        child: const Text('Next'),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (_currentPage > 1)
+                            ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _currentPage--;
+                                });
+                              },
+                              child: const Text('Previous'),
+                            ),
+                          if (leaveRequests.length == _pageSize)
+                            ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _currentPage++;
+                                });
+                              },
+                              child: const Text('Next'),
+                            ),
+                        ],
                       ),
+                    ),
                   ],
-                ),
-              ),
-            ],
-          );
-        },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

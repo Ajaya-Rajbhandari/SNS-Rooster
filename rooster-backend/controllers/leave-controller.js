@@ -76,7 +76,27 @@ exports.getLeaveHistory = async (req, res) => {
 // Get all leave requests for admin
 exports.getAllLeaveRequests = async (req, res) => {
   try {
-    const leaves = await Leave.find().populate('employee');
+    const { includeAdmins = 'true' } = req.query;
+    
+    // First, get all leaves with employee population, sorted by latest appliedAt first
+    let leaves = await Leave.find().sort({ appliedAt: -1 }).populate('employee');
+    
+    // If filtering for employees only, we need to filter by the employee's user role
+    if (includeAdmins === 'false') {
+      const Employee = require('../models/Employee');
+      const User = require('../models/User');
+      
+      // Get all employees that have users with role 'employee'
+      const employeeUsers = await User.find({ role: 'employee' }, '_id');
+      const employeeUserIds = employeeUsers.map(u => u._id.toString());
+      
+      // Filter leaves to only include those where the employee's userId is in the employee list
+      leaves = leaves.filter(leave => {
+        if (!leave.employee || !leave.employee.userId) return false;
+        return employeeUserIds.includes(leave.employee.userId.toString());
+      });
+    }
+    
     const result = leaves.map(leave => ({
       _id: leave._id,
       employee: leave.employee?._id,
@@ -88,10 +108,10 @@ exports.getAllLeaveRequests = async (req, res) => {
       reason: leave.reason,
       status: leave.status,
       appliedAt: leave.appliedAt,
-      // Add other fields as needed
     }));
     res.json(result);
   } catch (err) {
+    console.error('Error in getAllLeaveRequests:', err);
     res.status(500).json({ message: 'Error fetching leave requests' });
   }
 };

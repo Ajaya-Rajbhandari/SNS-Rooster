@@ -166,10 +166,10 @@ function getBreakStatusForRecord(att) {
   return 'break_ended';
 }
 
-// GET /attendance?userId=...&startDate=...&endDate=...
+// GET /attendance?userId=...&startDate=...&endDate=...&role=employee|admin|all
 router.get("/attendance", auth, adminAuth, async (req, res) => {
   try {
-    const { userId, startDate, endDate, page = 1, limit = 50 } = req.query;
+    const { userId, startDate, endDate, page = 1, limit = 50, role = 'all' } = req.query;
     const filter = {};
     if (userId) filter.user = userId;
     if (startDate || endDate) {
@@ -177,30 +177,30 @@ router.get("/attendance", auth, adminAuth, async (req, res) => {
       if (startDate) filter.date.$gte = new Date(startDate);
       if (endDate) filter.date.$lte = new Date(endDate);
     }
-    console.log('ADMIN ATTENDANCE FILTER: userId:', userId, 'filter:', filter);
+    console.log('ADMIN ATTENDANCE FILTER: userId:', userId, 'role:', role, 'filter:', filter);
 
     const attendance = await Attendance.find(filter)
-      .populate("user", "firstName lastName email")
+      .populate("user", "firstName lastName email role userId")
       .sort({ date: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
 
-    // Add status and breakStatus to each record
-    const attendanceWithStatus = attendance.map(att => {
-      const attObj = att.toObject();
-      attObj.status = getAttendanceStatusForRecord(attObj);
-      attObj.breakStatus = getBreakStatusForRecord(attObj);
-      return attObj;
-    });
+    // Filter by role if specified
+    let filteredAttendance = attendance;
+    if (role === 'employee') {
+      filteredAttendance = attendance.filter(a => a.user && a.user.role === 'employee');
+    } else if (role === 'admin') {
+      filteredAttendance = attendance.filter(a => a.user && a.user.role === 'admin');
+    }
 
-    const total = await Attendance.countDocuments(filter);
+    const total = filteredAttendance.length;
 
     res.json({
-      attendance: attendanceWithStatus,
+      attendance: filteredAttendance,
       total,
       page: Number(page),
       limit: Number(limit),
-      totalPages: Math.ceil(total / limit),
+      totalPages: 1,
     });
   } catch (error) {
     console.error("Error fetching admin attendance:", error);

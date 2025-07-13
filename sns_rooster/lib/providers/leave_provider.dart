@@ -35,14 +35,20 @@ class LeaveProvider with ChangeNotifier {
   List<LeaveRequest> get leaveRequests => _leaveRequests;
   bool get isLoading => _isLoading;
 
-  Future<void> fetchLeaveRequests() async {
+  Future<void> fetchLeaveRequests(
+      {bool includeAdmins = true, String role = 'all'}) async {
     _isLoading = true;
     notifyListeners();
 
     try {
       await _apiServiceCompleter.future; // Ensure initialization is complete
 
-      final response = await _apiService.get('/leave/leave-requests');
+      final queryParams = {
+        'includeAdmins': includeAdmins.toString(),
+        'role': role
+      };
+      final response = await _apiService.get(
+          '/leave/leave-requests?${Uri(queryParameters: queryParams).query}');
       if (response.success) {
         _leaveRequests = (response.data as List)
             .map((json) => LeaveRequest.fromJson(json))

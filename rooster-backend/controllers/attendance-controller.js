@@ -479,3 +479,64 @@ exports.getTodayAttendanceStats = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+// GET /api/attendance/today-list?status=present|absent|onleave
+exports.getTodayEmployeeList = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+    const status = (req.query.status || '').toLowerCase();
+    if (!['present', 'absent', 'onleave'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status parameter' });
+    }
+    // Get all employees
+    const User = require('../models/User');
+    const LeaveRequest = require('../models/Leave');
+    const employees = await User.find({ role: 'employee' });
+    const employeeIds = employees.map(e => e._id.toString());
+
+    // Get today's date at UTC midnight
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const tomorrow = new Date(today);
+    tomorrow.setUTCDate(today.getUTCDate() + 1);
+
+    // Attendance records for today
+    const Attendance = require('../models/Attendance');
+    const attendanceToday = await Attendance.find({
+      user: { $in: employeeIds },
+      date: { $gte: today, $lt: tomorrow },
+    });
+    const presentIds = new Set(attendanceToday.map(a => a.user.toString()));
+
+    // Leave requests for today (approved only)
+    const leaveToday = await LeaveRequest.find({
+      employee: { $in: employeeIds },
+      status: 'Approved',
+      startDate: { $lte: today },
+      endDate: { $gte: today },
+    });
+    const leaveIds = new Set(leaveToday.map(lr => lr.employee.toString()));
+
+    let filteredEmployees;
+    if (status === 'present') {
+      filteredEmployees = employees.filter(e => presentIds.has(e._id.toString()) && !leaveIds.has(e._id.toString()));
+    } else if (status === 'onleave') {
+      filteredEmployees = employees.filter(e => leaveIds.has(e._id.toString()));
+    } else if (status === 'absent') {
+      filteredEmployees = employees.filter(e => !presentIds.has(e._id.toString()) && !leaveIds.has(e._id.toString()));
+    }
+    // Return basic info
+    const result = filteredEmployees.map(e => ({
+      _id: e._id,
+      firstName: e.firstName,
+      lastName: e.lastName,
+      email: e.email
+    }));
+    res.json({ employees: result });
+  } catch (error) {
+    console.error('getTodayEmployeeList error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};

@@ -3,8 +3,8 @@ const User = require('../models/User');
 
 async function forceCreateAdmin() {
   try {
-    // Connect to MongoDB
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/sns-rooster');
+    // Connect to MongoDB Atlas
+    await mongoose.connect('mongodb+srv://ajaya:ysjevCMEPSwMcCDl@cluster0.1ufkdju.mongodb.net/sns-rooster?retryWrites=true&w=majority&appName=Cluster0');
     console.log('Connected to MongoDB');
 
     // Delete existing admin if any
