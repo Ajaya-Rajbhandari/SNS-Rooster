@@ -315,79 +315,120 @@ exports.getAdminOverview = async (req, res) => {
     let { start, end, range } = req.query;
     let startDate, today;
     if (start && end) {
-      startDate = new Date(start);
-      today = new Date(end);
+      // Parse as UTC midnight
+      const startObj = new Date(start);
+      startDate = new Date(Date.UTC(startObj.getUTCFullYear(), startObj.getUTCMonth(), startObj.getUTCDate(), 0, 0, 0, 0));
+      const endObj = new Date(end);
+      today = new Date(Date.UTC(endObj.getUTCFullYear(), endObj.getUTCMonth(), endObj.getUTCDate(), 0, 0, 0, 0));
     } else {
       range = parseInt(range) || 7;
-      today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const now = new Date();
+      today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
       startDate = new Date(today);
-      startDate.setDate(today.getDate() - range + 1);
+      startDate.setUTCDate(today.getUTCDate() - range + 1);
     }
 
-    // Get all employees
-    const employees = await require('../models/User').find({ role: 'employee' });
-    const employeeIds = employees.map(e => e._id);
+    // Get all active users (employees and admins)
+    const User = require('../models/User');
+    const users = await User.find({ isActive: true, role: { $in: ['employee', 'admin'] } });
+    // Separate pending users (never logged in)
+    const pendingUsers = users.filter(u => !u.lastLogin);
+    const activeConfirmedUsers = users.filter(u => u.lastLogin);
+    const userIds = activeConfirmedUsers.map(u => u._id);
 
-    // Attendance breakdown for today
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    // Get all Employee docs for those users
+    const EmployeeModel = require('../models/Employee');
+    const employees = await EmployeeModel.find({ userId: { $in: userIds } });
+    const employeeIds = employees.map(e => e._id.toString());
 
-    // ===== Attendance Counters =====
-    let present = 0;
-    let leave = 0;
-    let absent = 0;
+    // Attendance breakdown for today (UTC)
+    const todayStart = new Date(today); // already UTC midnight
+    const todayEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999));
 
+    // Find all attendance records for today (UTC)
+    const Attendance = require('../models/Attendance');
+    const attendanceToday = await Attendance.find({
+      user: { $in: userIds },
+      date: { $gte: todayStart, $lte: todayEnd },
+    });
+    const presentIds = attendanceToday.map((a) => String(a.user));
+
+    let leaveIds = new Set();
+    let leaveUserIds = [];
     try {
-      console.time('presentAttendance');
-      // Count as present if checked in today (regardless of check-out)
-      const presentAttendance = await Attendance.find({
-        user: { $in: employeeIds },
-        date: { $gte: todayStart, $lte: todayEnd },
-        checkInTime: { $ne: null }
-      }).distinct('user');
-      console.timeEnd('presentAttendance');
-
-      const presentSet = new Set(presentAttendance.map((id) => id.toString()));
-
-      console.time('employeeDocs');
-      const employeeDocs = await Employee.find({ userId: { $in: employeeIds } }, '_id userId');
-      console.timeEnd('employeeDocs');
-
-      const empIdMap = new Map();
-      employeeDocs.forEach((e) => empIdMap.set(e._id.toString(), e.userId.toString()));
-
-      console.time('leaveDocs');
-      const leaveDocs = await Leave.find({
-        employee: { $in: employeeDocs.map((e) => e._id) },
-        startDate: { $lte: todayEnd },
-        endDate: { $gte: todayStart },
+      const Leave = require('../models/Leave');
+      // Use UTC for leave query
+      const leaveToday = await Leave.find({
+        employee: { $in: employeeIds },
         status: { $regex: /^approved$/i },
-      }).distinct('employee');
-      console.timeEnd('leaveDocs');
-
-      const leaveSet = new Set(
-        leaveDocs
-          .map((id) => empIdMap.get(id.toString()))
-          .filter(Boolean)
-      );
-
-      present = presentSet.size;
-      leave = leaveSet.size;
-      absent = employeeIds.length - present - leave;
-    } catch (attErr) {
-      console.error('Admin overview attendance calc error:', attErr);
-      // Fallback to previous simple logic: everyone absent except presentSet if available
-      present = 0;
-      leave = 0;
-      absent = employeeIds.length;
+        startDate: { $lte: todayStart },
+        endDate: { $gte: todayStart },
+      });
+      leaveIds = new Set(leaveToday.map(lr => lr.employee.toString()));
+      // Map leave employeeIds to userIds
+      leaveUserIds = employees
+        .filter(e => leaveIds.has(e._id.toString()))
+        .map(e => e.userId.toString());
+      // DEBUG: Print leave records and leaveIds
+      console.log('DEBUG: leaveToday:', leaveToday.map(lr => ({ employeeId: lr.employee, startDate: lr.startDate, endDate: lr.endDate, status: lr.status })));
+      console.log('DEBUG: leaveIds:', Array.from(leaveIds));
+    } catch (e) {
+      leaveIds = new Set();
+      leaveUserIds = [];
     }
+
+    // Present = checked in today and NOT on leave (use employee mapping)
+    const presentUsers = activeConfirmedUsers.filter(u => {
+      const emp = employees.find(e => e.userId.toString() === u._id.toString());
+      if (u.role === 'admin') {
+        // For admins, include if present (admins don't have leave records)
+        return presentIds.includes(u._id.toString());
+      }
+      // For employees, must not be on leave
+      return presentIds.includes(u._id.toString()) && emp && !leaveIds.has(emp._id.toString());
+    });
+    const present = presentUsers.length;
+
+    // On Leave = users whose employee._id is in leaveIds
+    const onLeaveUsers = activeConfirmedUsers.filter(u => {
+      const emp = employees.find(e => e.userId.toString() === u._id.toString());
+      return emp && leaveIds.has(emp._id.toString());
+    });
+    const onLeave = onLeaveUsers.length;
+
+    // DEBUG LOGGING
+    console.log('DEBUG: presentUsers:', presentUsers.map(u => ({ name: u.firstName + ' ' + u.lastName, email: u.email })));
+    console.log('DEBUG: onLeaveUsers:', onLeaveUsers.map(u => ({ name: u.firstName + ' ' + u.lastName, email: u.email })));
+    presentUsers.forEach(u => {
+      const emp = employees.find(e => e.userId.toString() === u._id.toString());
+      console.log('DEBUG: Present user mapping:', {
+        user: u.firstName + ' ' + u.lastName,
+        email: u.email,
+        userId: u._id.toString(),
+        employeeId: emp ? emp._id.toString() : null
+      });
+    });
+    onLeaveUsers.forEach(u => {
+      const emp = employees.find(e => e.userId.toString() === u._id.toString());
+      console.log('DEBUG: OnLeave user mapping:', {
+        user: u.firstName + ' ' + u.lastName,
+        email: u.email,
+        userId: u._id.toString(),
+        employeeId: emp ? emp._id.toString() : null
+      });
+    });
+
+    // Absent = not present, not on leave (use same mapping)
+    const absentUsers = activeConfirmedUsers.filter(u => {
+      const emp = employees.find(e => e.userId.toString() === u._id.toString());
+      return !presentIds.includes(u._id.toString()) && (!emp || !leaveIds.has(emp._id.toString()));
+    });
+    const absent = absentUsers.length;
+    const pending = pendingUsers.length;
 
     // Work hours trend (average per day for all employees)
     const workHoursByDay = {};
-    const attendanceRecords = await Attendance.find({ user: { $in: employeeIds } }).sort({ date: -1 });
+    const attendanceRecords = await Attendance.find({ user: { $in: userIds } }).sort({ date: -1 });
     attendanceRecords.forEach(record => {
       if (record.checkInTime && record.checkOutTime) {
         const dateStr = record.date.toISOString().slice(0, 10);
@@ -406,14 +447,14 @@ exports.getAdminOverview = async (req, res) => {
 
     // Department stats
     const departmentStats = {};
-    employees.forEach(emp => {
+    users.forEach(emp => {
       const dept = emp.department || 'Unknown';
       if (!departmentStats[dept]) departmentStats[dept] = 0;
       departmentStats[dept]++;
     });
 
     // Recent activity (last 10 attendance records, newest first)
-    const recentActivity = await Attendance.find({ user: { $in: employeeIds } })
+    const recentActivity = await Attendance.find({ user: { $in: userIds } })
       .sort({ date: -1 })
       .limit(10)
       .populate('user', 'firstName lastName email');
@@ -436,11 +477,14 @@ exports.getAdminOverview = async (req, res) => {
       notificationCount = 0;
     }
 
-    // Calculate total employees from departmentStats
-    const totalEmployees = Object.values(departmentStats).reduce((sum, count) => sum + count, 0);
+    // Calculate total employees (employees + admins)
+    const totalEmployees = users.length;
 
     res.json({
-      attendance: { Present: present, Absent: absent, Leave: leave },
+      present,
+      absent,
+      onLeave,
+      pending,
       workHoursTrend,
       departmentStats,
       recentActivity,
@@ -451,8 +495,8 @@ exports.getAdminOverview = async (req, res) => {
         totalEmployees: totalEmployees,
         presentToday: present,
         absentToday: absent,
-        onLeave: leave,
-        pendingRequests: 0 // TODO: implement pending requests count
+        onLeave: onLeave,
+        pending: pending
       }
     });
   } catch (err) {
@@ -743,6 +787,29 @@ exports.generateReport = async (req, res) => {
   } catch (err) {
     console.error('Report generation error:', err);
     res.status(500).json({ message: 'Error generating report', error: err.message });
+  }
+};
+
+// GET /analytics/admin/active-users
+exports.getActiveUsersList = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+    const users = await require('../models/User').find({ isActive: true, role: { $in: ['employee', 'admin'] } });
+    // Return basic info for modal
+    const result = users.map(u => ({
+      _id: u._id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      role: u.role,
+      department: u.department || '',
+      position: u.position || '',
+    }));
+    res.json({ users: result });
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching active users', error: err.message });
   }
 };
 

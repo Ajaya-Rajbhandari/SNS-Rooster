@@ -36,4 +36,7 @@ router.get('/admin/payroll-deductions-breakdown', authMiddleware, adminOnly, ana
 // Report generation
 router.get('/admin/generate-report', authMiddleware, adminOnly, analyticsController.generateReport);
 
+// Add endpoint for all active employees and admins (for Total Employees modal)
+router.get('/admin/active-users', authMiddleware, analyticsController.getActiveUsersList);
+
 module.exports = router; 

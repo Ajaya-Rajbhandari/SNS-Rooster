@@ -18,13 +18,13 @@ function daysInMonth(year, month) {
 
 function computeMonthlyPeriod(now, cutoffDay) {
   let start, end;
-  if (now.getDate() > cutoffDay) {
-    start = new Date(now.getFullYear(), now.getMonth(), cutoffDay + 1);
-    end = new Date(now.getFullYear(), now.getMonth() + 1, cutoffDay);
+  if (now.getUTCDate() > cutoffDay) {
+    start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), cutoffDay + 1));
+    end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, cutoffDay));
   } else {
-    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    start = new Date(prev.getFullYear(), prev.getMonth(), cutoffDay + 1);
-    end = new Date(prev.getFullYear(), prev.getMonth() + 1, cutoffDay);
+    const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    start = new Date(Date.UTC(prev.getUTCFullYear(), prev.getUTCMonth(), cutoffDay + 1));
+    end = new Date(Date.UTC(prev.getUTCFullYear(), prev.getUTCMonth() + 1, cutoffDay));
   }
   return { start, end };
 }
@@ -33,31 +33,28 @@ function computeSemiMonthlyPeriod(now) {
   // Semi-monthly: 1st-15th and 16th-end of month
   const mid = 15;
   let start, end;
-  
-  if (now.getDate() <= mid) {
+  if (now.getUTCDate() <= mid) {
     // First half of current month (1-15)
-    start = new Date(now.getFullYear(), now.getMonth(), 1);
-    end = new Date(now.getFullYear(), now.getMonth(), mid);
+    start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), mid));
   } else {
     // Second half of current month (16-end)
-    start = new Date(now.getFullYear(), now.getMonth(), mid + 1);
-    end = new Date(now.getFullYear(), now.getMonth() + 1, 0); // last day of month
+    start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), mid + 1));
+    // Last day of month in UTC
+    end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
   }
   return { start, end };
 }
 
 function computeBiWeeklyPeriod(now, startRefDay) {
   // Bi-weekly: every 14 days from reference start date
-  const startRef = new Date(now.getFullYear(), now.getMonth(), startRefDay);
+  const startRef = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), startRefDay));
   const diff = Math.floor((now - startRef) / (1000 * 60 * 60 * 24));
   const cycles = Math.floor(diff / 14);
-  
   const periodStart = new Date(startRef);
-  periodStart.setDate(startRef.getDate() + (cycles * 14));
-  
+  periodStart.setUTCDate(startRef.getUTCDate() + (cycles * 14));
   const periodEnd = new Date(periodStart);
-  periodEnd.setDate(periodStart.getDate() + 13);
-  
+  periodEnd.setUTCDate(periodStart.getUTCDate() + 13);
   return { start: periodStart, end: periodEnd };
 }
 
@@ -70,40 +67,39 @@ async function generatePayslips() {
     return;
   }
   const freq = (cycle.frequency || 'Monthly').toLowerCase();
-  const today = new Date();
+  // Use UTC midnight for today
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
   let shouldRun = false;
 
   if (freq === 'monthly') {
     const payDay = cycle.payDay || 30;
-    const payDate = new Date(today.getFullYear(), today.getMonth(), payDay + (cycle.payOffset || 0));
-    shouldRun = payDate.toDateString() === today.toDateString();
+    const payDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), payDay + (cycle.payOffset || 0)));
+    shouldRun = payDate.toISOString().slice(0, 10) === today.toISOString().slice(0, 10);
   } else if (freq === 'semi-monthly') {
     const firstPayDay = cycle.payDay1 || 15; // First pay day of month
     const secondPayDay = cycle.payDay || 30; // Second pay day of month
     const offset = cycle.payOffset || 0;
-    
-    const firstPayDate = new Date(today.getFullYear(), today.getMonth(), firstPayDay + offset);
-    const secondPayDate = new Date(today.getFullYear(), today.getMonth(), secondPayDay + offset);
-    
-    shouldRun = (firstPayDate.toDateString() === today.toDateString()) || 
-                (secondPayDate.toDateString() === today.toDateString());
+    const firstPayDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), firstPayDay + offset));
+    const secondPayDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), secondPayDay + offset));
+    shouldRun = (firstPayDate.toISOString().slice(0, 10) === today.toISOString().slice(0, 10)) ||
+                (secondPayDate.toISOString().slice(0, 10) === today.toISOString().slice(0, 10));
   } else if (freq === 'bi-weekly') {
-    const startRef = new Date(today.getFullYear(), today.getMonth(), cycle.cutoffDay || 1);
+    const startRef = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), cycle.cutoffDay || 1));
     const diff = Math.floor((today - startRef) / (1000 * 60 * 60 * 24));
     const offset = cycle.payOffset || 0;
-    
     // Check if today is a bi-weekly interval (every 14 days) from start reference
     shouldRun = (diff >= 0) && ((diff + offset) % 14 === 0);
   } else if (freq === 'weekly') {
     const weekday = cycle.payWeekday || 5; // Friday default
     let payDate = new Date(today);
-    payDate.setDate(today.getDate() + ((weekday - today.getDay() + 7) % 7)); // next weekday
+    payDate.setUTCDate(today.getUTCDay() + ((weekday - today.getUTCDay() + 7) % 7)); // next weekday
     // If today is the weekday consider offset
-    if (payDate.toDateString() === today.toDateString()) {
+    if (payDate.toISOString().slice(0, 10) === today.toISOString().slice(0, 10)) {
       payDate = new Date(today);
     }
-    payDate.setDate(payDate.getDate() + (cycle.payOffset || 0));
-    shouldRun = payDate.toDateString() === today.toDateString();
+    payDate.setUTCDate(payDate.getUTCDate() + (cycle.payOffset || 0));
+    shouldRun = payDate.toISOString().slice(0, 10) === today.toISOString().slice(0, 10);
   } else {
     console.log('SCHEDULER: frequency not yet supported:', freq);
     return;
@@ -132,9 +128,9 @@ async function generatePayslips() {
       periodStart = period.start;
       periodEnd = period.end;
     } else {
-      // weekly: previous Monday-Sunday
+      // weekly: previous Monday-Sunday (UTC)
       const start = new Date(today);
-      start.setDate(today.getDate() - 6);
+      start.setUTCDate(today.getUTCDate() - 6);
       periodStart = start;
       periodEnd = today;
     }
@@ -203,7 +199,7 @@ async function generatePayslips() {
       deductions: totalDeductions,
       deductionsList: deductionsList,
       payPeriod: periodStart.toISOString().split('T')[0] + ' - ' + periodEnd.toISOString().split('T')[0],
-      issueDate: new Date(),
+      issueDate: new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0, 0)),
       status: 'pending',
       // Add company information for payslip branding
       companyInfo: {

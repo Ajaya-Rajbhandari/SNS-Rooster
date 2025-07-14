@@ -124,10 +124,16 @@ router.get("/summary/:userId", auth, async (req, res) => {
         .json({ message: "Unauthorized to view this attendance summary" });
     }
 
-    // Parse date range
-    let startDate = start ? new Date(start) : new Date("1970-01-01");
-    let endDate = end ? new Date(end) : new Date();
-    endDate.setHours(23, 59, 59, 999); // Include the whole end day
+    // Parse date range as UTC
+    let startDate = start ? new Date(Date.UTC(new Date(start).getUTCFullYear(), new Date(start).getUTCMonth(), new Date(start).getUTCDate(), 0, 0, 0, 0)) : new Date("1970-01-01T00:00:00.000Z");
+    let endDate;
+    if (end) {
+      const endObj = new Date(end);
+      endDate = new Date(Date.UTC(endObj.getUTCFullYear(), endObj.getUTCMonth(), endObj.getUTCDate(), 23, 59, 59, 999));
+    } else {
+      const now = new Date();
+      endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+    }
 
     // Find attendance records for user in range
     const records = await Attendance.find({
@@ -166,10 +172,11 @@ router.get("/status/:userId", auth, attendanceController.getAttendanceStatus);
 router.post("/debug/clock-in/:userId", auth, async (req, res) => {
   try {
     const { userId } = req.params;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use UTC midnight for today
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
     const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+    tomorrow.setUTCDate(today.getUTCDate() + 1);
 
     // Check if user has already clocked in today
     const attendance = await Attendance.findOne({
@@ -184,7 +191,7 @@ router.post("/debug/clock-in/:userId", auth, async (req, res) => {
     // Simulate clock-in
     const newAttendance = new Attendance({
       user: userId,
-      date: new Date(),
+      date: today,
       checkInTime: new Date(),
     });
     await newAttendance.save();
