@@ -22,6 +22,23 @@ class UserAvatar extends StatelessWidget {
 
     if (avatarUrl == null || avatarUrl!.isEmpty) {
       avatarChild = Icon(Icons.person, size: radius, color: Colors.grey[400]);
+    } else if (avatarUrl!.endsWith('.svg') && avatarUrl!.startsWith('http')) {
+      // SVG from network
+      avatarChild = FutureBuilder<Widget>(
+        future: _loadSvgOrFallback(avatarUrl!, radius),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done &&
+              snapshot.hasData) {
+            return snapshot.data!;
+          } else {
+            return CircleAvatar(
+              radius: radius,
+              backgroundColor: Colors.grey[200],
+              child: Icon(Icons.person, size: radius, color: Colors.grey[400]),
+            );
+          }
+        },
+      );
     } else if (avatarUrl!.startsWith('http')) {
       avatarChild = CachedNetworkImage(
         imageUrl: avatarUrl!,
@@ -33,12 +50,7 @@ class UserAvatar extends StatelessWidget {
         errorWidget: (context, url, error) => CircleAvatar(
           radius: radius,
           backgroundColor: Colors.grey[200],
-          child: SvgPicture.asset(
-            'assets/images/default-avatar.png',
-            width: radius * 2,
-            height: radius * 2,
-            fit: BoxFit.cover,
-          ),
+          child: Icon(Icons.person, size: radius, color: Colors.grey[400]),
         ),
         imageBuilder: (context, imageProvider) => CircleAvatar(
           radius: radius,
@@ -102,6 +114,28 @@ class UserAvatar extends StatelessWidget {
           child: avatarChild,
         ),
       ),
+    );
+  }
+}
+
+Future<Widget> _loadSvgOrFallback(String url, double radius) async {
+  try {
+    return SvgPicture.network(
+      url,
+      width: radius * 2,
+      height: radius * 2,
+      fit: BoxFit.cover,
+      placeholderBuilder: (context) => CircleAvatar(
+        radius: radius,
+        backgroundColor: Colors.grey[200],
+        child: Icon(Icons.person, size: radius, color: Colors.grey[400]),
+      ),
+    );
+  } catch (e) {
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: Colors.grey[200],
+      child: Icon(Icons.person, size: radius, color: Colors.grey[400]),
     );
   }
 }

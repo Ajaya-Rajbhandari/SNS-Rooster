@@ -1,8 +1,9 @@
 const express = require("express");
 const auth = require("../middleware/auth");
-const { avatarUpload } = require("../middleware/upload");
+const avatarUpload = require("../gcsUpload");
 const documentUpload = require('../gcsDocumentUpload');
 const authController = require("../controllers/auth-controller");
+const { getAvatarSignedUrl } = require("../controllers/avatar-controller");
 const router = express.Router();
 
 // Login route
@@ -56,5 +57,8 @@ router.patch('/users/:id', auth, authController.toggleUserActive);
 
 // Forgot password route (notifies admin or sends reset link to admin users)
 router.post("/forgot-password", authController.forgotPassword);
+
+// Add route to get signed URL for a user's avatar (owner or admin only)
+router.get("/avatar/:userId/signed-url", auth, getAvatarSignedUrl);
 
 module.exports = router;

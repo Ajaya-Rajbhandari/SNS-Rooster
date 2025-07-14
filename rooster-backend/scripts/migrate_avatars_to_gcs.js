@@ -6,7 +6,7 @@ require('dotenv').config();
 
 // Initialize Google Cloud Storage
 const storage = new Storage({
-  keyFilename: 'serviceAccountKey.json',
+  keyFilename: path.join(__dirname, '../serviceAccountKey.json'),
   projectId: 'sns-rooster-8cca5'
 });
 
@@ -69,8 +69,8 @@ async function migrateAvatarsToGCS() {
         const updateResult = await User.updateMany(
           {
             $or: [
-              { avatar: `/uploads/avatars/${file}` },
-              { profilePicture: `/uploads/avatars/${file}` }
+              { avatar: { $regex: `${file}$` } },
+              { profilePicture: { $regex: `${file}$` } }
             ]
           },
           {

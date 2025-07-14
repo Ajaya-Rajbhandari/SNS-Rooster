@@ -136,6 +136,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
     if (image != null) {
+      // Client-side file type validation
+      final allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+      final ext = image.name.split('.').last.toLowerCase();
+      if (!allowedExtensions.contains(ext)) {
+        GlobalNotificationService()
+            .showError('Only image files are allowed for avatars.');
+        return;
+      }
+
       setState(() {
         _isLoading = true;
       });
@@ -154,11 +163,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _isLoading = false;
       });
       if (success) {
-        // Optionally, show a success message
         GlobalNotificationService()
             .showSuccess('Profile picture updated successfully!');
       } else {
-        // Optionally, show an error message
         GlobalNotificationService().showError(
             profileProvider.error ?? 'Failed to update profile picture.');
       }
@@ -375,17 +382,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
         // Always update text fields with latest profile data
         _loadUserDataInternal(profileProvider);
-        String? avatarUrl = profileProvider.profile?['avatar'];
+        String? avatarUrl = profileProvider.avatarSignedUrl;
+        if (avatarUrl == null || avatarUrl.isEmpty) {
+          avatarUrl = profileProvider.profile?['avatar'];
+        }
         if (avatarUrl == null || avatarUrl.isEmpty) {
           avatarUrl = profileProvider.profile?['profilePicture'];
         }
         if (avatarUrl == null || avatarUrl.isEmpty) {
           avatarUrl = '/uploads/avatars/default-avatar.png';
         }
+        print('Avatar URL used in profile_screen: $avatarUrl');
         ImageProvider? backgroundImage;
         if (avatarUrl.startsWith('http')) {
           backgroundImage = NetworkImage(avatarUrl);
+        } else if (avatarUrl.startsWith('avatars/')) {
+          // GCS public URL
+          backgroundImage = NetworkImage(
+              'https://storage.googleapis.com/sns-rooster-8cca5.firebasestorage.app/$avatarUrl');
         } else {
+          // fallback for local uploads or other cases
           String imageBaseUrl = ApiConfig.baseUrl;
           if (imageBaseUrl.endsWith('/api')) {
             imageBaseUrl =
