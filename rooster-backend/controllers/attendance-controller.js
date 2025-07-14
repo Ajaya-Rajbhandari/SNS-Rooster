@@ -1,3 +1,14 @@
+// UTC DATE POLICY: All attendance and leave logic in this backend must use UTC for date storage, comparison, and queries. Never use local time for attendance/leave calculations. Always store and compare dates at UTC midnight. Display in local time on the frontend only.
+
+/**
+ * Returns a Date object set to UTC midnight for the given date (or today if not provided).
+ * @param {Date} [date] - Optional date. Defaults to now.
+ * @returns {Date} - Date at UTC midnight.
+ */
+function getUtcMidnight(date = new Date()) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+}
+
 const Attendance = require("../models/Attendance");
 const User = require("../models/User");
 const BreakType = require("../models/BreakType");
@@ -60,6 +71,18 @@ exports.checkIn = async (req, res) => {
 
     if (existingAttendance) {
       return res.status(400).json({ message: "Already checked in for today." });
+    }
+
+    // Prevent check-in if user is on approved leave for today
+    const Leave = require('../models/Leave');
+    const leaveToday = await Leave.findOne({
+      employee: userId,
+      status: { $regex: /^approved$/i },
+      startDate: { $lte: today },
+      endDate: { $gte: today },
+    });
+    if (leaveToday) {
+      return res.status(400).json({ message: 'You are on approved leave today and cannot check in.' });
     }
 
     const attendance = new Attendance({
@@ -422,10 +445,16 @@ exports.getTodayAttendanceStats = async (req, res) => {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
-    // Get all employees
-    const employees = await User.find({ role: "employee" });
-    const employeeIds = employees.map((u) => u._id);
-    const totalEmployees = employeeIds.length;
+    // Get all active users (employees and admins)
+    const users = await User.find({ isActive: true, role: { $in: ['employee', 'admin'] } });
+    // Separate pending users (never logged in)
+    const pendingUsers = users.filter(u => !u.lastLogin);
+    const activeConfirmedUsers = users.filter(u => u.lastLogin); // Only those who have logged in
+    const userIds = activeConfirmedUsers.map(u => u._id);
+    // Get all Employee docs for those users
+    const EmployeeModel = require('../models/Employee');
+    const employees = await EmployeeModel.find({ userId: { $in: userIds } });
+    const employeeIds = employees.map(e => e._id.toString());
 
     // Get today's date at UTC midnight
     const now = new Date();
@@ -434,10 +463,7 @@ exports.getTodayAttendanceStats = async (req, res) => {
         now.getUTCFullYear(),
         now.getUTCMonth(),
         now.getUTCDate(),
-        0,
-        0,
-        0,
-        0
+        0, 0, 0, 0
       )
     );
     const tomorrow = new Date(today);
@@ -445,55 +471,62 @@ exports.getTodayAttendanceStats = async (req, res) => {
 
     // Find all attendance records for today
     const attendanceToday = await Attendance.find({
-      user: { $in: employeeIds },
+      user: { $in: userIds },
       date: { $gte: today, $lt: tomorrow },
     });
     const presentIds = attendanceToday.map((a) => String(a.user));
     const present = presentIds.length;
 
-    // Find all leave requests for today (approved only)
-    // (Assumes you have a LeaveRequest model with user, startDate, endDate, status)
+    // In getTodayAttendanceStats, update leave count logic
     let onLeave = 0;
+    let leaveIds = new Set();
     try {
-      const LeaveRequest = require("../models/LeaveRequest");
-      const leaveToday = await LeaveRequest.find({
-        user: { $in: employeeIds },
-        status: "approved",
+      const Leave = require("../models/Leave");
+      const leaveToday = await Leave.find({
+        employee: { $in: employeeIds },
+        status: { $regex: /^approved$/i },
         startDate: { $lte: today },
         endDate: { $gte: today },
       });
-      // Only count unique users on leave
-      const leaveIds = new Set(leaveToday.map((lr) => String(lr.user)));
+      leaveIds = new Set(leaveToday.map(lr => lr.employee.toString()));
       onLeave = leaveIds.size;
     } catch (e) {
-      // If LeaveRequest model missing, just skip
       onLeave = 0;
     }
 
-    // Absent = total - present - onLeave
-    const absent = Math.max(totalEmployees - present - onLeave, 0);
+    // Absent = total confirmed users - present - onLeave
+    const absentUsers = activeConfirmedUsers.filter(u => !presentIds.includes(u._id.toString()) && !leaveIds.has(employees.find(e => e.userId.toString() === u._id.toString())?._id.toString()));
+    const absent = absentUsers.length;
+    const pending = pendingUsers.length;
 
-    res.json({ present, absent, onLeave });
+    res.json({ present, absent, onLeave, pending });
   } catch (error) {
     console.error("getTodayAttendanceStats error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// GET /api/attendance/today-list?status=present|absent|onleave
+// GET /api/attendance/today-list?status=present|absent|onleave|pending
 exports.getTodayEmployeeList = async (req, res) => {
   try {
     if (!req.user || req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Admin access required' });
     }
     const status = (req.query.status || '').toLowerCase();
-    if (!['present', 'absent', 'onleave'].includes(status)) {
+    if (!['present', 'absent', 'onleave', 'pending'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status parameter' });
     }
-    // Get all employees
+    // Get all active users (employees and admins)
     const User = require('../models/User');
-    const LeaveRequest = require('../models/Leave');
-    const employees = await User.find({ role: 'employee' });
+    const users = await User.find({ isActive: true, role: { $in: ['employee', 'admin'] } });
+    // Separate pending users (never logged in)
+    const pendingUsers = users.filter(u => !u.lastLogin);
+    const activeConfirmedUsers = users.filter(u => u.lastLogin);
+    const userIds = activeConfirmedUsers.map(u => u._id);
+
+    // Get all Employee docs for those users
+    const EmployeeModel = require('../models/Employee');
+    const employees = await EmployeeModel.find({ userId: { $in: userIds } });
     const employeeIds = employees.map(e => e._id.toString());
 
     // Get today's date at UTC midnight
@@ -505,15 +538,16 @@ exports.getTodayEmployeeList = async (req, res) => {
     // Attendance records for today
     const Attendance = require('../models/Attendance');
     const attendanceToday = await Attendance.find({
-      user: { $in: employeeIds },
+      user: { $in: userIds },
       date: { $gte: today, $lt: tomorrow },
     });
     const presentIds = new Set(attendanceToday.map(a => a.user.toString()));
 
-    // Leave requests for today (approved only)
-    const leaveToday = await LeaveRequest.find({
+    // Leave requests for today (approved only, case-insensitive)
+    const Leave = require('../models/Leave');
+    const leaveToday = await Leave.find({
       employee: { $in: employeeIds },
-      status: 'Approved',
+      status: { $regex: /^approved$/i },
       startDate: { $lte: today },
       endDate: { $gte: today },
     });
@@ -521,18 +555,21 @@ exports.getTodayEmployeeList = async (req, res) => {
 
     let filteredEmployees;
     if (status === 'present') {
-      filteredEmployees = employees.filter(e => presentIds.has(e._id.toString()) && !leaveIds.has(e._id.toString()));
+      filteredEmployees = activeConfirmedUsers.filter(u => presentIds.has(u._id.toString()) && !leaveIds.has(employees.find(e => e.userId.toString() === u._id.toString())?._id.toString()));
     } else if (status === 'onleave') {
-      filteredEmployees = employees.filter(e => leaveIds.has(e._id.toString()));
+      filteredEmployees = activeConfirmedUsers.filter(u => leaveIds.has(employees.find(e => e.userId.toString() === u._id.toString())?._id.toString()));
     } else if (status === 'absent') {
-      filteredEmployees = employees.filter(e => !presentIds.has(e._id.toString()) && !leaveIds.has(e._id.toString()));
+      filteredEmployees = activeConfirmedUsers.filter(u => !presentIds.has(u._id.toString()) && !leaveIds.has(employees.find(e => e.userId.toString() === u._id.toString())?._id.toString()));
+    } else if (status === 'pending') {
+      filteredEmployees = pendingUsers;
     }
     // Return basic info
-    const result = filteredEmployees.map(e => ({
-      _id: e._id,
-      firstName: e.firstName,
-      lastName: e.lastName,
-      email: e.email
+    const result = filteredEmployees.map(u => ({
+      _id: u._id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      role: u.role,
     }));
     res.json({ employees: result });
   } catch (error) {

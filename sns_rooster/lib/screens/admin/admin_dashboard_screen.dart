@@ -550,41 +550,49 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final stats = [
       {
         'title': 'Total Employees',
-        'value':
-            _dashboardData['quickStats']?['totalEmployees'].toString() ?? '0',
+        'value': _dashboardData['quickStats']?['totalEmployees']?.toString() ??
+            _dashboardData['totalEmployees']?.toString() ??
+            '0',
         'icon': Icons.people,
         'color': Theme.of(context).colorScheme.primary,
-        'onTap': null,
+        'onTap': () => _showEmployeeListModal('All'), // Make clickable
       },
       {
         'title': 'Present',
-        'value':
-            _dashboardData['quickStats']?['presentToday'].toString() ?? '0',
+        'value': _dashboardData['quickStats']?['presentToday']?.toString() ??
+            _dashboardData['present']?.toString() ??
+            '0',
         'icon': Icons.check_circle,
         'color': Colors.green,
         'onTap': () => _showEmployeeListModal('Present'),
       },
       {
         'title': 'On Leave',
-        'value': _dashboardData['quickStats']?['onLeave'].toString() ?? '0',
+        'value': _dashboardData['quickStats']?['onLeave']?.toString() ??
+            _dashboardData['onLeave']?.toString() ??
+            '0',
         'icon': Icons.event_busy,
         'color': Theme.of(context).colorScheme.secondary,
         'onTap': () => _showEmployeeListModal('On Leave'),
       },
       {
         'title': 'Absent',
-        'value': _dashboardData['quickStats']?['absentToday'].toString() ?? '0',
+        'value': _dashboardData['quickStats']?['absentToday']?.toString() ??
+            _dashboardData['absent']?.toString() ??
+            '0',
         'icon': Icons.cancel,
         'color': Colors.red,
         'onTap': () => _showEmployeeListModal('Absent'),
       },
       {
         'title': 'Pending',
-        'value':
-            _dashboardData['quickStats']?['pendingRequests'].toString() ?? '0',
+        'value': _dashboardData['quickStats']?['pending']?.toString() ??
+            _dashboardData['pending']?.toString() ??
+            _dashboardData['quickStats']?['pendingRequests']?.toString() ??
+            '0',
         'icon': Icons.pending_actions,
         'color': Colors.orange,
-        'onTap': null,
+        'onTap': () => _showEmployeeListModal('Pending'),
       },
     ];
     return SizedBox(
@@ -619,54 +627,129 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _showEmployeeListModal(String status) async {
-    // Fetch the latest attendance data for today from the backend
-    // For now, use a simple API call to /api/attendance/today-list?status=present/absent/onleave
-    // Or filter from _dashboardData if available
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Text('Employees: $status'),
-          content: FutureBuilder<List<Map<String, dynamic>>>(
-            future: _fetchEmployeesByStatus(status),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SizedBox(
-                    height: 100,
-                    child: Center(child: CircularProgressIndicator()));
-              } else if (snapshot.hasError) {
-                return Text('Error: \\${snapshot.error}');
-              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Text('No employees found.');
-              }
-              final employees = snapshot.data!;
-              return SizedBox(
-                width: 300,
-                height: 400,
-                child: ListView.separated(
-                  itemCount: employees.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, i) {
-                    final emp = employees[i];
-                    return ListTile(
-                      leading: const Icon(Icons.person),
-                      title: Text(((emp['firstName'] ?? '') +
-                              ' ' +
-                              (emp['lastName'] ?? ''))
-                          .trim()),
-                      subtitle: Text(emp['email'] ?? ''),
-                    );
-                  },
+        return FutureBuilder<List<Map<String, dynamic>>>(
+          future: _fetchEmployeesByStatus(status),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const AlertDialog(
+                content: SizedBox(
+                  height: 100,
+                  child: Center(child: CircularProgressIndicator()),
                 ),
               );
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
+            } else if (snapshot.hasError) {
+              return AlertDialog(content: Text('Error: \\${snapshot.error}'));
+            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return const AlertDialog(content: Text('No employees found.'));
+            }
+            final employees = snapshot.data!;
+            final employeesList =
+                employees.where((e) => e['role'] == 'employee').toList();
+            final adminsList =
+                employees.where((e) => e['role'] == 'admin').toList();
+            final totalCount = employeesList.length + adminsList.length;
+            return AlertDialog(
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$status ( $totalCount)',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (employeesList.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4.0, top: 8.0),
+                        child: Text(
+                          'Employees: $status (${employeesList.length})',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 300,
+                        height: employeesList.length * 60.0 > 200
+                            ? 200
+                            : employeesList.length * 60.0,
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: employeesList.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, i) {
+                            final emp = employeesList[i];
+                            return ListTile(
+                              leading: const Icon(Icons.person),
+                              title: Text(((emp['firstName'] ?? '') +
+                                      ' ' +
+                                      (emp['lastName'] ?? ''))
+                                  .trim()),
+                              subtitle: Text(emp['email'] ?? ''),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                    if (adminsList.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4.0, top: 16.0),
+                        child: Text(
+                          'Admins: $status (${adminsList.length})',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            color: Colors.deepPurple,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 300,
+                        height: adminsList.length * 60.0 > 200
+                            ? 200
+                            : adminsList.length * 60.0,
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: adminsList.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, i) {
+                            final emp = adminsList[i];
+                            return ListTile(
+                              leading: const Icon(Icons.verified_user,
+                                  color: Colors.deepPurple),
+                              title: Text(((emp['firstName'] ?? '') +
+                                      ' ' +
+                                      (emp['lastName'] ?? ''))
+                                  .trim()),
+                              subtitle: Text(emp['email'] ?? ''),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -680,6 +763,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return 'absent';
       case 'on leave':
         return 'onleave';
+      case 'pending':
+        return 'pending';
       default:
         return status.toLowerCase();
     }
@@ -690,6 +775,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final token = authProvider.token;
+      if (status == 'All') {
+        final response = await http.get(
+          Uri.parse('${ApiConfig.baseUrl}/analytics/admin/active-users'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['users'] != null && data['users'] is List) {
+            return List<Map<String, dynamic>>.from(data['users']);
+          }
+        }
+        return [];
+      }
       final statusParam = _statusToParam(status);
       final response = await http.get(
         Uri.parse(
