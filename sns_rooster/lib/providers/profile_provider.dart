@@ -17,6 +17,8 @@ class ProfileProvider with ChangeNotifier {
   static const String _profileKey = 'user_profile';
   bool _disposed = false;
   DateTime? _lastUpdated;
+  String? _avatarSignedUrl;
+  String? get avatarSignedUrl => _avatarSignedUrl;
 
   ProfileProvider(this._authProvider) {
     log('ProfileProvider initialized');
@@ -94,6 +96,7 @@ class ProfileProvider with ChangeNotifier {
     _isInitialized = true;
     _lastUpdated = DateTime.now();
     _saveProfileToPrefs();
+    fetchAvatarSignedUrl();
     if (_disposed) return;
     notifyListeners();
   }
@@ -309,6 +312,32 @@ class ProfileProvider with ChangeNotifier {
       _error = 'An error occurred during upload';
       return false;
     }
+  }
+
+  Future<void> fetchAvatarSignedUrl() async {
+    if (_profile == null || _authProvider.token == null) {
+      _avatarSignedUrl = null;
+      return;
+    }
+    try {
+      final userId = _profile!["_id"];
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/auth/avatar/$userId/signed-url'),
+        headers: {
+          'Authorization': 'Bearer ${_authProvider.token}',
+        },
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        _avatarSignedUrl = data['url'] as String?;
+      } else {
+        _avatarSignedUrl = null;
+      }
+    } catch (e) {
+      _avatarSignedUrl = null;
+    }
+    if (_disposed) return;
+    notifyListeners();
   }
 
   // Clear profile data when logging out

@@ -121,7 +121,9 @@ exports.register = async (req, res) => {
       department,
       position,
       isProfileComplete: false,
-      isEmailVerified: isDev ? true : false // Auto-verify in dev, require in prod
+      isEmailVerified: isDev ? true : false, // Auto-verify in dev, require in prod
+      avatar: 'https://storage.googleapis.com/sns-rooster-8cca5.firebasestorage.app/avatars/default-avatar.png',
+      profilePicture: 'https://storage.googleapis.com/sns-rooster-8cca5.firebasestorage.app/avatars/default-avatar.png'
     });
 
     await user.save();
@@ -378,9 +380,14 @@ exports.updateCurrentUserProfile = async (req, res) => {
 
     // Handle profile picture upload
     if (req.file) {
-      // Save the GCS URL (req.file.path) to user.profilePicture and user.avatar
-      user.profilePicture = req.file.path;
-      user.avatar = req.file.path;
+      console.log('UPLOAD DEBUG: req.file =', req.file);
+      const bucketName = 'sns-rooster-8cca5.firebasestorage.app';
+      // Use req.file.filename if available, fallback to req.file.path
+      const filename = req.file.filename || (req.file.path ? req.file.path.split('/').pop() : '');
+      const publicUrl = `https://storage.googleapis.com/${bucketName}/${filename}`;
+      console.log('Avatar public URL:', publicUrl);
+      user.profilePicture = publicUrl;
+      user.avatar = publicUrl;
     }
 
     // --- BEGIN: Ensure education/certificates document fields are mapped correctly ---
@@ -501,8 +508,12 @@ exports.updateUserProfileByAdmin = async (req, res) => {
 
     // Handle profile picture upload (if admin is updating it)
     if (req.file) {
-      user.profilePicture = req.file.path;
-      user.avatar = req.file.path;
+      const bucketName = 'sns-rooster-8cca5.firebasestorage.app';
+      const filename = req.file.filename || (req.file.path ? req.file.path.split('/').pop() : '');
+      const publicUrl = `https://storage.googleapis.com/${bucketName}/${filename}`;
+      console.log('Admin avatar public URL:', publicUrl);
+      user.profilePicture = publicUrl;
+      user.avatar = publicUrl;
     }
 
     // Sanity check: ensure avatar/profilePicture never include '/api/uploads/'

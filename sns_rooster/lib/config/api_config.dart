@@ -24,7 +24,7 @@ class ApiConfig {
     if (useLocal) {
       // Use local backend for all platforms
       if (kIsWeb) {
-        final url =
+        const url =
             'http://192.168.1.119:5000/api'; // Use your actual IP for web
         print('DEBUG: Web app using API URL: $url');
         return url;
