@@ -7,7 +7,6 @@ import '../../providers/employee_provider.dart';
 import 'edit_attendance_dialog.dart';
 import 'package:flutter/scheduler.dart';
 import '../../models/employee.dart';
-import '../../models/attendance.dart';
 import '../../widgets/role_filter_chip.dart';
 
 class AdminTimesheetScreen extends StatefulWidget {
@@ -35,7 +34,7 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
   // Helper for yesterday
   DateTimeRange get _yesterdayRange {
     final now = DateTime.now();
-    final yesterday = now.subtract(Duration(days: 1));
+    final yesterday = now.subtract(const Duration(days: 1));
     return DateTimeRange(
         start: DateTime(yesterday.year, yesterday.month, yesterday.day),
         end: DateTime(yesterday.year, yesterday.month, yesterday.day));
@@ -45,7 +44,7 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
   DateTimeRange get _thisWeekRange {
     final now = DateTime.now();
     final start = now.subtract(Duration(days: now.weekday - 1));
-    final end = start.add(Duration(days: 6));
+    final end = start.add(const Duration(days: 6));
     return DateTimeRange(
         start: DateTime(start.year, start.month, start.day),
         end: DateTime(end.year, end.month, end.day));
@@ -675,7 +674,7 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
                 } catch (e, st) {
                   debugPrint(
                       'AdminTimesheetScreen: Exception in build: ${e.toString()}\n${st.toString()}');
-                  return Center(
+                  return const Center(
                       child: Text(
                           'An unexpected error occurred. Please try again.'));
                 }

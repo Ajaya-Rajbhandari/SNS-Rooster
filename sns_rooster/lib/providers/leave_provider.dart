@@ -22,7 +22,6 @@ class LeaveProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _apiService = ApiService(
         baseUrl: ApiConfig.baseUrl,
-        prefs: prefs,
       );
       _apiServiceCompleter.complete();
       log('DEBUG: _apiService initialization complete');

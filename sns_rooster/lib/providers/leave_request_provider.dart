@@ -2,7 +2,6 @@
 import 'package:sns_rooster/utils/logger.dart';
 import 'package:sns_rooster/services/api_service.dart';
 import 'package:sns_rooster/config/api_config.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class LeaveRequestProvider with ChangeNotifier {
   final List<Map<String, dynamic>> _leaveRequests = [];
@@ -37,8 +36,7 @@ class LeaveRequestProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final api = ApiService(baseUrl: ApiConfig.baseUrl, prefs: prefs);
+      final api = ApiService(baseUrl: ApiConfig.baseUrl);
       final response = await api.get('/leave/history?employeeId=$employeeId');
       if (response.success && response.data != null) {
         _leaveRequests.clear();
@@ -63,8 +61,7 @@ class LeaveRequestProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final api = ApiService(baseUrl: ApiConfig.baseUrl, prefs: prefs);
+      final api = ApiService(baseUrl: ApiConfig.baseUrl);
       final response = await api.get('/employees/$employeeId/leave-balance');
       if (response.success && response.data != null) {
         _leaveBalances.clear();
@@ -86,8 +83,7 @@ class LeaveRequestProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final api = ApiService(baseUrl: ApiConfig.baseUrl, prefs: prefs);
+      final api = ApiService(baseUrl: ApiConfig.baseUrl);
       final response = await api.post('/leave/apply', requestData);
       if (response.success) {
         // Optionally refresh leave requests after successful application
@@ -174,8 +170,7 @@ class LeaveRequestProvider with ChangeNotifier {
   // --- Fetch Employee ID by User ID ---
   Future<String?> fetchEmployeeIdByUserId(String userId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final api = ApiService(baseUrl: ApiConfig.baseUrl, prefs: prefs);
+      final api = ApiService(baseUrl: ApiConfig.baseUrl);
       final response = await api.get('/employees/user/$userId');
 
       if (response.success && response.data != null) {

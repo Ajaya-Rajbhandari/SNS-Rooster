@@ -368,6 +368,85 @@ exports.getMyAttendance = async (req, res) => {
   }
 };
 
+// Get employee timesheet entries with date range filtering
+exports.getMyTimesheet = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { start, end } = req.query;
+
+    // Build date filter
+    let dateFilter = {};
+    if (start || end) {
+      dateFilter.date = {};
+      if (start) {
+        const startDate = new Date(start);
+        dateFilter.date.$gte = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate(), 0, 0, 0, 0));
+      }
+      if (end) {
+        const endDate = new Date(end);
+        const endOfDay = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 23, 59, 59, 999));
+        dateFilter.date.$lte = endOfDay;
+      }
+    }
+
+    // Find attendance records for the user with date filter
+    const attendanceRecords = await Attendance.find({
+      user: userId,
+      ...dateFilter
+    })
+    .populate("breaks.type", "displayName description")
+    .sort({ date: -1 }); // Sort by date, newest first
+
+    // Process records to calculate totals and format data
+    const processedRecords = attendanceRecords.map(record => {
+      const recordObj = record.toObject();
+      
+      // Calculate total work time
+      let totalWorkTime = 0;
+      if (record.checkInTime && record.checkOutTime) {
+        const workDuration = new Date(record.checkOutTime) - new Date(record.checkInTime);
+        const breakDuration = record.totalBreakDuration || 0;
+        totalWorkTime = Math.max(0, workDuration - breakDuration);
+      }
+
+      // Format times for display
+      const checkInTime = record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      }) : null;
+      
+      const checkOutTime = record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      }) : null;
+
+      // Calculate total break time
+      const totalBreakMinutes = record.totalBreakDuration ? Math.floor(record.totalBreakDuration / (1000 * 60)) : 0;
+
+      return {
+        ...recordObj,
+        checkInTime,
+        checkOutTime,
+        totalWorkTime: Math.floor(totalWorkTime / (1000 * 60 * 60)), // Convert to hours
+        totalBreakMinutes,
+        date: record.date.toISOString().split('T')[0], // Format as YYYY-MM-DD
+        status: record.checkOutTime ? 'completed' : (record.checkInTime ? 'active' : 'absent')
+      };
+    });
+
+    res.json({ 
+      attendance: processedRecords,
+      totalRecords: processedRecords.length,
+      dateRange: { start, end }
+    });
+  } catch (error) {
+    console.error("Get my timesheet error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 // Get attendance records for a specific user (Admin/Manager only, or self)
 exports.getUserAttendance = async (req, res) => {
   try {

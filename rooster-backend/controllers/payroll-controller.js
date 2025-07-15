@@ -96,6 +96,23 @@ exports.getUserPayrollsByUserId = async (req, res) => {
   }
 };
 
+// Get current user's payroll slips
+exports.getCurrentUserPayrolls = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const employee = await Employee.findOne({ userId });
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee not found for this user.' });
+    }
+    const payrolls = await Payroll.find({ employee: employee._id })
+      .populate('employee')
+      .sort({ issueDate: -1 }); // Sort by issue date, newest first
+    res.json(payrolls);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // Update a payroll record
 exports.updatePayroll = async (req, res) => {
   console.log('DEBUG: updatePayroll controller called');

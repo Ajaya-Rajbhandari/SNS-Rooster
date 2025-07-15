@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/profile_provider.dart';
+import '../../config/api_config.dart';
 
 class UserInfoHeader extends StatelessWidget {
   final VoidCallback onNotificationTap;
@@ -20,7 +21,15 @@ class UserInfoHeader extends StatelessWidget {
       children: [
         CircleAvatar(
           backgroundImage: profile != null && profile['avatar'] != null
-              ? NetworkImage(profile['avatar'])
+              ? (profile['avatar'].toString().contains(
+                      '/opt/render/project/src/rooster-backend/uploads/avatars/'))
+                  ? NetworkImage(
+                      '${ApiConfig.baseUrl.replaceAll('/api', '')}/uploads/avatars/${profile['avatar'].toString().split('/').last}')
+                  : (profile['avatar'].toString().startsWith('http') ||
+                          profile['avatar'].toString().contains('://'))
+                      ? NetworkImage(profile['avatar'])
+                      : NetworkImage(
+                          '${ApiConfig.baseUrl.replaceAll('/api', '')}${profile['avatar'].toString().startsWith('/') ? '' : '/'}${profile['avatar']}')
               : const AssetImage('assets/images/default_avatar.png')
                   as ImageProvider,
           radius: 28,

@@ -80,29 +80,13 @@ class AdminSideNavigation extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          // Add My Profile link
-          _buildDrawerItem(
-            context,
-            icon: Icons.account_circle,
-            title: 'My Profile',
-            route: '/admin_profile',
-            screen: const AdminProfileScreen(),
-            colorScheme: colorScheme,
-          ),
-          // Add My Attendance link
-          _buildDrawerItem(
-            context,
-            icon: Icons.access_time,
-            title: 'My Attendance',
-            route: '/admin_attendance',
-            screen: const AdminAttendanceScreen(),
-            colorScheme: colorScheme,
-          ),
+
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _SidebarSectionHeader('Management'),
+                // 🔥 HIGH FREQUENCY - Daily/Weekly Use
+                _SidebarSectionHeader('Frequently Used'),
                 _buildDrawerItem(
                   context,
                   icon: Icons.dashboard,
@@ -121,10 +105,10 @@ class AdminSideNavigation extends StatelessWidget {
                 ),
                 _buildDrawerItem(
                   context,
-                  icon: Icons.person_add,
-                  title: 'User Management',
-                  route: '/user_management',
-                  screen: const UserManagementScreen(),
+                  icon: Icons.beach_access,
+                  title: 'Leave Management',
+                  route: '/leave_management',
+                  screen: const LeaveManagementScreen(),
                   colorScheme: colorScheme,
                 ),
                 _buildDrawerItem(
@@ -143,6 +127,11 @@ class AdminSideNavigation extends StatelessWidget {
                   screen: const AdminTimesheetScreen(),
                   colorScheme: colorScheme,
                 ),
+
+                const SizedBox(height: 8),
+
+                // 📊 MEDIUM FREQUENCY - Weekly/Monthly Use
+                _SidebarSectionHeader('Monitoring & Reports'),
                 _buildDrawerItem(
                   context,
                   icon: Icons.calendar_today,
@@ -153,12 +142,25 @@ class AdminSideNavigation extends StatelessWidget {
                 ),
                 _buildDrawerItem(
                   context,
-                  icon: Icons.beach_access,
-                  title: 'Leave Management',
-                  route: '/leave_management',
-                  screen: const LeaveManagementScreen(),
+                  icon: Icons.notifications,
+                  title: 'Notifications & Alerts',
+                  route: '/notification_alert',
+                  screen: const NotificationAlertScreen(),
                   colorScheme: colorScheme,
                 ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.analytics,
+                  title: 'Analytics & Reports',
+                  route: '/analytics',
+                  screen: const AdminAnalyticsScreen(),
+                  colorScheme: colorScheme,
+                ),
+
+                const SizedBox(height: 8),
+
+                // ⚙️ LOW FREQUENCY - Monthly/As Needed
+                _SidebarSectionHeader('Configuration'),
                 _buildDrawerItem(
                   context,
                   icon: Icons.coffee,
@@ -177,14 +179,12 @@ class AdminSideNavigation extends StatelessWidget {
                 ),
                 _buildDrawerItem(
                   context,
-                  icon: Icons.notifications,
-                  title: 'Notifications & Alerts',
-                  route: '/notification_alert',
-                  screen: const NotificationAlertScreen(),
+                  icon: Icons.person_add,
+                  title: 'User Management',
+                  route: '/user_management',
+                  screen: const UserManagementScreen(),
                   colorScheme: colorScheme,
                 ),
-                const SizedBox(height: 8),
-                _SidebarSectionHeader('Settings'),
                 _buildDrawerItem(
                   context,
                   icon: Icons.settings,
@@ -193,20 +193,38 @@ class AdminSideNavigation extends StatelessWidget {
                   screen: const SettingsScreen(),
                   colorScheme: colorScheme,
                 ),
+
+                const SizedBox(height: 8),
+
+                // 👤 PERSONAL - As Needed
+                _SidebarSectionHeader('Personal'),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.account_circle,
+                  title: 'My Profile',
+                  route: '/admin_profile',
+                  screen: const AdminProfileScreen(),
+                  colorScheme: colorScheme,
+                ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.access_time,
+                  title: 'My Attendance',
+                  route: '/admin_attendance',
+                  screen: const AdminAttendanceScreen(),
+                  colorScheme: colorScheme,
+                ),
+
+                const SizedBox(height: 8),
+
+                // 🆘 SUPPORT
+                _SidebarSectionHeader('Support'),
                 _buildDrawerItem(
                   context,
                   icon: Icons.help_outline,
                   title: 'Help & Support',
                   route: '/help_support',
                   screen: const HelpSupportScreen(),
-                  colorScheme: colorScheme,
-                ),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.analytics,
-                  title: 'Analytics & Reports',
-                  route: '/analytics',
-                  screen: const AdminAnalyticsScreen(),
                   colorScheme: colorScheme,
                 ),
               ],

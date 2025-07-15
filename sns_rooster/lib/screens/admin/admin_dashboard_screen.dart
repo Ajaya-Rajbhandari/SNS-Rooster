@@ -14,11 +14,13 @@ import 'package:sns_rooster/screens/admin/help_support_screen.dart';
 import 'package:sns_rooster/screens/admin/attendance_management_screen.dart';
 import 'package:sns_rooster/screens/admin/break_management_screen.dart';
 import '../../widgets/admin_side_navigation.dart';
+import '../../widgets/user_avatar.dart';
+import '../../services/employee_service.dart';
+import '../../services/api_service.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../widgets/notification_bell.dart';
 import '../../providers/notification_provider.dart';
-import '../../services/employee_service.dart';
 import '../../providers/payroll_analytics_provider.dart';
 import '../../providers/payroll_cycle_settings_provider.dart';
 
@@ -359,9 +361,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   const SizedBox(height: 16),
                   FutureBuilder<List<Map<String, dynamic>>>(
-                    future: EmployeeService(
-                            Provider.of<AuthProvider>(context, listen: false))
-                        .getEmployees(),
+                    future:
+                        EmployeeService(ApiService(baseUrl: ApiConfig.baseUrl))
+                            .getEmployees(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
@@ -381,29 +383,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           itemBuilder: (context, i) {
                             final emp = employees[i];
                             return ListTile(
-                              leading: const Icon(Icons.person),
-                              title: Text(
-                                ((emp['firstName'] ?? '') +
-                                            ' ' +
-                                            (emp['lastName'] ?? ''))
-                                        .trim()
-                                        .isEmpty
-                                    ? 'No Name'
-                                    : ((emp['firstName'] ?? '') +
-                                            ' ' +
-                                            (emp['lastName'] ?? ''))
-                                        .trim(),
-                              ),
-                              subtitle:
-                                  Text(emp['department'] ?? 'No Department'),
-                              trailing: Text(
-                                  emp['isActive'] == true
-                                      ? 'Active'
-                                      : 'Inactive',
-                                  style: TextStyle(
-                                      color: emp['isActive'] == true
-                                          ? Colors.green
-                                          : Colors.red)),
+                              leading: _buildAvatar(emp['avatarUrl']),
+                              title: Text(emp['name'] ?? 'Unknown'),
+                              subtitle: Text(emp['role'] ?? ''),
+                              trailing: Text(emp['status'] ?? ''),
                             );
                           },
                         ),
@@ -655,13 +638,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               title: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '$status ( $totalCount)',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                    ),
-                  ),
+                  Text('$status Employees ($totalCount)'),
+                  if (adminsList.isNotEmpty)
+                    Text('Admins: ${adminsList.length}',
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.grey)),
+                  if (employeesList.isNotEmpty)
+                    Text('Employees: ${employeesList.length}',
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.grey)),
                 ],
               ),
               content: SingleChildScrollView(
@@ -669,76 +654,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (employeesList.isNotEmpty) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4.0, top: 8.0),
-                        child: Text(
-                          'Employees: $status (${employeesList.length})',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 300,
-                        height: employeesList.length * 60.0 > 200
-                            ? 200
-                            : employeesList.length * 60.0,
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: employeesList.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (context, i) {
-                            final emp = employeesList[i];
-                            return ListTile(
-                              leading: const Icon(Icons.person),
-                              title: Text(((emp['firstName'] ?? '') +
-                                      ' ' +
-                                      (emp['lastName'] ?? ''))
-                                  .trim()),
-                              subtitle: Text(emp['email'] ?? ''),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                    if (adminsList.isNotEmpty) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4.0, top: 16.0),
-                        child: Text(
-                          'Admins: $status (${adminsList.length})',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                            color: Colors.deepPurple,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 300,
-                        height: adminsList.length * 60.0 > 200
-                            ? 200
-                            : adminsList.length * 60.0,
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: adminsList.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (context, i) {
-                            final emp = adminsList[i];
-                            return ListTile(
-                              leading: const Icon(Icons.verified_user,
-                                  color: Colors.deepPurple),
-                              title: Text(((emp['firstName'] ?? '') +
-                                      ' ' +
-                                      (emp['lastName'] ?? ''))
-                                  .trim()),
-                              subtitle: Text(emp['email'] ?? ''),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
+                    ...employeesList.map((e) => ListTile(
+                          leading: _buildAvatar(e['avatarUrl']),
+                          title: Text(e['name'] ?? 'Unknown'),
+                          subtitle: Text(e['department'] ?? 'No department'),
+                          trailing: Text(e['status'] ?? ''),
+                        )),
+                    ...adminsList.map((a) => ListTile(
+                          leading: const Icon(Icons.admin_panel_settings),
+                          title: Text(a['name'] ?? 'Unknown'),
+                          subtitle: const Text('Admin'),
+                        )),
                   ],
                 ),
               ),
@@ -829,20 +755,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         sections: [
           PieChartSectionData(
             value: present,
-            title: 'Present',
             color: Colors.green,
+            title: 'Present',
             radius: 60,
           ),
           PieChartSectionData(
             value: absent,
-            title: 'Absent',
             color: Colors.red,
+            title: 'Absent',
             radius: 60,
           ),
           PieChartSectionData(
             value: onLeave,
-            title: 'On Leave',
             color: Colors.orange,
+            title: 'On Leave',
             radius: 60,
           ),
         ],
@@ -858,6 +784,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (deptStats == null || deptStats.isEmpty) {
       return const Text('No department stats available.');
     }
+    final columns = ['Department', 'Present', 'Absent', 'On Leave'];
+    final rows = deptStats.entries.map((entry) {
+      final dept = entry.key;
+      final value = entry.value;
+      if (value is Map<String, dynamic>) {
+        return DataRow(cells: [
+          DataCell(Text(dept)),
+          DataCell(Text(value['present']?.toString() ?? '0')),
+          DataCell(Text(value['absent']?.toString() ?? '0')),
+          DataCell(Text(value['onLeave']?.toString() ?? '0')),
+        ]);
+      } else if (value is int) {
+        // If value is just an int, treat as present count
+        return DataRow(cells: [
+          DataCell(Text(dept)),
+          DataCell(Text(value.toString())),
+          const DataCell(Text('0')),
+          const DataCell(Text('0')),
+        ]);
+      } else {
+        // Unknown type, show zeros
+        return DataRow(cells: [
+          DataCell(Text(dept)),
+          const DataCell(Text('0')),
+          const DataCell(Text('0')),
+          const DataCell(Text('0')),
+        ]);
+      }
+    }).toList();
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 220),
       child: SingleChildScrollView(
@@ -865,18 +820,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: DataTable(
-            dataRowMinHeight: 32,
-            dataRowMaxHeight: 40,
-            columns: const [
-              DataColumn(label: Text('Department')),
-              DataColumn(label: Text('Total')),
-            ],
-            rows: deptStats.entries
-                .map((e) => DataRow(cells: [
-                      DataCell(Text(e.key)),
-                      DataCell(Text(e.value.toString())),
-                    ]))
-                .toList(),
+            columns: columns.map((c) => DataColumn(label: Text(c))).toList(),
+            rows: rows,
           ),
         ),
       ),
@@ -960,7 +905,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           context,
           icon: action['icon'] as IconData,
           title: action['title'] as String,
-          onTap: action['onTap'] as VoidCallback,
+          onTap: (action['onTap'] as VoidCallback?) ?? () {},
         );
       }).toList();
     }
@@ -970,81 +915,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return Column(
           children: [
             SizedBox(
-              height: 360, // Increased for better layout
+              height: 120,
               child: PageView.builder(
                 controller: pageController,
                 itemCount: totalPages,
-                onPageChanged: (index) {
+                onPageChanged: (page) {
                   setState(() {
-                    currentPage = index;
+                    currentPage = page;
                   });
                 },
                 itemBuilder: (context, page) {
-                  final pageActions = buildPageActions(page);
-                  // Ensure we always have 4 items (fill with empty containers if needed)
-                  while (pageActions.length < 4) {
-                    pageActions.add(Container());
-                  }
-                  return SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        Row(
-                          children: pageActions
-                              .sublist(0, 2)
-                              .map((card) => Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: AspectRatio(
-                                        aspectRatio: 1.2,
-                                        child: card,
-                                      ),
-                                    ),
-                                  ))
-                              .toList(),
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          children: pageActions
-                              .sublist(2, 4)
-                              .map((card) => Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: AspectRatio(
-                                        aspectRatio: 1.2,
-                                        child: card,
-                                      ),
-                                    ),
-                                  ))
-                              .toList(),
-                        ),
-                      ],
-                    ),
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: buildPageActions(page),
                   );
                 },
               ),
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(totalPages, (index) {
+              children: List.generate(totalPages, (i) {
                 return GestureDetector(
-                  onTap: () {
-                    pageController.animateToPage(
-                      index,
+                  onTap: () => pageController.animateToPage(i,
                       duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
-                    setState(() {
-                      currentPage = index;
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: index == currentPage ? 12 : 8,
-                    height: index == currentPage ? 12 : 8,
+                      curve: Curves.ease),
+                  child: Container(
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                    width: 10,
+                    height: 10,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: index == currentPage ? Colors.blue : Colors.grey,
+                      color: i == currentPage ? Colors.blue : Colors.grey,
                     ),
                   ),
                 );
@@ -1173,6 +1075,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildAvatar(String? avatarUrl) {
+    // Use the UserAvatar widget which has comprehensive URL handling
+    // This has proper error handling and support for Firebase Storage URLs
+
+    if (avatarUrl == null || avatarUrl.trim().isEmpty) {
+      return const UserAvatar(avatarUrl: null, radius: 20);
+    }
+    final trimmedUrl = avatarUrl.trim();
+    // If remote URL, use directly
+    if (trimmedUrl.startsWith('http://') ||
+        trimmedUrl.startsWith('https://') ||
+        trimmedUrl.contains('://')) {
+      return UserAvatar(avatarUrl: trimmedUrl, radius: 20);
+    }
+    // Otherwise, treat as local file
+    return UserAvatar(avatarUrl: '/uploads/avatars/$trimmedUrl', radius: 20);
   }
 }
 

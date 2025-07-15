@@ -1,17 +1,17 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sns_rooster/services/secure_storage_service.dart';
+import 'package:sns_rooster/utils/logger.dart';
+import 'certificate_pinning_service.dart';
 
 class ApiService {
   final String baseUrl;
-  final SharedPreferences prefs;
   final http.Client _client;
 
   ApiService({
     required this.baseUrl,
-    required this.prefs,
     http.Client? client,
-  }) : _client = client ?? http.Client();
+  }) : _client = client ?? CertificatePinningService.createSecureClient();
 
   Future<ApiResponse> get(String endpoint) async {
     try {
@@ -20,10 +20,11 @@ class ApiService {
         headers: await _getHeaders(),
       );
       return _handleResponse(response);
-    } catch (e) {
+    } catch (e, stack) {
+      Logger.error('GET $endpoint failed: $e', stack);
       return ApiResponse(
         success: false,
-        message: 'Network error: $e',
+        message: 'Unable to connect. Please check your network and try again.',
         data: null,
       );
     }
@@ -37,10 +38,11 @@ class ApiService {
         body: json.encode(data),
       );
       return _handleResponse(response);
-    } catch (e) {
+    } catch (e, stack) {
+      Logger.error('POST $endpoint failed: $e', stack);
       return ApiResponse(
         success: false,
-        message: 'Network error: $e',
+        message: 'Unable to connect. Please try again later.',
         data: null,
       );
     }
@@ -54,10 +56,11 @@ class ApiService {
         body: data != null ? json.encode(data) : null,
       );
       return _handleResponse(response);
-    } catch (e) {
+    } catch (e, stack) {
+      Logger.error('PUT $endpoint failed: $e', stack);
       return ApiResponse(
         success: false,
-        message: 'Network error: $e',
+        message: 'Unable to update data. Please try again.',
         data: null,
       );
     }
@@ -70,18 +73,18 @@ class ApiService {
         headers: await _getHeaders(),
       );
       return _handleResponse(response);
-    } catch (e) {
+    } catch (e, stack) {
+      Logger.error('DELETE $endpoint failed: $e', stack);
       return ApiResponse(
         success: false,
-        message: 'Network error: $e',
+        message: 'Unable to delete data. Please try again.',
         data: null,
       );
     }
   }
 
   Future<Map<String, String>> _getHeaders() async {
-    final token =
-        prefs.getString('token'); // Changed from 'auth_token' to 'token'
+    final token = await SecureStorageService.getAuthToken();
     return {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
@@ -89,7 +92,7 @@ class ApiService {
   }
 
   Future<String> getAuthorizationHeader() async {
-    final token = prefs.getString('token');
+    final token = await SecureStorageService.getAuthToken();
     return token != null ? 'Bearer $token' : 'No Authorization header';
   }
 
@@ -118,10 +121,11 @@ class ApiService {
           data: data,
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      Logger.error('Response parsing failed: $e', stack);
       return ApiResponse(
         success: false,
-        message: 'Error parsing response: $e',
+        message: 'Unexpected server response. Please try again later.',
         data: null,
       );
     }

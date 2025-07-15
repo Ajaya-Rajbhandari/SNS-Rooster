@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import '../providers/profile_provider.dart';
 import '../config/api_config.dart';
+import '../services/secure_storage_service.dart';
+import '../services/auth_migration_service.dart';
 // Import main.dart to access MyApp class
 import '../providers/attendance_provider.dart';
 import '../services/fcm_service.dart';
@@ -20,12 +22,6 @@ class AuthProvider with ChangeNotifier {
   final bool _isLoggingOut = false;
   final _navigatorKey = GlobalKey<NavigatorState>();
   bool _rememberMe = false;
-
-  // Test credentials for developer convenience
-  static const String devEmployeeEmail = 'employee2@snsrooster.com';
-  static const String devEmployeePassword = 'Employee@456';
-  static const String devAdminEmail = 'admin@snsrooster.com';
-  static const String devAdminPassword = 'Admin@123';
 
   // Add new keys for storing credentials
   static const String _rememberMeKey = 'remember_me';
@@ -68,33 +64,38 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> _loadStoredAuth() async {
     try {
-      log('LOAD_AUTH_DEBUG: Loading stored auth...');
-      final prefs = await SharedPreferences.getInstance();
-
-      final storedToken = prefs.getString('token');
-      log('LOAD_AUTH_DEBUG: Token retrieved from SharedPreferences: $storedToken');
+      log('LOAD_AUTH_DEBUG: Loading stored auth from secure storage...');
+      
+      // Try to load from secure storage first
+      final storedToken = await SecureStorageService.getAuthToken();
+      log('LOAD_AUTH_DEBUG: Token retrieved from SecureStorage: $storedToken');
       _authToken = storedToken;
 
-      final storedUser = prefs.getString('user');
-      log('LOAD_AUTH_DEBUG: User data retrieved from SharedPreferences: $storedUser');
-      _user = storedUser != null ? json.decode(storedUser) : null;
+      final storedUserData = await SecureStorageService.getUserData();
+      log('LOAD_AUTH_DEBUG: User data retrieved from SecureStorage: $storedUserData');
+      _user = storedUserData != null ? json.decode(storedUserData) : null;
 
       _token = _authToken;
       log('LOAD_AUTH_DEBUG: Assigned _authToken to _token: $_token');
 
-      // Load Remember Me and credentials
-      _rememberMe = prefs.getBool(_rememberMeKey) ?? false;
+      // Load Remember Me and credentials from secure storage
+      final rememberedCreds = await SecureStorageService.getRememberedCredentials();
+      _rememberMe = rememberedCreds['remember_me'] == 'true';
       if (_rememberMe) {
-        _savedEmail = prefs.getString(_savedEmailKey);
-        _savedPassword = prefs.getString(_savedPasswordKey);
+        _savedEmail = rememberedCreds['email'];
+        _savedPassword = rememberedCreds['password'];
       } else {
         _savedEmail = null;
         _savedPassword = null;
       }
 
+      // Migration from SharedPreferences if secure storage is empty but SharedPreferences has data
+      if (_authToken == null || _user == null) {
+        await _migrateFromSharedPreferences();
+      }
+
       log('LOAD_AUTH_DEBUG: Final _authToken: $_authToken, Final _user: $_user');
-      log('LOAD_AUTH_DEBUG: Token after loading: $_authToken'); // Debugging log
-      log('LOAD_AUTH_DEBUG: Token loaded from SharedPreferences: $_authToken'); // Debugging log
+      log('LOAD_AUTH_DEBUG: Token after loading: $_authToken');
       notifyListeners();
     } catch (e) {
       log('LOAD_AUTH_DEBUG: Error loading stored auth: $e');
@@ -102,6 +103,11 @@ class AuthProvider with ChangeNotifier {
       _user = null;
       notifyListeners();
     }
+  }
+
+  /// Migrate data from SharedPreferences to SecureStorage
+  Future<void> _migrateFromSharedPreferences() async {
+    await AuthMigrationService.migrateFromSharedPreferences();
   }
 
   Future<void> checkAuthStatus() async {
@@ -232,20 +238,15 @@ class AuthProvider with ChangeNotifier {
         log('LOGIN_DEBUG: Backend token field: ${data['token']}');
         log('LOGIN_DEBUG: Token received from backend response: _authToken');
 
-        // Always save auth token and user data to SharedPreferences
+        // Always save auth token and user data to SecureStorage
         await _saveAuthToPrefs();
 
-        final prefs = await SharedPreferences.getInstance();
-        if (_rememberMe) {
-          await prefs.setBool(_rememberMeKey, true);
-          await prefs.setString(_savedEmailKey, email);
-          await prefs.setString(_savedPasswordKey, password);
-        } else {
-          // Do NOT clear in-memory state; just avoid saving credentials
-          await prefs.setBool(_rememberMeKey, false);
-          await prefs.remove(_savedEmailKey);
-          await prefs.remove(_savedPasswordKey);
-        }
+        // Store remembered credentials in secure storage
+        await SecureStorageService.storeRememberedCredentials(
+          email: email,
+          password: password,
+          rememberMe: _rememberMe,
+        );
         // --- Ensure profile is refreshed after login ---
         if (_profileProvider != null) {
           log('LOGIN_DEBUG: Refreshing profile after login');
@@ -347,6 +348,7 @@ class AuthProvider with ChangeNotifier {
     log('AUTH PROVIDER: Logout called');
     log('Logging out...');
     _token = null;
+    _authToken = null;
     _user = null;
     _error = null;
     notifyListeners();
@@ -356,14 +358,14 @@ class AuthProvider with ChangeNotifier {
     log('DEBUG: Current user: $_user');
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      log('DEBUG: Clearing SharedPreferences');
-      await prefs.remove('token');
-      await prefs.remove('user');
+      // Clear auth data from secure storage
+      log('DEBUG: Clearing SecureStorage auth data');
+      await SecureStorageService.clearAuthData();
+      
+      // Only clear remembered credentials if remember me is disabled
       if (!_rememberMe) {
-        await prefs.setBool(_rememberMeKey, false);
-        await prefs.remove(_savedEmailKey);
-        await prefs.remove(_savedPasswordKey);
+        await SecureStorageService.clearRememberedCredentials();
+        log('DEBUG: Cleared remembered credentials from SecureStorage');
       }
 
       if (_profileProvider != null) {
@@ -483,46 +485,92 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> _saveAuthToPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    log('SAVE_AUTH_DEBUG: SharedPreferences instance obtained');
+    log('SAVE_AUTH_DEBUG: Saving auth to SecureStorage');
 
-    if (_authToken != null) {
-      log('SAVE_AUTH_DEBUG: Token before saving: $_authToken');
-      await prefs.setString('token', _authToken!);
-      log('SAVE_AUTH_DEBUG: Token saved to SharedPreferences: $_authToken');
-    } else {
-      await prefs.remove('token');
-      log('SAVE_AUTH_DEBUG: Token removed from SharedPreferences');
+    try {
+      if (_authToken != null) {
+        log('SAVE_AUTH_DEBUG: Token before saving: $_authToken');
+        await SecureStorageService.storeAuthToken(_authToken!);
+        log('SAVE_AUTH_DEBUG: Token saved to SecureStorage: $_authToken');
+      } else {
+        await SecureStorageService.clearAuthData();
+        log('SAVE_AUTH_DEBUG: Auth data cleared from SecureStorage');
+      }
+
+      if (_user != null) {
+        await SecureStorageService.storeUserData(json.encode(_user));
+        log('SAVE_AUTH_DEBUG: User saved to SecureStorage: $_user');
+      }
+
+      // Save FCM token to backend if user is authenticated
+      if (_authToken != null && _user != null) {
+        await _saveFCMTokenToBackend();
+      }
+    } catch (e) {
+      log('SAVE_AUTH_DEBUG: Error saving to SecureStorage: $e');
+      // Fallback to SharedPreferences if SecureStorage fails
+      await _saveAuthToSharedPrefs();
     }
+  }
 
-    if (_user != null) {
-      await prefs.setString('user', json.encode(_user));
-      log('SAVE_AUTH_DEBUG: User saved to SharedPreferences: $_user');
-    } else {
-      await prefs.remove('user');
-      log('SAVE_AUTH_DEBUG: User removed from SharedPreferences');
-    }
+  /// Fallback method for saving to SharedPreferences if SecureStorage fails
+  Future<void> _saveAuthToSharedPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      log('SAVE_AUTH_DEBUG: Fallback to SharedPreferences');
 
-    // Save FCM token to backend if user is authenticated
-    if (_authToken != null && _user != null) {
-      await _saveFCMTokenToBackend();
+      if (_authToken != null) {
+        await prefs.setString('token', _authToken!);
+      } else {
+        await prefs.remove('token');
+      }
+
+      if (_user != null) {
+        await prefs.setString('user', json.encode(_user));
+      } else {
+        await prefs.remove('user');
+      }
+    } catch (e) {
+      log('SAVE_AUTH_DEBUG: Error saving to SharedPreferences: $e');
     }
   }
 
   Future<void> _clearAuthFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    log('CLEAR_AUTH_DEBUG: Clearing authentication state from SharedPreferences');
-    await prefs.remove('token');
-    await prefs.remove('user');
-    _token = null;
-    _user = null;
-    log('CLEAR_AUTH_DEBUG: Authentication state cleared from SharedPreferences');
-    notifyListeners();
+    try {
+      log('CLEAR_AUTH_DEBUG: Clearing authentication state from SecureStorage');
+      await SecureStorageService.clearAuthData();
+      _token = null;
+      _authToken = null;
+      _user = null;
+      log('CLEAR_AUTH_DEBUG: Authentication state cleared from SecureStorage');
+      notifyListeners();
+    } catch (e) {
+      log('CLEAR_AUTH_DEBUG: Error clearing from SecureStorage: $e');
+      // Fallback to SharedPreferences
+      await _clearAuthFromSharedPrefs();
+    }
+  }
+
+  /// Fallback method for clearing from SharedPreferences if SecureStorage fails
+  Future<void> _clearAuthFromSharedPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      log('CLEAR_AUTH_DEBUG: Fallback clearing from SharedPreferences');
+      await prefs.remove('token');
+      await prefs.remove('user');
+      _token = null;
+      _authToken = null;
+      _user = null;
+      notifyListeners();
+    } catch (e) {
+      log('CLEAR_AUTH_DEBUG: Error clearing from SharedPreferences: $e');
+    }
   }
 
   Future<void> forceClearAuth() async {
     log('FORCE_CLEAR_AUTH: Clearing authentication state...');
     _token = null;
+    _authToken = null;
     _user = null;
     _error = null;
     notifyListeners();
@@ -718,5 +766,11 @@ class AuthProvider with ChangeNotifier {
     } catch (e) {
       print('FCM: ❌ Save error: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    // Clean up any controllers, listeners, or resources here
+    super.dispose();
   }
 }

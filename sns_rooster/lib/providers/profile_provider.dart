@@ -95,6 +95,7 @@ class ProfileProvider with ChangeNotifier {
     _error = null;
     _isInitialized = true;
     _lastUpdated = DateTime.now();
+
     _saveProfileToPrefs();
     fetchAvatarSignedUrl();
     if (_disposed) return;

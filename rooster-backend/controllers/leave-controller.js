@@ -34,15 +34,38 @@ exports.applyLeave = async (req, res) => {
       reason
     });
     await leave.save();
+    
     // Notify all admins
     const employee = await Employee.findById(employeeId);
+    
+    // Create database notification for all admins
+    const User = require('../models/User');
+    const adminUsers = await User.find({ role: 'admin', isActive: true });
+    
+    for (const admin of adminUsers) {
+      const adminNotification = new Notification({
+        user: admin._id,
+        title: 'New Leave Request Submitted',
+        message: `${employee?.firstName || 'An employee'} ${employee?.lastName || ''} has submitted a leave request from ${start.toDateString()} to ${end.toDateString()}.`,
+        type: 'leave',
+        link: '/admin/leave_management',
+        isRead: false,
+      });
+      await adminNotification.save();
+    }
+    
     // FCM: Notify all admins via topic
-    await sendNotificationToTopic(
-      'admins',
-      'New Leave Request Submitted',
-      `${employee?.firstName || 'An employee'} ${employee?.lastName || ''} has submitted a leave request from ${start.toDateString()} to ${end.toDateString()}.`,
-      { type: 'leave', leaveId: leave._id.toString() }
-    );
+    try {
+      await sendNotificationToTopic(
+        'admins',
+        'New Leave Request Submitted',
+        `${employee?.firstName || 'An employee'} ${employee?.lastName || ''} has submitted a leave request from ${start.toDateString()} to ${end.toDateString()}.`,
+        { type: 'leave', leaveId: leave._id.toString() }
+      );
+    } catch (fcmError) {
+      console.log('FCM notification failed, but database notification was created:', fcmError.message);
+    }
+    
     res.status(201).json({ message: 'Leave application submitted successfully.', leave });
   } catch (error) {
     res.status(500).json({ message: 'Error applying for leave.', error: error.message });

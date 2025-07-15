@@ -47,6 +47,7 @@ import 'package:sns_rooster/services/employee_service.dart';
 import 'package:sns_rooster/services/notification_service.dart';
 import 'package:sns_rooster/services/global_notification_service.dart';
 import 'package:sns_rooster/services/fcm_service.dart';
+import 'package:sns_rooster/services/certificate_pinning_service.dart';
 import 'package:sns_rooster/widgets/global_notification_banner.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'web_url_strategy_stub.dart'
@@ -59,11 +60,13 @@ import 'web_notification_permission_stub.dart'
     if (dart.library.html) 'web_notification_permission_web.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:sns_rooster/services/api_service.dart';
+import 'package:sns_rooster/config/api_config.dart';
 
 Future<void> requestAndroidNotificationPermission() async {
   if (defaultTargetPlatform == TargetPlatform.android) {
     final status = await Permission.notification.request();
-    print('Android notification permission: $status');
+    Logger.info('Android notification permission: $status');
   }
 }
 
@@ -72,26 +75,34 @@ void main() async {
 
   // Global error handler for Flutter errors
   FlutterError.onError = (FlutterErrorDetails details) {
-    print('FlutterError: ${details.exception}');
-    print('Stack trace: ${details.stack}');
+    Logger.error('FlutterError: ${details.exception}', details.stack);
   };
 
-  print('DEBUG: main() started');
+  Logger.info('Application starting');
 
   // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  print('DEBUG: Firebase initialized');
+  Logger.info('Firebase initialized');
+
+  // Initialize Certificate Pinning Service
+  try {
+    await CertificatePinningService.initialize();
+    Logger.info('Certificate pinning initialized');
+  } catch (e) {
+    Logger.warning('Certificate pinning initialization failed: $e');
+    // Continue without certificate pinning for compatibility
+  }
 
   // Request notification permission on web
   if (kIsWeb) {
     try {
       final permission = await requestWebNotificationPermission();
-      print('Web notification permission: ' + permission.toString());
+      Logger.info('Web notification permission: $permission');
     } catch (e) {
-      print('Web notification permission failed: $e');
+      Logger.warning('Web notification permission failed: $e');
       // Continue without notifications for iOS Safari compatibility
     }
   }
@@ -103,10 +114,10 @@ void main() async {
   try {
     String? token = await FirebaseMessaging.instance.getToken();
     if (token != null) {
-      print('FCM: ✅ Token ready');
+      Logger.info('FCM: Token ready');
     }
   } catch (e) {
-    print('FCM token generation failed: $e');
+    Logger.warning('FCM token generation failed: $e');
     // Continue without FCM for iOS Safari compatibility
   }
 
@@ -114,13 +125,12 @@ void main() async {
   try {
     await FCMService().initialize();
   } catch (e) {
-    print('FCM Service initialization failed: $e');
+    Logger.warning('FCM Service initialization failed: $e');
     // Continue without FCM for iOS Safari compatibility
   }
 
   setWebUrlStrategy();
-  print('DEBUG: Initializing navigatorKey');
-  print('DEBUG: Starting MyApp with AuthProvider');
+  Logger.info('Starting SNS Rooster application');
   runApp(const MyApp());
 }
 
@@ -131,7 +141,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('DEBUG: MyApp.build() called');
+    Logger.debug('MyApp.build() called');
     log('MAIN: Building MaterialApp with navigatorKey');
     return MultiProvider(
       providers: [
@@ -178,9 +188,8 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => HolidayProvider()),
         ChangeNotifierProvider(create: (context) {
-          final authProvider =
-              Provider.of<AuthProvider>(context, listen: false);
-          final employeeService = EmployeeService(authProvider);
+          final apiService = ApiService(baseUrl: ApiConfig.baseUrl);
+          final employeeService = EmployeeService(apiService);
           return EmployeeProvider(employeeService);
         }),
         ChangeNotifierProxyProvider<AuthProvider, ProfileProvider>(

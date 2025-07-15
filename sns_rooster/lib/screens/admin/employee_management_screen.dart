@@ -3,10 +3,11 @@ import 'package:sns_rooster/screens/admin/edit_employee_dialog.dart';
 import 'package:sns_rooster/screens/admin/add_employee_dialog.dart';
 import 'package:sns_rooster/services/employee_service.dart';
 import 'package:provider/provider.dart';
-import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/employee_provider.dart';
 import '../../widgets/admin_side_navigation.dart';
 import 'package:sns_rooster/screens/admin/employee_detail_screen.dart';
+import 'package:sns_rooster/services/api_service.dart';
+import 'package:sns_rooster/config/api_config.dart';
 
 class EmployeeManagementScreen extends StatefulWidget {
   const EmployeeManagementScreen({super.key});
@@ -32,8 +33,7 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
     super.initState();
     _searchController.addListener(_filterEmployees); // Add listener for search
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _employeeService =
-          EmployeeService(Provider.of<AuthProvider>(context, listen: false));
+      _employeeService = EmployeeService(ApiService(baseUrl: ApiConfig.baseUrl));
       _employeeProvider = Provider.of<EmployeeProvider>(context,
           listen: false); // Initialize EmployeeProvider
       _loadEmployees();

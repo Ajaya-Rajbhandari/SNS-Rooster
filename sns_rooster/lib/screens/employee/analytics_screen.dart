@@ -7,6 +7,8 @@ import '../../widgets/app_drawer.dart'; // Import AppDrawer
 import '../../services/employee_analytics_service.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../admin/analytics_reports_screen.dart';
+import 'package:sns_rooster/services/api_service.dart';
+import 'package:sns_rooster/config/api_config.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({Key? key}) : super(key: key);
@@ -38,14 +40,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       try {
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         final userId = authProvider.user?['_id'] ?? authProvider.user?['id'];
-        final token = authProvider.token ?? '';
-        // You must have EmployeeAnalyticsService implemented as shown previously
-        final late =
-            await EmployeeAnalyticsService.fetchLateCheckins(userId, token);
-        final avg =
-            await EmployeeAnalyticsService.fetchAvgCheckout(userId, token);
-        final recent =
-            await EmployeeAnalyticsService.fetchRecentActivity(userId, token);
+        final apiService = ApiService(baseUrl: ApiConfig.baseUrl);
+        final analyticsService = EmployeeAnalyticsService(apiService);
+        final late = await analyticsService.fetchLateCheckins(userId);
+        final avg = await analyticsService.fetchAvgCheckout(userId);
+        final recent = await analyticsService.fetchRecentActivity(userId);
         setState(() {
           lateCheckins = late;
           avgCheckout = avg;
@@ -110,10 +109,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             final Map<String, int> attendance =
                 analyticsProvider.attendanceData;
             final List<double> workHours = analyticsProvider.workHoursData;
-
-            final int totalPresent = attendance['Present'] ?? 0;
-            final int totalAbsent = attendance['Absent'] ?? 0;
-            final int totalLeave = attendance['Leave'] ?? 0;
 
             final int longestStreak = analyticsProvider.longestStreak;
             final String mostProductiveDay =

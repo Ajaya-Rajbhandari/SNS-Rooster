@@ -25,8 +25,9 @@ async function getAvatarSignedUrl(req, res) {
     let filename = user.avatar;
     // If avatar is a full GCS URL, extract the path after the bucket
     if (filename.startsWith('http')) {
-      const match = filename.match(/\/([^\/]+)$/);
-      filename = match ? match[1] : filename;
+      // Use URL to get the full path after the bucket
+      const url = new URL(filename);
+      filename = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
     }
 
     // Generate signed URL
@@ -42,4 +43,4 @@ async function getAvatarSignedUrl(req, res) {
   }
 }
 
-module.exports = { getAvatarSignedUrl }; 
+module.exports = { getAvatarSignedUrl };

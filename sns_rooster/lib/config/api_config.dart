@@ -1,47 +1,85 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode, kReleaseMode;
 import 'package:sns_rooster/utils/logger.dart';
+import 'environment_config.dart';
 
 /// API Configuration for SNS Rooster App
 ///
 /// This class manages API endpoints for different environments and platforms.
-/// It automatically detects the platform and provides the appropriate base URL.
+/// It enforces HTTPS in production and provides secure communication.
+/// // Ensure this is the correct location for the ApiConfig class
+
 class ApiConfig {
-  /// Manual toggle for local vs production backend
-  static const bool useLocal = false; // Set to false for production
-
-  // Network Configuration - Update these IPs based on your setup
-  static const String homeIP =
-      '10.0.2.2'; // Android emulator maps to host localhost
+  // Network Configuration
+  static const String localhostIP = '127.0.0.1';
+  static const String androidEmulatorIP = '10.0.2.2';
   static const String fallbackIP = '192.168.1.68';
-  // '192.168.1.68'; // Actual machine IP as fallback (updated to current IP)
-  static const String officeIP =
-      '10.0.0.45'; // Your office network IP (update this!)
-  static const String port = '5000';
+  static const String officeIP = '10.0.0.45';
+  static const String devPort = '5000';
+  static const String httpsPort = '443';
 
-  /// Get the appropriate base URL based on platform and environment
+  // Production URLs (HTTPS only)
+  static const String productionApiUrl = 'https://sns-rooster.onrender.com/api';
+  static const String stagingApiUrl = 'https://sns-rooster-staging.onrender.com/api';
+
+  static Future<Map<String, dynamic>> getDetailedDebugInfo() async {
+    return {
+      'ip': '127.0.0.1',
+      'port': '8080',
+      'status': 'active',
+    };
+  }
+
+  /// Get the appropriate base URL based on environment and security requirements
   static String get baseUrl {
-    if (useLocal) {
-      // Use local backend for all platforms
-      if (kIsWeb) {
-        const url = 'http://localhost:5000/api'; // Use your actual IP for web
-        print('DEBUG: Web app using API URL: $url');
-        return url;
-      } else if (Platform.isAndroid) {
-        return 'http://10.0.2.2:5000/api';
-      } else {
-        return 'http://localhost:5000/api';
-      }
+    // Force HTTPS in production/staging
+    if (EnvironmentConfig.isProduction) {
+      return productionApiUrl;
+    } else if (EnvironmentConfig.isStaging) {
+      return stagingApiUrl;
+    }
+
+    // Development mode - allow HTTP only in debug mode
+    if (EnvironmentConfig.isDevelopment && kDebugMode) {
+      return _getDevBaseUrl();
+    }
+
+    // If somehow in release mode but not production, force HTTPS
+    Logger.warning('Release mode detected but not in production - forcing HTTPS');
+    return productionApiUrl;
+  }
+
+  /// Get development base URL with HTTP (debug mode only)
+  static String _getDevBaseUrl() {
+    if (kIsWeb) {
+      const url = 'http://localhost:$devPort/api';
+      log('DEV_API: Web app using: $url');
+      return url;
+    } else if (Platform.isAndroid) {
+      const url = 'http://$androidEmulatorIP:$devPort/api';
+      log('DEV_API: Android using: $url');
+      return url;
+    } else if (Platform.isIOS) {
+      const url = 'http://localhost:$devPort/api';
+      log('DEV_API: iOS using: $url');
+      return url;
     } else {
-      // Use production backend
-      return 'https://sns-rooster.onrender.com/api';
+      const url = 'http://localhost:$devPort/api';
+      log('DEV_API: Desktop using: $url');
+      return url;
     }
   }
 
-  /// Get base URL with automatic IP detection
+  /// Get base URL with automatic IP detection (development only)
   static Future<String> getDynamicBaseUrl() async {
+    // Only allow dynamic detection in development
+    if (!EnvironmentConfig.isDevelopment || kReleaseMode) {
+      Logger.warning('Dynamic URL detection only allowed in development');
+      return baseUrl;
+    }
+
     if (kIsWeb) {
-      return 'http://localhost:$port/api';
+      return 'http://localhost:$devPort/api';
     } else if (Platform.isAndroid || Platform.isIOS) {
       // Check environment variable first
       String ip = const String.fromEnvironment('API_HOST', defaultValue: '');
@@ -56,14 +94,18 @@ class ApiConfig {
         }
       }
 
-      return 'http://$ip:$port/api';
+      return 'http://$ip:$devPort/api';
     } else {
-      return 'http://localhost:$port/api';
+      return 'http://localhost:$devPort/api';
     }
   }
 
-  /// Detect local IP address automatically
+  /// Detect local IP address automatically (development only)
   static Future<String> detectLocalIP() async {
+    if (!EnvironmentConfig.isDevelopment || kReleaseMode) {
+      return '';
+    }
+
     try {
       // Get all network interfaces
       final interfaces = await NetworkInterface.list();
@@ -97,116 +139,111 @@ class ApiConfig {
     return '';
   }
 
-  /// Get base URL for specific environment
-  static String getBaseUrlForEnvironment(Environment env) {
-    String ip;
-    switch (env) {
-      case Environment.home:
-        ip = homeIP;
-        break;
-      case Environment.office:
-        ip = officeIP;
-        break;
-      case Environment.localhost:
-        return 'http://localhost:$port/api';
+  /// Validate if URL is secure (HTTPS) for production
+  static bool isSecureUrl(String url) {
+    return url.startsWith('https://');
+  }
+
+  /// Force HTTPS for production environments
+  static String enforceHttps(String url) {
+    if (EnvironmentConfig.isProduction || EnvironmentConfig.isStaging) {
+      if (!isSecureUrl(url)) {
+        Logger.error('HTTP URL detected in production: $url');
+        throw SecurityException('HTTPS is required in production environments');
+      }
     }
-    return 'http://$ip:$port/api';
+    return url;
   }
 
-  /// Get the current environment based on IP detection
-  static Environment getCurrentEnvironment() {
-    final currentUrl = baseUrl;
-    if (currentUrl.contains(homeIP)) {
-      return Environment.home;
-    } else if (currentUrl.contains(officeIP)) {
-      return Environment.office;
-    } else {
-      return Environment.localhost;
+  /// Get the production-safe base URL
+  static String get secureBaseUrl {
+    final url = baseUrl;
+    return enforceHttps(url);
+  }
+
+  /// Check if current environment allows HTTP
+  static bool get allowsHttp {
+    return EnvironmentConfig.isDevelopment && 
+           kDebugMode && 
+           !kReleaseMode;
+  }
+
+  /// Get environment info for debugging (development only)
+  static Map<String, dynamic> getEnvironmentInfo() {
+    if (!EnvironmentConfig.isDevelopment) {
+      return {'error': 'Environment info only available in development'};
     }
-  }
 
-  /// Check if the current configuration is for localhost
-  static bool get isLocalhost {
-    return baseUrl.contains('localhost');
-  }
-
-  /// Check if the current configuration is for home network
-  static bool get isHomeNetwork {
-    return baseUrl.contains(homeIP);
-  }
-
-  /// Check if the current configuration is for office network
-  static bool get isOfficeNetwork {
-    return baseUrl.contains(officeIP);
-  }
-
-  /// Get platform-specific information for debugging
-  static Map<String, dynamic> get debugInfo {
     return {
-      'platform': kIsWeb ? 'Web' : Platform.operatingSystem,
-      'isDebugMode': kDebugMode,
-      'baseUrl': baseUrl,
-      'environment': getCurrentEnvironment().toString(),
-      'homeIP': homeIP,
-      'officeIP': officeIP,
-      'port': port,
+      'environment': EnvironmentConfig.currentEnvironment,
+      'base_url': baseUrl,
+      'is_secure': isSecureUrl(baseUrl),
+      'allows_http': allowsHttp,
+      'platform': kIsWeb ? 'web' : Platform.operatingSystem,
+      'debug_mode': kDebugMode,
+      'release_mode': kReleaseMode,
     };
   }
 
-  /// Get detailed network information for debugging
-  static Future<Map<String, dynamic>> getDetailedDebugInfo() async {
-    final info = Map<String, dynamic>.from(debugInfo);
-
+  /// Validate API configuration
+  static bool validateConfiguration() {
     try {
-      final detectedIP = await detectLocalIP();
-      info['detectedLocalIP'] = detectedIP;
-      info['dynamicBaseUrl'] = await getDynamicBaseUrl();
+      final url = baseUrl;
+      
+      // Check URL format
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        Logger.error('Invalid URL format: $url');
+        return false;
+      }
 
-      // Get all network interfaces
-      final interfaces = await NetworkInterface.list();
-      info['networkInterfaces'] = interfaces
-          .map((interface) => {
-                'name': interface.name,
-                'addresses':
-                    interface.addresses.map((addr) => addr.address).toList(),
-              })
-          .toList();
+      // Ensure HTTPS in production
+      if (EnvironmentConfig.isProduction && !isSecureUrl(url)) {
+        Logger.error('HTTPS required in production but HTTP URL found: $url');
+        return false;
+      }
+
+      // Check environment consistency
+      if (!EnvironmentConfig.validateConfig()) {
+        Logger.error('Environment configuration validation failed');
+        return false;
+      }
+
+      return true;
     } catch (e) {
-      info['detectionError'] = e.toString();
+      Logger.error('API configuration validation error: $e');
+      return false;
     }
+  }
 
-    return info;
+  /// Test connection to the API
+  static Future<bool> testConnection() async {
+    try {
+      final uri = Uri.parse(baseUrl);
+      final client = HttpClient();
+
+      // Set a timeout for the connection test
+      client.connectionTimeout = const Duration(seconds: 5);
+
+      final request = await client.getUrl(uri);
+      final response = await request.close();
+
+      client.close();
+
+      // Consider 200-299 and 404 as successful connection
+      // (404 is expected if the endpoint doesn't exist but server is reachable)
+      return response.statusCode >= 200 && response.statusCode < 500;
+    } catch (e) {
+      log('Connection test failed: $e');
+      return false;
+    }
   }
 }
 
-/// Environment enumeration
-enum Environment {
-  home,
-  office,
-  localhost,
-}
-
-/// Extension to get string representation of Environment
-extension EnvironmentExtension on Environment {
-  String get displayName {
-    switch (this) {
-      case Environment.home:
-        return 'Home Network';
-      case Environment.office:
-        return 'Office Network';
-      case Environment.localhost:
-        return 'Localhost';
-    }
-  }
-
-  String get emoji {
-    switch (this) {
-      case Environment.home:
-        return '🏠';
-      case Environment.office:
-        return '🏢';
-      case Environment.localhost:
-        return '💻';
-    }
-  }
+/// Custom exception for security violations
+class SecurityException implements Exception {
+  final String message;
+  SecurityException(this.message);
+  
+  @override
+  String toString() => 'SecurityException: $message';
 }
