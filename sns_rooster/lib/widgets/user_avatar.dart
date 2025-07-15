@@ -22,6 +22,32 @@ class UserAvatar extends StatelessWidget {
 
     if (avatarUrl == null || avatarUrl!.isEmpty) {
       avatarChild = Icon(Icons.person, size: radius, color: Colors.grey[400]);
+    } else if (avatarUrl!
+        .contains('/opt/render/project/src/rooster-backend/uploads/avatars/')) {
+      // Fix production server paths by extracting just the filename
+      final filename = avatarUrl!.split('/').last;
+      final baseUrlWithoutApi = ApiConfig.baseUrl.replaceAll('/api', '');
+      final fixedUrl = '$baseUrlWithoutApi/uploads/avatars/$filename';
+      avatarChild = CachedNetworkImage(
+        imageUrl: fixedUrl,
+        placeholder: (context, url) => CircleAvatar(
+          radius: radius,
+          backgroundColor: Colors.grey[200],
+          child: Icon(Icons.person, size: radius, color: Colors.grey[400]),
+        ),
+        errorWidget: (context, url, error) {
+          print('AVATAR ERROR: Failed to load $url, error: $error');
+          return CircleAvatar(
+            radius: radius,
+            backgroundColor: Colors.grey[200],
+            child: Icon(Icons.person, size: radius, color: Colors.grey[400]),
+          );
+        },
+        imageBuilder: (context, imageProvider) => CircleAvatar(
+          radius: radius,
+          backgroundImage: imageProvider,
+        ),
+      );
     } else if (avatarUrl!.endsWith('.svg') && avatarUrl!.startsWith('http')) {
       // SVG from network
       avatarChild = FutureBuilder<Widget>(
@@ -39,7 +65,9 @@ class UserAvatar extends StatelessWidget {
           }
         },
       );
-    } else if (avatarUrl!.startsWith('http')) {
+    } else if (avatarUrl!.toLowerCase().startsWith('http') ||
+        avatarUrl!.contains('://')) {
+      // For full URLs (http/https), use directly
       avatarChild = CachedNetworkImage(
         imageUrl: avatarUrl!,
         placeholder: (context, url) => CircleAvatar(
@@ -47,11 +75,14 @@ class UserAvatar extends StatelessWidget {
           backgroundColor: Colors.grey[200],
           child: Icon(Icons.person, size: radius, color: Colors.grey[400]),
         ),
-        errorWidget: (context, url, error) => CircleAvatar(
-          radius: radius,
-          backgroundColor: Colors.grey[200],
-          child: Icon(Icons.person, size: radius, color: Colors.grey[400]),
-        ),
+        errorWidget: (context, url, error) {
+          print('AVATAR ERROR: Failed to load $url, error: $error');
+          return CircleAvatar(
+            radius: radius,
+            backgroundColor: Colors.grey[200],
+            child: Icon(Icons.person, size: radius, color: Colors.grey[400]),
+          );
+        },
         imageBuilder: (context, imageProvider) => CircleAvatar(
           radius: radius,
           backgroundImage: imageProvider,
@@ -85,13 +116,42 @@ class UserAvatar extends StatelessWidget {
             FileImage(File(avatarUrl!.replaceFirst('file://', ''))),
       );
     } else {
-      // Assume it's an asset path
+      // For anything else, assume it's a relative path and add /uploads/avatars/
+      // but first check if it's not already a full path to avoid double prefixes
+      String finalUrl;
+      final baseUrlWithoutApi = ApiConfig.baseUrl.replaceAll('/api', '');
+
+      if (avatarUrl!.startsWith('/uploads/')) {
+        finalUrl = '$baseUrlWithoutApi$avatarUrl';
+      } else if (!avatarUrl!.startsWith('/')) {
+        finalUrl = '$baseUrlWithoutApi/uploads/avatars/$avatarUrl';
+      } else {
+        finalUrl = '$baseUrlWithoutApi$avatarUrl';
+      }
+
       try {
-        avatarChild = CircleAvatar(
-          radius: radius,
-          backgroundImage: AssetImage(avatarUrl!),
+        avatarChild = CachedNetworkImage(
+          imageUrl: finalUrl,
+          placeholder: (context, url) => CircleAvatar(
+            radius: radius,
+            backgroundColor: Colors.grey[200],
+            child: Icon(Icons.person, size: radius, color: Colors.grey[400]),
+          ),
+          errorWidget: (context, url, error) {
+            print('AVATAR ERROR: Failed to load $url, error: $error');
+            return CircleAvatar(
+              radius: radius,
+              backgroundColor: Colors.grey[200],
+              child: Icon(Icons.person, size: radius, color: Colors.grey[400]),
+            );
+          },
+          imageBuilder: (context, imageProvider) => CircleAvatar(
+            radius: radius,
+            backgroundImage: imageProvider,
+          ),
         );
       } catch (e) {
+        print('AVATAR ERROR: Exception loading avatar: $e');
         avatarChild = CircleAvatar(
           radius: radius,
           backgroundColor: Colors.orange[100],

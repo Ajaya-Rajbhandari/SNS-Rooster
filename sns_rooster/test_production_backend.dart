@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 void main() async {
@@ -20,7 +19,7 @@ void main() async {
 
     print('Ping Status Code: ${pingResponse.statusCode}');
     print(
-        'Ping Response: ${pingResponse.body.length > 100 ? pingResponse.body.substring(0, 100) + '...' : pingResponse.body}');
+        'Ping Response: ${pingResponse.body.length > 100 ? '${pingResponse.body.substring(0, 100)}...' : pingResponse.body}');
     print('');
 
     // Test 2: Try to access the API root
@@ -52,7 +51,7 @@ void main() async {
 
         print('Status Code: ${response.statusCode}');
         print(
-            'Response: ${response.body.length > 50 ? response.body.substring(0, 50) + '...' : response.body}');
+            'Response: ${response.body.length > 50 ? '${response.body.substring(0, 50)}...' : response.body}');
         print('');
       } catch (e) {
         print('Error: $e');

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/global_notification_service.dart';
 import '../../providers/auth_provider.dart' as local_auth;
 import 'package:http/http.dart' as http;

@@ -13,6 +13,9 @@ router.get('/employee/pdf', authMiddleware, payrollController.downloadAllPayslip
 // Download all payslips for the current logged-in employee as CSV
 router.get('/employee/csv', authMiddleware, payrollController.downloadAllPayslipsCsvForCurrentUser);
 
+// Get current user's payroll slips
+router.get('/employee', authMiddleware, payrollController.getCurrentUserPayrolls);
+
 // Download all payslips for an employee as PDF
 router.get('/employee/:employeeId/pdf', payrollController.downloadAllPayslipsPdf);
 // Download all payslips for an employee as CSV

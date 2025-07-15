@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/secure_storage_service.dart';
 import '../employee/employee_dashboard_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,12 +21,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _rememberMe = false;
 
-  // Test credentials for developer convenience
-  static const String _devEmployeeEmail = 'testuser@example.com';
-  static const String _devEmployeePassword = 'Test@123';
-  static const String _devAdminEmail = 'admin@snsrooster.com';
-  static const String _devAdminPassword = 'Admin@123';
-
   @override
   void initState() {
     super.initState();
@@ -33,14 +28,41 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _loadSavedCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
-    final remember = prefs.getBool('rememberMe') ?? false;
-    if (remember) {
-      setState(() {
-        _rememberMe = true;
-        _emailController.text = prefs.getString('savedEmail') ?? '';
-        _passwordController.text = prefs.getString('savedPassword') ?? '';
-      });
+    try {
+      // Load remembered credentials from secure storage
+      final rememberedCreds = await SecureStorageService.getRememberedCredentials();
+      final remember = rememberedCreds['remember_me'] == 'true';
+      
+      if (remember) {
+        setState(() {
+          _rememberMe = true;
+          _emailController.text = rememberedCreds['email'] ?? '';
+          _passwordController.text = rememberedCreds['password'] ?? '';
+        });
+      }
+    } catch (e) {
+      // Fallback to SharedPreferences for migration
+      final prefs = await SharedPreferences.getInstance();
+      final remember = prefs.getBool('rememberMe') ?? false;
+      if (remember) {
+        setState(() {
+          _rememberMe = true;
+          _emailController.text = prefs.getString('savedEmail') ?? '';
+          _passwordController.text = prefs.getString('savedPassword') ?? '';
+        });
+        
+        // Migrate to secure storage
+        await SecureStorageService.storeRememberedCredentials(
+          email: _emailController.text,
+          password: _passwordController.text,
+          rememberMe: true,
+        );
+        
+        // Clear from SharedPreferences
+        await prefs.remove('rememberMe');
+        await prefs.remove('savedEmail');
+        await prefs.remove('savedPassword');
+      }
     }
   }
 
@@ -66,16 +88,8 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (success) {
-        final prefs = await SharedPreferences.getInstance();
-        if (_rememberMe) {
-          await prefs.setString('savedEmail', _emailController.text);
-          await prefs.setString('savedPassword', _passwordController.text);
-          await prefs.setBool('rememberMe', true);
-        } else {
-          await prefs.remove('savedEmail');
-          await prefs.remove('savedPassword');
-          await prefs.setBool('rememberMe', false);
-        }
+        // Credentials are now stored in secure storage by AuthProvider
+        // No need to handle it here separately
         if (authProvider.user?['role'] == 'admin') {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
@@ -107,8 +121,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
     final theme = Theme.of(context);
     return Scaffold(
       body: Container(
@@ -168,10 +180,21 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       keyboardType: TextInputType.emailAddress,
                       validator: (value) {
-                        if (value == null || value.isEmpty) {
+                        final trimmed = value?.trim() ?? '';
+                        if (trimmed.isEmpty) {
                           return 'Please enter your email';
                         }
+                        final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+                        if (!emailRegex.hasMatch(trimmed)) {
+                          return 'Please enter a valid email address';
+                        }
                         return null;
+                      },
+                      onChanged: (val) {
+                        _emailController.value = _emailController.value.copyWith(
+                          text: val.trim(),
+                          selection: TextSelection.collapsed(offset: val.trim().length),
+                        );
                       },
                     ),
                     const SizedBox(height: 16),
@@ -200,10 +223,23 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       obscureText: _obscurePassword,
                       validator: (value) {
-                        if (value == null || value.isEmpty) {
+                        final trimmed = value?.trim() ?? '';
+                        if (trimmed.isEmpty) {
                           return 'Please enter your password';
                         }
+                        if (trimmed.length < 8) {
+                          return 'Password must be at least 8 characters';
+                        }
+                        if (trimmed.contains(' ')) {
+                          return 'Password cannot contain spaces';
+                        }
                         return null;
+                      },
+                      onChanged: (val) {
+                        _passwordController.value = _passwordController.value.copyWith(
+                          text: val.trim(),
+                          selection: TextSelection.collapsed(offset: val.trim().length),
+                        );
                       },
                     ),
                     Align(
@@ -231,6 +267,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         setState(() {
                           _rememberMe = value;
                         });
+                        // Sync with provider
+                        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                        authProvider.setRememberMe(value);
                       },
                     ),
                     ElevatedButton(

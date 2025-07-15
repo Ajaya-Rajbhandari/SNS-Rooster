@@ -29,6 +29,11 @@ class _TimesheetScreenState extends State<TimesheetScreen>
   late Animation<double> _fadeAnimation;
   final List<String> _filters = ['All', 'Approved', 'Pending', 'Rejected'];
 
+  // Cache for processed data to improve performance
+  List<Map<String, dynamic>>? _cachedFilteredData;
+  DateTimeRange? _lastDateRange;
+  String? _lastFilter;
+
   @override
   void initState() {
     super.initState();
@@ -98,6 +103,12 @@ class _TimesheetScreenState extends State<TimesheetScreen>
         _selectedDateRange.end.toIso8601String());
   }
 
+  void _clearCache() {
+    _cachedFilteredData = null;
+    _lastDateRange = null;
+    _lastFilter = null;
+  }
+
   @override
   void dispose() {
     _animationController.dispose();
@@ -141,6 +152,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
     if (picked != null && picked != _selectedDateRange) {
       setState(() {
         _selectedDateRange = picked;
+        _clearCache(); // Clear cache when date range changes
       });
       await _saveQuickActionState();
     }
@@ -175,7 +187,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
         totalHours = workDuration.inMinutes / 60.0;
       }
 
-      // Subtract break time
+      // Subtract break time - handle both minutes and milliseconds
       double totalBreakHours = 0.0;
       final breaks = entry['breaks'];
       if (breaks is List) {
@@ -183,16 +195,44 @@ class _TimesheetScreenState extends State<TimesheetScreen>
           if (breakItem is Map<String, dynamic>) {
             final breakDuration = breakItem['duration'];
             if (breakDuration is num) {
-              // Duration is in milliseconds, convert to hours
-              totalBreakHours += (breakDuration / (1000 * 60 * 60));
+              // Check if duration is in minutes or milliseconds
+              // If it's more than 24 hours in minutes (1440), it's likely in milliseconds
+              if (breakDuration > 1440) {
+                // Duration is in milliseconds, convert to hours
+                totalBreakHours += (breakDuration / (1000 * 60 * 60));
+              } else {
+                // Duration is in minutes, convert to hours
+                totalBreakHours += (breakDuration / 60.0);
+              }
             }
           }
         }
       }
+
+      // Also check totalBreakDuration field
+      final totalBreakDuration = entry['totalBreakDuration'];
+      if (totalBreakDuration is num) {
+        // If totalBreakDuration is more than 24 hours in minutes, it's likely invalid
+        if (totalBreakDuration > 1440) {
+          // Skip this value as it's clearly invalid
+          // Removed debug print to reduce spam
+        } else {
+          // Use totalBreakDuration if it's reasonable
+          totalBreakHours = totalBreakDuration / 60.0;
+        }
+      }
+
       final netWorkHours = totalHours - totalBreakHours;
 
-      return netWorkHours > 0 ? netWorkHours : 0.0;
+      // Validate final result
+      if (netWorkHours < 0 || netWorkHours > 24) {
+        // If result is negative or more than 24 hours, return just the work hours
+        return totalHours > 0 ? totalHours : 0.0;
+      }
+
+      return netWorkHours;
     } catch (e) {
+      // Removed debug print to reduce spam
       return 0.0;
     }
   }
@@ -204,10 +244,21 @@ class _TimesheetScreenState extends State<TimesheetScreen>
         .cast<Map<String, dynamic>>()
         .toList();
 
-    // Process records and add calculated totalHours
+    // Check if we can use cached data
+    if (_cachedFilteredData != null &&
+        _lastDateRange == _selectedDateRange &&
+        _lastFilter == _selectedFilter) {
+      return _cachedFilteredData!;
+    }
+
+    // Process records and add calculated totalHours (only once)
     final List<Map<String, dynamic>> processedRecords = records.map((entry) {
       final processedEntry = Map<String, dynamic>.from(entry);
-      processedEntry['totalHours'] = _calculateTotalHours(entry);
+
+      // Only calculate totalHours if not already calculated
+      if (processedEntry['totalHours'] == null) {
+        processedEntry['totalHours'] = _calculateTotalHours(entry);
+      }
 
       // Ensure status field exists (default to 'Approved' for existing records)
       if (processedEntry['status'] == null) {
@@ -305,12 +356,21 @@ class _TimesheetScreenState extends State<TimesheetScreen>
           entryDate
               .isBefore(_selectedDateRange.end.add(const Duration(days: 1)));
     }).toList();
-    if (_selectedFilter == 'All') return dateFilteredData;
-    return dateFilteredData
-        .where((entry) =>
-            ((entry['status']?.toString().trim().toLowerCase() ?? 'approved') ==
-                _selectedFilter.trim().toLowerCase()))
-        .toList();
+    final result = _selectedFilter == 'All'
+        ? dateFilteredData
+        : dateFilteredData
+            .where((entry) =>
+                ((entry['status']?.toString().trim().toLowerCase() ??
+                        'approved') ==
+                    _selectedFilter.trim().toLowerCase()))
+            .toList();
+
+    // Cache the result
+    _cachedFilteredData = result;
+    _lastDateRange = _selectedDateRange;
+    _lastFilter = _selectedFilter;
+
+    return result;
   }
 
   double get _totalHoursFiltered {
@@ -477,6 +537,13 @@ class _TimesheetScreenState extends State<TimesheetScreen>
           final hours = (entry['totalHours'] is num)
               ? (entry['totalHours'] as num).toDouble()
               : 0.0;
+
+          // Validate hours - if more than 24, it's likely invalid
+          if (hours > 24.0) {
+            // Removed debug print to reduce spam
+            continue; // Skip this entry
+          }
+
           dailyHours += hours;
 
           // Count breaks
@@ -530,12 +597,16 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
-                        '${dailyHours.toStringAsFixed(1)} hrs',
+                        dailyHours > 24.0
+                            ? '--'
+                            : '${dailyHours.toStringAsFixed(1)} hrs',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: dailyHours > 8
-                              ? Colors.orange[700]
-                              : Theme.of(context).primaryColor,
+                          color: dailyHours > 24.0
+                              ? Colors.grey[600]
+                              : (dailyHours > 8
+                                  ? Colors.orange[700]
+                                  : Theme.of(context).primaryColor),
                         ),
                       ),
                     ),
@@ -791,6 +862,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                         onSelected: (selected) {
                           setState(() {
                             _selectedFilter = filter;
+                            _clearCache(); // Clear cache when filter changes
                           });
                           _saveQuickActionState();
                         },
@@ -830,6 +902,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                     onSelectionChanged: (Set<String> selection) {
                       setState(() {
                         _selectedView = selection.first;
+                        _clearCache(); // Clear cache when view changes
                       });
                     },
                   ),
@@ -841,19 +914,28 @@ class _TimesheetScreenState extends State<TimesheetScreen>
               Consumer<AttendanceProvider>(
                 builder: (context, attendanceProvider, _) {
                   if (attendanceProvider.isLoading) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const SizedBox(
+                      height: 200,
+                      child: Center(child: CircularProgressIndicator()),
+                    );
                   }
                   if (attendanceProvider.error != null) {
-                    return Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Text('Error: ${attendanceProvider.error}',
-                          style: const TextStyle(color: Colors.red)),
+                    return SizedBox(
+                      height: 200,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Text('Error: ${attendanceProvider.error}',
+                            style: const TextStyle(color: Colors.red)),
+                      ),
                     );
                   }
                   if (_filteredData.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Text('No timesheet entries for this range.'),
+                    return const SizedBox(
+                      height: 200,
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Text('No timesheet entries for this range.'),
+                      ),
                     );
                   }
                   return Padding(
@@ -1372,17 +1454,46 @@ class TimesheetRow extends StatelessWidget {
     int breakInt = 0;
     if (breakVal is int) breakInt = breakVal;
     if (breakVal is String) breakInt = int.tryParse(breakVal) ?? 0;
+
+    // Handle extreme values that are clearly incorrect
+    if (breakInt > 1440) {
+      // More than 24 hours in minutes
+      return '--'; // Return dash for clearly invalid data
+    }
+
     final hours = breakInt ~/ 60;
     final minutes = breakInt % 60;
     if (hours > 0) return '${hours}h ${minutes}m';
     return '${minutes}m';
   }
 
+  String formatTotalHours(dynamic totalHours) {
+    if (totalHours == null) return '--';
+
+    double hours = 0.0;
+    if (totalHours is num) {
+      hours = totalHours.toDouble();
+    } else if (totalHours is String) {
+      hours = double.tryParse(totalHours) ?? 0.0;
+    }
+
+    // Handle extreme values that are clearly incorrect
+    if (hours > 24.0) {
+      return '--'; // Return dash for clearly invalid data
+    }
+
+    return '${hours.toStringAsFixed(1)} hrs';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final checkInRaw = entry['checkIn']?.toString() ?? '--';
-    final checkOutRaw = entry['checkOut']?.toString() ?? '--';
+    final checkInRaw = entry['checkInTime']?.toString() ??
+        entry['checkIn']?.toString() ??
+        '--';
+    final checkOutRaw = entry['checkOutTime']?.toString() ??
+        entry['checkOut']?.toString() ??
+        '--';
     final inTime = formatTime(checkInRaw);
     final outTime = formatTime(checkOutRaw);
     final breakDuration = entry['breakDuration']?.toString() ??
@@ -1392,16 +1503,23 @@ class TimesheetRow extends StatelessWidget {
     final status = entry['status']?.toString() ?? 'Pending';
     final totalHours = entry['totalHours']?.toString() ??
         (() {
-          if (entry['checkIn'] != null &&
-              entry['checkOut'] != null &&
-              entry['checkOut'] != 'null' &&
-              entry['checkIn'] != 'null') {
+          final checkInTime = entry['checkInTime'] ?? entry['checkIn'];
+          final checkOutTime = entry['checkOutTime'] ?? entry['checkOut'];
+          if (checkInTime != null &&
+              checkOutTime != null &&
+              checkOutTime.toString() != 'null' &&
+              checkInTime.toString() != 'null') {
             try {
-              final inTime = DateTime.tryParse(entry['checkIn'].toString());
-              final outTime = DateTime.tryParse(entry['checkOut'].toString());
+              final inTime = DateTime.tryParse(checkInTime.toString());
+              final outTime = DateTime.tryParse(checkOutTime.toString());
               if (inTime != null && outTime != null) {
-                return ((outTime.difference(inTime).inMinutes) / 60.0)
-                    .toStringAsFixed(2);
+                final hours = (outTime.difference(inTime).inMinutes) / 60.0;
+                // Handle extreme values that are clearly incorrect
+                if (hours > 24) {
+                  // More than 24 hours
+                  return '--';
+                }
+                return hours.toStringAsFixed(2);
               }
             } catch (_) {}
           }
@@ -1413,6 +1531,8 @@ class TimesheetRow extends StatelessWidget {
         date = entry['date'];
       } else if (entry['date'] is String) {
         date = DateTime.tryParse(entry['date']);
+      } else if (entry['checkInTime'] is String) {
+        date = DateTime.tryParse(entry['checkInTime']);
       } else if (entry['checkIn'] is String) {
         date = DateTime.tryParse(entry['checkIn']);
       }
@@ -1425,106 +1545,234 @@ class TimesheetRow extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       elevation: 1,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            // Date and status row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  dateText,
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: theme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            dateText,
+                            style: theme.textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            weekdayText,
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  weekdayText,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: Colors.grey[600]),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: statusColor.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.circle, color: statusColor, size: 12),
+                      const SizedBox(width: 4),
+                      Text(
+                        status,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-            const SizedBox(width: 18),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.login, size: 18, color: Colors.blueGrey),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text('In:',
-                            style: theme.textTheme.bodySmall,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                      const SizedBox(width: 2),
-                      Flexible(
-                        child: Text(inTime,
-                            style: theme.textTheme.bodyMedium,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                      const SizedBox(width: 12),
-                      const Icon(Icons.logout,
-                          size: 18, color: Colors.blueGrey),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text('Out:',
-                            style: theme.textTheme.bodySmall,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                      const SizedBox(width: 2),
-                      Flexible(
-                        child: Text(outTime,
-                            style: theme.textTheme.bodyMedium,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Icon(Icons.free_breakfast,
-                          size: 16, color: Colors.orange),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text('Break:',
-                            style: theme.textTheme.bodySmall,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                      const SizedBox(width: 2),
-                      Flexible(
-                        child: Text(breakStr,
-                            style: theme.textTheme.bodySmall,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                      const SizedBox(width: 16),
-                      const Icon(Icons.timer, size: 16, color: Colors.blue),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text('Total:',
-                            style: theme.textTheme.bodySmall,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                      const SizedBox(width: 2),
-                      Flexible(
-                        child: Text('$totalHours hrs',
-                            style: theme.textTheme.bodySmall,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
+            const SizedBox(height: 12),
+
+            // Clock in/out times row
+            Row(
               children: [
-                Icon(Icons.circle, color: statusColor, size: 16),
-                const SizedBox(height: 2),
-                Text(status,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                        color: statusColor, fontWeight: FontWeight.bold)),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.login,
+                                size: 16, color: Colors.blue),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Clock In',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          inTime,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[700],
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.logout,
+                                size: 16, color: Colors.red),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Clock Out',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          outTime,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red[700],
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Break and total time row
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.free_breakfast,
+                                size: 16, color: Colors.orange),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Break Time',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          breakStr,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange[700],
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.timer,
+                                size: 16, color: Colors.green),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Total Hours',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          formatTotalHours(totalHours),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green[700],
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ],

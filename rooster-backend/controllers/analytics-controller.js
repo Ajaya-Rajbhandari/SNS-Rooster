@@ -222,7 +222,6 @@ exports.getMonthlyHoursTrendAdmin = async (req, res) => {
         hours: +(monthMap[key] / (1000 * 60 * 60)).toFixed(1),
       }));
 
-    console.log('DEBUG: payroll trend raw length', trend.length);
     const formatted = trend.map((t) => {
       const monthStr = `${t.month}`;
       return {
@@ -306,7 +305,6 @@ exports.getRecentActivity = async (req, res) => {
 
 // GET /analytics/admin/overview
 exports.getAdminOverview = async (req, res) => {
-  console.log('DEBUG: /analytics/admin/overview endpoint hit');
   try {
     // Only allow admin
     if (!req.user || req.user.role !== 'admin') {
@@ -369,9 +367,6 @@ exports.getAdminOverview = async (req, res) => {
       leaveUserIds = employees
         .filter(e => leaveIds.has(e._id.toString()))
         .map(e => e.userId.toString());
-      // DEBUG: Print leave records and leaveIds
-      console.log('DEBUG: leaveToday:', leaveToday.map(lr => ({ employeeId: lr.employee, startDate: lr.startDate, endDate: lr.endDate, status: lr.status })));
-      console.log('DEBUG: leaveIds:', Array.from(leaveIds));
     } catch (e) {
       leaveIds = new Set();
       leaveUserIds = [];
@@ -395,28 +390,6 @@ exports.getAdminOverview = async (req, res) => {
       return emp && leaveIds.has(emp._id.toString());
     });
     const onLeave = onLeaveUsers.length;
-
-    // DEBUG LOGGING
-    console.log('DEBUG: presentUsers:', presentUsers.map(u => ({ name: u.firstName + ' ' + u.lastName, email: u.email })));
-    console.log('DEBUG: onLeaveUsers:', onLeaveUsers.map(u => ({ name: u.firstName + ' ' + u.lastName, email: u.email })));
-    presentUsers.forEach(u => {
-      const emp = employees.find(e => e.userId.toString() === u._id.toString());
-      console.log('DEBUG: Present user mapping:', {
-        user: u.firstName + ' ' + u.lastName,
-        email: u.email,
-        userId: u._id.toString(),
-        employeeId: emp ? emp._id.toString() : null
-      });
-    });
-    onLeaveUsers.forEach(u => {
-      const emp = employees.find(e => e.userId.toString() === u._id.toString());
-      console.log('DEBUG: OnLeave user mapping:', {
-        user: u.firstName + ' ' + u.lastName,
-        email: u.email,
-        userId: u._id.toString(),
-        employeeId: emp ? emp._id.toString() : null
-      });
-    });
 
     // Absent = not present, not on leave (use same mapping)
     const absentUsers = activeConfirmedUsers.filter(u => {
@@ -635,7 +608,6 @@ exports.getPayrollTrendAdmin = async (req, res) => {
       },
     ]);
 
-    console.log('DEBUG: payroll trend raw length', trend.length);
     const formatted = trend.map((t) => {
       let label;
       if (freq === 'weekly') {

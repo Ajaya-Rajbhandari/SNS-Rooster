@@ -173,10 +173,19 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen>
                   backgroundImage: _fullProfile!['avatar'] != null &&
                           _fullProfile!['avatar'] !=
                               '/uploads/avatars/default-avatar.png'
-                      ? NetworkImage(_fullProfile!['avatar']
-                              .startsWith('/uploads/')
-                          ? '${ApiConfig.baseUrl.replaceAll('/api', '')}${_fullProfile!['avatar']}'
-                          : '${ApiConfig.baseUrl.replaceAll('/api', '')}/uploads/avatars/${_fullProfile!['avatar']}')
+                      ? (_fullProfile!['avatar'].toString().contains(
+                              '/opt/render/project/src/rooster-backend/uploads/avatars/'))
+                          ? NetworkImage(
+                              '${ApiConfig.baseUrl.replaceAll('/api', '')}/uploads/avatars/${_fullProfile!['avatar'].toString().split('/').last}')
+                          : (_fullProfile!['avatar']
+                                      .toString()
+                                      .startsWith('http') ||
+                                  _fullProfile!['avatar']
+                                      .toString()
+                                      .contains('://'))
+                              ? NetworkImage(_fullProfile!['avatar'])
+                              : NetworkImage(
+                                  '${ApiConfig.baseUrl.replaceAll('/api', '')}${_fullProfile!['avatar'].toString().startsWith('/') ? '' : '/'}${_fullProfile!['avatar']}')
                       : null,
                   child: _fullProfile!['avatar'] == null ||
                           _fullProfile!['avatar'] ==

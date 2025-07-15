@@ -54,6 +54,7 @@ class AppDrawer extends StatelessWidget {
           final avatarPath = profile?['avatar'] ?? profile?['profilePicture'];
           var avatarUrl = avatarPath ?? '/uploads/avatars/default-avatar.png';
           log('APP_DRAWER: avatarUrl = $avatarUrl');
+
           return ListView(
             padding: EdgeInsets.zero,
             children: <Widget>[

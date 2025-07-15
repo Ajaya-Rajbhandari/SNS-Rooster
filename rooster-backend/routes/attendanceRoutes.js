@@ -21,6 +21,9 @@ router.patch("/end-break", auth, attendanceController.endBreak);
 // Get current user's own attendance data
 router.get("/my-attendance", auth, attendanceController.getMyAttendance);
 
+// Get current user's timesheet entries
+router.get("/timesheet", auth, attendanceController.getMyTimesheet);
+
 // Get attendance for a specific user (Admin/Manager only, or self)
 router.get("/user/:userId", auth, attendanceController.getUserAttendance);
 
@@ -167,6 +170,12 @@ router.get("/summary/:userId", auth, async (req, res) => {
 });
 
 router.get("/status/:userId", auth, attendanceController.getAttendanceStatus);
+
+// Get current user's attendance status (simplified endpoint)
+router.get("/status", auth, (req, res) => {
+  req.params.userId = req.user.userId;
+  attendanceController.getAttendanceStatus(req, res);
+});
 
 // Debug route for testing clock-in functionality
 router.post("/debug/clock-in/:userId", auth, async (req, res) => {

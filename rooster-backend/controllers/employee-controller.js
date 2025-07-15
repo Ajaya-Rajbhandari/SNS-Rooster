@@ -3,6 +3,14 @@ const Employee = require('../models/Employee');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 
+function getAvatarUrl(avatar) {
+  if (!avatar) return null;
+  if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
+    return avatar;
+  }
+  return `/uploads/avatars/${avatar}`;
+}
+
 exports.getAllEmployees = async (req, res) => {
   try {
     console.log('DEBUG: getAllEmployees called, user role:', req.user.role);
@@ -14,8 +22,12 @@ exports.getAllEmployees = async (req, res) => {
     console.log('DEBUG: Employee filter:', filter);
     const employees = await Employee.find(filter);
     console.log('DEBUG: Found employees count:', employees.length);
-    // Removed notification-creation logic for incomplete profiles
-    res.status(200).json(employees);
+    const employeesWithAvatar = employees.map(e => {
+      const obj = e.toObject();
+      obj.avatar = getAvatarUrl(obj.avatar);
+      return obj;
+    });
+    res.status(200).json(employeesWithAvatar);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -31,7 +43,9 @@ exports.getEmployeeById = async (req, res) => {
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
-    res.status(200).json(employee);
+    const obj = employee.toObject();
+    obj.avatar = getAvatarUrl(obj.avatar);
+    res.status(200).json(obj);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -181,7 +195,7 @@ exports.getEmployeeByUserId = async (req, res) => {
 
     const employeeObj = employee.toObject();
     employeeObj.userId = employeeObj.userId?.toString();
-
+    employeeObj.avatar = getAvatarUrl(employeeObj.avatar);
     res.status(200).json({ data: employeeObj });
   } catch (error) {
     console.error('Error fetching employee by userId:', error);

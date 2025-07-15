@@ -248,10 +248,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String firstName = _firstNameController.text.trim();
     String lastName = _lastNameController.text.trim();
     String phone = _phoneController.text.trim();
-    String email = _emailController.text.trim();
     String address = _addressController.text.trim();
-    final emailRegex = RegExp(
-        r"^[a-zA-Z0-9.!#\$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*");
+    final phoneRegex = RegExp(r'^\+?[0-9]{8,15}$');
 
     if (firstName.isEmpty) {
       GlobalNotificationService().showError('First name is required.');
@@ -261,14 +259,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       GlobalNotificationService().showError('Last name is required.');
       return;
     }
-    if (email.isEmpty || !emailRegex.hasMatch(email)) {
-      GlobalNotificationService()
-          .showError('Please enter a valid email address.');
-      return;
-    }
-    if (phone.isEmpty || phone.length < 8) {
-      GlobalNotificationService()
-          .showError('Please enter a valid phone number (at least 8 digits).');
+    // Email validation removed since email is read-only and already verified
+    if (phone.isEmpty || !phoneRegex.hasMatch(phone)) {
+      GlobalNotificationService().showError(
+          'Please enter a valid phone number (8-15 digits, digits only).');
       return;
     }
     if (address.isEmpty) {
@@ -1201,9 +1195,9 @@ class _EducationSection extends StatelessWidget {
               ),
             ),
           ],
-        ),
+        ),  
       ),
-    ); // showDialog
+    ); // <-- closes the Card widget
   }
 
   void _deleteEducation(BuildContext context, int? idx) async {
@@ -1279,9 +1273,11 @@ class _CertificateSection extends StatelessWidget {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text([issuer, date]
-                          .where((e) => e != null && e.toString().isNotEmpty)
-                          .join(' â€¢ ')),
+                      Text([
+                        issuer,
+                        date
+                      ].where((e) => e != null && e.toString().isNotEmpty)
+                          .join(' • ')),
                     ],
                   ),
                   trailing: Row(
@@ -1311,7 +1307,7 @@ class _CertificateSection extends StatelessWidget {
                     ],
                   ),
                 );
-              }),
+              }).toList(),
           ],
         ),
       ),

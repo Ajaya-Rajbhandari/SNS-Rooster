@@ -187,4 +187,10 @@ class AttendanceProvider with ChangeNotifier {
       log('FETCH_BREAK_TYPES_DEBUG: Error during API call: $e');
     }
   }
+
+  @override
+  void dispose() {
+    // Clean up any controllers, listeners, or resources here
+    super.dispose();
+  }
 }
