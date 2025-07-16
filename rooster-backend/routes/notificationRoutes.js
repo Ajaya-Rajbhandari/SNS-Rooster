@@ -1,27 +1,27 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const notificationController = require('../controllers/notification-controller');
 
 // Create a notification (admin/system)
-router.post('/', auth, notificationController.createNotification);
+router.post('/', authenticateToken, notificationController.createNotification);
 
 // List notifications for current user
-router.get('/', auth, notificationController.getNotifications);
+router.get('/', authenticateToken, notificationController.getNotifications);
 
 // Mark notification as read
-router.patch('/:id/read', auth, notificationController.markAsRead);
+router.patch('/:id/read', authenticateToken, notificationController.markAsRead);
 
 // Mark all notifications as read
-router.patch('/mark-all-read', auth, notificationController.markAllAsRead);
+router.patch('/mark-all-read', authenticateToken, notificationController.markAllAsRead);
 
 // Delete all notifications for the current user/role
-router.delete('/clear-all', auth, notificationController.clearAllNotifications);
+router.delete('/clear-all', authenticateToken, notificationController.clearAllNotifications);
 
 // Delete a single notification by ID
-router.delete('/:id', auth, notificationController.deleteNotification);
+router.delete('/:id', authenticateToken, notificationController.deleteNotification);
 
 // Admin-only: delete all admin notifications
-router.delete('/clear-all-admin', auth, notificationController.clearAllAdminNotifications);
+router.delete('/clear-all-admin', authenticateToken, notificationController.clearAllAdminNotifications);
 
 module.exports = router; 

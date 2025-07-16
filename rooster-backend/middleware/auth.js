@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 
-const auth = async (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
   try {
     console.log('JWT_SECRET used for verification:', process.env.JWT_SECRET);
 
@@ -40,4 +40,22 @@ const auth = async (req, res, next) => {
   }
 };
 
-module.exports = auth;
+// Simple role authorization middleware
+const authorizeRoles = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+    
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    next();
+  };
+};
+
+module.exports = {
+  authenticateToken,
+  authorizeRoles
+};

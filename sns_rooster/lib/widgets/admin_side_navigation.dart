@@ -18,6 +18,7 @@ import '../screens/admin/break_types_screen.dart';
 import '../screens/admin/analytics_reports_screen.dart';
 import '../screens/admin/admin_profile_screen.dart';
 import '../screens/admin/admin_attendance_screen.dart';
+import '../screens/admin/event_management_screen.dart';
 import '../widgets/user_avatar.dart';
 import 'package:sns_rooster/main.dart'; // Re-added import for navigatorKey
 
@@ -154,6 +155,14 @@ class AdminSideNavigation extends StatelessWidget {
                   title: 'Analytics & Reports',
                   route: '/analytics',
                   screen: const AdminAnalyticsScreen(),
+                  colorScheme: colorScheme,
+                ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.event,
+                  title: 'Event Management',
+                  route: '/event_management',
+                  screen: const EventManagementScreen(),
                   colorScheme: colorScheme,
                 ),
 

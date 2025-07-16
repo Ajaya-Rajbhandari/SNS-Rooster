@@ -1,5 +1,5 @@
 const express = require("express");
-const auth = require("../middleware/auth");
+const { authenticateToken } = require("../middleware/auth");
 const avatarUpload = require("../gcsUpload");
 const documentUpload = require('../gcsDocumentUpload');
 const authController = require("../controllers/auth-controller");
@@ -10,7 +10,7 @@ const router = express.Router();
 router.post("/login", authController.login);
 
 // Register route (admin only)
-router.post("/register", auth, authController.register);
+router.post("/register", authenticateToken, authController.register);
 
 // Request password reset
 // router.post("/reset-password", authController.requestPasswordReset);
@@ -23,19 +23,19 @@ router.get("/verify-email", authController.verifyEmail);
 router.post("/resend-verification", authController.resendVerificationEmail);
 
 // Get current user profile
-router.get("/me", auth, authController.getCurrentUserProfile);
+router.get("/me", authenticateToken, authController.getCurrentUserProfile);
 
 // Update current user profile
 router.patch(
   "/me",
-  auth,
+  authenticateToken,
   avatarUpload.single("profilePicture"),
   authController.updateCurrentUserProfile
 );
 // Upload document (admin and owner only)
 router.post(
   "/upload-document",
-  auth,
+  authenticateToken,
   documentUpload.single("file"),
   authController.uploadDocument
 );
@@ -44,21 +44,21 @@ router.post(
 router.post("/debug-create-user", authController.debugCreateUser);
 
 // Add route to get all users (admin only)
-router.get("/users", auth, authController.getAllUsers);
+router.get("/users", authenticateToken, authController.getAllUsers);
 
 // Add route to delete a user by id (admin only)
-router.delete("/users/:id", auth, authController.deleteUser);
+router.delete("/users/:id", authenticateToken, authController.deleteUser);
 
 // Add route to get user by id (admin only)
-router.get('/users/:id/profile', auth, authController.getUserById);
+router.get('/users/:id/profile', authenticateToken, authController.getUserById);
 
 // Add route to toggle user active status (admin only)
-router.patch('/users/:id', auth, authController.toggleUserActive);
+router.patch('/users/:id', authenticateToken, authController.toggleUserActive);
 
 // Forgot password route (notifies admin or sends reset link to admin users)
 router.post("/forgot-password", authController.forgotPassword);
 
 // Add route to get signed URL for a user's avatar (owner or admin only)
-router.get("/avatar/:userId/signed-url", auth, getAvatarSignedUrl);
+router.get("/avatar/:userId/signed-url", authenticateToken, getAvatarSignedUrl);
 
 module.exports = router;

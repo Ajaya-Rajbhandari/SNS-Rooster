@@ -27,6 +27,7 @@ import '../../widgets/notification_bell.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/global_notification_service.dart';
 import 'employee_timesheet_screen.dart';
+import 'employee_events_screen.dart';
 
 /// EmployeeDashboardScreen displays the main dashboard for employees.
 //
@@ -45,13 +46,16 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     with RouteAware {
   bool _isOnBreak = false;
   bool _profileDialogShown = false;
+  List<Map<String, dynamic>> _upcomingEvents = [];
+  bool _eventsLoading = false;
 
   RouteObserver<ModalRoute<void>>? _routeObserver;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _routeObserver = Provider.of<RouteObserver<ModalRoute<void>>>(context, listen: false);
+    _routeObserver =
+        Provider.of<RouteObserver<ModalRoute<void>>>(context, listen: false);
     _routeObserver?.subscribe(this, ModalRoute.of(context)!);
     try {
       Provider.of<ProfileProvider>(context, listen: false);
@@ -60,7 +64,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
         // Remove repeated attendance fetch here to prevent loop
       });
     } catch (e) {
-      print('ERROR: ProfileProvider is not accessible in EmployeeDashboardScreen: $e');
+      print(
+          'ERROR: ProfileProvider is not accessible in EmployeeDashboardScreen: $e');
     }
     // Remove repeated attendance fetch here to prevent loop
   }
@@ -336,7 +341,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final userId = authProvider.user?['_id'];
       // Ensure profile is fetched on dashboard load
-      final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+      final profileProvider =
+          Provider.of<ProfileProvider>(context, listen: false);
       if (profileProvider.profile == null && userId != null) {
         profileProvider.refreshProfile();
       }
@@ -344,7 +350,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
         Provider.of<AttendanceProvider>(context, listen: false)
             .fetchTodayStatus(userId)
             .then((_) {
-          final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+          final attendanceProvider =
+              Provider.of<AttendanceProvider>(context, listen: false);
           setState(() {
             _isOnBreak = attendanceProvider.todayStatus == 'on_break';
           });
@@ -354,6 +361,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       }
       Provider.of<NotificationProvider>(context, listen: false)
           .fetchNotifications();
+      // Fetch upcoming events
+      _fetchUpcomingEvents();
     });
   }
 
@@ -364,6 +373,58 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     setState(() {
       _isConnected = connectivityResult != ConnectivityResult.none;
     });
+  }
+
+  /// Fetches upcoming events for the employee dashboard
+  Future<void> _fetchUpcomingEvents() async {
+    setState(() {
+      _eventsLoading = true;
+    });
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.token;
+      final userId = authProvider.user?['_id'];
+
+      if (token == null || userId == null) {
+        throw Exception('Authentication required');
+      }
+
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/events'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final allEvents = List<Map<String, dynamic>>.from(data['events'] ?? []);
+
+        // Filter for upcoming events (next 7 days)
+        final now = DateTime.now();
+        final nextWeek = now.add(const Duration(days: 7));
+
+        final upcomingEvents = allEvents.where((event) {
+          final eventDate = DateTime.parse(event['startDate'] ?? '');
+          return eventDate.isAfter(now) && eventDate.isBefore(nextWeek);
+        }).toList();
+
+        setState(() {
+          _upcomingEvents = upcomingEvents;
+          _eventsLoading = false;
+        });
+      } else {
+        throw Exception('Failed to load events: ${response.statusCode}');
+      }
+    } catch (e) {
+      setState(() {
+        _eventsLoading = false;
+      });
+      // Don't show error to user for events, just log it
+      print('Error fetching events: $e');
+    }
   }
 
   @override
@@ -458,8 +519,31 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
               applyLeave: (ctx) => _applyLeave(ctx),
               openTimesheet: (ctx) => _openTimesheet(ctx),
               openProfile: (ctx) => _openProfile(ctx),
+              openEvents: (ctx) => _openEvents(ctx),
             ),
             const SizedBox(height: 28),
+            // Upcoming Events Section
+            if (_upcomingEvents.isNotEmpty || _eventsLoading) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Upcoming Events',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pushNamed(context, '/events'),
+                    child: const Text('View All'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildUpcomingEventsSection(),
+              const SizedBox(height: 28),
+            ],
           ],
         ),
       ),
@@ -484,6 +568,77 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     print('EMPLOYEE DASHBOARD: Navigating to Profile Screen');
     Navigator.pushNamed(context, '/profile');
   }
+
+  void _openEvents(BuildContext context) {
+    print('EMPLOYEE DASHBOARD: Navigating to Events Screen');
+    Navigator.pushNamed(context, '/events');
+  }
+
+  Widget _buildUpcomingEventsSection() {
+    if (_eventsLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_upcomingEvents.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: _upcomingEvents.take(3).map((event) {
+        final eventDate = DateTime.parse(event['startDate'] ?? '');
+        final attendees =
+            List<Map<String, dynamic>>.from(event['attendees'] ?? []);
+        final currentUserId =
+            Provider.of<AuthProvider>(context, listen: false).user?['_id'];
+        final isAttending =
+            attendees.any((attendee) => attendee['user'] == currentUserId);
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: Icon(
+                Icons.event,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            title: Text(
+              event['title'] ?? 'Untitled Event',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  DateFormat('MMM dd, yyyy - HH:mm').format(eventDate),
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                if (event['location'] != null)
+                  Text(
+                    event['location'],
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                Text(
+                  '${attendees.length} attending',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ],
+            ),
+            trailing: isAttending
+                ? Chip(
+                    label: const Text('Attending'),
+                    backgroundColor: Colors.green.withOpacity(0.1),
+                    labelStyle: const TextStyle(color: Colors.green),
+                  )
+                : null,
+            onTap: () => Navigator.pushNamed(context, '/events'),
+          ),
+        );
+      }).toList(),
+    );
+  }
 }
 
 class _DashboardHeader extends StatelessWidget {
@@ -496,6 +651,7 @@ class _DashboardHeader extends StatelessWidget {
       if (text.isEmpty) return text;
       return text[0].toUpperCase() + text.substring(1).toLowerCase();
     }
+
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -535,7 +691,8 @@ class _DashboardHeader extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   profile != null
-                      ? '${profile?['firstName'] ?? ''} ${profile?['lastName'] ?? ''}'.trim()
+                      ? '${profile?['firstName'] ?? ''} ${profile?['lastName'] ?? ''}'
+                          .trim()
                       : 'Guest',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         color: Colors.white,
@@ -600,7 +757,8 @@ class StatusCard extends StatelessWidget {
                 final checkOutTime = currentAttendance['checkOutTime'];
                 final breaks = currentAttendance['breaks'] as List?;
                 if (checkOutTime != null) {
-                  final checkOutDateTime = DateTime.parse(checkOutTime).toLocal();
+                  final checkOutDateTime =
+                      DateTime.parse(checkOutTime).toLocal();
                   statusDetails.add(
                     Text(
                       'Clocked out at  ${DateFormat('hh:mm a').format(checkOutDateTime)}',
@@ -613,15 +771,20 @@ class StatusCard extends StatelessWidget {
                 }
                 if (checkInTime != null && checkOutTime != null) {
                   final checkInDateTime = DateTime.parse(checkInTime).toLocal();
-                  final checkOutDateTime = DateTime.parse(checkOutTime).toLocal();
-                  final totalWorkTime = checkOutDateTime.difference(checkInDateTime);
+                  final checkOutDateTime =
+                      DateTime.parse(checkOutTime).toLocal();
+                  final totalWorkTime =
+                      checkOutDateTime.difference(checkInDateTime);
                   int totalBreakMinutes = 0;
                   int breakCount = 0;
                   if (breaks != null) {
                     for (final breakEntry in breaks) {
-                      if (breakEntry['startTime'] != null && breakEntry['endTime'] != null) {
-                        final breakStart = DateTime.parse(breakEntry['startTime']).toLocal();
-                        final breakEnd = DateTime.parse(breakEntry['endTime']).toLocal();
+                      if (breakEntry['startTime'] != null &&
+                          breakEntry['endTime'] != null) {
+                        final breakStart =
+                            DateTime.parse(breakEntry['startTime']).toLocal();
+                        final breakEnd =
+                            DateTime.parse(breakEntry['endTime']).toLocal();
                         int diff = breakEnd.difference(breakStart).inMinutes;
                         if (diff < 0) diff = 0;
                         totalBreakMinutes += diff;
@@ -629,9 +792,11 @@ class StatusCard extends StatelessWidget {
                       }
                     }
                   }
-                  final totalBreakDuration = Duration(minutes: totalBreakMinutes);
+                  final totalBreakDuration =
+                      Duration(minutes: totalBreakMinutes);
                   final netWorkTime = totalWorkTime - totalBreakDuration;
-                  final safeNetWorkTime = netWorkTime.isNegative ? Duration.zero : netWorkTime;
+                  final safeNetWorkTime =
+                      netWorkTime.isNegative ? Duration.zero : netWorkTime;
                   statusDetails.addAll([
                     const SizedBox(height: 8),
                     Container(
@@ -639,14 +804,18 @@ class StatusCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: Colors.green.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.green.withOpacity(0.3)),
+                        border:
+                            Border.all(color: Colors.green.withOpacity(0.3)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Today\'s Summary',
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: Colors.green[700],
                                 ),
@@ -654,57 +823,103 @@ class StatusCard extends StatelessWidget {
                           const SizedBox(height: 6),
                           Row(
                             children: [
-                              Icon(Icons.login, size: 16, color: Colors.green[600]),
+                              Icon(Icons.login,
+                                  size: 16, color: Colors.green[600]),
                               const SizedBox(width: 8),
-                              Text('Started: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                              Text(DateFormat('hh:mm a').format(checkInDateTime), style: Theme.of(context).textTheme.bodySmall),
+                              Text('Started: ',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(fontWeight: FontWeight.w500)),
+                              Text(
+                                  DateFormat('hh:mm a').format(checkInDateTime),
+                                  style: Theme.of(context).textTheme.bodySmall),
                             ],
                           ),
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              Icon(Icons.logout, size: 16, color: Colors.green[600]),
+                              Icon(Icons.logout,
+                                  size: 16, color: Colors.green[600]),
                               const SizedBox(width: 8),
-                              Text('Finished: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                              Text(DateFormat('hh:mm a').format(checkOutDateTime), style: Theme.of(context).textTheme.bodySmall),
+                              Text('Finished: ',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(fontWeight: FontWeight.w500)),
+                              Text(
+                                  DateFormat('hh:mm a')
+                                      .format(checkOutDateTime),
+                                  style: Theme.of(context).textTheme.bodySmall),
                             ],
                           ),
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              Icon(Icons.timer, size: 16, color: Colors.green[600]),
+                              Icon(Icons.timer,
+                                  size: 16, color: Colors.green[600]),
                               const SizedBox(width: 8),
-                              Text('Total Time: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                              Text('${totalWorkTime.inHours}h ${totalWorkTime.inMinutes % 60}m', style: Theme.of(context).textTheme.bodySmall),
+                              Text('Total Time: ',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(fontWeight: FontWeight.w500)),
+                              Text(
+                                  '${totalWorkTime.inHours}h ${totalWorkTime.inMinutes % 60}m',
+                                  style: Theme.of(context).textTheme.bodySmall),
                             ],
                           ),
                           if (breakCount > 0) ...[
                             const SizedBox(height: 4),
                             Row(
                               children: [
-                                Icon(Icons.coffee, size: 16, color: Colors.green[600]),
+                                Icon(Icons.coffee,
+                                    size: 16, color: Colors.green[600]),
                                 const SizedBox(width: 8),
-                                Text('Break Time: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                                Text('${totalBreakDuration.inHours}h ${totalBreakDuration.inMinutes % 60}m', style: Theme.of(context).textTheme.bodySmall),
+                                Text('Break Time: ',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                            fontWeight: FontWeight.w500)),
+                                Text(
+                                    '${totalBreakDuration.inHours}h ${totalBreakDuration.inMinutes % 60}m',
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall),
                               ],
                             ),
                             const SizedBox(height: 4),
                             Row(
                               children: [
-                                Icon(Icons.pause_circle, size: 16, color: Colors.green[600]),
+                                Icon(Icons.pause_circle,
+                                    size: 16, color: Colors.green[600]),
                                 const SizedBox(width: 8),
-                                Text('Breaks Taken: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                                Text('$breakCount', style: Theme.of(context).textTheme.bodySmall),
+                                Text('Breaks Taken: ',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                            fontWeight: FontWeight.w500)),
+                                Text('$breakCount',
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall),
                               ],
                             ),
                           ],
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              Icon(Icons.work, size: 16, color: Colors.green[600]),
+                              Icon(Icons.work,
+                                  size: 16, color: Colors.green[600]),
                               const SizedBox(width: 8),
-                              Text('Net Work: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                              Text('${safeNetWorkTime.inHours}h ${safeNetWorkTime.inMinutes % 60}m', style: Theme.of(context).textTheme.bodySmall),
+                              Text('Net Work: ',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(fontWeight: FontWeight.w500)),
+                              Text(
+                                  '${safeNetWorkTime.inHours}h ${safeNetWorkTime.inMinutes % 60}m',
+                                  style: Theme.of(context).textTheme.bodySmall),
                             ],
                           ),
                         ],
@@ -722,16 +937,23 @@ class StatusCard extends StatelessWidget {
                 final breaks = currentAttendance['breaks'] as List?;
                 if (breaks != null && breaks.isNotEmpty) {
                   // Find the current break (where 'end' is null)
-                  final currentBreak = breaks.cast<Map<String, dynamic>>().where((b) => b['end'] == null).isNotEmpty
-                      ? breaks.cast<Map<String, dynamic>>().lastWhere((b) => b['end'] == null)
+                  final currentBreak = breaks
+                          .cast<Map<String, dynamic>>()
+                          .where((b) => b['end'] == null)
+                          .isNotEmpty
+                      ? breaks
+                          .cast<Map<String, dynamic>>()
+                          .lastWhere((b) => b['end'] == null)
                       : null;
                   final totalBreaksToday = breaks.length;
                   if (currentBreak != null) {
                     final breakTypeId = currentBreak['type'];
                     final startTime = currentBreak['start'];
                     if (breakTypeId != null && startTime != null) {
-                      final breakStartTime = DateTime.parse(startTime).toLocal();
-                      final duration = DateTime.now().difference(breakStartTime);
+                      final breakStartTime =
+                          DateTime.parse(startTime).toLocal();
+                      final duration =
+                          DateTime.now().difference(breakStartTime);
                       String breakTypeName = 'Break';
                       if (breakTypeId == '68506da352d98bd74a976ea7') {
                         breakTypeName = 'Medical Break';
@@ -745,17 +967,19 @@ class StatusCard extends StatelessWidget {
                       statusDetails.addAll([
                         Text(
                           '$breakTypeName since ${DateFormat('hh:mm a').format(breakStartTime)}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[700],
-                                fontWeight: FontWeight.w500,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey[700],
+                                    fontWeight: FontWeight.w500,
+                                  ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'Duration: ${duration.inMinutes} minutes',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey[600],
+                                  ),
                         ),
                         const SizedBox(height: 8),
                         Container(
@@ -763,18 +987,23 @@ class StatusCard extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: Colors.orange.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                            border: Border.all(
+                                color: Colors.orange.withOpacity(0.3)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 children: [
-                                  Icon(Icons.info_outline, size: 16, color: Colors.orange[700]),
+                                  Icon(Icons.info_outline,
+                                      size: 16, color: Colors.orange[700]),
                                   const SizedBox(width: 6),
                                   Text(
                                     'Break Details',
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
                                           fontWeight: FontWeight.bold,
                                           color: Colors.orange[700],
                                         ),
@@ -784,28 +1013,57 @@ class StatusCard extends StatelessWidget {
                               const SizedBox(height: 6),
                               Row(
                                 children: [
-                                  Icon(Icons.label, size: 14, color: Colors.orange[600]),
+                                  Icon(Icons.label,
+                                      size: 14, color: Colors.orange[600]),
                                   const SizedBox(width: 6),
-                                  Text('Type: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                                  Text(breakTypeName, style: Theme.of(context).textTheme.bodySmall),
+                                  Text('Type: ',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                              fontWeight: FontWeight.w500)),
+                                  Text(breakTypeName,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall),
                                 ],
                               ),
                               const SizedBox(height: 3),
                               Row(
                                 children: [
-                                  Icon(Icons.schedule, size: 14, color: Colors.orange[600]),
+                                  Icon(Icons.schedule,
+                                      size: 14, color: Colors.orange[600]),
                                   const SizedBox(width: 6),
-                                  Text('Started: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                                  Text(DateFormat('hh:mm a').format(breakStartTime), style: Theme.of(context).textTheme.bodySmall),
+                                  Text('Started: ',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                              fontWeight: FontWeight.w500)),
+                                  Text(
+                                      DateFormat('hh:mm a')
+                                          .format(breakStartTime),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall),
                                 ],
                               ),
                               const SizedBox(height: 3),
                               Row(
                                 children: [
-                                  Icon(Icons.numbers, size: 14, color: Colors.orange[600]),
+                                  Icon(Icons.numbers,
+                                      size: 14, color: Colors.orange[600]),
                                   const SizedBox(width: 6),
-                                  Text('Breaks today: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                                  Text('$totalBreaksToday', style: Theme.of(context).textTheme.bodySmall),
+                                  Text('Breaks today: ',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                              fontWeight: FontWeight.w500)),
+                                  Text('$totalBreaksToday',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall),
                                 ],
                               ),
                             ],
@@ -826,23 +1084,25 @@ class StatusCard extends StatelessWidget {
                 final breaks = currentAttendance['breaks'] as List?;
                 if (checkInTime != null) {
                   final checkInDateTime = DateTime.parse(checkInTime).toLocal();
-                  final workDuration = DateTime.now().difference(checkInDateTime);
+                  final workDuration =
+                      DateTime.now().difference(checkInDateTime);
                   statusDetails.addAll([
                     Text(
                       'Since ${DateFormat('hh:mm a').format(checkInDateTime)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[600],
-                      ),
+                            color: Colors.grey[600],
+                          ),
                     ),
                     Text(
                       'Work time: ${workDuration.inHours}h ${workDuration.inMinutes % 60}m',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[600],
-                      ),
+                            color: Colors.grey[600],
+                          ),
                     ),
                   ]);
                   if (breaks != null && breaks.isNotEmpty) {
-                    final completedBreaks = breaks.where((b) => b['end'] != null).toList();
+                    final completedBreaks =
+                        breaks.where((b) => b['end'] != null).toList();
                     final totalBreaksToday = completedBreaks.length;
                     if (totalBreaksToday > 0) {
                       final mostRecentBreak = completedBreaks.last;
@@ -850,7 +1110,8 @@ class StatusCard extends StatelessWidget {
                       final breakStartTime = mostRecentBreak['start'];
                       final breakEndTime = mostRecentBreak['end'];
                       if (breakStartTime != null && breakEndTime != null) {
-                        final breakStart = DateTime.parse(breakStartTime).toLocal();
+                        final breakStart =
+                            DateTime.parse(breakStartTime).toLocal();
                         final breakEnd = DateTime.parse(breakEndTime).toLocal();
                         final breakDuration = breakEnd.difference(breakStart);
                         String breakTypeName = 'Break';
@@ -870,58 +1131,100 @@ class StatusCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: Colors.blue.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                              border: Border.all(
+                                  color: Colors.blue.withOpacity(0.3)),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
                                   children: [
-                                    Icon(Icons.coffee, size: 16, color: Colors.blue[700]),
+                                    Icon(Icons.coffee,
+                                        size: 16, color: Colors.blue[700]),
                                     const SizedBox(width: 6),
                                     Text(
                                       'Break Status',
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.blue[700],
-                                      ),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.blue[700],
+                                          ),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 6),
                                 Row(
                                   children: [
-                                    Icon(Icons.check_circle, size: 14, color: Colors.blue[600]),
+                                    Icon(Icons.check_circle,
+                                        size: 14, color: Colors.blue[600]),
                                     const SizedBox(width: 6),
-                                    Text('Breaks taken: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                                    Text('$totalBreaksToday', style: Theme.of(context).textTheme.bodySmall),
+                                    Text('Breaks taken: ',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.w500)),
+                                    Text('$totalBreaksToday',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall),
                                   ],
                                 ),
                                 const SizedBox(height: 3),
                                 Row(
                                   children: [
-                                    Icon(Icons.label, size: 14, color: Colors.blue[600]),
+                                    Icon(Icons.label,
+                                        size: 14, color: Colors.blue[600]),
                                     const SizedBox(width: 6),
-                                    Text('Last break: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                                    Text(breakTypeName, style: Theme.of(context).textTheme.bodySmall),
+                                    Text('Last break: ',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.w500)),
+                                    Text(breakTypeName,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall),
                                   ],
                                 ),
                                 const SizedBox(height: 3),
                                 Row(
                                   children: [
-                                    Icon(Icons.schedule, size: 14, color: Colors.blue[600]),
+                                    Icon(Icons.schedule,
+                                        size: 14, color: Colors.blue[600]),
                                     const SizedBox(width: 6),
-                                    Text('Time: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                                    Text('${DateFormat('hh:mm a').format(breakStart)} - ${DateFormat('hh:mm a').format(breakEnd)}', style: Theme.of(context).textTheme.bodySmall),
+                                    Text('Time: ',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.w500)),
+                                    Text(
+                                        '${DateFormat('hh:mm a').format(breakStart)} - ${DateFormat('hh:mm a').format(breakEnd)}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall),
                                   ],
                                 ),
                                 const SizedBox(height: 3),
                                 Row(
                                   children: [
-                                    Icon(Icons.timer, size: 14, color: Colors.blue[600]),
+                                    Icon(Icons.timer,
+                                        size: 14, color: Colors.blue[600]),
                                     const SizedBox(width: 6),
-                                    Text('Duration: ', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
-                                    Text('${breakDuration.inMinutes} minutes', style: Theme.of(context).textTheme.bodySmall),
+                                    Text('Duration: ',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.w500)),
+                                    Text('${breakDuration.inMinutes} minutes',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall),
                                   ],
                                 ),
                               ],
@@ -937,18 +1240,23 @@ class StatusCard extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: Colors.grey.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border:
+                                Border.all(color: Colors.grey.withOpacity(0.3)),
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+                              Icon(Icons.info_outline,
+                                  size: 16, color: Colors.grey[600]),
                               const SizedBox(width: 6),
                               Text(
                                 'No breaks taken today',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Colors.grey[600],
-                                  fontStyle: FontStyle.italic,
-                                ),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: Colors.grey[600],
+                                      fontStyle: FontStyle.italic,
+                                    ),
                               ),
                             ],
                           ),
@@ -963,18 +1271,23 @@ class StatusCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Colors.grey.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                          border:
+                              Border.all(color: Colors.grey.withOpacity(0.3)),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+                            Icon(Icons.info_outline,
+                                size: 16, color: Colors.grey[600]),
                             const SizedBox(width: 6),
                             Text(
                               'No breaks taken today',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
-                                fontStyle: FontStyle.italic,
-                              ),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: Colors.grey[600],
+                                    fontStyle: FontStyle.italic,
+                                  ),
                             ),
                           ],
                         ),
@@ -1007,16 +1320,18 @@ class StatusCard extends StatelessWidget {
                       children: [
                         Text(
                           'Today\'s Status',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                color: Colors.black87, // Improved contrast
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: Colors.black87, // Improved contrast
+                                  ),
                         ),
                         const SizedBox(height: 8),
                         Row(
                           children: [
                             Semantics(
                               label: statusLabel,
-                              child: Icon(statusIcon, color: statusColor, size: 30),
+                              child: Icon(statusIcon,
+                                  color: statusColor, size: 30),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
@@ -1025,7 +1340,10 @@ class StatusCard extends StatelessWidget {
                                 children: [
                                   Text(
                                     statusLabel,
-                                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineSmall
+                                        ?.copyWith(
                                           fontWeight: FontWeight.bold,
                                           color: statusColor,
                                         ),
@@ -1046,7 +1364,8 @@ class StatusCard extends StatelessWidget {
                     child: IconButton(
                       icon: const Icon(Icons.refresh, size: 30),
                       onPressed: () {
-                        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                        final authProvider =
+                            Provider.of<AuthProvider>(context, listen: false);
                         final userId = authProvider.user?['_id'];
                         if (userId != null) {
                           attendanceProvider.fetchTodayStatus(userId);
@@ -1073,6 +1392,7 @@ class _QuickActions extends StatelessWidget {
   final Function(BuildContext) applyLeave;
   final Function(BuildContext) openTimesheet;
   final Function(BuildContext) openProfile;
+  final Function(BuildContext) openEvents;
   const _QuickActions({
     required this.isOnBreak,
     required this.clockIn,
@@ -1082,6 +1402,7 @@ class _QuickActions extends StatelessWidget {
     required this.applyLeave,
     required this.openTimesheet,
     required this.openProfile,
+    required this.openEvents,
   });
 
   @override
@@ -1099,18 +1420,23 @@ class _QuickActions extends StatelessWidget {
               return const Center(child: CircularProgressIndicator());
             }
             // Not clocked in or no attendance: show clock in prompt
-            if (status == 'not_clocked_in' || attendanceProvider.currentAttendance == null) {
+            if (status == 'not_clocked_in' ||
+                attendanceProvider.currentAttendance == null) {
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Semantics(
                       label: 'Not clocked in info',
-                      child: Icon(Icons.info_outline, size: 48, color: Colors.grey.shade700),
+                      child: Icon(Icons.info_outline,
+                          size: 48, color: Colors.grey.shade700),
                     ),
                     const SizedBox(height: 16),
                     Text('You have not clocked in today.',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[800]),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(color: Colors.grey[800]),
                         textAlign: TextAlign.center),
                     const SizedBox(height: 16),
                     Semantics(
@@ -1121,10 +1447,13 @@ class _QuickActions extends StatelessWidget {
                         label: const Text('Clock In'),
                         onPressed: clockIn,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF256029), // Improved contrast
+                          backgroundColor:
+                              const Color(0xFF256029), // Improved contrast
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 12),
+                          textStyle:
+                              const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
@@ -1141,7 +1470,9 @@ class _QuickActions extends StatelessWidget {
                       context,
                       icon: Icons.logout,
                       label: 'Clock Out',
-                      color: isOnBreak ? const Color(0xFFB0B0B0) : const Color(0xFFB91C1C), // Improved contrast
+                      color: isOnBreak
+                          ? const Color(0xFFB0B0B0)
+                          : const Color(0xFFB91C1C), // Improved contrast
                       onPressed: isOnBreak ? null : clockOut,
                     ),
                   ),
@@ -1228,6 +1559,13 @@ class _QuickActions extends StatelessWidget {
               color: const Color(0xFF0F766E), // Improved contrast
               onPressed: () => openProfile(context),
             ),
+            _buildQuickActionCard(
+              context,
+              icon: Icons.event,
+              label: 'Events',
+              color: const Color(0xFF7C3AED), // Purple color for events
+              onPressed: () => openEvents(context),
+            ),
           ],
         ),
       ],
@@ -1281,10 +1619,11 @@ class _QuickActions extends StatelessWidget {
                       const SizedBox(width: 12),
                       Text(
                         label,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
                     ],
                   )
@@ -1302,11 +1641,12 @@ class _QuickActions extends StatelessWidget {
                       Flexible(
                         child: Text(
                           label,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
                           textAlign: TextAlign.center,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,

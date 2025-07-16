@@ -1,19 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const authMiddleware = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const analyticsController = require('../controllers/analytics-controller');
 
 // Employee Analytics endpoints
-router.get('/attendance/:userId', authMiddleware, analyticsController.getAttendanceAnalytics);
-router.get('/work-hours/:userId', authMiddleware, analyticsController.getWorkHoursAnalytics);
+router.get('/attendance/:userId', authenticateToken, analyticsController.getAttendanceAnalytics);
+router.get('/work-hours/:userId', authenticateToken, analyticsController.getWorkHoursAnalytics);
 router.get('/summary/:userId', analyticsController.getAnalyticsSummary);
-router.get('/late-checkins/:userId', authMiddleware, analyticsController.getLateCheckins);
-router.get('/avg-checkout/:userId', authMiddleware, analyticsController.getAverageCheckoutTime);
-router.get('/recent-activity/:userId', authMiddleware, analyticsController.getRecentActivity);
-router.get('/leave-types-breakdown', authMiddleware, analyticsController.getLeaveTypesBreakdown);
+router.get('/late-checkins/:userId', authenticateToken, analyticsController.getLateCheckins);
+router.get('/avg-checkout/:userId', authenticateToken, analyticsController.getAverageCheckoutTime);
+router.get('/recent-activity/:userId', authenticateToken, analyticsController.getRecentActivity);
+router.get('/leave-types-breakdown', authenticateToken, analyticsController.getLeaveTypesBreakdown);
 
 // Admin Analytics endpoints
-router.get('/admin/overview', authMiddleware, analyticsController.getAdminOverview);
+router.get('/admin/overview', authenticateToken, analyticsController.getAdminOverview);
 
 // admin only middleware
 const adminOnly = (req, res, next) => {
@@ -23,20 +23,20 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
-router.get('/summary', authMiddleware, adminOnly, analyticsController.getSummary);
+router.get('/summary', authenticateToken, adminOnly, analyticsController.getSummary);
 
 // Admin leave types breakdown (after adminOnly defined)
-router.get('/admin/leave-types-breakdown', authMiddleware, adminOnly, analyticsController.getLeaveTypesBreakdownAdmin);
-router.get('/admin/monthly-hours-trend', authMiddleware, adminOnly, analyticsController.getMonthlyHoursTrendAdmin);
+router.get('/admin/leave-types-breakdown', authenticateToken, adminOnly, analyticsController.getLeaveTypesBreakdownAdmin);
+router.get('/admin/monthly-hours-trend', authenticateToken, adminOnly, analyticsController.getMonthlyHoursTrendAdmin);
 
 // Payroll analytics
-router.get('/admin/payroll-trend', authMiddleware, adminOnly, analyticsController.getPayrollTrendAdmin);
-router.get('/admin/payroll-deductions-breakdown', authMiddleware, adminOnly, analyticsController.getPayrollDeductionsBreakdownAdmin);
+router.get('/admin/payroll-trend', authenticateToken, adminOnly, analyticsController.getPayrollTrendAdmin);
+router.get('/admin/payroll-deductions-breakdown', authenticateToken, adminOnly, analyticsController.getPayrollDeductionsBreakdownAdmin);
 
 // Report generation
-router.get('/admin/generate-report', authMiddleware, adminOnly, analyticsController.generateReport);
+router.get('/admin/generate-report', authenticateToken, adminOnly, analyticsController.generateReport);
 
 // Add endpoint for all active employees and admins (for Total Employees modal)
-router.get('/admin/active-users', authMiddleware, analyticsController.getActiveUsersList);
+router.get('/admin/active-users', authenticateToken, analyticsController.getActiveUsersList);
 
 module.exports = router; 

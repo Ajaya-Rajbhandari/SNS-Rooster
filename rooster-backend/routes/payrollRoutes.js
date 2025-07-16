@@ -3,18 +3,18 @@ console.log('payrollRoutes loaded');
 const express = require('express');
 const router = express.Router();
 const payrollController = require('../controllers/payroll-controller');
-const authMiddleware = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 
 // DEBUG: Update all payslips with latest company info
 router.post('/update-company-info', payrollController.updatePayslipsCompanyInfo);
 
 // Download all payslips for the current logged-in employee as PDF
-router.get('/employee/pdf', authMiddleware, payrollController.downloadAllPayslipsPdfForCurrentUser);
+router.get('/employee/pdf', authenticateToken, payrollController.downloadAllPayslipsPdfForCurrentUser);
 // Download all payslips for the current logged-in employee as CSV
-router.get('/employee/csv', authMiddleware, payrollController.downloadAllPayslipsCsvForCurrentUser);
+router.get('/employee/csv', authenticateToken, payrollController.downloadAllPayslipsCsvForCurrentUser);
 
 // Get current user's payroll slips
-router.get('/employee', authMiddleware, payrollController.getCurrentUserPayrolls);
+router.get('/employee', authenticateToken, payrollController.getCurrentUserPayrolls);
 
 // Download all payslips for an employee as PDF
 router.get('/employee/:employeeId/pdf', payrollController.downloadAllPayslipsPdf);

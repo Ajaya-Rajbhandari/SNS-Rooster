@@ -16,6 +16,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const adminSettingsRoutes = require('./routes/adminSettingsRoutes');
 const fcmRoutes = require('./routes/fcmRoutes');
+const eventRoutes = require('./routes/event-routes');
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin/settings', adminSettingsRoutes);
 app.use('/api', fcmRoutes);
+app.use('/api/events', eventRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {

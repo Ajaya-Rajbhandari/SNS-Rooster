@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const auth = require("../middleware/auth");
+const { authenticateToken } = require("../middleware/auth");
 const adminAttendanceController = require("../controllers/admin-attendance-controller");
 const { getAttendanceStatusForRecord } = require("../controllers/admin-attendance-controller");
 const Attendance = require('../models/Attendance');
@@ -17,7 +17,7 @@ const adminAuth = (req, res, next) => {
 // Admin: Start break for any employee
 router.post(
   "/start-break/:userId",
-  auth,
+  authenticateToken,
   adminAuth,
   adminAttendanceController.adminStartBreak
 );
@@ -25,7 +25,7 @@ router.post(
 // Admin: End break for any employee
 router.post(
   "/end-break/:userId",
-  auth,
+  authenticateToken,
   adminAuth,
   adminAttendanceController.adminEndBreak
 );
@@ -33,13 +33,13 @@ router.post(
 // Admin: Get current break status for an employee
 router.get(
   "/break-status/:userId",
-  auth,
+  authenticateToken,
   adminAuth,
   adminAttendanceController.getAdminBreakStatus
 );
 
 // Admin: Get all break types (including inactive ones for management)
-router.get("/break-types", auth, adminAuth, async (req, res) => {
+router.get("/break-types", authenticateToken, adminAuth, async (req, res) => {
   try {
     const breakTypes = await BreakType.find({}).sort({ priority: 1 });
     res.status(200).json({ breakTypes });
@@ -50,7 +50,7 @@ router.get("/break-types", auth, adminAuth, async (req, res) => {
 });
 
 // Create new break type
-router.post("/break-types", auth, adminAuth, async (req, res) => {
+router.post("/break-types", authenticateToken, adminAuth, async (req, res) => {
   try {
     const breakType = new BreakType(req.body);
     await breakType.save();
@@ -68,7 +68,7 @@ router.post("/break-types", auth, adminAuth, async (req, res) => {
 });
 
 // Update break type
-router.put("/break-types/:id", auth, adminAuth, async (req, res) => {
+router.put("/break-types/:id", authenticateToken, adminAuth, async (req, res) => {
   try {
     const breakType = await BreakType.findByIdAndUpdate(
       req.params.id,
@@ -90,7 +90,7 @@ router.put("/break-types/:id", auth, adminAuth, async (req, res) => {
 });
 
 // Delete break type (soft delete by setting isActive to false)
-router.delete("/break-types/:id", auth, adminAuth, async (req, res) => {
+router.delete("/break-types/:id", authenticateToken, adminAuth, async (req, res) => {
   try {
     const breakType = await BreakType.findByIdAndUpdate(
       req.params.id,
@@ -110,7 +110,7 @@ router.delete("/break-types/:id", auth, adminAuth, async (req, res) => {
 });
 
 // Patch: In the break history endpoint, set status for each record
-router.get("/break-history", auth, adminAuth, async (req, res) => {
+router.get("/break-history", authenticateToken, adminAuth, async (req, res) => {
   try {
     const {
       userId,
@@ -167,7 +167,7 @@ function getBreakStatusForRecord(att) {
 }
 
 // GET /attendance?userId=...&startDate=...&endDate=...&role=employee|admin|all
-router.get("/attendance", auth, adminAuth, async (req, res) => {
+router.get("/attendance", authenticateToken, adminAuth, async (req, res) => {
   try {
     const { userId, startDate, endDate, page = 1, limit = 50, role = 'all' } = req.query;
     const filter = {};

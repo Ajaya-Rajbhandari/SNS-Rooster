@@ -7,41 +7,41 @@ router.use((req, res, next) => {
   next();
 });
 
-const authMiddleware = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const employeeController = require('../controllers/employee-controller');
 
 // Get all employees (admin/manager only)
-router.get('/', authMiddleware, employeeController.getAllEmployees);
+router.get('/', authenticateToken, employeeController.getAllEmployees);
 
 // Get unassigned users (users not already assigned as employees)
-router.get('/unassigned-users', authMiddleware, employeeController.getUnassignedUsers);
+router.get('/unassigned-users', authenticateToken, employeeController.getUnassignedUsers);
 
 // Get leave balance for an employee by ID
-router.get('/:id/leave-balance', authMiddleware, employeeController.getLeaveBalance);
+router.get('/:id/leave-balance', authenticateToken, employeeController.getLeaveBalance);
 
 // Get a single employee by ID (admin/manager or self)
-router.get('/:id', authMiddleware, employeeController.getEmployeeById);
+router.get('/:id', authenticateToken, employeeController.getEmployeeById);
 
 // Create a new employee (admin only)
-router.post('/', authMiddleware, employeeController.createEmployee);
+router.post('/', authenticateToken, employeeController.createEmployee);
 
 // Update an employee (admin/manager or self)
-router.put('/:id', authMiddleware, employeeController.updateEmployee);
+router.put('/:id', authenticateToken, employeeController.updateEmployee);
 
 // Delete an employee (admin only)
-router.delete('/:id', authMiddleware, employeeController.deleteEmployee);
+router.delete('/:id', authenticateToken, employeeController.deleteEmployee);
 
 // Employee dashboard route (authenticated users only)
-router.get('/dashboard', authMiddleware, employeeController.getEmployeeDashboard);
+router.get('/dashboard', authenticateToken, employeeController.getEmployeeDashboard);
 
 // Get a single employee by User ID (admin/manager or self)
-router.get('/user/:userId', authMiddleware, employeeController.getEmployeeByUserId);
+router.get('/user/:userId', authenticateToken, employeeController.getEmployeeByUserId);
 
 // Document verification (admin only)
-router.patch('/users/:userId/documents/:docId/verify', authMiddleware, employeeController.verifyUserDocument);
+router.patch('/users/:userId/documents/:docId/verify', authenticateToken, employeeController.verifyUserDocument);
 
 // Admin: Change user password
-router.patch('/:id/password', authMiddleware, employeeController.adminChangeUserPassword);
+router.patch('/:id/password', authenticateToken, employeeController.adminChangeUserPassword);
 
 console.log('EMPLOYEE ROUTES: Registering /dashboard route');
 
