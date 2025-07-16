@@ -4,7 +4,8 @@ const Employee = require('./models/Employee');
 const Payroll = require('./models/Payroll');
 const Attendance = require('./models/Attendance');
 const { calculateAllTaxes, generateDeductionsList } = require('./utils/tax-calculator');
-const checkAndNotifyBreakViolations = require('./check_break_violations');
+// Remove the problematic import since check_break_violations.js doesn't export the function
+// const checkAndNotifyBreakViolations = require('./check_break_violations');
 
 console.log('SCHEDULER: initializing');
 
@@ -396,6 +397,6 @@ async function sendBreakTimeWarningNotification(userId, breakTypeConfig, current
 
 // Schedule break monitoring every 5 minutes
 setInterval(monitorBreaks, 5 * 60 * 1000); // 5 minutes
-setInterval(checkAndNotifyBreakViolations, 5 * 60 * 1000); // 5 minutes
+// Removed checkAndNotifyBreakViolations setInterval since the function is not exported
 
 module.exports = { generatePayslips }; 
