@@ -4,7 +4,6 @@ const Employee = require('./models/Employee');
 const Payroll = require('./models/Payroll');
 const Attendance = require('./models/Attendance');
 const { calculateAllTaxes, generateDeductionsList } = require('./utils/tax-calculator');
-const { generatePayslips } = require('./scheduler');
 const checkAndNotifyBreakViolations = require('./check_break_violations');
 
 console.log('SCHEDULER: initializing');
