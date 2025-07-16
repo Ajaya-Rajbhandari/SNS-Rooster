@@ -13,6 +13,60 @@ const Attendance = require("../models/Attendance");
 const User = require("../models/User");
 const BreakType = require("../models/BreakType");
 
+// Helper function to check if user is on leave for a specific date
+async function checkUserLeaveStatus(userId, date) {
+  try {
+    const Leave = require('../models/Leave');
+    const User = require('../models/User');
+    
+    // First check if user is an admin
+    const user = await User.findById(userId);
+    if (!user) {
+      return { isOnLeave: false };
+    }
+    
+    let leaveRecord;
+    if (user.role === 'admin') {
+      // For admins, check leave by user ID
+      leaveRecord = await Leave.findOne({
+        user: userId,
+        status: { $regex: /^Approved$/i },
+        startDate: { $lte: date },
+        endDate: { $gte: date },
+      });
+    } else {
+      // For employees, get employee ID and check leave
+      const Employee = require('../models/Employee');
+      const employee = await Employee.findOne({ userId: userId });
+      if (!employee) {
+        return { isOnLeave: false };
+      }
+      
+      leaveRecord = await Leave.findOne({
+        employee: employee._id,
+        status: { $regex: /^Approved$/i },
+        startDate: { $lte: date },
+        endDate: { $gte: date },
+      });
+    }
+    
+    if (leaveRecord) {
+      return {
+        isOnLeave: true,
+        leaveType: leaveRecord.leaveType,
+        startDate: leaveRecord.startDate,
+        endDate: leaveRecord.endDate,
+        reason: leaveRecord.reason
+      };
+    }
+    
+    return { isOnLeave: false };
+  } catch (error) {
+    console.error('Error checking leave status:', error);
+    return { isOnLeave: false };
+  }
+}
+
 exports.checkIn = async (req, res) => {
               if (!req.user || typeof req.user !== "object") {
     console.error(
@@ -66,16 +120,19 @@ exports.checkIn = async (req, res) => {
       return res.status(400).json({ message: "Already checked in for today." });
     }
 
-    // Prevent check-in if user is on approved leave for today
-    const Leave = require('../models/Leave');
-    const leaveToday = await Leave.findOne({
-      employee: userId,
-      status: { $regex: /^approved$/i },
-      startDate: { $lte: today },
-      endDate: { $gte: today },
-    });
-    if (leaveToday) {
-      return res.status(400).json({ message: 'You are on approved leave today and cannot check in.' });
+    // Check if user is on leave for today
+    const leaveStatus = await checkUserLeaveStatus(userId, today);
+    if (leaveStatus.isOnLeave) {
+      const leaveEndDate = new Date(leaveStatus.endDate).toDateString();
+      return res.status(400).json({ 
+        message: `You are on approved ${leaveStatus.leaveType} leave until ${leaveEndDate}. You cannot check in during your leave period.`,
+        leaveInfo: {
+          type: leaveStatus.leaveType,
+          startDate: leaveStatus.startDate,
+          endDate: leaveStatus.endDate,
+          reason: leaveStatus.reason
+        }
+      });
     }
 
     const attendance = new Attendance({
@@ -201,6 +258,22 @@ exports.startBreak = async (req, res) => {
         0
       )
     );
+    
+    // Check if user is on leave for today
+    const leaveStatus = await checkUserLeaveStatus(userId, today);
+    if (leaveStatus.isOnLeave) {
+      const leaveEndDate = new Date(leaveStatus.endDate).toDateString();
+      return res.status(400).json({ 
+        message: `You are on approved ${leaveStatus.leaveType} leave until ${leaveEndDate}. You cannot take breaks during your leave period.`,
+        leaveInfo: {
+          type: leaveStatus.leaveType,
+          startDate: leaveStatus.startDate,
+          endDate: leaveStatus.endDate,
+          reason: leaveStatus.reason
+        }
+      });
+    }
+    
     const attendance = await Attendance.findOne({
       user: userId,
       date: today,
@@ -353,6 +426,12 @@ exports.getAttendanceStatus = async (req, res) => {
       status
     );
     
+    // Check if user is on leave for today
+    const leaveStatus = await checkUserLeaveStatus(userId, today);
+    if (leaveStatus.isOnLeave) {
+      status = "on_leave";
+    }
+    
     // Process attendance data to format times consistently
     let processedAttendance = null;
     if (attendance) {
@@ -370,7 +449,19 @@ exports.getAttendanceStatus = async (req, res) => {
       };
     }
     
-    res.status(200).json({ status, attendance: processedAttendance });
+    const response = { status, attendance: processedAttendance };
+    
+    // Add leave information if user is on leave
+    if (leaveStatus.isOnLeave) {
+      response.leaveInfo = {
+        type: leaveStatus.leaveType,
+        startDate: leaveStatus.startDate,
+        endDate: leaveStatus.endDate,
+        reason: leaveStatus.reason
+      };
+    }
+    
+    res.status(200).json(response);
   } catch (error) {
     console.error("Get attendance status error:", error);
     res.status(500).json({ message: "Server error" });

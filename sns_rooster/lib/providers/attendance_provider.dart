@@ -14,6 +14,7 @@ class AttendanceProvider with ChangeNotifier {
   Map<String, dynamic>? _attendanceSummary;
   String? _todayStatus;
   Map<String, dynamic>? _currentAttendance;
+  Map<String, dynamic>? _leaveInfo;
 
   AttendanceProvider(this._authProvider) {
     _attendanceService = AttendanceService(_authProvider);
@@ -25,6 +26,7 @@ class AttendanceProvider with ChangeNotifier {
   Map<String, dynamic>? get attendanceSummary => _attendanceSummary;
   String? get todayStatus => _todayStatus;
   Map<String, dynamic>? get currentAttendance => _currentAttendance;
+  Map<String, dynamic>? get leaveInfo => _leaveInfo;
 
   Future<void> fetchUserAttendance(String userId) async {
     _isLoading = true;
@@ -86,6 +88,9 @@ class AttendanceProvider with ChangeNotifier {
         _todayStatus = fetchedStatus;
         _currentAttendance = attendanceData;
       }
+
+      // Store leave information if available
+      _leaveInfo = statusData['leaveInfo'] as Map<String, dynamic>?;
       log('DEBUG: _todayStatus after update in fetchTodayStatus: $_todayStatus');
       log('DEBUG: _currentAttendance after update in fetchTodayStatus: $_currentAttendance');
     } catch (e) {

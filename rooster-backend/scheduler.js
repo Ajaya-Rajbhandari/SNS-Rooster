@@ -4,6 +4,8 @@ const Employee = require('./models/Employee');
 const Payroll = require('./models/Payroll');
 const Attendance = require('./models/Attendance');
 const { calculateAllTaxes, generateDeductionsList } = require('./utils/tax-calculator');
+const { generatePayslips } = require('./scheduler');
+const checkAndNotifyBreakViolations = require('./check_break_violations');
 
 console.log('SCHEDULER: initializing');
 
@@ -395,5 +397,6 @@ async function sendBreakTimeWarningNotification(userId, breakTypeConfig, current
 
 // Schedule break monitoring every 5 minutes
 setInterval(monitorBreaks, 5 * 60 * 1000); // 5 minutes
+setInterval(checkAndNotifyBreakViolations, 5 * 60 * 1000); // 5 minutes
 
 module.exports = { generatePayslips }; 
