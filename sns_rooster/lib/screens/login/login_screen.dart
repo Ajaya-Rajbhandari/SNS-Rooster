@@ -30,9 +30,10 @@ class _LoginScreenState extends State<LoginScreen> {
   void _loadSavedCredentials() async {
     try {
       // Load remembered credentials from secure storage
-      final rememberedCreds = await SecureStorageService.getRememberedCredentials();
+      final rememberedCreds =
+          await SecureStorageService.getRememberedCredentials();
       final remember = rememberedCreds['remember_me'] == 'true';
-      
+
       if (remember) {
         setState(() {
           _rememberMe = true;
@@ -50,14 +51,14 @@ class _LoginScreenState extends State<LoginScreen> {
           _emailController.text = prefs.getString('savedEmail') ?? '';
           _passwordController.text = prefs.getString('savedPassword') ?? '';
         });
-        
+
         // Migrate to secure storage
         await SecureStorageService.storeRememberedCredentials(
           email: _emailController.text,
           password: _passwordController.text,
           rememberMe: true,
         );
-        
+
         // Clear from SharedPreferences
         await prefs.remove('rememberMe');
         await prefs.remove('savedEmail');
@@ -184,18 +185,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (trimmed.isEmpty) {
                           return 'Please enter your email';
                         }
-                        final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+                        final emailRegex =
+                            RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
                         if (!emailRegex.hasMatch(trimmed)) {
                           return 'Please enter a valid email address';
                         }
                         return null;
                       },
-                      onChanged: (val) {
-                        _emailController.value = _emailController.value.copyWith(
-                          text: val.trim(),
-                          selection: TextSelection.collapsed(offset: val.trim().length),
-                        );
-                      },
+                      // Removed onChanged handler to fix cursor jumping issue
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -235,12 +232,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         }
                         return null;
                       },
-                      onChanged: (val) {
-                        _passwordController.value = _passwordController.value.copyWith(
-                          text: val.trim(),
-                          selection: TextSelection.collapsed(offset: val.trim().length),
-                        );
-                      },
+                      // Removed onChanged handler to fix cursor jumping issue
                     ),
                     Align(
                       alignment: Alignment.centerRight,
@@ -268,7 +260,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           _rememberMe = value;
                         });
                         // Sync with provider
-                        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                        final authProvider =
+                            Provider.of<AuthProvider>(context, listen: false);
                         authProvider.setRememberMe(value);
                       },
                     ),
