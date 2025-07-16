@@ -148,18 +148,26 @@ router.get("/summary/:userId", authenticateToken, async (req, res) => {
     // Calculate summary
     let totalDaysPresent = records.length;
     let totalHoursWorked = 0;
+    let totalBreakTime = 0;
     records.forEach((rec) => {
       if (rec.checkInTime && rec.checkOutTime) {
         let workMs =
           rec.checkOutTime - rec.checkInTime - (rec.totalBreakDuration || 0);
         totalHoursWorked += workMs > 0 ? workMs / (1000 * 60 * 60) : 0;
       }
+      // Add break time
+      totalBreakTime += (rec.totalBreakDuration || 0) / (1000 * 60 * 60);
     });
+
+    // Calculate average hours per day
+    const averageHoursPerDay = totalDaysPresent > 0 ? totalHoursWorked / totalDaysPresent : 0;
 
     res.json({
       userId,
       totalDaysPresent,
       totalHoursWorked: Number(totalHoursWorked.toFixed(2)),
+      totalBreakTime: Number(totalBreakTime.toFixed(2)),
+      averageHoursPerDay: Number(averageHoursPerDay.toFixed(2)),
       startDate: startDate.toISOString().slice(0, 10),
       endDate: endDate.toISOString().slice(0, 10),
     });

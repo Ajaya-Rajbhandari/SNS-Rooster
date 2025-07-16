@@ -132,6 +132,8 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
         setState(() {
           _weeklyStats = attendanceProvider.attendanceSummary;
         });
+        // Debug logging
+        print('DEBUG: Weekly stats received: $_weeklyStats');
       }
     } catch (e) {}
   }
@@ -713,13 +715,14 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
                       children: [
                         _buildStatCard(
                             'Days Present',
-                            _weeklyStats!['daysPresent']?.toString() ?? '0',
+                            _weeklyStats!['totalDaysPresent']?.toString() ??
+                                '0',
                             Icons.check_circle,
                             Colors.green),
                         _buildStatCard(
                             'Total Hours',
-                            _formatDurationFromMinutes(
-                                _weeklyStats!['totalHours'] ?? 0),
+                            _formatDurationFromHours(
+                                _weeklyStats!['totalHoursWorked'] ?? 0),
                             Icons.access_time,
                             Colors.blue),
                       ],
@@ -730,13 +733,13 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
                       children: [
                         _buildStatCard(
                             'Avg. Hours/Day',
-                            _formatDurationFromMinutes(
+                            _formatDurationFromHours(
                                 _weeklyStats!['averageHoursPerDay'] ?? 0),
                             Icons.trending_up,
                             Colors.orange),
                         _buildStatCard(
                             'Break Time',
-                            _formatDurationFromMinutes(
+                            _formatDurationFromHours(
                                 _weeklyStats!['totalBreakTime'] ?? 0),
                             Icons.coffee,
                             Colors.purple),
@@ -827,6 +830,12 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
     final hours = minutes ~/ 60;
     final remainingMinutes = minutes % 60;
     return '${hours}h ${remainingMinutes}m';
+  }
+
+  String _formatDurationFromHours(double hours) {
+    final wholeHours = hours.floor();
+    final minutes = ((hours - wholeHours) * 60).round();
+    return '${wholeHours}h ${minutes}m';
   }
 
   Widget _buildStatCard(
