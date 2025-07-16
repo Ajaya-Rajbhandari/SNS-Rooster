@@ -239,6 +239,15 @@ class _TimesheetApprovalScreenState extends State<TimesheetApprovalScreen> {
                                   ? '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'
                                       .trim()
                                   : 'Unknown User';
+
+                              // Check if this is the current user's own timesheet
+                              final currentUserId = Provider.of<AuthProvider>(
+                                      context,
+                                      listen: false)
+                                  .user?['_id'];
+                              final timesheetUserId = user?['_id'];
+                              final isOwnTimesheet =
+                                  currentUserId == timesheetUserId;
                               final date =
                                   DateTime.tryParse(timesheet['date'] ?? '');
                               final checkInTime = timesheet['checkInTime'];
@@ -392,43 +401,65 @@ class _TimesheetApprovalScreenState extends State<TimesheetApprovalScreen> {
                                         ],
                                       ),
                                       const SizedBox(height: 16),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: ElevatedButton.icon(
-                                              onPressed: () =>
-                                                  _approveTimesheet(
-                                                      timesheet['_id']),
-                                              icon: const Icon(Icons.check,
-                                                  color: Colors.white),
-                                              label: const Text('Approve',
-                                                  style: TextStyle(
-                                                      color: Colors.white)),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.green,
-                                              ),
+                                      if (isOwnTimesheet) ...[
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            border:
+                                                Border.all(color: Colors.grey),
+                                          ),
+                                          child: Text(
+                                            'You cannot approve/reject your own timesheet',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontStyle: FontStyle.italic,
                                             ),
                                           ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: ElevatedButton.icon(
-                                              onPressed: () =>
-                                                  _showRejectDialog(
-                                                timesheet['_id'],
-                                                userName,
-                                              ),
-                                              icon: const Icon(Icons.close,
-                                                  color: Colors.white),
-                                              label: const Text('Reject',
-                                                  style: TextStyle(
-                                                      color: Colors.white)),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.red,
+                                        ),
+                                      ] else ...[
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: ElevatedButton.icon(
+                                                onPressed: () =>
+                                                    _approveTimesheet(
+                                                        timesheet['_id']),
+                                                icon: const Icon(Icons.check,
+                                                    color: Colors.white),
+                                                label: const Text('Approve',
+                                                    style: TextStyle(
+                                                        color: Colors.white)),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.green,
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: ElevatedButton.icon(
+                                                onPressed: () =>
+                                                    _showRejectDialog(
+                                                  timesheet['_id'],
+                                                  userName,
+                                                ),
+                                                icon: const Icon(Icons.close,
+                                                    color: Colors.white),
+                                                label: const Text('Reject',
+                                                    style: TextStyle(
+                                                        color: Colors.white)),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
