@@ -718,6 +718,13 @@ exports.approveTimesheet = async (req, res) => {
       return res.status(404).json({ message: 'Attendance record not found' });
     }
 
+    // Prevent self-approval - admin cannot approve their own attendance
+    if (attendance.user._id.toString() === req.user.userId) {
+      return res.status(403).json({ 
+        message: 'You cannot approve your own attendance record. Another admin must approve it.' 
+      });
+    }
+
     attendance.status = 'approved';
     attendance.adminComment = adminComment || '';
     attendance.approvedBy = req.user.userId;
@@ -772,6 +779,13 @@ exports.rejectTimesheet = async (req, res) => {
     const attendance = await Attendance.findById(attendanceId).populate('user', 'firstName lastName email');
     if (!attendance) {
       return res.status(404).json({ message: 'Attendance record not found' });
+    }
+
+    // Prevent self-rejection - admin cannot reject their own attendance
+    if (attendance.user._id.toString() === req.user.userId) {
+      return res.status(403).json({ 
+        message: 'You cannot reject your own attendance record. Another admin must review it.' 
+      });
     }
 
     attendance.status = 'rejected';

@@ -139,11 +139,30 @@ router.get("/summary/:userId", authenticateToken, async (req, res) => {
     }
 
     // Find attendance records for user in range
+    console.log('DEBUG: Attendance summary query params:', {
+      userId,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      statusFilter: { $in: ["present", "completed", "approved"] }
+    });
+    
     const records = await Attendance.find({
       user: userId,
       date: { $gte: startDate, $lte: endDate },
-      status: "present",
+      status: { $in: ["present", "completed", "approved"] },
     });
+    
+    console.log('DEBUG: Found attendance records:', records.length);
+    if (records.length > 0) {
+      console.log('DEBUG: Sample record:', {
+        id: records[0]._id,
+        date: records[0].date,
+        status: records[0].status,
+        checkInTime: records[0].checkInTime,
+        checkOutTime: records[0].checkOutTime,
+        totalBreakDuration: records[0].totalBreakDuration
+      });
+    }
 
     // Calculate summary
     let totalDaysPresent = records.length;
@@ -161,6 +180,13 @@ router.get("/summary/:userId", authenticateToken, async (req, res) => {
 
     // Calculate average hours per day
     const averageHoursPerDay = totalDaysPresent > 0 ? totalHoursWorked / totalDaysPresent : 0;
+    
+    console.log('DEBUG: Summary calculation results:', {
+      totalDaysPresent,
+      totalHoursWorked,
+      totalBreakTime,
+      averageHoursPerDay
+    });
 
     res.json({
       userId,

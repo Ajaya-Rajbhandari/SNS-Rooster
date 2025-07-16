@@ -118,24 +118,39 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final userId = authProvider.user?['_id'];
+      print('DEBUG: Loading weekly stats for userId: $userId');
+
       if (userId != null) {
         final attendanceProvider =
             Provider.of<AttendanceProvider>(context, listen: false);
         final now = DateTime.now();
         final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
         final endOfWeek = startOfWeek.add(const Duration(days: 6));
+
+        print(
+            'DEBUG: Date range - startOfWeek: $startOfWeek, endOfWeek: $endOfWeek');
+
         await attendanceProvider.fetchAttendanceSummary(
           userId,
           startDate: startOfWeek,
           endDate: endOfWeek,
         );
+
+        print(
+            'DEBUG: Attendance summary from provider: ${attendanceProvider.attendanceSummary}');
+        print('DEBUG: Attendance provider error: ${attendanceProvider.error}');
+
         setState(() {
           _weeklyStats = attendanceProvider.attendanceSummary;
         });
         // Debug logging
         print('DEBUG: Weekly stats received: $_weeklyStats');
+      } else {
+        print('DEBUG: No userId found in auth provider');
       }
-    } catch (e) {}
+    } catch (e) {
+      print('DEBUG: Error in _loadWeeklyStats: $e');
+    }
   }
 
   String _getStatusText(String? status) {
