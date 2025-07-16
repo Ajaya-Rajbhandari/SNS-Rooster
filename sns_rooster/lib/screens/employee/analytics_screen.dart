@@ -9,6 +9,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../admin/analytics_reports_screen.dart';
 import 'package:sns_rooster/services/api_service.dart';
 import 'package:sns_rooster/config/api_config.dart';
+import 'package:intl/intl.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({Key? key}) : super(key: key);
@@ -726,7 +727,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                                         fontWeight:
                                                             FontWeight.w500)),
                                             subtitle: Text(
-                                                'Check-in: ${rec['checkInTime']?.substring(11, 16) ?? '--:--'} | Check-out: ${rec['checkOutTime']?.substring(11, 16) ?? '--:--'}'),
+                                                'Check-in: ${_formatTime(rec['checkInTime'])} | Check-out: ${_formatTime(rec['checkOutTime'])}'),
                                           )),
                                   ],
                                 ),
@@ -757,6 +758,27 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         },
       ),
     );
+  }
+
+  String _formatTime(dynamic timeField) {
+    if (timeField == null) return '--:--';
+
+    // If it's already a formatted string (from backend), return as is
+    if (timeField is String &&
+        timeField.contains(':') &&
+        !timeField.contains('T')) {
+      return timeField;
+    }
+
+    // If it's a DateTime object or ISO string, parse and format
+    try {
+      final time = DateTime.parse(timeField.toString());
+      // Convert to local time
+      final localTime = time.toLocal();
+      return DateFormat('HH:mm').format(localTime);
+    } catch (e) {
+      return '--:--';
+    }
   }
 
   Widget _buildLegendDot(Color color) {

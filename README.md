@@ -71,6 +71,8 @@ SNS-Rooster-app/
 - **[Network Troubleshooting](docs/NETWORK_TROUBLESHOOTING.md)** - Resolve connectivity issues
 - **[API Documentation](docs/api/API_CONTRACT.md)** - Backend API reference
 - **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** - Technical overview
+- **[Logging System](docs/LOGGING_SYSTEM.md)** - Comprehensive logging documentation
+- **[Production Deployment](docs/PRODUCTION_DEPLOYMENT.md)** - Production deployment guide
 
 ## 🐛 Common Issues
 
@@ -180,52 +182,114 @@ For issues and questions:
 - Enhanced error handling for profile fetching
 - Verified API endpoints with comprehensive testing
 
-# Attendance & Break Logic Fixes (June 2025)
+# Production-Ready Logging & Recent Features (July 2025)
 
 ## Overview
-This update documents the major fixes and improvements made to the attendance and break logic in the SNS Rooster backend and frontend, including:
-- Consistent UTC date handling for attendance records
-- Proper unique index usage in MongoDB
-- Robust status and button logic in the Flutter UI
-- Debug logging for backend diagnosis
+This update documents the production-ready logging system and recent feature enhancements in the SNS Rooster backend and frontend, including:
+- Environment-aware logging system
+- Production debug log suppression
+- Enhanced break management with notifications
+- Timesheet approval system
+- Event management with real-time notifications
 
-## Key Fixes
+## Production Logging System
 
-### 1. UTC Date Handling for Attendance
-- All attendance queries and document creation now use **UTC midnight** for the `date` field.
-- This prevents duplicate key errors and ensures correct attendance tracking for all users, regardless of timezone.
-- Example:
-  ```js
-  const now = new Date();
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-  ```
+### Backend Logging (Winston)
+- **Development**: Full debug logging with console output
+- **Production**: Only errors and warnings logged to console, all logs saved to files
+- **Log Files**: 
+  - `logs/error.log` - Error-level logs only
+  - `logs/combined.log` - All logs (info, warn, error)
+- **Log Rotation**: 5MB max file size, 5 files max
+- **Security**: Sensitive data automatically redacted in production
 
-### 2. MongoDB Index Correction
-- Removed the unique index on `date` alone (`date_1`).
-- Kept only the compound unique index on `{ user, date }` (`user_1_date_1`).
-- This allows each user to have one attendance per day, but multiple users can clock in on the same day.
+### Frontend Logging (Flutter)
+- **Development**: Full debug logging enabled
+- **Production**: Only error logs and critical info
+- **Security**: Sensitive data (tokens, emails, etc.) automatically sanitized
+- **Performance**: Network and performance logging in development only
 
-### 3. Backend Controller Improvements
-- All attendance-related controllers (`checkIn`, `checkOut`, `startBreak`, `endBreak`, `getAttendanceStatus`) now use UTC date logic.
-- Added debug logging for all major actions and error cases.
-- Improved error messages for duplicate and invalid actions.
+### Environment Configuration
+```dart
+// Flutter - lib/config/environment_config.dart
+EnvironmentConfig.isProduction // Controls logging behavior
+EnvironmentConfig.enableDebugLogging // Development-only features
+```
 
-### 4. Frontend UI Logic
-- The Flutter dashboard now correctly reflects all attendance states:
-  - Not Clocked In: Only "Clock In" enabled
-  - Clocked In: "Clock Out" and "Start Break" enabled
-  - On Break: "End Break" enabled, "Clock Out" disabled
-  - Clocked Out: Only "Clock In" enabled
-- Status and quick actions update immediately after each action.
+## Recent Feature Enhancements
 
-### 5. How to Fix for Future Issues
-- Always use UTC for all date fields in backend logic.
-- Ensure only the `{ user, date }` index is unique in MongoDB.
-- If you see duplicate key errors, check your indexes with `db.attendances.getIndexes()` and remove any unique `date_1` index.
+### 1. Break Management System
+- **Break Type Selection**: Shows allowed duration for each break type
+- **Time Monitoring**: Automatic notifications for break time violations
+- **Admin Controls**: Real-time break management with status updates
+- **Notifications**: FCM push notifications for break warnings and violations
+
+### 2. Timesheet Approval System
+- **Status Management**: Pending, Approved, Rejected statuses
+- **Admin Interface**: Dedicated timesheet approval screen
+- **Notifications**: Automatic notifications for status changes
+- **Filtering**: Status-based filtering for easy management
+
+### 3. Event Management
+- **Real Events**: Admin can create and manage company events
+- **Employee Participation**: Join/leave functionality with notifications
+- **Time-based Access**: Join buttons only active when events start
+- **Real-time Updates**: Live event status and participant lists
+
+### 4. Department-wise Analytics
+- **Attendance Stats**: Present, absent, and on-leave counts per department
+- **Real-time Data**: Live dashboard updates with actual attendance data
+- **Admin Overview**: Comprehensive department performance metrics
+
+### 5. Notification System
+- **FCM Integration**: Push notifications for all major events
+- **Database Notifications**: Persistent notification storage
+- **Event Notifications**: Automatic notifications for event creation, joins, leaves
+- **Break Notifications**: Time-based warnings and violation alerts
+
+## Production Deployment
+
+### Environment Variables
+```bash
+# Production
+NODE_ENV=production
+JWT_SECRET=your-secure-jwt-secret
+MONGODB_URI=your-mongodb-connection-string
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=your-resend-api-key
+FCM_SERVER_KEY=your-fcm-server-key
+
+# Frontend
+FLUTTER_ENV=production
+```
+
+### Logging Configuration
+- Debug logs automatically suppressed in production
+- Only essential logs (errors, warnings) shown in console
+- All logs saved to files for monitoring and debugging
+- Sensitive data automatically redacted
+
+### Security Features
+- HTTPS enforcement in production
+- Certificate pinning for secure connections
+- JWT token validation with secure secrets
+- Input validation and sanitization
+- CORS configuration for production domains
+
+## Development vs Production
+
+| Feature | Development | Production |
+|---------|-------------|------------|
+| Debug Logs | ✅ Enabled | ❌ Disabled |
+| Console Output | ✅ Full | ⚠️ Errors Only |
+| File Logging | ✅ Enabled | ✅ Enabled |
+| Sensitive Data | ✅ Visible | ❌ Redacted |
+| HTTPS | ⚠️ Optional | ✅ Required |
+| Performance Logs | ✅ Enabled | ❌ Disabled |
 
 ## References
 - See also: `docs/api/API_DOCUMENTATION.md`, `SECURITY_ACCESS_CONTROL_DOCUMENTATION.md`, `LAYOUT_FIX_DOCUMENTATION.md`, `CLOCK_IN_RESET_FIX.md`
 
 ---
 
-_Last updated: June 23, 2025_
+_Last updated: July 16, 2025_

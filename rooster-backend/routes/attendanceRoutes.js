@@ -230,4 +230,9 @@ router.get('/analytics/recent-activity/:userId', analyticsController.getRecentAc
 // GET /attendance/today-list?status=present|absent|onleave
 router.get('/today-list', authenticateToken, attendanceController.getTodayEmployeeList);
 
+// Timesheet approval routes (admin only)
+router.put('/:attendanceId/approve', authenticateToken, attendanceController.approveTimesheet);
+router.put('/:attendanceId/reject', authenticateToken, attendanceController.rejectTimesheet);
+router.get('/pending', authenticateToken, attendanceController.getPendingTimesheets);
+
 module.exports = router;

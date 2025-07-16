@@ -1446,7 +1446,7 @@ class TimesheetRow extends StatelessWidget {
     if (iso == null || iso == '--' || iso.isEmpty) return '--';
     final dt = DateTime.tryParse(iso);
     if (dt == null) return '--';
-    return DateFormat('hh:mm a').format(dt);
+    return DateFormat('hh:mm a').format(dt.toLocal());
   }
 
   String formatBreak(dynamic breakVal) {
