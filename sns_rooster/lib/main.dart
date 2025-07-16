@@ -25,6 +25,7 @@ import 'package:sns_rooster/screens/admin/admin_profile_screen.dart';
 import 'package:sns_rooster/screens/admin/admin_attendance_screen.dart';
 import 'package:sns_rooster/screens/auth/reset_password_screen.dart';
 import 'package:sns_rooster/screens/auth/verify_email_screen.dart';
+import 'package:sns_rooster/screens/employee/employee_events_screen.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
 import 'package:sns_rooster/providers/profile_provider.dart';
@@ -292,6 +293,7 @@ class MyApp extends StatelessWidget {
                   '/attendance': (context) => const AttendanceScreen(),
                   '/payroll': (context) => const PayrollScreen(),
                   '/analytics': (context) => const AnalyticsScreen(),
+                  '/events': (context) => const EmployeeEventsScreen(),
                   '/profile': (context) => const ProfileScreen(),
                   '/notification': (context) => const NotificationScreen(),
                   '/break_management': (context) =>

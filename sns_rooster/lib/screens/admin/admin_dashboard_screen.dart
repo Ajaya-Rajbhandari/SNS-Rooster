@@ -13,6 +13,7 @@ import 'package:sns_rooster/screens/admin/settings_screen.dart';
 import 'package:sns_rooster/screens/admin/help_support_screen.dart';
 import 'package:sns_rooster/screens/admin/attendance_management_screen.dart';
 import 'package:sns_rooster/screens/admin/break_management_screen.dart';
+import 'package:sns_rooster/screens/admin/event_management_screen.dart';
 import '../../widgets/admin_side_navigation.dart';
 import '../../widgets/user_avatar.dart';
 import '../../services/employee_service.dart';
@@ -67,6 +68,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final token = authProvider.token;
 
+      // Fetch main dashboard data
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/analytics/admin/overview'),
         headers: {
@@ -80,6 +82,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _dashboardData = data;
       } else {
         throw Exception('Failed to load dashboard analytics');
+      }
+
+      // Fetch upcoming events
+      final eventsResponse = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/events/upcoming?limit=5'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (eventsResponse.statusCode == 200) {
+        final eventsData = jsonDecode(eventsResponse.body);
+        _dashboardData['upcomingEvents'] = eventsData['events'] ?? [];
+      }
+
+      // Fetch recent activities
+      final activitiesResponse = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/events/activities?limit=10'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (activitiesResponse.statusCode == 200) {
+        final activitiesData = jsonDecode(activitiesResponse.body);
+        _dashboardData['recentActivities'] = activitiesData['activities'] ?? [];
       }
 
       setState(() {
@@ -207,7 +237,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        const Text('No upcoming events.'),
+                        _buildUpcomingEventsSection(),
                       ],
                     ),
                   ),
@@ -234,7 +264,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        const Text('No recent activities.'),
+                        _buildRecentActivitiesSection(),
                       ],
                     ),
                   ),
@@ -383,10 +413,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           itemBuilder: (context, i) {
                             final emp = employees[i];
                             return ListTile(
-                              leading: _buildAvatar(emp['avatarUrl']),
-                              title: Text(emp['name'] ?? 'Unknown'),
-                              subtitle: Text(emp['role'] ?? ''),
-                              trailing: Text(emp['status'] ?? ''),
+                              leading: emp['role'] == 'admin'
+                                  ? const Icon(Icons.admin_panel_settings,
+                                      color: Colors.purple)
+                                  : const Icon(Icons.person),
+                              title: Text(
+                                  '${emp['firstName'] ?? ''} ${emp['lastName'] ?? ''}'
+                                          .trim()
+                                          .isEmpty
+                                      ? 'Unknown'
+                                      : '${emp['firstName'] ?? ''} ${emp['lastName'] ?? ''}'
+                                          .trim()),
+                              subtitle: Text(emp['email'] ?? 'No email'),
                             );
                           },
                         ),
@@ -433,6 +471,70 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  Widget _buildUserCard(BuildContext context,
+      {required Map<String, dynamic> user, required bool isAdmin}) {
+    final name = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+    final email = user['email'] ?? 'No email';
+
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(12.0),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isAdmin
+                ? [Colors.purple.withOpacity(0.7), Colors.purple]
+                : [Colors.blue.withOpacity(0.7), Colors.blue],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isAdmin ? Icons.admin_panel_settings : Icons.person,
+              size: 24,
+              color: Colors.white,
+            ),
+            const SizedBox(height: 6),
+            Flexible(
+              child: Text(
+                name.isEmpty ? 'Unknown' : name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  fontSize: 11,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Flexible(
+              child: Text(
+                email,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 9,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildActionCard(BuildContext context,
       {required IconData icon,
       required String title,
@@ -446,7 +548,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Container(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(12.0),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [Colors.blue.withOpacity(0.7), Colors.blue],
@@ -457,14 +559,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 32, color: theme.colorScheme.onPrimary),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+              Icon(icon, size: 28, color: Colors.white),
+              const SizedBox(height: 6),
+              Flexible(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -634,46 +743,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             final adminsList =
                 employees.where((e) => e['role'] == 'admin').toList();
             final totalCount = employeesList.length + adminsList.length;
-            return AlertDialog(
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('$status Employees ($totalCount)'),
-                  if (adminsList.isNotEmpty)
-                    Text('Admins: ${adminsList.length}',
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.grey)),
-                  if (employeesList.isNotEmpty)
-                    Text('Employees: ${employeesList.length}',
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.grey)),
-                ],
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ...employeesList.map((e) => ListTile(
-                          leading: _buildAvatar(e['avatarUrl']),
-                          title: Text(e['name'] ?? 'Unknown'),
-                          subtitle: Text(e['department'] ?? 'No department'),
-                          trailing: Text(e['status'] ?? ''),
-                        )),
-                    ...adminsList.map((a) => ListTile(
-                          leading: const Icon(Icons.admin_panel_settings),
-                          title: Text(a['name'] ?? 'Unknown'),
-                          subtitle: const Text('Admin'),
-                        )),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Close'),
-                ),
-              ],
+
+            return _EmployeeModalContent(
+              employeesList: employeesList,
+              adminsList: adminsList,
+              totalCount: totalCount,
             );
           },
         );
@@ -828,45 +902,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  // Restore the original _buildPaginatedQuickActions function to show action cards
   Widget _buildPaginatedQuickActions(BuildContext context) {
     final actions = [
-      {
-        'icon': Icons.payments,
-        'title': 'Payroll',
-        'onTap': () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const PayrollManagementScreen()))
-      },
-      {
-        'icon': Icons.people,
-        'title': 'Employee Management',
-        'onTap': () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const EmployeeManagementScreen()))
-      },
-      {
-        'icon': Icons.beach_access,
-        'title': 'Leave',
-        'onTap': () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const LeaveManagementScreen()))
-      },
-      {
-        'icon': Icons.notifications,
-        'title': 'Notifications',
-        'onTap': () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const NotificationAlertScreen()))
-      },
       {
         'icon': Icons.settings,
         'title': 'Settings',
         'onTap': () => Navigator.push(context,
-            MaterialPageRoute(builder: (context) => const SettingsScreen()))
+            MaterialPageRoute(builder: (context) => const SettingsScreen())),
       },
       {
         'icon': Icons.access_time,
@@ -874,7 +917,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         'onTap': () => Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (context) => const AttendanceManagementScreen()))
+                builder: (context) => const AttendanceManagementScreen())),
       },
       {
         'icon': Icons.free_breakfast,
@@ -882,17 +925,69 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         'onTap': () => Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (context) => const BreakManagementScreen()))
+                builder: (context) => const BreakManagementScreen())),
+      },
+      {
+        'icon': Icons.people,
+        'title': 'Employee Management',
+        'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const EmployeeManagementScreen())),
+      },
+      {
+        'icon': Icons.beach_access,
+        'title': 'Leave',
+        'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const LeaveManagementScreen())),
+      },
+      {
+        'icon': Icons.payments,
+        'title': 'Payroll',
+        'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const PayrollManagementScreen())),
+      },
+      {
+        'icon': Icons.notifications,
+        'title': 'Notifications',
+        'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const NotificationAlertScreen())),
       },
       {
         'icon': Icons.help_outline,
         'title': 'Help',
         'onTap': () => Navigator.push(context,
-            MaterialPageRoute(builder: (context) => const HelpSupportScreen()))
+            MaterialPageRoute(builder: (context) => const HelpSupportScreen())),
+      },
+      {
+        'icon': Icons.event,
+        'title': 'Create Event',
+        'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const EventManagementScreen())),
       },
     ];
 
-    const itemsPerPage = 4;
+    // Responsive layout based on screen width
+    final screenWidth = MediaQuery.of(context).size.width;
+    int itemsPerPage;
+    if (screenWidth > 1200) {
+      itemsPerPage = 6;
+    } else if (screenWidth > 800) {
+      itemsPerPage = 4;
+    } else if (screenWidth > 600) {
+      itemsPerPage = 3;
+    } else {
+      itemsPerPage = 2;
+    }
+
     final totalPages = (actions.length / itemsPerPage).ceil();
     final PageController pageController = PageController();
     int currentPage = 0;
@@ -901,11 +996,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final startIndex = page * itemsPerPage;
       final endIndex = (startIndex + itemsPerPage).clamp(0, actions.length);
       return actions.sublist(startIndex, endIndex).map((action) {
-        return _buildActionCard(
-          context,
-          icon: action['icon'] as IconData,
-          title: action['title'] as String,
-          onTap: (action['onTap'] as VoidCallback?) ?? () {},
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: _buildActionCard(
+              context,
+              icon: action['icon'] as IconData,
+              title: action['title'] as String,
+              onTap: (action['onTap'] as VoidCallback?) ?? () {},
+            ),
+          ),
         );
       }).toList();
     }
@@ -925,33 +1025,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   });
                 },
                 itemBuilder: (context, page) {
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: buildPageActions(page),
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Row(
+                      children: buildPageActions(page),
+                    ),
                   );
                 },
               ),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(totalPages, (i) {
-                return GestureDetector(
-                  onTap: () => pageController.animateToPage(i,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.ease),
-                  child: Container(
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: i == currentPage ? Colors.blue : Colors.grey,
+            if (totalPages > 1)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(totalPages, (i) {
+                  return GestureDetector(
+                    onTap: () => pageController.animateToPage(i,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.ease),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 8),
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: i == currentPage ? Colors.blue : Colors.grey,
+                      ),
                     ),
-                  ),
-                );
-              }),
-            ),
+                  );
+                }),
+              ),
           ],
         );
       },
@@ -1093,6 +1196,338 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
     // Otherwise, treat as local file
     return UserAvatar(avatarUrl: '/uploads/avatars/$trimmedUrl', radius: 20);
+  }
+
+  Widget _buildUpcomingEventsSection() {
+    final events = _dashboardData['upcomingEvents'] as List<dynamic>? ?? [];
+
+    if (events.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: Text(
+            'No upcoming events.',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: events.map<Widget>((event) {
+        final eventData = event as Map<String, dynamic>;
+        final startDate = DateTime.parse(eventData['startDate']);
+        final endDate = DateTime.parse(eventData['endDate']);
+        final organizer = eventData['organizer'] as Map<String, dynamic>?;
+        final organizerName = organizer != null
+            ? '${organizer['firstName'] ?? ''} ${organizer['lastName'] ?? ''}'
+                .trim()
+            : 'Unknown';
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: _getEventIcon(eventData['type']),
+            title: Text(
+              eventData['title'] ?? 'Untitled Event',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(eventData['description'] ?? 'No description'),
+                const SizedBox(height: 4),
+                Text(
+                  '${DateFormat('MMM d, y').format(startDate)} at ${DateFormat('h:mm a').format(startDate)}',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                if (eventData['location'] != null)
+                  Text(
+                    '📍 ${eventData['location']}',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                Text(
+                  'Organized by: $organizerName',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+            trailing: _getPriorityChip(eventData['priority']),
+            onTap: () {
+              // TODO: Navigate to event details
+            },
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildRecentActivitiesSection() {
+    final activities =
+        _dashboardData['recentActivities'] as List<dynamic>? ?? [];
+
+    if (activities.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: Text(
+            'No recent activities.',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: activities.map<Widget>((activity) {
+        final activityData = activity as Map<String, dynamic>;
+        final createdAt = DateTime.parse(activityData['createdAt']);
+        final user = activityData['user'] as Map<String, dynamic>?;
+        final userName = user != null
+            ? '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim()
+            : 'Unknown User';
+
+        return ListTile(
+          leading: _getActivityIcon(activityData['type']),
+          title: Text(
+            activityData['title'] ?? 'Activity',
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(activityData['description'] ?? 'No description'),
+              const SizedBox(height: 2),
+              Text(
+                'by $userName • ${DateFormat('MMM d, h:mm a').format(createdAt)}',
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ],
+          ),
+          dense: true,
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _getEventIcon(String? eventType) {
+    switch (eventType) {
+      case 'meeting':
+        return const Icon(Icons.meeting_room, color: Colors.blue);
+      case 'training':
+        return const Icon(Icons.school, color: Colors.green);
+      case 'holiday':
+        return const Icon(Icons.beach_access, color: Colors.orange);
+      case 'announcement':
+        return const Icon(Icons.announcement, color: Colors.red);
+      case 'deadline':
+        return const Icon(Icons.schedule, color: Colors.purple);
+      case 'celebration':
+        return const Icon(Icons.celebration, color: Colors.pink);
+      case 'maintenance':
+        return const Icon(Icons.build, color: Colors.grey);
+      default:
+        return const Icon(Icons.event, color: Colors.blue);
+    }
+  }
+
+  Widget _getActivityIcon(String? activityType) {
+    switch (activityType) {
+      case 'login':
+      case 'logout':
+        return const Icon(Icons.login, color: Colors.blue, size: 20);
+      case 'clock_in':
+      case 'clock_out':
+        return const Icon(Icons.access_time, color: Colors.green, size: 20);
+      case 'break_start':
+      case 'break_end':
+        return const Icon(Icons.free_breakfast, color: Colors.orange, size: 20);
+      case 'leave_request':
+      case 'leave_approved':
+      case 'leave_rejected':
+        return const Icon(Icons.beach_access, color: Colors.purple, size: 20);
+      case 'event_created':
+      case 'event_updated':
+      case 'event_deleted':
+        return const Icon(Icons.event, color: Colors.red, size: 20);
+      case 'profile_update':
+        return const Icon(Icons.person, color: Colors.blue, size: 20);
+      case 'password_change':
+        return const Icon(Icons.lock, color: Colors.grey, size: 20);
+      case 'notification_sent':
+        return const Icon(Icons.notifications, color: Colors.orange, size: 20);
+      default:
+        return const Icon(Icons.info, color: Colors.grey, size: 20);
+    }
+  }
+
+  Widget _getPriorityChip(String? priority) {
+    Color color;
+    String text;
+
+    switch (priority) {
+      case 'urgent':
+        color = Colors.red;
+        text = 'Urgent';
+        break;
+      case 'high':
+        color = Colors.orange;
+        text = 'High';
+        break;
+      case 'medium':
+        color = Colors.blue;
+        text = 'Medium';
+        break;
+      case 'low':
+        color = Colors.green;
+        text = 'Low';
+        break;
+      default:
+        color = Colors.grey;
+        text = 'Medium';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+}
+
+class _EmployeeModalContent extends StatefulWidget {
+  final List<Map<String, dynamic>> employeesList;
+  final List<Map<String, dynamic>> adminsList;
+  final int totalCount;
+
+  const _EmployeeModalContent({
+    required this.employeesList,
+    required this.adminsList,
+    required this.totalCount,
+  });
+
+  @override
+  State<_EmployeeModalContent> createState() => _EmployeeModalContentState();
+}
+
+class _EmployeeModalContentState extends State<_EmployeeModalContent> {
+  bool employeesExpanded = true;
+  bool adminsExpanded = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('All (${widget.totalCount})',
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+      content: SizedBox(
+        width: 350,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (widget.employeesList.isNotEmpty) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Employees: All (${widget.employeesList.length})',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    IconButton(
+                      icon: Icon(employeesExpanded
+                          ? Icons.expand_less
+                          : Icons.expand_more),
+                      onPressed: () => setState(
+                          () => employeesExpanded = !employeesExpanded),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      iconSize: 20,
+                    ),
+                  ],
+                ),
+                if (employeesExpanded) ...[
+                  const SizedBox(height: 8),
+                  ...widget.employeesList.map((e) => Column(
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.person),
+                            title: Text(
+                                '${e['firstName'] ?? ''} ${e['lastName'] ?? ''}'
+                                        .trim()
+                                        .isEmpty
+                                    ? 'Unknown'
+                                    : '${e['firstName'] ?? ''} ${e['lastName'] ?? ''}'
+                                        .trim()),
+                            subtitle: Text(e['email'] ?? 'No email'),
+                          ),
+                          const Divider(height: 1),
+                        ],
+                      )),
+                ],
+              ],
+              if (widget.adminsList.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Admins: All (${widget.adminsList.length})',
+                        style: const TextStyle(
+                            color: Colors.purple, fontWeight: FontWeight.bold)),
+                    IconButton(
+                      icon: Icon(adminsExpanded
+                          ? Icons.expand_less
+                          : Icons.expand_more),
+                      onPressed: () =>
+                          setState(() => adminsExpanded = !adminsExpanded),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      iconSize: 20,
+                      color: Colors.purple,
+                    ),
+                  ],
+                ),
+                if (adminsExpanded) ...[
+                  const SizedBox(height: 8),
+                  ...widget.adminsList.map((a) => Column(
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.admin_panel_settings,
+                                color: Colors.purple),
+                            title: Text(
+                                '${a['firstName'] ?? ''} ${a['lastName'] ?? ''}'
+                                        .trim()
+                                        .isEmpty
+                                    ? 'Unknown'
+                                    : '${a['firstName'] ?? ''} ${a['lastName'] ?? ''}'
+                                        .trim()),
+                            subtitle: Text(a['email'] ?? 'No email'),
+                          ),
+                          const Divider(height: 1),
+                        ],
+                      )),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
   }
 }
 

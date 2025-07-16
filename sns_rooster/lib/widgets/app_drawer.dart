@@ -117,6 +117,8 @@ class AppDrawer extends StatelessWidget {
                   label: 'Analytics & Reports',
                   route: '/analytics'),
               _buildNavTile(context,
+                  icon: Icons.event, label: 'Events', route: '/events'),
+              _buildNavTile(context,
                   icon: Icons.person_outline,
                   label: 'Profile',
                   route: '/profile'),

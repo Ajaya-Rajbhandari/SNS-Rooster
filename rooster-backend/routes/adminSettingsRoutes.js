@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const adminSettingsController = require('../controllers/admin-settings-controller');
-const auth = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const companyUpload = require('../gcsCompanyUpload');
 
 // Admin only middleware
@@ -13,25 +13,25 @@ const adminOnly = (req, res, next) => {
 };
 
 // GET /api/admin/settings - Get admin settings
-router.get('/', auth, adminOnly, adminSettingsController.getAdminSettings);
+router.get('/', authenticateToken, adminOnly, adminSettingsController.getAdminSettings);
 
 // PUT /api/admin/settings - Update admin settings
-router.put('/', auth, adminOnly, adminSettingsController.updateAdminSettings);
+router.put('/', authenticateToken, adminOnly, adminSettingsController.updateAdminSettings);
 
 // Payroll cycle settings
-router.get('/payroll-cycle', auth, adminOnly, adminSettingsController.getPayrollCycleSettings);
-router.put('/payroll-cycle', auth, adminOnly, adminSettingsController.updatePayrollCycleSettings);
+router.get('/payroll-cycle', authenticateToken, adminOnly, adminSettingsController.getPayrollCycleSettings);
+router.put('/payroll-cycle', authenticateToken, adminOnly, adminSettingsController.updatePayrollCycleSettings);
 
 // Tax settings
-router.get('/tax', auth, adminOnly, adminSettingsController.getTaxSettings);
-router.put('/tax', auth, adminOnly, adminSettingsController.updateTaxSettings);
+router.get('/tax', authenticateToken, adminOnly, adminSettingsController.getTaxSettings);
+router.put('/tax', authenticateToken, adminOnly, adminSettingsController.updateTaxSettings);
 
 // Company information settings
-router.get('/company', auth, adminOnly, adminSettingsController.getCompanyInfo);
-router.put('/company', auth, adminOnly, adminSettingsController.updateCompanyInfo);
-router.post('/company/logo', auth, adminOnly, companyUpload.single('logo'), adminSettingsController.uploadCompanyLogo);
+router.get('/company', authenticateToken, adminOnly, adminSettingsController.getCompanyInfo);
+router.put('/company', authenticateToken, adminOnly, adminSettingsController.updateCompanyInfo);
+router.post('/company/logo', authenticateToken, adminOnly, companyUpload.single('logo'), adminSettingsController.uploadCompanyLogo);
 
 // POST /api/admin/settings/reset - Reset settings to defaults
-router.post('/reset', auth, adminOnly, adminSettingsController.resetAdminSettings);
+router.post('/reset', authenticateToken, adminOnly, adminSettingsController.resetAdminSettings);
 
 module.exports = router; 
