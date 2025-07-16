@@ -248,6 +248,10 @@ exports.endBreak = async (req, res) => {
     const tomorrow = new Date(today);
     tomorrow.setUTCDate(today.getUTCDate() + 1);
 
+    console.log("DEBUG: endBreak - Querying for userId:", userId);
+    console.log("DEBUG: endBreak - Today UTC:", today);
+    console.log("DEBUG: endBreak - Tomorrow UTC:", tomorrow);
+
     // Find attendance for today (UTC)
     const attendance = await Attendance.findOne({
       user: userId,
@@ -256,7 +260,10 @@ exports.endBreak = async (req, res) => {
       checkOutTime: { $exists: false },
     });
 
+    console.log("DEBUG: endBreak - Found attendance:", attendance);
+
     if (!attendance) {
+      console.log("DEBUG: endBreak - No attendance found for user:", userId);
       return res.status(400).json({
         message: "Cannot end break: User not checked in or already checked out.",
       });
@@ -267,7 +274,10 @@ exports.endBreak = async (req, res) => {
         ? attendance.breaks[attendance.breaks.length - 1]
         : null;
 
+    console.log("DEBUG: endBreak - Last break:", lastBreak);
+
     if (!lastBreak || lastBreak.end) {
+      console.log("DEBUG: endBreak - No active break found");
       return res.status(400).json({ message: "Not currently on break." });
     }
 
@@ -280,7 +290,10 @@ exports.endBreak = async (req, res) => {
       0
     );
     attendance.status = "clocked_in";
+    
+    console.log("DEBUG: endBreak - Saving attendance with updated break");
     await attendance.save();
+    console.log("DEBUG: endBreak - Attendance saved successfully");
 
     res.status(200).json({ message: "Break ended successfully", attendance });
   } catch (error) {
