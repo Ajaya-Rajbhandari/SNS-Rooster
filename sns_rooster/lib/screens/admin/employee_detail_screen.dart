@@ -12,6 +12,18 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:sns_rooster/screens/profile/profile_screen.dart'
     show showDocumentDialog;
 
+/// Helper function to format duration in a human-readable format
+/// Shows hours and minutes when duration is over 60 minutes
+String _formatDuration(int totalMinutes) {
+  if (totalMinutes >= 60) {
+    final hours = totalMinutes ~/ 60;
+    final minutes = totalMinutes % 60;
+    return '${hours}h ${minutes}m';
+  } else {
+    return '${totalMinutes}m';
+  }
+}
+
 class EmployeeDetailScreen extends StatefulWidget {
   final Map<String, dynamic> employee;
   final EmployeeProvider employeeProvider;
@@ -1262,7 +1274,9 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen>
                         ),
                         const Spacer(),
                         Text(
-                          "${(record['totalBreakDuration'] / (1000 * 60)).round()} minutes",
+                          _formatDuration(
+                              (record['totalBreakDuration'] / (1000 * 60))
+                                  .round()),
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,

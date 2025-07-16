@@ -28,6 +28,19 @@ import '../../providers/notification_provider.dart';
 import '../../services/global_notification_service.dart';
 import 'employee_events_screen.dart';
 
+/// Helper function to format duration in a human-readable format
+/// Shows hours and minutes when duration is over 60 minutes
+String _formatDuration(Duration duration) {
+  final totalMinutes = duration.inMinutes;
+  if (totalMinutes >= 60) {
+    final hours = totalMinutes ~/ 60;
+    final minutes = totalMinutes % 60;
+    return '${hours}h ${minutes}m';
+  } else {
+    return '${totalMinutes}m';
+  }
+}
+
 /// EmployeeDashboardScreen displays the main dashboard for employees.
 //
 /// - Shows user info, live clock, status, quick actions, and attendance summary.
@@ -994,7 +1007,7 @@ class StatusCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Duration: ${duration.inMinutes} minutes',
+                          'Duration: ${_formatDuration(duration)}',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Colors.grey[600],
@@ -1240,7 +1253,7 @@ class StatusCard extends StatelessWidget {
                                             .bodySmall
                                             ?.copyWith(
                                                 fontWeight: FontWeight.w500)),
-                                    Text('${breakDuration.inMinutes} minutes',
+                                    Text('${_formatDuration(breakDuration)}',
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall),
