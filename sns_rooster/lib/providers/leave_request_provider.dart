@@ -77,7 +77,7 @@ class LeaveRequestProvider with ChangeNotifier {
     }
   }
 
-  // --- Create Leave Request (Employee) ---
+  // --- Create Leave Request (Employee/Admin) ---
   Future<bool> createLeaveRequest(Map<String, dynamic> requestData) async {
     _isLoading = true;
     _error = null;
@@ -87,7 +87,10 @@ class LeaveRequestProvider with ChangeNotifier {
       final response = await api.post('/leave/apply', requestData);
       if (response.success) {
         // Optionally refresh leave requests after successful application
-        await getUserLeaveRequests(requestData['userId'] ?? '');
+        // For admins, we might need a different endpoint to get their leave history
+        if (requestData['employeeId'] != null) {
+          await getUserLeaveRequests(requestData['employeeId'] ?? '');
+        }
         return true;
       } else {
         _error = response.message;

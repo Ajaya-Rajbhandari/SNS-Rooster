@@ -140,31 +140,35 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
           Provider.of<ProfileProvider>(context, listen: false);
       log('DEBUG: profileProvider.profile = \\${profileProvider.profile}');
       log('DEBUG: authProvider.user = \\${authProvider.user}');
-      // Always fetch the Employee document for the current user
       final userId = authProvider.user?['_id'];
+      final userRole = authProvider.user?['role'];
       String? employeeId;
-      if (userId != null) {
-        final fetchedEmployeeId =
-            await leaveProvider.fetchEmployeeIdByUserId(userId);
-        print('DEBUG: fetchedEmployeeId = $fetchedEmployeeId');
-        if (fetchedEmployeeId != null) {
-          employeeId = fetchedEmployeeId;
+
+      if (userRole == 'admin') {
+        // For admins, we don't need an employee ID - we'll use the user ID directly
+        employeeId = null;
+      } else {
+        // For employees, fetch the Employee document
+        if (userId != null) {
+          final fetchedEmployeeId =
+              await leaveProvider.fetchEmployeeIdByUserId(userId);
+          print('DEBUG: fetchedEmployeeId = $fetchedEmployeeId');
+          if (fetchedEmployeeId != null) {
+            employeeId = fetchedEmployeeId;
+          }
+        }
+        if (employeeId == null) {
+          print('DEBUG: employeeId is null');
+          final notificationService =
+              Provider.of<GlobalNotificationService>(context, listen: false);
+          notificationService
+              .showError('Employee record not found. Please contact admin.');
+          setState(() => _isLoading = false);
+          return;
         }
       }
-      if (employeeId == null) {
-        print('DEBUG: employeeId is null');
-        final notificationService =
-            Provider.of<GlobalNotificationService>(context, listen: false);
-        notificationService
-            .showError('Employee record not found. Please contact admin.');
-        setState(() => _isLoading = false);
-        return;
-      }
       print('DEBUG: Submitting leave request');
-      final success = await leaveProvider.createLeaveRequest({
-        'employeeId':
-            employeeId, // Use Employee document _id (backend expects 'employeeId')
-        'employeeName': authProvider.user?['name'] ?? 'Unknown',
+      final requestData = {
         'leaveType': _selectedLeaveType,
         'startDate': _startDate!.toIso8601String(),
         'endDate': _endDate!.toIso8601String(),
@@ -174,7 +178,14 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         'updatedAt': DateTime.now().toIso8601String(),
         'approverId': null,
         'comments': '',
-      });
+      };
+
+      // Add employeeId only for employees, not for admins
+      if (employeeId != null) {
+        requestData['employeeId'] = employeeId;
+      }
+
+      final success = await leaveProvider.createLeaveRequest(requestData);
       print('DEBUG: Leave request success = $success');
 
       if (!mounted) {
@@ -245,13 +256,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       );
     }
     final isAdmin = user['role'] == 'admin';
-    if (isAdmin) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Leave Request')),
-        body: const Center(child: Text('Access denied')),
-        drawer: const AdminSideNavigation(currentRoute: '/leave'),
-      );
-    }
+    // Remove the admin access restriction - admins can now apply for leave
     final theme = Theme.of(context);
     final leaveProvider = Provider.of<LeaveRequestProvider>(context);
 

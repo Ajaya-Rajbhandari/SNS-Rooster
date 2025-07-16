@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sns_rooster/utils/logger.dart';
 import 'package:provider/provider.dart';
 import '../../providers/leave_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../models/leave_request.dart';
 import '../../widgets/admin_side_navigation.dart';
 import '../../widgets/role_filter_chip.dart';
@@ -52,14 +53,20 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
       await _apiServiceCompleter.future;
       log('DEBUG: Initiating fetchLeaveRequests');
       log('DEBUG: Authorization header being sent: ${await leaveProvider.getAuthorizationHeader()}');
+
+      // Always include admins by default, but allow filtering
+      bool includeAdmins = _selectedRole != 'employee';
       String role = 'all';
       if (_selectedRole == 'employee') {
         role = 'employee';
+        includeAdmins = false;
       } else if (_selectedRole == 'admin') {
         role = 'admin';
+        includeAdmins = true;
       }
+
       await leaveProvider.fetchLeaveRequests(
-        includeAdmins: _selectedRole != 'employee',
+        includeAdmins: includeAdmins,
         role: role,
       );
       log('DEBUG: Leave requests fetched successfully. Total requests: ${leaveProvider.leaveRequests.length}');
@@ -367,6 +374,32 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                                                           index;
                                                     });
                                                     try {
+                                                      // Check if this is an admin leave request and prevent self-approval
+                                                      final currentUser = Provider
+                                                              .of<AuthProvider>(
+                                                                  context,
+                                                                  listen: false)
+                                                          .user;
+                                                      final currentUserId =
+                                                          currentUser?['_id'];
+
+                                                      if (request.role ==
+                                                              'admin' &&
+                                                          request.user ==
+                                                              currentUserId) {
+                                                        ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text(
+                                                                'You cannot approve your own leave request.'),
+                                                            backgroundColor:
+                                                                Colors.red,
+                                                          ),
+                                                        );
+                                                        return;
+                                                      }
+
                                                       await provider
                                                           .approveLeaveRequest(
                                                               request.id);
@@ -374,16 +407,23 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                                                               context)
                                                           .showSnackBar(
                                                         const SnackBar(
-                                                            content: Text(
-                                                                'Leave request approved.')),
+                                                          content: Text(
+                                                              'Leave request approved.'),
+                                                        ),
                                                       );
+
+                                                      // Refresh the leave requests
+                                                      _fetchLeaveRequests();
                                                     } catch (e) {
                                                       ScaffoldMessenger.of(
                                                               context)
                                                           .showSnackBar(
                                                         SnackBar(
-                                                            content: Text(
-                                                                'Error approving leave request: $e')),
+                                                          content: Text(
+                                                              'Error approving leave request: $e'),
+                                                          backgroundColor:
+                                                              Colors.red,
+                                                        ),
                                                       );
                                                     } finally {
                                                       setState(() {

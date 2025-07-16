@@ -18,6 +18,8 @@ class LeaveRequest {
   final String employeeId;
   final String employeeName;
   final String department;
+  final String role; // 'employee' or 'admin'
+  final String? user; // User ID for admin leaves
   final LeaveType leaveType;
   final DateTime startDate;
   final DateTime endDate;
@@ -32,6 +34,8 @@ class LeaveRequest {
     required this.employeeId,
     required this.employeeName,
     required this.department,
+    required this.role,
+    this.user,
     required this.leaveType,
     required this.startDate,
     required this.endDate,
@@ -59,6 +63,8 @@ class LeaveRequest {
       employeeId: json['employee'] ?? '',
       employeeName: json['employeeName'] ?? '',
       department: json['department'] ?? '',
+      role: json['role'] ?? 'employee',
+      user: json['user'],
       leaveType: leaveType,
       startDate: startDate,
       endDate: endDate,
@@ -98,6 +104,8 @@ class LeaveRequest {
     String? employeeId,
     String? employeeName,
     String? department,
+    String? role,
+    String? user,
     LeaveType? leaveType,
     DateTime? startDate,
     DateTime? endDate,
@@ -112,6 +120,8 @@ class LeaveRequest {
       employeeId: employeeId ?? this.employeeId,
       employeeName: employeeName ?? this.employeeName,
       department: department ?? this.department,
+      role: role ?? this.role,
+      user: user ?? this.user,
       leaveType: leaveType ?? this.leaveType,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,

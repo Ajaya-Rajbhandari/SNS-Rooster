@@ -60,6 +60,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
   bool _profileDialogShown = false;
   List<Map<String, dynamic>> _upcomingEvents = [];
   bool _eventsLoading = false;
+  bool _isOnLeave = false;
+  Map<String, dynamic>? _leaveInfo;
 
   RouteObserver<ModalRoute<void>>? _routeObserver;
 
@@ -173,6 +175,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       } else if (e.toString().contains('E11000 duplicate key error')) {
         errorMessage =
             'A duplicate entry was detected. You might have already checked in.';
+      } else if (e.toString().contains('on approved leave')) {
+        errorMessage = 'You are on approved leave and cannot clock in.';
       }
       final notificationService =
           Provider.of<GlobalNotificationService>(context, listen: false);
@@ -206,11 +210,23 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     final selected = await _showBreakTypeSelectionDialog();
     if (selected == null) return;
     final uid = context.read<AuthProvider>().user!['_id'] as String;
-    await context.read<AttendanceProvider>().startBreakWithType(uid, selected);
-    await context.read<AttendanceProvider>().fetchTodayStatus(uid);
-    setState(() {
-      _isOnBreak = true;
-    });
+    try {
+      await context
+          .read<AttendanceProvider>()
+          .startBreakWithType(uid, selected);
+      await context.read<AttendanceProvider>().fetchTodayStatus(uid);
+      setState(() {
+        _isOnBreak = true;
+      });
+    } catch (e) {
+      String errorMessage = 'Failed to start break.';
+      if (e.toString().contains('on approved leave')) {
+        errorMessage = 'You are on approved leave and cannot take breaks.';
+      }
+      final notificationService =
+          Provider.of<GlobalNotificationService>(context, listen: false);
+      notificationService.showError(errorMessage);
+    }
   }
 
   Future<Map<String, dynamic>?> _showBreakTypeSelectionDialog() async {
@@ -343,6 +359,131 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     }
   }
 
+  // Check if user is on leave and update UI accordingly
+  void _checkLeaveStatus(Map<String, dynamic> statusData) {
+    final leaveInfo = statusData['leaveInfo'] as Map<String, dynamic>?;
+    setState(() {
+      _isOnLeave = leaveInfo != null;
+      _leaveInfo = leaveInfo;
+    });
+  }
+
+  // Build leave status widget
+  Widget _buildLeaveStatusWidget() {
+    if (_leaveInfo == null) return const SizedBox.shrink();
+
+    final leaveType = _leaveInfo!['type'] ?? 'Leave';
+    final startDate = DateTime.parse(_leaveInfo!['startDate']);
+    final endDate = DateTime.parse(_leaveInfo!['endDate']);
+    final reason = _leaveInfo!['reason'] ?? 'No reason provided';
+
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.orange.shade100, Colors.orange.shade50],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.beach_access,
+                  color: Colors.orange.shade700,
+                  size: 30,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'On Leave',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange.shade800,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildLeaveInfoRow('Type', leaveType),
+            _buildLeaveInfoRow(
+                'From', DateFormat('MMM dd, yyyy').format(startDate)),
+            _buildLeaveInfoRow(
+                'To', DateFormat('MMM dd, yyyy').format(endDate)),
+            if (reason.isNotEmpty) _buildLeaveInfoRow('Reason', reason),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade200.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade300),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.orange.shade700,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Attendance actions are disabled during your leave period.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.orange.shade800,
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLeaveInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              '$label:',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.orange.shade700,
+                  ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.orange.shade800,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _endBreak() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?['_id'];
@@ -392,6 +533,13 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
               Provider.of<AttendanceProvider>(context, listen: false);
           setState(() {
             _isOnBreak = attendanceProvider.todayStatus == 'on_break';
+          });
+
+          // Check for leave status from the provider
+          final leaveInfo = attendanceProvider.leaveInfo;
+          setState(() {
+            _isOnLeave = leaveInfo != null;
+            _leaveInfo = leaveInfo;
           });
         });
         Provider.of<AttendanceProvider>(context, listen: false)
@@ -540,6 +688,11 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
             const SizedBox(height: 28),
             const StatusCard(),
             const SizedBox(height: 28),
+            // Leave Status Widget
+            if (_isOnLeave && _leaveInfo != null) ...[
+              _buildLeaveStatusWidget(),
+              const SizedBox(height: 28),
+            ],
             Text(
               'Quick Actions',
               style: Theme.of(context)
@@ -550,6 +703,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
             const SizedBox(height: 16),
             _QuickActions(
               isOnBreak: _isOnBreak,
+              isOnLeave: _isOnLeave,
               clockIn: _clockIn,
               clockOut: _clockOut,
               startBreak: _startBreak,
@@ -1417,6 +1571,7 @@ class StatusCard extends StatelessWidget {
 
 class _QuickActions extends StatelessWidget {
   final bool isOnBreak;
+  final bool isOnLeave;
   final VoidCallback clockIn;
   final VoidCallback clockOut;
   final VoidCallback startBreak;
@@ -1427,6 +1582,7 @@ class _QuickActions extends StatelessWidget {
   final Function(BuildContext) openEvents;
   const _QuickActions({
     required this.isOnBreak,
+    required this.isOnLeave,
     required this.clockIn,
     required this.clockOut,
     required this.startBreak,
@@ -1464,12 +1620,16 @@ class _QuickActions extends StatelessWidget {
                           size: 48, color: Colors.grey.shade700),
                     ),
                     const SizedBox(height: 16),
-                    Text('You have not clocked in today.',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(color: Colors.grey[800]),
-                        textAlign: TextAlign.center),
+                    Text(
+                      isOnLeave
+                          ? 'You are on leave and cannot clock in.'
+                          : 'You have not clocked in today.',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(color: Colors.grey[800]),
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: 16),
                     Semantics(
                       label: 'Clock In',
@@ -1477,10 +1637,11 @@ class _QuickActions extends StatelessWidget {
                       child: ElevatedButton.icon(
                         icon: const Icon(Icons.login),
                         label: const Text('Clock In'),
-                        onPressed: clockIn,
+                        onPressed: isOnLeave ? null : clockIn,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              const Color(0xFF256029), // Improved contrast
+                          backgroundColor: isOnLeave
+                              ? Colors.grey.shade400
+                              : const Color(0xFF256029), // Improved contrast
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                               horizontal: 24, vertical: 12),
@@ -1502,10 +1663,10 @@ class _QuickActions extends StatelessWidget {
                       context,
                       icon: Icons.logout,
                       label: 'Clock Out',
-                      color: isOnBreak
+                      color: (isOnBreak || isOnLeave)
                           ? const Color(0xFFB0B0B0)
                           : const Color(0xFFB91C1C), // Improved contrast
-                      onPressed: isOnBreak ? null : clockOut,
+                      onPressed: (isOnBreak || isOnLeave) ? null : clockOut,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1514,8 +1675,10 @@ class _QuickActions extends StatelessWidget {
                       context,
                       icon: Icons.free_breakfast,
                       label: 'Start Break',
-                      color: const Color(0xFF374151), // Improved contrast
-                      onPressed: startBreak,
+                      color: isOnLeave
+                          ? const Color(0xFFB0B0B0)
+                          : const Color(0xFF374151), // Improved contrast
+                      onPressed: isOnLeave ? null : startBreak,
                     ),
                   ),
                 ],
@@ -1540,8 +1703,10 @@ class _QuickActions extends StatelessWidget {
                       context,
                       icon: Icons.stop_circle,
                       label: 'End Break',
-                      color: const Color(0xFFDD6B20), // Improved contrast
-                      onPressed: endBreak,
+                      color: isOnLeave
+                          ? const Color(0xFFB0B0B0)
+                          : const Color(0xFFDD6B20), // Improved contrast
+                      onPressed: isOnLeave ? null : endBreak,
                     ),
                   ),
                 ],
@@ -1554,8 +1719,10 @@ class _QuickActions extends StatelessWidget {
                 context,
                 icon: Icons.login,
                 label: 'Clock In',
-                color: const Color(0xFF256029), // Improved contrast
-                onPressed: clockIn,
+                color: isOnLeave
+                    ? const Color(0xFFB0B0B0)
+                    : const Color(0xFF256029), // Improved contrast
+                onPressed: isOnLeave ? null : clockIn,
                 isFullWidth: true,
               ),
             );
