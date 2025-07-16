@@ -255,6 +255,63 @@ class _TimesheetApprovalScreenState extends State<TimesheetApprovalScreen> {
                               final totalBreakDuration =
                                   timesheet['totalBreakDuration'] ?? 0;
 
+                              // Format times for display
+                              String formatTime(String? timeString) {
+                                if (timeString == null || timeString.isEmpty)
+                                  return '--';
+                                try {
+                                  final time = DateTime.parse(timeString);
+                                  return DateFormat('h:mm a').format(time);
+                                } catch (e) {
+                                  return timeString;
+                                }
+                              }
+
+                              // Format break duration
+                              String formatBreakDuration(int milliseconds) {
+                                if (milliseconds <= 0) return '0m';
+                                final minutes =
+                                    (milliseconds / (1000 * 60)).round();
+                                if (minutes < 60) {
+                                  return '${minutes}m';
+                                } else {
+                                  final hours = minutes ~/ 60;
+                                  final remainingMinutes = minutes % 60;
+                                  return remainingMinutes > 0
+                                      ? '${hours}h ${remainingMinutes}m'
+                                      : '${hours}h';
+                                }
+                              }
+
+                              // Calculate total work time
+                              String calculateWorkTime() {
+                                if (checkInTime == null || checkOutTime == null)
+                                  return '--';
+                                try {
+                                  final checkIn = DateTime.parse(checkInTime);
+                                  final checkOut = DateTime.parse(checkOutTime);
+                                  final totalMs = checkOut
+                                      .difference(checkIn)
+                                      .inMilliseconds;
+                                  final workMs = totalMs - totalBreakDuration;
+                                  if (workMs <= 0) return '0m';
+
+                                  final minutes =
+                                      (workMs / (1000 * 60)).round();
+                                  if (minutes < 60) {
+                                    return '${minutes}m';
+                                  } else {
+                                    final hours = minutes ~/ 60;
+                                    final remainingMinutes = minutes % 60;
+                                    return remainingMinutes > 0
+                                        ? '${hours}h ${remainingMinutes}m'
+                                        : '${hours}h';
+                                  }
+                                } catch (e) {
+                                  return '--';
+                                }
+                              }
+
                               return Card(
                                 margin: const EdgeInsets.only(bottom: 16),
                                 child: Padding(
@@ -340,7 +397,7 @@ class _TimesheetApprovalScreenState extends State<TimesheetApprovalScreen> {
                                                   ),
                                                 ),
                                                 Text(
-                                                  checkInTime ?? '--',
+                                                  formatTime(checkInTime),
                                                   style: theme
                                                       .textTheme.bodyMedium
                                                       ?.copyWith(
@@ -364,7 +421,7 @@ class _TimesheetApprovalScreenState extends State<TimesheetApprovalScreen> {
                                                   ),
                                                 ),
                                                 Text(
-                                                  checkOutTime ?? '--',
+                                                  formatTime(checkOutTime),
                                                   style: theme
                                                       .textTheme.bodyMedium
                                                       ?.copyWith(
@@ -388,11 +445,37 @@ class _TimesheetApprovalScreenState extends State<TimesheetApprovalScreen> {
                                                   ),
                                                 ),
                                                 Text(
-                                                  '${(totalBreakDuration / (1000 * 60)).round()}m',
+                                                  formatBreakDuration(
+                                                      totalBreakDuration),
                                                   style: theme
                                                       .textTheme.bodyMedium
                                                       ?.copyWith(
                                                     fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Work Time:',
+                                                  style: theme
+                                                      .textTheme.bodySmall
+                                                      ?.copyWith(
+                                                    color: Colors.grey,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  calculateWorkTime(),
+                                                  style: theme
+                                                      .textTheme.bodyMedium
+                                                      ?.copyWith(
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Colors.blue[700],
                                                   ),
                                                 ),
                                               ],
