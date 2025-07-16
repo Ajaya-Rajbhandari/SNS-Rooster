@@ -244,7 +244,16 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
                           final breakType = _breakTypes[index];
                           final color =
                               _parseColor(breakType['color'] ?? '#6B7280');
-
+                          String durationText = '';
+                          final min = breakType['minDuration'];
+                          final max = breakType['maxDuration'];
+                          if (min != null && max != null) {
+                            durationText = 'Duration: $min–$max min';
+                          } else if (max != null) {
+                            durationText = 'Duration: up to $max min';
+                          } else if (min != null) {
+                            durationText = 'Duration: at least $min min';
+                          }
                           return Card(
                             margin: const EdgeInsets.symmetric(vertical: 4),
                             child: ListTile(
@@ -271,10 +280,9 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(breakType['description'] ?? ''),
-                                  if (breakType['minDuration'] != null ||
-                                      breakType['maxDuration'] != null)
+                                  if (durationText.isNotEmpty)
                                     Text(
-                                      'Duration: ${breakType['minDuration'] ?? 0}-${breakType['maxDuration'] ?? 'âˆž'} min',
+                                      durationText,
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Theme.of(context)

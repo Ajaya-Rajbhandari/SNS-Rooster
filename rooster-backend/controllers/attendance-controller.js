@@ -14,14 +14,7 @@ const User = require("../models/User");
 const BreakType = require("../models/BreakType");
 
 exports.checkIn = async (req, res) => {
-  // console.log("DEBUG: /check-in req.body:", req.body);
-  // console.log("DEBUG: /check-in req.user:", req.user);
-  // console.log("DEBUG: Authorization header:", req.header("Authorization"));
-  // console.log("DEBUG: req.user at start of /check-in:", req.user);
-  // console.log("DEBUG: req.user before accessing userId:", req.user);
-  // console.log("DEBUG: Type of req.user:", typeof req.user);
-
-  if (!req.user || typeof req.user !== "object") {
+              if (!req.user || typeof req.user !== "object") {
     console.error(
       "ERROR: req.user is undefined or not an object in /check-in route"
     );
@@ -346,7 +339,25 @@ exports.getAttendanceStatus = async (req, res) => {
       "DEBUG: getAttendanceStatus - Final status before sending:",
       status
     );
-    res.status(200).json({ status, attendance });
+    
+    // Process attendance data to format times consistently
+    let processedAttendance = null;
+    if (attendance) {
+      const attendanceObj = attendance.toObject();
+      
+      // Convert Date objects to ISO strings for consistency
+      const checkInTime = attendance.checkInTime ? attendance.checkInTime.toISOString() : null;
+      const checkOutTime = attendance.checkOutTime ? attendance.checkOutTime.toISOString() : null;
+      
+      processedAttendance = {
+        ...attendanceObj,
+        checkInTime,
+        checkOutTime,
+        date: attendance.date.toISOString().split('T')[0] // Format as YYYY-MM-DD
+      };
+    }
+    
+    res.status(200).json({ status, attendance: processedAttendance });
   } catch (error) {
     console.error("Get attendance status error:", error);
     res.status(500).json({ message: "Server error" });
@@ -356,12 +367,34 @@ exports.getAttendanceStatus = async (req, res) => {
 exports.getMyAttendance = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const attendanceRecords = await Attendance.find({ user: userId }).populate(
-      "user",
-      "firstName lastName email role"
-    );
+    const attendanceRecords = await Attendance.find({ user: userId })
+      .populate("user", "firstName lastName email role")
+      .sort({ date: -1 }); // Sort by date, newest first
 
-    res.json({ attendance: attendanceRecords });
+    // Process records to format times correctly
+    const processedRecords = attendanceRecords.map(record => {
+      const recordObj = record.toObject();
+      
+      console.log('DEBUG: Original record checkInTime:', record.checkInTime);
+      console.log('DEBUG: Original record checkOutTime:', record.checkOutTime);
+      
+      // Keep the original Date objects for frontend to format
+      const checkInTime = record.checkInTime ? record.checkInTime.toISOString() : null;
+      const checkOutTime = record.checkOutTime ? record.checkOutTime.toISOString() : null;
+
+      console.log('DEBUG: ISO checkInTime:', checkInTime);
+      console.log('DEBUG: ISO checkOutTime:', checkOutTime);
+
+      return {
+        ...recordObj,
+        checkInTime,
+        checkOutTime,
+        date: record.date.toISOString().split('T')[0] // Format as YYYY-MM-DD
+      };
+    });
+
+    console.log('DEBUG: Sending processed records:', processedRecords);
+    res.json({ attendance: processedRecords });
   } catch (error) {
     console.error("Get my attendance error:", error);
     res.status(500).json({ message: "Server error" });
@@ -409,17 +442,17 @@ exports.getMyTimesheet = async (req, res) => {
         totalWorkTime = Math.max(0, workDuration - breakDuration);
       }
 
-      // Format times for display
+      // Format times for display (convert UTC to local time)
       const checkInTime = record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-US', { 
         hour: '2-digit', 
         minute: '2-digit',
-        hour12: true 
+        hour12: false 
       }) : null;
       
       const checkOutTime = record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-US', { 
         hour: '2-digit', 
         minute: '2-digit',
-        hour12: true 
+        hour12: false 
       }) : null;
 
       // Calculate total break time
@@ -432,7 +465,7 @@ exports.getMyTimesheet = async (req, res) => {
         totalWorkTime: Math.floor(totalWorkTime / (1000 * 60 * 60)), // Convert to hours
         totalBreakMinutes,
         date: record.date.toISOString().split('T')[0], // Format as YYYY-MM-DD
-        status: record.checkOutTime ? 'completed' : (record.checkInTime ? 'active' : 'absent')
+        status: record.status || 'pending' // Use the actual status from database
       };
     });
 
@@ -653,6 +686,150 @@ exports.getTodayEmployeeList = async (req, res) => {
     res.json({ employees: result });
   } catch (error) {
     console.error('getTodayEmployeeList error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Admin: Approve timesheet entry
+exports.approveTimesheet = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const { attendanceId } = req.params;
+    const { adminComment } = req.body;
+
+    const attendance = await Attendance.findById(attendanceId).populate('user', 'firstName lastName email');
+    if (!attendance) {
+      return res.status(404).json({ message: 'Attendance record not found' });
+    }
+
+    attendance.status = 'approved';
+    attendance.adminComment = adminComment || '';
+    attendance.approvedBy = req.user.userId;
+    attendance.approvedAt = new Date();
+
+    await attendance.save();
+
+    // Send notification to employee
+    const Notification = require('../models/Notification');
+    const employeeNotification = new Notification({
+      user: attendance.user._id,
+      title: 'Timesheet Approved',
+      message: `Your timesheet for ${attendance.date.toDateString()} has been approved.`,
+      type: 'timesheet',
+      link: '/timesheet',
+      isRead: false,
+    });
+    await employeeNotification.save();
+
+    res.json({ 
+      message: 'Timesheet approved successfully',
+      attendance: {
+        _id: attendance._id,
+        user: attendance.user._id,
+        userName: `${attendance.user.firstName} ${attendance.user.lastName}`,
+        date: attendance.date,
+        status: attendance.status,
+        adminComment: attendance.adminComment,
+        approvedAt: attendance.approvedAt
+      }
+    });
+  } catch (error) {
+    console.error('Approve timesheet error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Admin: Reject timesheet entry
+exports.rejectTimesheet = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const { attendanceId } = req.params;
+    const { adminComment } = req.body;
+
+    if (!adminComment || adminComment.trim() === '') {
+      return res.status(400).json({ message: 'Admin comment is required when rejecting timesheet' });
+    }
+
+    const attendance = await Attendance.findById(attendanceId).populate('user', 'firstName lastName email');
+    if (!attendance) {
+      return res.status(404).json({ message: 'Attendance record not found' });
+    }
+
+    attendance.status = 'rejected';
+    attendance.adminComment = adminComment;
+    attendance.approvedBy = req.user.userId;
+    attendance.approvedAt = new Date();
+
+    await attendance.save();
+
+    // Send notification to employee
+    const Notification = require('../models/Notification');
+    const employeeNotification = new Notification({
+      user: attendance.user._id,
+      title: 'Timesheet Rejected',
+      message: `Your timesheet for ${attendance.date.toDateString()} has been rejected. Reason: ${adminComment}`,
+      type: 'timesheet',
+      link: '/timesheet',
+      isRead: false,
+    });
+    await employeeNotification.save();
+
+    res.json({ 
+      message: 'Timesheet rejected successfully',
+      attendance: {
+        _id: attendance._id,
+        user: attendance.user._id,
+        userName: `${attendance.user.firstName} ${attendance.user.lastName}`,
+        date: attendance.date,
+        status: attendance.status,
+        adminComment: attendance.adminComment,
+        approvedAt: attendance.approvedAt
+      }
+    });
+  } catch (error) {
+    console.error('Reject timesheet error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Admin: Get pending timesheets for approval
+exports.getPendingTimesheets = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const { page = 1, limit = 10, userId } = req.query;
+    const skip = (page - 1) * limit;
+
+    const query = { status: 'pending' };
+    if (userId) {
+      query.user = userId;
+    }
+
+    const pendingTimesheets = await Attendance.find(query)
+      .populate('user', 'firstName lastName email department')
+      .populate('approvedBy', 'firstName lastName')
+      .sort({ date: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Attendance.countDocuments(query);
+
+    res.json({
+      timesheets: pendingTimesheets,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / limit)
+    });
+  } catch (error) {
+    console.error('Get pending timesheets error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

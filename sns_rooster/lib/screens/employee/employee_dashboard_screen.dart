@@ -223,13 +223,39 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
               itemCount: breakTypes.length,
               itemBuilder: (context, index) {
                 final breakType = breakTypes[index];
+                String durationText = '';
+                final min = breakType['minDuration'];
+                final max = breakType['maxDuration'];
+                if (min != null && max != null) {
+                  durationText = 'Duration: $min–$max min';
+                } else if (max != null) {
+                  durationText = 'Duration: up to $max min';
+                } else if (min != null) {
+                  durationText = 'Duration: at least $min min';
+                }
                 return ListTile(
                   leading: Icon(
                     _getIconFromString(breakType['icon']),
                     color: colorFromHex(breakType['color']),
                   ),
                   title: Text(breakType['displayName']),
-                  subtitle: Text(breakType['description']),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(breakType['description'] ?? ''),
+                      if (durationText.isNotEmpty)
+                        Text(
+                          durationText,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.6),
+                          ),
+                        ),
+                    ],
+                  ),
                   onTap: () {
                     Navigator.of(context).pop(breakType);
                   },
@@ -761,7 +787,7 @@ class StatusCard extends StatelessWidget {
                       DateTime.parse(checkOutTime).toLocal();
                   statusDetails.add(
                     Text(
-                      'Clocked out at  ${DateFormat('hh:mm a').format(checkOutDateTime)}',
+                      'Clocked out at  ${DateFormat('HH:mm').format(checkOutDateTime)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Colors.grey[600],
                             fontWeight: FontWeight.w500,
@@ -831,8 +857,7 @@ class StatusCard extends StatelessWidget {
                                       .textTheme
                                       .bodySmall
                                       ?.copyWith(fontWeight: FontWeight.w500)),
-                              Text(
-                                  DateFormat('hh:mm a').format(checkInDateTime),
+                              Text(DateFormat('HH:mm').format(checkInDateTime),
                                   style: Theme.of(context).textTheme.bodySmall),
                             ],
                           ),
@@ -847,9 +872,7 @@ class StatusCard extends StatelessWidget {
                                       .textTheme
                                       .bodySmall
                                       ?.copyWith(fontWeight: FontWeight.w500)),
-                              Text(
-                                  DateFormat('hh:mm a')
-                                      .format(checkOutDateTime),
+                              Text(DateFormat('HH:mm').format(checkOutDateTime),
                                   style: Theme.of(context).textTheme.bodySmall),
                             ],
                           ),
@@ -966,7 +989,7 @@ class StatusCard extends StatelessWidget {
                       }
                       statusDetails.addAll([
                         Text(
-                          '$breakTypeName since ${DateFormat('hh:mm a').format(breakStartTime)}',
+                          '$breakTypeName since ${DateFormat('HH:mm').format(breakStartTime)}',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Colors.grey[700],
@@ -1088,7 +1111,7 @@ class StatusCard extends StatelessWidget {
                       DateTime.now().difference(checkInDateTime);
                   statusDetails.addAll([
                     Text(
-                      'Since ${DateFormat('hh:mm a').format(checkInDateTime)}',
+                      'Since ${DateFormat('HH:mm').format(checkInDateTime)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Colors.grey[600],
                           ),
@@ -1203,7 +1226,7 @@ class StatusCard extends StatelessWidget {
                                             ?.copyWith(
                                                 fontWeight: FontWeight.w500)),
                                     Text(
-                                        '${DateFormat('hh:mm a').format(breakStart)} - ${DateFormat('hh:mm a').format(breakEnd)}',
+                                        '${DateFormat('HH:mm').format(breakStart)} - ${DateFormat('HH:mm').format(breakEnd)}',
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall),

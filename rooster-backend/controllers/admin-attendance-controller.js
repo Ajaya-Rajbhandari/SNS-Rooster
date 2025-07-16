@@ -14,8 +14,19 @@ exports.adminStartBreak = async (req, res) => {
   try {
     const { userId } = req.params;
     const { breakType = 'other', reason } = req.body;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use UTC midnight for consistency with attendance records
+    const now = new Date();
+    const today = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        0,
+        0,
+        0,
+        0
+      )
+    );
 
     // Validate break type
     const breakTypeConfig = await BreakType.findOne({ name: breakType, isActive: true });
@@ -42,7 +53,7 @@ exports.adminStartBreak = async (req, res) => {
 
     // Check daily limit for this break type
     if (breakTypeConfig.dailyLimit) {
-      const todayBreaksOfType = attendance.breaks.filter(b => b.type === breakType).length;
+      const todayBreaksOfType = attendance.breaks.filter(b => b.type.toString() === breakTypeConfig._id.toString()).length;
       if (todayBreaksOfType >= breakTypeConfig.dailyLimit) {
         return res.status(400).json({
           message: `Daily limit of ${breakTypeConfig.displayName}s exceeded`
@@ -53,9 +64,9 @@ exports.adminStartBreak = async (req, res) => {
     // Check weekly limit for this break type (if needed)
     if (breakTypeConfig.weeklyLimit) {
       const weekStart = new Date(today);
-      weekStart.setDate(today.getDate() - today.getDay());
+      weekStart.setUTCDate(today.getUTCDate() - today.getUTCDay());
       const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 7);
+      weekEnd.setUTCDate(weekStart.getUTCDate() + 7);
 
       const weeklyAttendance = await Attendance.find({
         user: userId,
@@ -63,7 +74,7 @@ exports.adminStartBreak = async (req, res) => {
       });
 
       const weeklyBreaksOfType = weeklyAttendance.reduce((count, att) => {
-        return count + att.breaks.filter(b => b.type === breakType).length;
+        return count + att.breaks.filter(b => b.type.toString() === breakTypeConfig._id.toString()).length;
       }, 0);
 
       if (weeklyBreaksOfType >= breakTypeConfig.weeklyLimit) {
@@ -75,7 +86,7 @@ exports.adminStartBreak = async (req, res) => {
 
     const newBreak = {
       start: new Date(),
-      type: breakType,
+      type: breakTypeConfig._id, // Use the ObjectId, not the name
       reason: reason || '',
       approvedBy: req.user.userId
     };
@@ -98,8 +109,19 @@ exports.adminStartBreak = async (req, res) => {
 exports.adminEndBreak = async (req, res) => {
   try {
     const { userId } = req.params;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use UTC midnight for consistency with attendance records
+    const now = new Date();
+    const today = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        0,
+        0,
+        0,
+        0
+      )
+    );
 
     const attendance = await Attendance.findOne({
       user: userId,
@@ -119,7 +141,7 @@ exports.adminEndBreak = async (req, res) => {
     }
 
     // Get break type configuration for validation
-    const breakTypeConfig = await BreakType.findOne({ name: lastBreak.type || 'other' });
+    const breakTypeConfig = await BreakType.findById(lastBreak.type);
 
     // End the break and calculate duration
     lastBreak.end = new Date();
@@ -137,6 +159,9 @@ exports.adminEndBreak = async (req, res) => {
       if (breakTypeConfig.maxDuration && lastBreak.duration > breakTypeConfig.maxDuration) {
         // Log warning but don't prevent ending the break
         console.warn(`Break duration (${lastBreak.duration}ms) exceeded maximum for ${breakTypeConfig.displayName} (${breakTypeConfig.maxDuration}ms)`);
+        
+        // Send notification to employee about break time violation
+        await _sendBreakTimeViolationNotification(userId, breakTypeConfig, lastBreak.duration);
       }
     }
 
@@ -175,8 +200,19 @@ exports.getBreakTypes = async (req, res) => {
 exports.getAdminBreakStatus = async (req, res) => {
   try {
     const { userId } = req.params;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use UTC midnight for consistency with attendance records
+    const now = new Date();
+    const today = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        0,
+        0,
+        0,
+        0
+      )
+    );
 
     const attendance = await Attendance.findOne({
       user: userId,
@@ -220,3 +256,185 @@ function getAttendanceStatusForRecord(att) {
 }
 
 module.exports.getAttendanceStatusForRecord = getAttendanceStatusForRecord;
+
+// Helper function to send break time violation notifications
+async function _sendBreakTimeViolationNotification(userId, breakTypeConfig, actualDuration) {
+  try {
+    const Notification = require('../models/Notification');
+    const FCMToken = require('../models/FCMToken');
+    const { sendNotificationToUser } = require('../services/notificationService');
+    
+    // Calculate duration in minutes
+    const actualMinutes = Math.round(actualDuration / (1000 * 60));
+    const maxMinutes = Math.round(breakTypeConfig.maxDuration / (1000 * 60));
+    const overMinutes = actualMinutes - maxMinutes;
+    
+    const title = 'Break Time Exceeded';
+    const message = `Your ${breakTypeConfig.displayName} exceeded the limit by ${overMinutes} minutes. Please be mindful of break time limits.`;
+    
+    // Create database notification
+    const notification = new Notification({
+      user: userId,
+      title: title,
+      message: message,
+      type: 'break_violation',
+      link: '/attendance',
+      isRead: false,
+    });
+    await notification.save();
+    
+    // Send FCM push notification
+    const tokenDoc = await FCMToken.findOne({ userId: userId });
+    if (tokenDoc && tokenDoc.fcmToken) {
+      await sendNotificationToUser(
+        tokenDoc.fcmToken,
+        title,
+        message,
+        { 
+          type: 'break_violation', 
+          breakType: breakTypeConfig.displayName,
+          actualDuration: actualMinutes,
+          maxDuration: maxMinutes,
+          overMinutes: overMinutes
+        }
+      );
+    }
+    
+    console.log(`Break time violation notification sent to user ${userId} for ${breakTypeConfig.displayName}`);
+  } catch (error) {
+    console.error('Error sending break time violation notification:', error);
+  }
+}
+
+// Admin: Monitor ongoing breaks and send warnings
+exports.monitorOngoingBreaks = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    // Use UTC midnight for consistency with attendance records
+    const now = new Date();
+    const today = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        0,
+        0,
+        0,
+        0
+      )
+    );
+
+    // Find all attendance records with ongoing breaks
+    const attendanceWithOngoingBreaks = await Attendance.find({
+      date: today,
+      'breaks.end': { $exists: false }
+    }).populate('user', 'firstName lastName email')
+      .populate('breaks.type', 'displayName maxDuration');
+
+    const warnings = [];
+
+    for (const attendance of attendanceWithOngoingBreaks) {
+      const lastBreak = attendance.breaks[attendance.breaks.length - 1];
+      if (lastBreak && !lastBreak.end && lastBreak.type) {
+        const breakStart = new Date(lastBreak.start);
+        const currentDuration = now.getTime() - breakStart.getTime();
+        const maxDuration = lastBreak.type.maxDuration * 1000 * 60; // Convert to milliseconds
+        const warningThreshold = maxDuration * 0.8; // Warn at 80% of max duration
+
+        if (currentDuration >= maxDuration) {
+          // Break time exceeded - send violation notification
+          await _sendBreakTimeViolationNotification(
+            attendance.user._id,
+            lastBreak.type,
+            currentDuration
+          );
+          warnings.push({
+            userId: attendance.user._id,
+            userName: `${attendance.user.firstName} ${attendance.user.lastName}`,
+            breakType: lastBreak.type.displayName,
+            duration: Math.round(currentDuration / (1000 * 60)),
+            maxDuration: Math.round(maxDuration / (1000 * 60)),
+            status: 'exceeded'
+          });
+        } else if (currentDuration >= warningThreshold) {
+          // Approaching limit - send warning notification
+          await _sendBreakTimeWarningNotification(
+            attendance.user._id,
+            lastBreak.type,
+            currentDuration,
+            maxDuration
+          );
+          warnings.push({
+            userId: attendance.user._id,
+            userName: `${attendance.user.firstName} ${attendance.user.lastName}`,
+            breakType: lastBreak.type.displayName,
+            duration: Math.round(currentDuration / (1000 * 60)),
+            maxDuration: Math.round(maxDuration / (1000 * 60)),
+            status: 'warning'
+          });
+        }
+      }
+    }
+
+    res.json({
+      message: 'Break monitoring completed',
+      warnings: warnings,
+      totalOngoingBreaks: attendanceWithOngoingBreaks.length
+    });
+  } catch (error) {
+    console.error('Monitor ongoing breaks error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Helper function to send break time warning notifications
+async function _sendBreakTimeWarningNotification(userId, breakTypeConfig, currentDuration, maxDuration) {
+  try {
+    const Notification = require('../models/Notification');
+    const FCMToken = require('../models/FCMToken');
+    const { sendNotificationToUser } = require('../services/notificationService');
+    
+    // Calculate duration in minutes
+    const currentMinutes = Math.round(currentDuration / (1000 * 60));
+    const maxMinutes = Math.round(maxDuration / (1000 * 60));
+    const remainingMinutes = maxMinutes - currentMinutes;
+    
+    const title = 'Break Time Warning';
+    const message = `Your ${breakTypeConfig.displayName} is approaching the limit. You have approximately ${remainingMinutes} minutes remaining.`;
+    
+    // Create database notification
+    const notification = new Notification({
+      user: userId,
+      title: title,
+      message: message,
+      type: 'break_warning',
+      link: '/attendance',
+      isRead: false,
+    });
+    await notification.save();
+    
+    // Send FCM push notification
+    const tokenDoc = await FCMToken.findOne({ userId: userId });
+    if (tokenDoc && tokenDoc.fcmToken) {
+      await sendNotificationToUser(
+        tokenDoc.fcmToken,
+        title,
+        message,
+        { 
+          type: 'break_warning', 
+          breakType: breakTypeConfig.displayName,
+          currentDuration: currentMinutes,
+          maxDuration: maxMinutes,
+          remainingMinutes: remainingMinutes
+        }
+      );
+    }
+    
+    console.log(`Break time warning notification sent to user ${userId} for ${breakTypeConfig.displayName}`);
+  } catch (error) {
+    console.error('Error sending break time warning notification:', error);
+  }
+}

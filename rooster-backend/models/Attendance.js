@@ -14,6 +14,14 @@ const AttendanceSchema = new mongoose.Schema({
   checkOutTime: { type: Date },
   breaks: [BreakSchema],
   totalBreakDuration: { type: Number, default: 0 },
+  status: { 
+    type: String, 
+    enum: ['pending', 'approved', 'rejected'], 
+    default: 'pending' 
+  },
+  adminComment: { type: String, default: '' },
+  approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  approvedAt: { type: Date },
 });
 
 AttendanceSchema.index({ user: 1, date: 1 }, { unique: true });

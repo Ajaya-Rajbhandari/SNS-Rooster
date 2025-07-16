@@ -78,10 +78,29 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   // Helper method to format time from backend
   String _formatTime(dynamic timeField) {
     if (timeField == null) return 'N/A';
+
+    print(
+        'DEBUG: _formatTime called with: $timeField (type: ${timeField.runtimeType})');
+
+    // If it's already a formatted string (from backend), return as is
+    if (timeField is String &&
+        timeField.contains(':') &&
+        !timeField.contains('T')) {
+      print('DEBUG: Returning formatted string: $timeField');
+      return timeField;
+    }
+
+    // If it's a DateTime object or ISO string, parse and format
     try {
       final time = DateTime.parse(timeField.toString());
-      return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+      // Convert to local time
+      final localTime = time.toLocal();
+      final formatted =
+          '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+      print('DEBUG: Parsed and formatted time: $formatted');
+      return formatted;
     } catch (e) {
+      print('DEBUG: Error parsing time: $e');
       return 'N/A';
     }
   }
@@ -399,6 +418,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     separatorBuilder: (context, index) => const Divider(),
                     itemBuilder: (context, index) {
                       final item = filteredData[index];
+                      print('DEBUG: Processing attendance item: $item');
                       final status = _calculateStatus(item);
                       final date = _formatDate(item['date']);
                       final checkIn = _formatTime(item['checkInTime']);

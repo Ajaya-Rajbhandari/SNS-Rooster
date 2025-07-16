@@ -208,4 +208,12 @@ router.get("/attendance", authenticateToken, adminAuth, async (req, res) => {
   }
 });
 
+// Admin: Monitor ongoing breaks and send warnings
+router.get(
+  "/monitor-breaks",
+  authenticateToken,
+  adminAuth,
+  adminAttendanceController.monitorOngoingBreaks
+);
+
 module.exports = router;

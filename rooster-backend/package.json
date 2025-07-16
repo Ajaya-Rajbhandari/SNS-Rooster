@@ -5,7 +5,10 @@
   "scripts": {
     "start": "nodemon server.js",
     "dev": "nodemon server.js",
-    "test": "jest"
+    "test": "jest",
+    "cleanup-logs": "node scripts/cleanup-debug-logs.js",
+    "start-prod": "NODE_ENV=production node server.js",
+    "dev-debug": "NODE_ENV=development nodemon server.js"
   },
   "keywords": [],
   "author": "",
@@ -28,7 +31,8 @@
     "nodemailer": "^7.0.4",
     "pdfkit": "^0.17.1",
     "resend": "^4.6.0",
-    "whatwg-url": "^14.2.0"
+    "whatwg-url": "^14.2.0",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "jest": "^30.0.0",

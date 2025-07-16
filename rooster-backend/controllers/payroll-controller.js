@@ -4,6 +4,46 @@ const PDFDocument = require('pdfkit');
 const Notification = require('../models/Notification');
 const path = require('path');
 
+// Helper function to get or create employee record for a user
+async function getOrCreateEmployeeRecord(userId) {
+  const User = require('../models/User');
+  
+  // First check if user exists
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Check if employee record exists
+  let employee = await Employee.findOne({ userId });
+  if (!employee) {
+    // Create employee record automatically if user exists but no employee record
+    const employeeCount = await Employee.countDocuments();
+    const employeeId = `EMP${String(employeeCount + 1).padStart(5, '0')}`;
+
+    employee = new Employee({
+      firstName: user.firstName || user.name?.split(' ')[0] || 'Unknown',
+      lastName: user.lastName || user.name?.split(' ').slice(1).join(' ') || 'User',
+      email: user.email,
+      employeeId: employeeId,
+      hireDate: new Date(),
+      position: user.position || 'Employee',
+      department: user.department || 'General',
+      hourlyRate: 0,
+      monthlySalary: 0,
+      userId: user._id,
+      isActive: true,
+      employeeType: 'Permanent',
+      employeeSubType: 'Full-time'
+    });
+
+    await employee.save();
+    console.log(`Auto-created employee record for user ${userId}: ${employee.firstName} ${employee.lastName}`);
+  }
+
+  return employee;
+}
+
 // Get all payrolls
 exports.getAllPayrolls = async (req, res) => {
   try {
@@ -85,14 +125,16 @@ exports.createPayroll = async (req, res) => {
 exports.getUserPayrollsByUserId = async (req, res) => {
   try {
     const userId = req.params.userId;
-    const employee = await Employee.findOne({ userId });
-    if (!employee) {
-      return res.status(404).json({ error: 'Employee not found for this user.' });
-    }
+    const employee = await getOrCreateEmployeeRecord(userId);
     const payrolls = await Payroll.find({ employee: employee._id }).populate('employee');
     res.json(payrolls);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error in getUserPayrollsByUserId:', err);
+    if (err.message === 'User not found') {
+      res.status(404).json({ error: 'User not found.' });
+    } else {
+      res.status(500).json({ error: err.message });
+    }
   }
 };
 
@@ -100,16 +142,18 @@ exports.getUserPayrollsByUserId = async (req, res) => {
 exports.getCurrentUserPayrolls = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const employee = await Employee.findOne({ userId });
-    if (!employee) {
-      return res.status(404).json({ error: 'Employee not found for this user.' });
-    }
+    const employee = await getOrCreateEmployeeRecord(userId);
     const payrolls = await Payroll.find({ employee: employee._id })
       .populate('employee')
       .sort({ issueDate: -1 }); // Sort by issue date, newest first
     res.json(payrolls);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error in getCurrentUserPayrolls:', err);
+    if (err.message === 'User not found') {
+      res.status(404).json({ error: 'User not found.' });
+    } else {
+      res.status(500).json({ error: err.message });
+    }
   }
 };
 
@@ -827,37 +871,36 @@ exports.downloadAllPayslipsCsv = async (req, res) => {
 exports.downloadAllPayslipsPdfForCurrentUser = async (req, res) => {
   try {
     console.log('Current user for PDF download:', req.user);
-    // Find the employee record for this user
-    const employee = await Employee.findOne({ userId: req.user.userId });
-    if (!employee) {
-      console.error('Employee not found for userId:', req.user.userId);
-      return res.status(404).json({ error: 'Employee not found for this user.' });
-    }
+    const employee = await getOrCreateEmployeeRecord(req.user.userId);
     console.log('employeeId used for PDF download:', employee._id);
     req.params.employeeId = employee._id;
     // Forward query params
     return exports.downloadAllPayslipsPdf(req, res);
   } catch (err) {
     console.error('Error generating PDF for current user:', err);
-    res.status(500).send('Failed to generate PDF');
+    if (err.message === 'User not found') {
+      res.status(404).json({ error: 'User not found.' });
+    } else {
+      res.status(500).send('Failed to generate PDF');
+    }
   }
 };
 
 exports.downloadAllPayslipsCsvForCurrentUser = async (req, res) => {
   try {
     console.log('Current user for CSV download:', req.user);
-    const employee = await Employee.findOne({ userId: req.user.userId });
-    if (!employee) {
-      console.error('Employee not found for userId:', req.user.userId);
-      return res.status(404).json({ error: 'Employee not found for this user.' });
-    }
+    const employee = await getOrCreateEmployeeRecord(req.user.userId);
     console.log('employeeId used for CSV download:', employee._id);
     req.params.employeeId = employee._id;
     // Forward query params to shared function
     return exports.downloadAllPayslipsCsv(req, res);
   } catch (err) {
     console.error('Error generating CSV for current user:', err);
-    res.status(500).send('Failed to generate CSV');
+    if (err.message === 'User not found') {
+      res.status(404).json({ error: 'User not found.' });
+    } else {
+      res.status(500).send('Failed to generate CSV');
+    }
   }
 };
 

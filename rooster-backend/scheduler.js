@@ -218,4 +218,182 @@ async function generatePayslips() {
 // Schedule daily at 02:00 AM server time
 cron.schedule('0 2 * * *', generatePayslips);
 
+// Break monitoring scheduler
+async function monitorBreaks() {
+  try {
+    console.log('Starting break monitoring...');
+    
+    const Attendance = require('./models/Attendance');
+    const BreakType = require('./models/BreakType');
+    const Notification = require('./models/Notification');
+    const FCMToken = require('./models/FCMToken');
+    const { sendNotificationToUser } = require('./services/notificationService');
+    
+    // Use UTC midnight for consistency
+    const now = new Date();
+    const today = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        0,
+        0,
+        0,
+        0
+      )
+    );
+
+    // Find all attendance records with ongoing breaks
+    const attendanceWithOngoingBreaks = await Attendance.find({
+      date: today,
+      'breaks.end': { $exists: false }
+    }).populate('user', 'firstName lastName email')
+      .populate('breaks.type', 'displayName maxDuration');
+
+    let warningsSent = 0;
+    let violationsSent = 0;
+
+    for (const attendance of attendanceWithOngoingBreaks) {
+      const lastBreak = attendance.breaks[attendance.breaks.length - 1];
+      if (lastBreak && !lastBreak.end && lastBreak.type) {
+        const breakStart = new Date(lastBreak.start);
+        const currentDuration = now.getTime() - breakStart.getTime();
+        const maxDuration = lastBreak.type.maxDuration * 1000 * 60; // Convert to milliseconds
+        const warningThreshold = maxDuration * 0.8; // Warn at 80% of max duration
+
+        // Check if we already sent a notification for this break in the last 5 minutes
+        const recentNotification = await Notification.findOne({
+          user: attendance.user._id,
+          type: { $in: ['break_warning', 'break_violation'] },
+          createdAt: { $gte: new Date(now.getTime() - 5 * 60 * 1000) } // Last 5 minutes
+        });
+
+        if (recentNotification) {
+          continue; // Skip if we recently sent a notification
+        }
+
+        if (currentDuration >= maxDuration) {
+          // Break time exceeded - send violation notification
+          await sendBreakTimeViolationNotification(
+            attendance.user._id,
+            lastBreak.type,
+            currentDuration
+          );
+          violationsSent++;
+        } else if (currentDuration >= warningThreshold) {
+          // Approaching limit - send warning notification
+          await sendBreakTimeWarningNotification(
+            attendance.user._id,
+            lastBreak.type,
+            currentDuration,
+            maxDuration
+          );
+          warningsSent++;
+        }
+      }
+    }
+
+    console.log(`Break monitoring completed: ${warningsSent} warnings, ${violationsSent} violations sent`);
+  } catch (error) {
+    console.error('Break monitoring error:', error);
+  }
+}
+
+// Helper function to send break time violation notifications
+async function sendBreakTimeViolationNotification(userId, breakTypeConfig, actualDuration) {
+  try {
+    const Notification = require('./models/Notification');
+    const FCMToken = require('./models/FCMToken');
+    const { sendNotificationToUser } = require('./services/notificationService');
+    
+    // Calculate duration in minutes
+    const actualMinutes = Math.round(actualDuration / (1000 * 60));
+    const maxMinutes = Math.round(breakTypeConfig.maxDuration);
+    const overMinutes = actualMinutes - maxMinutes;
+    
+    const title = 'Break Time Exceeded';
+    const message = `Your ${breakTypeConfig.displayName} exceeded the limit by ${overMinutes} minutes. Please be mindful of break time limits.`;
+    
+    // Create database notification
+    const notification = new Notification({
+      user: userId,
+      title: title,
+      message: message,
+      type: 'break_violation',
+      link: '/attendance',
+      isRead: false,
+    });
+    await notification.save();
+    
+    // Send FCM push notification
+    const tokenDoc = await FCMToken.findOne({ userId: userId });
+    if (tokenDoc && tokenDoc.fcmToken) {
+      await sendNotificationToUser(
+        tokenDoc.fcmToken,
+        title,
+        message,
+        { 
+          type: 'break_violation', 
+          breakType: breakTypeConfig.displayName,
+          actualDuration: actualMinutes,
+          maxDuration: maxMinutes,
+          overMinutes: overMinutes
+        }
+      );
+    }
+  } catch (error) {
+    console.error('Error sending break time violation notification:', error);
+  }
+}
+
+// Helper function to send break time warning notifications
+async function sendBreakTimeWarningNotification(userId, breakTypeConfig, currentDuration, maxDuration) {
+  try {
+    const Notification = require('./models/Notification');
+    const FCMToken = require('./models/FCMToken');
+    const { sendNotificationToUser } = require('./services/notificationService');
+    
+    // Calculate duration in minutes
+    const currentMinutes = Math.round(currentDuration / (1000 * 60));
+    const maxMinutes = Math.round(maxDuration / (1000 * 60));
+    const remainingMinutes = maxMinutes - currentMinutes;
+    
+    const title = 'Break Time Warning';
+    const message = `Your ${breakTypeConfig.displayName} is approaching the limit. You have approximately ${remainingMinutes} minutes remaining.`;
+    
+    // Create database notification
+    const notification = new Notification({
+      user: userId,
+      title: title,
+      message: message,
+      type: 'break_warning',
+      link: '/attendance',
+      isRead: false,
+    });
+    await notification.save();
+    
+    // Send FCM push notification
+    const tokenDoc = await FCMToken.findOne({ userId: userId });
+    if (tokenDoc && tokenDoc.fcmToken) {
+      await sendNotificationToUser(
+        tokenDoc.fcmToken,
+        title,
+        message,
+        { 
+          type: 'break_warning', 
+          breakType: breakTypeConfig.displayName,
+          currentDuration: currentMinutes,
+          maxDuration: maxMinutes,
+          remainingMinutes: remainingMinutes
+        }
+      );
+    }
+  } catch (error) {
+    console.error('Error sending break time warning notification:', error);
+  }
+}
+
+// Schedule break monitoring every 5 minutes
+setInterval(monitorBreaks, 5 * 60 * 1000); // 5 minutes
+
 module.exports = { generatePayslips }; 

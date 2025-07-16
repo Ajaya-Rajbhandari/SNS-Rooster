@@ -16,18 +16,50 @@ exports.getAttendanceAnalytics = async (req, res) => {
     const attendanceRecords = await Attendance.find({ user: userId }).sort({ date: 1 });
     const lastN = attendanceRecords.slice(-range);
     let present = 0, absent = 0, leave = 0;
+    
+    console.log('DEBUG: getAttendanceAnalytics - Processing records for userId:', userId);
+    console.log('DEBUG: getAttendanceAnalytics - Total records found:', attendanceRecords.length);
+    console.log('DEBUG: getAttendanceAnalytics - Last N records:', lastN.length);
+    
     lastN.forEach(record => {
-      let status = (record.status || '').toLowerCase();
-      // If status is missing, infer from checkIn/checkOut
-      if (!status && record.checkInTime && record.checkOutTime) {
-        status = 'present';
+      console.log('DEBUG: getAttendanceAnalytics - Record:', {
+        date: record.date,
+        status: record.status,
+        checkInTime: record.checkInTime,
+        checkOutTime: record.checkOutTime
+      });
+      
+      // Determine attendance status based on check-in/check-out times
+      let attendanceStatus = 'absent';
+      
+      if (record.checkInTime) {
+        if (record.checkOutTime) {
+          // Has both check-in and check-out - considered present
+          attendanceStatus = 'present';
+        } else {
+          // Has check-in but no check-out - still present (currently working)
+          attendanceStatus = 'present';
+        }
       }
-      if (status === 'present' || status === 'completed') present++;
-      else if (status === 'absent') absent++;
-      else if (status === 'leave') leave++;
+      
+      // Override with leave status if applicable (this would need leave records)
+      // For now, we'll use the existing status field if it's a leave-related status
+      if (record.status && ['leave', 'on_leave', 'approved_leave'].includes(record.status.toLowerCase())) {
+        attendanceStatus = 'leave';
+      }
+      
+      console.log('DEBUG: getAttendanceAnalytics - Determined status:', attendanceStatus);
+      
+      if (attendanceStatus === 'present') present++;
+      else if (attendanceStatus === 'absent') absent++;
+      else if (attendanceStatus === 'leave') leave++;
     });
+    
+    console.log('DEBUG: getAttendanceAnalytics - Final counts:', { present, absent, leave });
+    
     res.json({ attendance: { Present: present, Absent: absent, Leave: leave } });
   } catch (err) {
+    console.error('DEBUG: getAttendanceAnalytics - Error:', err);
     res.status(500).json({ message: 'Error fetching attendance analytics', error: err.message });
   }
 };
@@ -297,7 +329,24 @@ exports.getRecentActivity = async (req, res) => {
     if (!userId) return res.status(400).json({ error: 'User ID required' });
     const limit = parseInt(req.query.limit) || 10;
     const records = await Attendance.find({ user: userId }).sort({ date: -1 }).limit(limit);
-    res.json({ recentActivity: records });
+    
+    // Process records to format times consistently
+    const processedRecords = records.map(record => {
+      const recordObj = record.toObject();
+      
+      // Convert Date objects to ISO strings for consistency
+      const checkInTime = record.checkInTime ? record.checkInTime.toISOString() : null;
+      const checkOutTime = record.checkOutTime ? record.checkOutTime.toISOString() : null;
+      
+      return {
+        ...recordObj,
+        checkInTime,
+        checkOutTime,
+        date: record.date.toISOString().split('T')[0] // Format as YYYY-MM-DD
+      };
+    });
+    
+    res.json({ recentActivity: processedRecords });
   } catch (err) {
     res.status(500).json({ error: 'Error fetching recent activity', details: err.message });
   }
@@ -418,12 +467,22 @@ exports.getAdminOverview = async (req, res) => {
       return { date: dateStr, avgHours: parseFloat(avg.toFixed(2)) };
     });
 
-    // Department stats
+    // Department stats (real attendance breakdown)
     const departmentStats = {};
     users.forEach(emp => {
       const dept = emp.department || 'Unknown';
-      if (!departmentStats[dept]) departmentStats[dept] = 0;
-      departmentStats[dept]++;
+      if (!departmentStats[dept]) {
+        departmentStats[dept] = { present: 0, absent: 0, onLeave: 0 };
+      }
+      const isPresent = presentUsers.some(u => u._id.toString() === emp._id.toString());
+      const isOnLeave = onLeaveUsers.some(u => u._id.toString() === emp._id.toString());
+      if (isPresent) {
+        departmentStats[dept].present++;
+      } else if (isOnLeave) {
+        departmentStats[dept].onLeave++;
+      } else {
+        departmentStats[dept].absent++;
+      }
     });
 
     // Recent activity (last 10 attendance records, newest first)
@@ -452,6 +511,16 @@ exports.getAdminOverview = async (req, res) => {
 
     // Calculate total employees (employees + admins)
     const totalEmployees = users.length;
+
+    // Debug logging
+    console.log('=== ADMIN OVERVIEW DEBUG ===');
+    console.log('Total users:', users.length);
+    console.log('Active confirmed users:', activeConfirmedUsers.length);
+    console.log('Present users:', present);
+    console.log('Absent users:', absent);
+    console.log('On leave users:', onLeave);
+    console.log('Department stats:', JSON.stringify(departmentStats, null, 2));
+    console.log('===========================');
 
     res.json({
       present,

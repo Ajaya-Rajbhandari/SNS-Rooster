@@ -7,14 +7,18 @@ const dotenv = require('dotenv');
 // Load environment variables FIRST, before any other imports
 dotenv.config();
 
+// Import logger
+const { Logger, console } = require('./config/logger');
+
 const app = require('./app');
 const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 
-console.log('DEBUG: JWT_SECRET value from dotenv:', process.env.JWT_SECRET);
-console.log('DEBUG: EMAIL_PROVIDER from dotenv:', process.env.EMAIL_PROVIDER);
-console.log('DEBUG: RESEND_API_KEY from dotenv:', process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.slice(0, 6) + '...' : undefined);
+// Environment logging (only in development)
+console.debug('JWT_SECRET configured:', !!process.env.JWT_SECRET);
+console.debug('EMAIL_PROVIDER:', process.env.EMAIL_PROVIDER);
+console.debug('RESEND_API_KEY configured:', !!process.env.RESEND_API_KEY);
 
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/sns-rooster';
@@ -22,7 +26,7 @@ mongoose.connect(MONGODB_URI, {
     tlsAllowInvalidCertificates: true, // Add this line for debugging
   })
   .then(() => {
-    console.log('Connected to MongoDB');
+    Logger.info('Connected to MongoDB');
     
     // Ensure upload directories exist
     const uploadDirs = [
@@ -35,32 +39,32 @@ mongoose.connect(MONGODB_URI, {
       const fullPath = path.join(__dirname, dir);
       if (!fs.existsSync(fullPath)) {
         fs.mkdirSync(fullPath, { recursive: true });
-        console.log(`Created upload directory: ${dir}`);
+        console.debug(`Created upload directory: ${dir}`);
       }
     });
   })
-  .catch((err) => console.error('MongoDB connection error:', err));
+  .catch((err) => Logger.error('MongoDB connection error:', err));
 
 // Start server
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '0.0.0.0'; // Listen on all network interfaces
 const server = app.listen(PORT, HOST, () => {
-  console.log(`Server is running on ${HOST}:${PORT}`);
+  Logger.info(`Server is running on ${HOST}:${PORT}`);
 });
 
-console.log('SERVER: Initializing routes');
-console.log('SERVER: MongoDB URI:', MONGODB_URI);
+console.debug('SERVER: Initializing routes');
+console.debug('SERVER: MongoDB URI:', MONGODB_URI);
 
 // Close MongoDB connection on server close
 process.on('SIGINT', async () => {
   await mongoose.connection.close();
-  console.log('MongoDB connection closed');
+  Logger.info('MongoDB connection closed');
   process.exit(0);
 });
 
 process.on('exit', async () => {
   await mongoose.connection.close();
-  console.log('MongoDB connection closed');
+  Logger.info('MongoDB connection closed');
 });
 
 // Initialize background scheduler
