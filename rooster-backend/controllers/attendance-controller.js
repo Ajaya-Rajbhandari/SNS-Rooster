@@ -736,6 +736,7 @@ exports.approveTimesheet = async (req, res) => {
     const Notification = require('../models/Notification');
     const employeeNotification = new Notification({
       user: attendance.user._id,
+      role: 'employee', // Explicitly set role to employee only
       title: 'Timesheet Approved',
       message: `Your timesheet for ${attendance.date.toDateString()} has been approved.`,
       type: 'timesheet',
@@ -799,6 +800,7 @@ exports.rejectTimesheet = async (req, res) => {
     const Notification = require('../models/Notification');
     const employeeNotification = new Notification({
       user: attendance.user._id,
+      role: 'employee', // Explicitly set role to employee only
       title: 'Timesheet Rejected',
       message: `Your timesheet for ${attendance.date.toDateString()} has been rejected. Reason: ${adminComment}`,
       type: 'timesheet',
