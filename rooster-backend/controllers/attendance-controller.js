@@ -289,7 +289,7 @@ exports.endBreak = async (req, res) => {
       (sum, b) => sum + (b.duration || 0),
       0
     );
-    attendance.status = "clocked_in";
+    // Don't change the status - it's for admin approval, not current state
     
     console.log("DEBUG: endBreak - Saving attendance with updated break");
     await attendance.save();
