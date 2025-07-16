@@ -26,7 +26,6 @@ import '../../widgets/admin_side_navigation.dart';
 import '../../widgets/notification_bell.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/global_notification_service.dart';
-import 'employee_timesheet_screen.dart';
 import 'employee_events_screen.dart';
 
 /// EmployeeDashboardScreen displays the main dashboard for employees.
@@ -584,10 +583,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
 
   void _openTimesheet(BuildContext context) {
     print('EMPLOYEE DASHBOARD: Navigating to Timesheet Screen');
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const EmployeeTimesheetScreen()),
-    );
+    Navigator.pushNamed(context, '/timesheet');
   }
 
   void _openProfile(BuildContext context) {
