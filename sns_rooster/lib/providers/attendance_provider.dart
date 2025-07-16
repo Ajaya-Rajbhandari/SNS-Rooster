@@ -54,11 +54,14 @@ class AttendanceProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
+      log('DEBUG: fetchAttendanceSummary called with userId: $userId, startDate: $startDate, endDate: $endDate');
       _attendanceSummary = await _attendanceService.getAttendanceSummary(userId,
           startDate: startDate, endDate: endDate);
+      log('DEBUG: Attendance summary received: $_attendanceSummary');
       _error = null;
     } catch (e) {
-      _error = 'Network error occurred: \\${e.toString()}';
+      log('DEBUG: Error in fetchAttendanceSummary: $e');
+      _error = 'Network error occurred: ${e.toString()}';
     } finally {
       _isLoading = false;
       notifyListeners();
