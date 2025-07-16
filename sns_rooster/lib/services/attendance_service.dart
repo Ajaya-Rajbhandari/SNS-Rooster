@@ -140,7 +140,9 @@ class AttendanceService {
     }
     final response = await http.get(Uri.parse(url), headers: headers);
     if (response.statusCode == 200) {
-      return json.decode(response.body);
+      final data = json.decode(response.body);
+      log('DEBUG: Attendance summary API response: $data');
+      return data;
     } else {
       throw Exception(
           'Failed to fetch attendance summary: ${response.statusCode} ${response.body}');
