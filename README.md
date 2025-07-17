@@ -1,7 +1,104 @@
-# sns-rooster
-# SNS Rooster - Employee Management System
+# SNS Rooster - Multi-Tenant Employee Management System
 
-A comprehensive employee management system built with Flutter (frontend) and Node.js (backend) for tracking attendance, managing users, and handling employee data.
+A comprehensive **multi-tenant** employee management system built with Flutter (frontend) and Node.js (backend) for tracking attendance, managing users, and handling employee data across multiple companies.
+
+## 🏢 Multi-Tenant Architecture
+
+SNS Rooster is designed as a **Software-as-a-Service (SaaS)** platform that supports multiple companies (tenants) with complete data isolation and role-based access control.
+
+### User Roles Hierarchy
+```
+Super Admin (Root Level)
+├── Company Admin (Company Level)
+│   ├── Manager (Department Level)
+│   └── Employee (Individual Level)
+```
+
+### System Architecture
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Mobile App    │    │   Web App       │    │  Admin Portal   │
+│   (Flutter)     │    │   (Flutter Web) │    │   (Web Only)    │
+│                 │    │                 │    │                 │
+│ • Employees     │    │ • Employees     │    │ • Company Admins│
+│ • Basic Admin   │    │ • Basic Admin   │    │ • Super Admins  │
+│ • Attendance    │    │ • Full Features │    │ • System Mgmt   │
+│ • Payroll       │    │ • Analytics     │    │ • Multi-tenant  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+## 🎯 Super Admin CMS System
+
+### Overview
+The Super Admin CMS (Content Management System) provides complete control over the multi-tenant platform, allowing system administrators to manage companies, users, subscriptions, and system settings.
+
+### Features
+
+#### 🔧 Company Management
+- **Create Companies**: Set up new companies with admin users
+- **Subscription Management**: Assign and manage subscription plans
+- **Company Status**: Monitor active, suspended, and trial companies
+- **Usage Tracking**: Monitor employee counts and feature usage
+
+#### 👥 User Management
+- **Cross-Company Users**: Manage all users across all companies
+- **Role Assignment**: Assign admin, manager, and employee roles
+- **User Activity**: Monitor login activity and user behavior
+- **Bulk Operations**: Perform bulk user management operations
+
+#### 💳 Subscription Management
+- **Plan Creation**: Create custom subscription plans
+- **Feature Configuration**: Set feature limits per plan
+- **Pricing Management**: Configure monthly/yearly pricing
+- **Plan Analytics**: Track plan adoption and usage
+
+#### 📊 System Administration
+- **System Overview**: Real-time system statistics
+- **Analytics Dashboard**: Platform-wide usage analytics
+- **System Settings**: Global system configuration
+- **Backup Management**: System backup and restore
+- **Log Monitoring**: System logs and error tracking
+
+### Default Setup
+
+#### Super Admin Credentials
+```
+Email: superadmin@snstechservices.com.au
+Password: SuperAdmin@123
+```
+
+#### Default Subscription Plans
+1. **Basic Plan** - $29/month
+   - 10 employees max
+   - Basic features (attendance, payroll, leave)
+   - Weekly backups
+
+2. **Professional Plan** - $79/month
+   - 50 employees max
+   - Advanced features (analytics, custom branding, API access)
+   - Daily backups
+
+3. **Enterprise Plan** - $199/month
+   - 500 employees max
+   - All features + priority support
+   - Daily backups + advanced security
+
+### API Endpoints
+
+#### Super Admin Routes
+```
+GET    /api/super-admin/system/overview     # System statistics
+GET    /api/super-admin/companies           # List all companies
+POST   /api/super-admin/companies           # Create new company
+PUT    /api/super-admin/companies/:id       # Update company
+DELETE /api/super-admin/companies/:id       # Delete company
+GET    /api/super-admin/subscription-plans  # List subscription plans
+POST   /api/super-admin/subscription-plans  # Create plan
+PUT    /api/super-admin/subscription-plans/:id # Update plan
+GET    /api/super-admin/users               # List all users
+PUT    /api/super-admin/users/:id           # Update user
+DELETE /api/super-admin/users/:id           # Delete user
+```
 
 ## 🚀 Quick Start
 
@@ -14,7 +111,12 @@ A comprehensive employee management system built with Flutter (frontend) and Nod
 ```bash
 cd rooster-backend
 npm install
-node server.js
+
+# Set up super admin and default subscription plans
+node scripts/setup-super-admin.js
+
+# Start the server
+npm run dev
 ```
 
 ### Frontend Setup
@@ -24,86 +126,146 @@ flutter pub get
 flutter run
 ```
 
+### Super Admin Access
+1. Start the backend server
+2. Login with super admin credentials
+3. You'll be redirected to the Super Admin Dashboard
+4. Start creating companies and managing the platform
+
 ## 📁 Project Structure
 
 ```
-SNS-Rooster-app/
-
-├── rooster-backend/          # Node.js backend API
-│   ├── routes/              # API route definitions
-│   ├── models/              # Database models
-│   ├── middleware/          # Authentication & validation
-│   └── server.js           # Main server file
-├── sns_rooster/             # Flutter frontend app
+SNS-Rooster/
+├── rooster-backend/                    # Node.js backend API
+│   ├── routes/                        # API route definitions
+│   │   ├── superAdminRoutes.js        # Super admin routes
+│   │   ├── analyticsRoutes.js         # Analytics routes
+│   │   └── ...
+│   ├── models/                        # Database models
+│   │   ├── SuperAdmin.js              # Super admin model
+│   │   ├── SubscriptionPlan.js        # Subscription plans
+│   │   ├── Company.js                 # Company model
+│   │   └── User.js                    # User model
+│   ├── middleware/                    # Authentication & validation
+│   │   ├── superAdmin.js              # Super admin middleware
+│   │   └── companyContext.js          # Company isolation
+│   ├── controllers/                   # Business logic
+│   │   └── super-admin-controller.js  # Super admin controller
+│   └── scripts/                       # Setup scripts
+│       └── setup-super-admin.js       # Initial setup
+├── sns_rooster/                       # Flutter frontend app
 │   ├── lib/
-│   │   ├── screens/        # UI screens
-│   │   ├── models/         # Data models
-│   │   ├── services/       # API services
-│   │   └── providers/      # State management
+│   │   ├── screens/
+│   │   │   ├── super_admin/           # Super admin screens
+│   │   │   ├── admin/                 # Company admin screens
+│   │   │   └── employee/              # Employee screens
+│   │   ├── widgets/
+│   │   │   └── super_admin/           # Super admin widgets
+│   │   ├── services/
+│   │   │   └── super_admin_service.dart # Super admin API
+│   │   └── providers/
+│   │       └── super_admin_provider.dart # Super admin state
 │   └── pubspec.yaml
-└── docs/                    # Documentation
+└── docs/                              # Documentation
 ```
 
 ## 🔧 Features
 
+### Multi-Tenant Features
+- **Company Isolation**: Complete data separation between companies
+- **Role-Based Access**: Super admin, company admin, manager, employee roles
+- **Subscription Management**: Flexible subscription plans with feature limits
+- **Usage Monitoring**: Track company usage and limits
+
+### Core Features
 - **User Management**: Create, update, and manage user accounts
-- **Role-based Access**: Admin, Manager, and Employee roles
-- **Attendance Tracking**: Clock in/out functionality
+- **Attendance Tracking**: Clock in/out functionality with break management
 - **Employee Management**: Comprehensive employee data handling
 - **Profile Management**: Complete profile editing with image upload
 - **Authentication**: Secure JWT-based authentication
-- **Analytics & Reporting**: Dynamic work hours, attendance breakdown, and custom date range analytics with modern charts and tooltips
+- **Analytics & Reporting**: Dynamic work hours, attendance breakdown, and custom date range analytics
 - **Cross-platform**: Works on Android, iOS, and Web
 
-## 📊 Analytics & Reporting (June 2024)
+### Super Admin Features
+- **System Overview**: Real-time platform statistics
+- **Company Management**: Full CRUD operations for companies
+- **User Management**: Cross-company user administration
+- **Subscription Management**: Plan creation and management
+- **System Administration**: Global settings and monitoring
 
-- Dynamic analytics range: 7, 30, or custom days
-- Custom range dialog with date preview
-- Dynamic work hours chart and labels
-- Enhanced pie chart percentage display
-- Custom-styled tooltips
-- Backend supports flexible range and status inference
-- See [Analytics & UI/UX Improvements Documentation](docs/features/ANALYTICS_UI_IMPROVEMENTS.md) for full details
+## 🔐 Security & Permissions
 
-## 📚 Documentation
+### Authentication
+- JWT-based authentication with role-based tokens
+- Secure password hashing with bcrypt
+- Session management with automatic token refresh
 
-- **[Development Setup Guide](docs/DEVELOPMENT_SETUP.md)** - Complete setup instructions
-- **[Network Troubleshooting](docs/NETWORK_TROUBLESHOOTING.md)** - Resolve connectivity issues
-- **[API Documentation](docs/api/API_CONTRACT.md)** - Backend API reference
-- **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** - Technical overview
-- **[Logging System](docs/LOGGING_SYSTEM.md)** - Comprehensive logging documentation
-- **[Production Deployment](docs/PRODUCTION_DEPLOYMENT.md)** - Production deployment guide
+### Authorization
+- **Super Admin**: Full system access, company management
+- **Company Admin**: Company-specific administration
+- **Manager**: Department-level management
+- **Employee**: Individual user access
 
-## 🐛 Common Issues
+### Data Isolation
+- Company-specific data queries with middleware validation
+- Automatic company context injection
+- Cross-company access prevention
 
-### "Network error occurred" in Flutter app
-This usually indicates connectivity issues between the Flutter app and backend server.
+## 🚀 Deployment Strategy
 
-**Quick Fix:**
-1. Ensure backend server is running on `http://0.0.0.0:5000`
-2. Update Flutter app base URL to use your machine's IP address
-3. Check firewall settings
+### Current Implementation
+- **Flutter App**: Includes super admin dashboard (temporary)
+- **Backend API**: Complete super admin endpoints
+- **Database**: Multi-tenant ready with company isolation
 
-**Detailed Solution:** See [Network Troubleshooting Guide](docs/NETWORK_TROUBLESHOOTING.md)
+### Future Architecture (Recommended)
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Mobile App    │    │   Web App       │    │  Admin Portal   │
+│   (Flutter)     │    │   (Flutter Web) │    │   (React/Vue)   │
+│                 │    │                 │    │                 │
+│ • Employees     │    │ • Employees     │    │ • Company Mgmt  │
+│ • Basic Admin   │    │ • Full Admin    │    │ • Super Admin   │
+│ • No Super Admin│    │ • No Super Admin│    │ • System Mgmt   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
 
-### API endpoints returning 404
-Verify that:
-- Backend server is running
-- API routes are properly mounted
-- Flutter app uses correct endpoint URLs
+### Admin Portal Features (Planned)
+- **React/Vue.js** based admin interface
+- **Separate domain**: `admin.snsrooster.com`
+- **Rich admin UI** with data tables, charts, forms
+- **Advanced analytics** and reporting
+- **Bulk operations** and automation
+
+## 📊 Analytics & Reporting
+
+### Company Analytics
+- **Attendance Stats**: Present, absent, and on-leave counts
+- **Department Analytics**: Performance metrics by department
+- **Custom Date Ranges**: Flexible analytics periods
+- **Real-time Data**: Live dashboard updates
+
+### System Analytics (Super Admin)
+- **Platform Overview**: Total companies, users, employees
+- **Subscription Analytics**: Plan adoption and usage
+- **System Health**: Performance and error monitoring
+- **Usage Trends**: Growth and adoption metrics
 
 ## 🧪 Testing
 
-### Backend API Testing
+### Backend Testing
 ```bash
-# Test server connectivity
-node test-backend.js
+# Test super admin setup
+node scripts/setup-super-admin.js
 
-# Test user authentication
-node test-users-api.js
+# Test super admin login
+curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"superadmin@snstechservices.com.au","password":"SuperAdmin@123"}'
 
-# Test network connectivity
-node test-ip-connection.js
+# Test system overview
+curl -X GET http://localhost:5000/api/super-admin/system/overview \
+  -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
 ### Frontend Testing
@@ -112,45 +274,12 @@ cd sns_rooster
 flutter test
 ```
 
-## 🌐 Network Configuration
-
-### Development
-- Backend: `http://0.0.0.0:5000` (accessible from all interfaces)
-- Frontend: Configured to use host machine IP address
-
-### Platform-specific URLs
-- **Android Emulator**: `http://10.0.2.2:5000/api` or `http://[HOST_IP]:5000/api`
-- **iOS Simulator**: `http://localhost:5000/api`
-- **Web**: `http://localhost:5000/api`
-- **Physical Device**: `http://[HOST_IP]:5000/api`
-
-## 🔐 Security
-
-- JWT-based authentication
-- Role-based access control
-- Input validation and sanitization
-- CORS configuration
-- Environment variable configuration
-
-## 🚀 Deployment
-
-### Backend
-- Configure environment variables
-- Use process manager (PM2)
-- Set up reverse proxy (nginx)
-- Enable HTTPS
-
-### Frontend
-- Build for production: `flutter build`
-- Deploy to app stores or web hosting
-- Configure production API URLs
-
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test thoroughly
+4. Test thoroughly (including multi-tenant scenarios)
 5. Submit a pull request
 
 ## 📄 License
@@ -162,134 +291,24 @@ This project is licensed under the MIT License.
 For issues and questions:
 1. Check the [troubleshooting documentation](docs/NETWORK_TROUBLESHOOTING.md)
 2. Review the [development setup guide](docs/DEVELOPMENT_SETUP.md)
-3. Test network connectivity with provided scripts
+3. Test super admin functionality with provided credentials
 4. Create an issue with detailed information
 
 ## Recent Updates
 
-### Profile System Enhancements (Latest)
-- **Backend**: Updated profile update endpoint to accept `firstName` and `lastName` fields
-- **Backend**: Added backward compatibility for legacy `name` field
-- **Frontend**: Fixed duplicate email fields in profile screen
-- **Frontend**: Implemented profile image upload and display functionality
-- **Frontend**: Updated user avatar widget with image support and fallback initials
-- **Frontend**: Updated app drawer to display full name using `firstName` and `lastName`
-- **Dependencies**: Added `image_picker` for profile image selection
+### Super Admin CMS System (Latest - July 2025)
+- **Backend**: Complete super admin system with company management
+- **Backend**: Subscription plan management with feature configuration
+- **Backend**: Multi-tenant data isolation and security
+- **Frontend**: Super admin dashboard with system overview
+- **Frontend**: Company management interface (basic)
+- **Database**: New models for SuperAdmin, SubscriptionPlan, updated Company
+- **Security**: Role-based access control with super admin permissions
+- **Setup**: Automated super admin and subscription plan creation
 
 ### Previous Updates
-- Fixed `/api/auth/me` endpoint for profile fetching
-- Updated `auth.js` middleware for better token validation
-- Enhanced error handling for profile fetching
-- Verified API endpoints with comprehensive testing
-
-# Production-Ready Logging & Recent Features (July 2025)
-
-## Overview
-This update documents the production-ready logging system and recent feature enhancements in the SNS Rooster backend and frontend, including:
-- Environment-aware logging system
-- Production debug log suppression
-- Enhanced break management with notifications
-- Timesheet approval system
-- Event management with real-time notifications
-
-## Production Logging System
-
-### Backend Logging (Winston)
-- **Development**: Full debug logging with console output
-- **Production**: Only errors and warnings logged to console, all logs saved to files
-- **Log Files**: 
-  - `logs/error.log` - Error-level logs only
-  - `logs/combined.log` - All logs (info, warn, error)
-- **Log Rotation**: 5MB max file size, 5 files max
-- **Security**: Sensitive data automatically redacted in production
-
-### Frontend Logging (Flutter)
-- **Development**: Full debug logging enabled
-- **Production**: Only error logs and critical info
-- **Security**: Sensitive data (tokens, emails, etc.) automatically sanitized
-- **Performance**: Network and performance logging in development only
-
-### Environment Configuration
-```dart
-// Flutter - lib/config/environment_config.dart
-EnvironmentConfig.isProduction // Controls logging behavior
-EnvironmentConfig.enableDebugLogging // Development-only features
-```
-
-## Recent Feature Enhancements
-
-### 1. Break Management System
-- **Break Type Selection**: Shows allowed duration for each break type
-- **Time Monitoring**: Automatic notifications for break time violations
-- **Admin Controls**: Real-time break management with status updates
-- **Notifications**: FCM push notifications for break warnings and violations
-
-### 2. Timesheet Approval System
-- **Status Management**: Pending, Approved, Rejected statuses
-- **Admin Interface**: Dedicated timesheet approval screen
-- **Notifications**: Automatic notifications for status changes
-- **Filtering**: Status-based filtering for easy management
-
-### 3. Event Management
-- **Real Events**: Admin can create and manage company events
-- **Employee Participation**: Join/leave functionality with notifications
-- **Time-based Access**: Join buttons only active when events start
-- **Real-time Updates**: Live event status and participant lists
-
-### 4. Department-wise Analytics
-- **Attendance Stats**: Present, absent, and on-leave counts per department
-- **Real-time Data**: Live dashboard updates with actual attendance data
-- **Admin Overview**: Comprehensive department performance metrics
-
-### 5. Notification System
-- **FCM Integration**: Push notifications for all major events
-- **Database Notifications**: Persistent notification storage
-- **Event Notifications**: Automatic notifications for event creation, joins, leaves
-- **Break Notifications**: Time-based warnings and violation alerts
-
-## Production Deployment
-
-### Environment Variables
-```bash
-# Production
-NODE_ENV=production
-JWT_SECRET=your-secure-jwt-secret
-MONGODB_URI=your-mongodb-connection-string
-EMAIL_PROVIDER=resend
-RESEND_API_KEY=your-resend-api-key
-FCM_SERVER_KEY=your-fcm-server-key
-
-# Frontend
-FLUTTER_ENV=production
-```
-
-### Logging Configuration
-- Debug logs automatically suppressed in production
-- Only essential logs (errors, warnings) shown in console
-- All logs saved to files for monitoring and debugging
-- Sensitive data automatically redacted
-
-### Security Features
-- HTTPS enforcement in production
-- Certificate pinning for secure connections
-- JWT token validation with secure secrets
-- Input validation and sanitization
-- CORS configuration for production domains
-
-## Development vs Production
-
-| Feature | Development | Production |
-|---------|-------------|------------|
-| Debug Logs | ✅ Enabled | ❌ Disabled |
-| Console Output | ✅ Full | ⚠️ Errors Only |
-| File Logging | ✅ Enabled | ✅ Enabled |
-| Sensitive Data | ✅ Visible | ❌ Redacted |
-| HTTPS | ⚠️ Optional | ✅ Required |
-| Performance Logs | ✅ Enabled | ❌ Disabled |
-
-## References
-- See also: `docs/api/API_DOCUMENTATION.md`, `SECURITY_ACCESS_CONTROL_DOCUMENTATION.md`, `LAYOUT_FIX_DOCUMENTATION.md`, `CLOCK_IN_RESET_FIX.md`
-
----
-
-_Last updated: July 16, 2025_
+- Multi-tenant architecture implementation
+- Company context middleware and data isolation
+- Enhanced analytics with department-wise reporting
+- Production-ready logging system
+- Break management and timesheet approval systems
