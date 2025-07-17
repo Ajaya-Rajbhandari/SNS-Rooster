@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import '../providers/profile_provider.dart';
 import '../config/api_config.dart';
 import '../services/secure_storage_service.dart';
@@ -65,7 +67,7 @@ class AuthProvider with ChangeNotifier {
   Future<void> _loadStoredAuth() async {
     try {
       log('LOAD_AUTH_DEBUG: Loading stored auth from secure storage...');
-      
+
       // Try to load from secure storage first
       final storedToken = await SecureStorageService.getAuthToken();
       log('LOAD_AUTH_DEBUG: Token retrieved from SecureStorage: $storedToken');
@@ -79,7 +81,8 @@ class AuthProvider with ChangeNotifier {
       log('LOAD_AUTH_DEBUG: Assigned _authToken to _token: $_token');
 
       // Load Remember Me and credentials from secure storage
-      final rememberedCreds = await SecureStorageService.getRememberedCredentials();
+      final rememberedCreds =
+          await SecureStorageService.getRememberedCredentials();
       _rememberMe = rememberedCreds['remember_me'] == 'true';
       if (_rememberMe) {
         _savedEmail = rememberedCreds['email'];
@@ -289,6 +292,10 @@ class AuthProvider with ChangeNotifier {
         } catch (e) {
           print('FCM: ❌ Registration failed: $e');
         }
+
+        // Clear image cache to ensure fresh avatars are loaded
+        await _clearImageCache();
+
         return true;
       } else {
         _error = data['message'] ?? 'Login failed';
@@ -353,6 +360,9 @@ class AuthProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
 
+    // Clear image cache to prevent showing previous user's avatars
+    await _clearImageCache();
+
     log('DEBUG: Starting logout process');
     log('DEBUG: Current token: $_token');
     log('DEBUG: Current user: $_user');
@@ -361,7 +371,7 @@ class AuthProvider with ChangeNotifier {
       // Clear auth data from secure storage
       log('DEBUG: Clearing SecureStorage auth data');
       await SecureStorageService.clearAuthData();
-      
+
       // Only clear remembered credentials if remember me is disabled
       if (!_rememberMe) {
         await SecureStorageService.clearRememberedCredentials();
@@ -765,6 +775,19 @@ class AuthProvider with ChangeNotifier {
       }
     } catch (e) {
       print('FCM: ❌ Save error: $e');
+    }
+  }
+
+  /// Clear the image cache to prevent showing cached avatars from previous users
+  Future<void> _clearImageCache() async {
+    try {
+      log('CLEAR_CACHE: Clearing image cache to prevent avatar caching issues');
+      // Clear all cached images
+      final cacheManager = DefaultCacheManager();
+      await cacheManager.emptyCache();
+      log('CLEAR_CACHE: Image cache cleared successfully');
+    } catch (e) {
+      log('CLEAR_CACHE: Error clearing image cache: $e');
     }
   }
 

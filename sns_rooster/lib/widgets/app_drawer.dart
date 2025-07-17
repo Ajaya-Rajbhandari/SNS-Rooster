@@ -69,6 +69,7 @@ class AppDrawer extends StatelessWidget {
                     UserAvatar(
                       avatarUrl: avatarUrl,
                       radius: 36,
+                      userId: user?['_id'],
                     ),
                     const SizedBox(height: 8),
                     Text(

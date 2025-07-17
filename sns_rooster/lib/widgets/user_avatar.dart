@@ -8,12 +8,14 @@ class UserAvatar extends StatelessWidget {
   final String? avatarUrl;
   final double radius;
   final VoidCallback? onTap; // Added onTap callback
+  final String? userId; // Add userId for cache key
 
   const UserAvatar({
     super.key, // Changed to super.key
     this.avatarUrl,
     this.radius = 40, // Default radius to 40 as in original
     this.onTap,
+    this.userId, // Add userId parameter
   });
 
   @override
@@ -30,6 +32,7 @@ class UserAvatar extends StatelessWidget {
       final fixedUrl = '$baseUrlWithoutApi/uploads/avatars/$filename';
       avatarChild = CachedNetworkImage(
         imageUrl: fixedUrl,
+        cacheKey: userId != null ? 'avatar_$userId' : null,
         placeholder: (context, url) => CircleAvatar(
           radius: radius,
           backgroundColor: Colors.grey[200],
@@ -70,6 +73,7 @@ class UserAvatar extends StatelessWidget {
       // For full URLs (http/https), use directly
       avatarChild = CachedNetworkImage(
         imageUrl: avatarUrl!,
+        cacheKey: userId != null ? 'avatar_$userId' : null,
         placeholder: (context, url) => CircleAvatar(
           radius: radius,
           backgroundColor: Colors.grey[200],
@@ -94,6 +98,7 @@ class UserAvatar extends StatelessWidget {
       final fullUrl = '$baseUrlWithoutApi$avatarUrl';
       avatarChild = CachedNetworkImage(
         imageUrl: fullUrl,
+        cacheKey: userId != null ? 'avatar_$userId' : null,
         placeholder: (context, url) => CircleAvatar(
           radius: radius,
           backgroundColor: Colors.grey[200],
@@ -132,6 +137,7 @@ class UserAvatar extends StatelessWidget {
       try {
         avatarChild = CachedNetworkImage(
           imageUrl: finalUrl,
+          cacheKey: userId != null ? 'avatar_$userId' : null,
           placeholder: (context, url) => CircleAvatar(
             radius: radius,
             backgroundColor: Colors.grey[200],
