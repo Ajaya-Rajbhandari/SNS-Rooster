@@ -67,6 +67,7 @@ class AppNavigationDrawer extends StatelessWidget {
                             child: UserAvatar(
                               avatarUrl: authProvider.user?['avatar'],
                               radius: 35,
+                              userId: authProvider.user?['_id'],
                             ),
                           ),
                           const SizedBox(width: 16),

@@ -665,24 +665,46 @@ exports.deleteUser = async (req, res) => {
 
 exports.uploadDocument = async (req, res) => {
   try {
+    console.log('Document upload request received');
+    console.log('Request body:', req.body);
+    console.log('Request file:', req.file);
+    
     let { documentType } = req.body;
     documentType = (documentType || '').toLowerCase().trim();
     const userId = req.user.userId;
 
+    console.log('Document type:', documentType);
+    console.log('User ID:', userId);
+
     if (!req.file) {
+      console.log('No file uploaded');
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
     const user = await User.findById(userId);
     if (!user) {
+      console.log('User not found');
       return res.status(404).json({ message: 'User not found' });
     }
 
     if (req.user.role !== 'admin' && req.user.userId !== userId) {
+      console.log('Unauthorized upload attempt');
       return res.status(403).json({ message: 'Unauthorized to upload document' });
     }
 
-    const filePath = req.file.path; // GCS public URL
+    console.log('File object:', req.file);
+    console.log('File object keys:', Object.keys(req.file));
+    console.log('File path:', req.file.path);
+    console.log('File filename:', req.file.filename);
+    console.log('File originalname:', req.file.originalname);
+    console.log('File mimetype:', req.file.mimetype);
+    console.log('File size:', req.file.size);
+    
+    // For GCS uploads, construct the public URL like the working avatar upload
+    const bucketName = 'sns-rooster-8cca5.firebasestorage.app';
+    const filename = req.file.filename || (req.file.path ? req.file.path.split('/').pop() : '');
+    const filePath = `https://storage.googleapis.com/${bucketName}/${filename}`;
+    console.log('Final file path:', filePath);
 
     // Remove all previous documents of the same type (no need to delete local files)
     user.documents = user.documents || [];
@@ -690,6 +712,7 @@ exports.uploadDocument = async (req, res) => {
     // Add the new document
     user.documents.push({ type: documentType, path: filePath });
 
+    console.log('Saving user with documents:', user.documents);
     await user.save();
 
     // Notify admins about new document upload (for verification)

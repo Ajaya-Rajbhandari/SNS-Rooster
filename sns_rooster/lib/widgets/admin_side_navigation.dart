@@ -51,6 +51,7 @@ class AdminSideNavigation extends StatelessWidget {
                   avatarUrl:
                       profileProvider.profile?['avatar'] ?? user?['avatar'],
                   radius: 28,
+                  userId: user?['_id'],
                 ),
                 const SizedBox(width: 14),
                 Expanded(

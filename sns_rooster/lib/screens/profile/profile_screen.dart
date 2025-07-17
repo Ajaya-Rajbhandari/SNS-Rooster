@@ -5,6 +5,7 @@ import '../../providers/profile_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/api_config.dart'; // Import ApiConfig
 import 'package:sns_rooster/widgets/app_drawer.dart'; // Add this import
+import 'package:sns_rooster/widgets/user_avatar.dart'; // Add UserAvatar import
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
@@ -440,12 +441,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 final profile = profileProvider.profile;
                                 return Column(
                                   children: [
-                                    CircleAvatar(
+                                    UserAvatar(
+                                      avatarUrl: avatarUrl,
                                       radius: 48,
-                                      backgroundImage: backgroundImage,
-                                      child: backgroundImage == null
-                                          ? const Icon(Icons.person, size: 48)
-                                          : null,
+                                      userId: user?['_id'],
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
@@ -1195,7 +1194,7 @@ class _EducationSection extends StatelessWidget {
               ),
             ),
           ],
-        ),  
+        ),
       ),
     ); // <-- closes the Card widget
   }
@@ -1273,10 +1272,8 @@ class _CertificateSection extends StatelessWidget {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text([
-                        issuer,
-                        date
-                      ].where((e) => e != null && e.toString().isNotEmpty)
+                      Text([issuer, date]
+                          .where((e) => e != null && e.toString().isNotEmpty)
                           .join(' • ')),
                     ],
                   ),
