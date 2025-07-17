@@ -17,7 +17,7 @@ async function getAvatarSignedUrl(req, res) {
     }
 
     // Only allow owner or admin
-    if (requester.role !== 'admin' && String(requester._id) !== String(userId)) {
+    if (requester.role !== 'admin' && String(requester.userId) !== String(userId)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
