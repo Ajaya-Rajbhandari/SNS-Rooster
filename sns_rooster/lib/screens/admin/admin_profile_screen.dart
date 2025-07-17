@@ -479,17 +479,8 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                     label: 'Email Address',
                     icon: Icons.email,
                     keyboardType: TextInputType.emailAddress,
-                    readOnly: !_isEditingProfile,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter your email';
-                      }
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}\$')
-                          .hasMatch(value)) {
-                        return 'Please enter a valid email address';
-                      }
-                      return null;
-                    },
+                    readOnly:
+                        true, // Email is read-only since it's already verified
                   ),
                   const SizedBox(height: 16),
                   _buildTextField(
