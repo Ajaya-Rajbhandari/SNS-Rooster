@@ -177,7 +177,7 @@ class AttendanceProvider with ChangeNotifier {
       log('FETCH_BREAK_TYPES_DEBUG: Token being sent: ${_authProvider.authToken}');
 
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/attendance/break-types'),
+        Uri.parse('${ApiConfig.baseUrl}/admin/break-types'),
         headers: {
           'Authorization': 'Bearer ${_authProvider.authToken}',
         },

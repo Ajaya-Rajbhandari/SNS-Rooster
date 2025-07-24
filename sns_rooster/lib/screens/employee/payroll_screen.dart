@@ -13,6 +13,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../../widgets/admin_side_navigation.dart';
 import '../../services/global_notification_service.dart';
+import '../../utils/debug_company_context.dart';
+import '../../utils/clear_auth.dart';
 // Import to access the RouteObserver
 
 class PayrollScreen extends StatefulWidget {
@@ -145,6 +147,50 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
             );
           },
         ),
+        actions: [
+          // Debug button for troubleshooting
+          IconButton(
+            icon: const Icon(Icons.bug_report),
+            onPressed: () async {
+              await DebugCompanyContext.debugCompanyContext();
+              if (context.mounted) {
+                showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return AlertDialog(
+                      title: const Text('Debug Options'),
+                      content: const Text(
+                        'Check console for debug information. '
+                        'You can also refresh company context or clear auth data.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Close'),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            await ClearAuth.refreshCompanyContext();
+                            if (context.mounted) {
+                              Navigator.of(context).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                      'Company context refreshed. Try accessing payroll again.'),
+                                ),
+                              );
+                            }
+                          },
+                          child: const Text('Refresh Context'),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              }
+            },
+          ),
+        ],
       ),
       drawer: const AppDrawer(),
       body: Consumer<PayrollProvider>(
@@ -153,7 +199,85 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
             return const Center(child: CircularProgressIndicator());
           } else if (payrollProvider.error != null) {
             return Center(
-              child: Text('Error: ${payrollProvider.error}'),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 64, color: Colors.red[400]),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error: ${payrollProvider.error}',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.red[600],
+                          fontWeight: FontWeight.bold,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  // Add helpful message for authentication errors
+                  if (payrollProvider.error
+                              ?.contains('Authentication issue') ==
+                          true ||
+                      payrollProvider.error
+                              ?.contains('User must be authenticated') ==
+                          true ||
+                      payrollProvider.error?.contains('User not logged in') ==
+                          true)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                      child: Text(
+                        'Your session has expired. Please log out and log back in to refresh your authentication.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  // Show logout button if it's an authentication error
+                  if (payrollProvider.error
+                              ?.contains('Authentication issue') ==
+                          true ||
+                      payrollProvider.error
+                              ?.contains('User must be authenticated') ==
+                          true ||
+                      payrollProvider.error?.contains('User not logged in') ==
+                          true)
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        final authProvider =
+                            Provider.of<AuthProvider>(context, listen: false);
+                        await authProvider.clearAuthAndRedirect(context);
+                      },
+                      icon: const Icon(Icons.logout),
+                      label: const Text('Logout & Login Again'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  // Show try again button for other errors
+                  if (payrollProvider.error
+                              ?.contains('Authentication issue') !=
+                          true &&
+                      payrollProvider.error
+                              ?.contains('User must be authenticated') !=
+                          true &&
+                      payrollProvider.error?.contains('User not logged in') !=
+                          true)
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        payrollProvider.clearPayrollData();
+                        payrollProvider.fetchPayrollSlips();
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Try Again'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                ],
+              ),
             );
           } else if (payrollProvider.payrollSlips.isEmpty) {
             return Center(

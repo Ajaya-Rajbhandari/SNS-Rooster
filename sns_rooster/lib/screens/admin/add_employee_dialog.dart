@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:sns_rooster/services/employee_service.dart';
 import 'package:sns_rooster/models/user_model.dart';
 import 'package:sns_rooster/services/user_service.dart';
+import 'package:sns_rooster/services/api_service.dart';
+import 'package:sns_rooster/config/api_config.dart';
+import 'package:sns_rooster/utils/logger.dart';
 
 class AddEmployeeDialog extends StatefulWidget {
   final EmployeeService employeeService;
@@ -66,11 +69,17 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
   String? _selectedPosition;
   String? _selectedDepartment;
 
+  // Location selection variables
+  List<Map<String, dynamic>> _locations = [];
+  String? _selectedLocationId;
+  bool _isLoadingLocations = false;
+
   @override
   void initState() {
     super.initState();
     _fetchUsers();
     _fetchEmployees();
+    _fetchLocations(); // Add location fetching
   }
 
   @override
@@ -134,6 +143,39 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
     }
   }
 
+  Future<void> _fetchLocations() async {
+    setState(() {
+      _isLoadingLocations = true;
+    });
+
+    try {
+      final apiService = ApiService(baseUrl: ApiConfig.baseUrl);
+      final response = await apiService.get('/locations');
+
+      if (response.success) {
+        setState(() {
+          _locations =
+              List<Map<String, dynamic>>.from(response.data['locations'] ?? []);
+          _isLoadingLocations = false;
+        });
+        Logger.info(
+            'Successfully loaded ${_locations.length} locations for employee assignment');
+      } else {
+        Logger.error('Failed to load locations: ${response.message}');
+        setState(() {
+          _locations = [];
+          _isLoadingLocations = false;
+        });
+      }
+    } catch (e) {
+      Logger.error('Error loading locations: $e');
+      setState(() {
+        _locations = [];
+        _isLoadingLocations = false;
+      });
+    }
+  }
+
   Future<void> _addEmployee() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -187,6 +229,7 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
         'employeeType': _selectedEmployeeType,
         'employeeSubType': _selectedEmployeeSubType,
         'hourlyRate': double.tryParse(_hourlyRateController.text) ?? 0,
+        'locationId': _selectedLocationId, // Add location assignment
       };
 
       await widget.employeeService.addEmployee(newEmployeeData);
@@ -398,6 +441,53 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                   ),
                 ),
               ),
+
+              // Location Dropdown
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Select Location',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      _isLoadingLocations
+                          ? const Center(child: CircularProgressIndicator())
+                          : _locations.isEmpty
+                              ? const Center(
+                                  child: Text('No locations available'))
+                              : DropdownButtonFormField<String>(
+                                  decoration: const InputDecoration(
+                                    hintText: 'Select location (optional)',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  value: _selectedLocationId,
+                                  items: [
+                                    const DropdownMenuItem<String>(
+                                      value: null,
+                                      child: Text('No location assigned'),
+                                    ),
+                                    ..._locations.map((location) {
+                                      return DropdownMenuItem<String>(
+                                        value: location['_id'] as String,
+                                        child: Text(location['name'] as String),
+                                      );
+                                    }).toList(),
+                                  ],
+                                  onChanged: (String? newValue) {
+                                    setState(() {
+                                      _selectedLocationId = newValue;
+                                    });
+                                  },
+                                ),
+                    ],
+                  ),
+                ),
+              ),
+
               // Employee Type Dropdowns
               Card(
                 child: Padding(

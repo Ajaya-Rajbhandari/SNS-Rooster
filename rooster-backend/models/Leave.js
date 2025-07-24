@@ -1,6 +1,13 @@
 const mongoose = require('mongoose');
 
 const LeaveSchema = new mongoose.Schema({
+  // Company Association
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    required: true,
+    index: true
+  },
   // Support both employee and user references
   employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

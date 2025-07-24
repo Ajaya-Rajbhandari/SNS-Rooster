@@ -8,6 +8,7 @@ class Employee {
   final DateTime hireDate;
   final String? position;
   final String? department;
+  final String? locationId; // Add location support
 
   Employee({
     required this.id,
@@ -19,6 +20,7 @@ class Employee {
     required this.hireDate,
     this.position,
     this.department,
+    this.locationId, // Add location support
   });
 
   factory Employee.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class Employee {
       hireDate: DateTime.parse(json['hireDate'] as String),
       position: json['position'] as String?,
       department: json['department'] as String?,
+      locationId: json['locationId'] as String?, // Add location support
     );
   }
 
@@ -46,6 +49,7 @@ class Employee {
       'hireDate': hireDate.toIso8601String(),
       'position': position,
       'department': department,
+      'locationId': locationId, // Add location support
     };
   }
 
@@ -53,7 +57,7 @@ class Employee {
 
   @override
   String toString() {
-    return 'Employee(id: $id, firstName: $firstName, lastName: $lastName, email: $email, employeeId: $employeeId, hireDate: $hireDate, position: $position, department: $department)';
+    return 'Employee(id: $id, firstName: $firstName, lastName: $lastName, email: $email, employeeId: $employeeId, hireDate: $hireDate, position: $position, department: $department, locationId: $locationId)';
   }
 
   @override
@@ -68,7 +72,8 @@ class Employee {
         other.employeeId == employeeId &&
         other.hireDate == hireDate &&
         other.position == position &&
-        other.department == department;
+        other.department == department &&
+        other.locationId == locationId;
   }
 
   @override
@@ -80,7 +85,8 @@ class Employee {
         employeeId.hashCode ^
         hireDate.hashCode ^
         position.hashCode ^
-        department.hashCode;
+        department.hashCode ^
+        locationId.hashCode;
   }
 
   Employee copyWith({
@@ -93,6 +99,7 @@ class Employee {
     DateTime? hireDate,
     String? position,
     String? department,
+    String? locationId,
   }) {
     return Employee(
       id: id ?? this.id,
@@ -104,6 +111,7 @@ class Employee {
       hireDate: hireDate ?? this.hireDate,
       position: position ?? this.position,
       department: department ?? this.department,
+      locationId: locationId ?? this.locationId,
     );
   }
 }

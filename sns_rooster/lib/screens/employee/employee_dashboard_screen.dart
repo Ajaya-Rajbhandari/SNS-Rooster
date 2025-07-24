@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../providers/attendance_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../widgets/app_drawer.dart';
@@ -27,6 +28,12 @@ import '../../widgets/notification_bell.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/global_notification_service.dart';
 import 'employee_events_screen.dart';
+import 'company_info_screen.dart';
+import 'package:sns_rooster/utils/debug_company_context.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
+import '../notification/notification_screen.dart';
+import 'package:sns_rooster/services/feature_service.dart';
+import '../../widgets/employee_location_map_widget.dart';
 
 /// Helper function to format duration in a human-readable format
 /// Shows hours and minutes when duration is over 60 minutes
@@ -158,18 +165,69 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       notificationService.showError('User not logged in. Please log in again.');
       return;
     }
+
+    // Show loading indicator
+    final notificationService =
+        Provider.of<GlobalNotificationService>(context, listen: false);
+    notificationService.showInfo('Getting your location...');
+
     try {
+      // Get current location
+      double? latitude;
+      double? longitude;
+
+      try {
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (!serviceEnabled) {
+          throw Exception('Location services are disabled');
+        }
+
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+          if (permission == LocationPermission.denied) {
+            throw Exception('Location permission denied');
+          }
+        }
+
+        if (permission == LocationPermission.deniedForever) {
+          throw Exception('Location permissions are permanently denied');
+        }
+
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 10),
+        );
+
+        latitude = position.latitude;
+        longitude = position.longitude;
+      } catch (locationError) {
+        // If location fails, try clock-in without location (backend will handle)
+        print('Location error: $locationError');
+        latitude = null;
+        longitude = null;
+      }
+
       final attendanceProvider =
           Provider.of<AttendanceProvider>(context, listen: false);
       final attendanceService = AttendanceService(authProvider);
-      await attendanceService.checkIn(userId);
+
+      // Call check-in with location data
+      await attendanceService.checkIn(
+        userId,
+        latitude: latitude,
+        longitude: longitude,
+      );
+
       await attendanceProvider.fetchTodayStatus(userId);
-      // Note: fetchTodayStatus now also fetches currentAttendance data
-      final notificationService =
-          Provider.of<GlobalNotificationService>(context, listen: false);
       notificationService.showSuccess('Clocked in successfully!');
     } catch (e) {
       String errorMessage = 'An error occurred while clocking in.';
+
+      // Debug: Log the exact error string
+      print('DEBUG: Raw error string: ${e.toString()}');
+
+      // Handle specific error cases
       if (e.toString().contains('Already checked in for today')) {
         errorMessage = 'You have already clocked in for today.';
       } else if (e.toString().contains('E11000 duplicate key error')) {
@@ -177,9 +235,66 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
             'A duplicate entry was detected. You might have already checked in.';
       } else if (e.toString().contains('on approved leave')) {
         errorMessage = 'You are on approved leave and cannot clock in.';
+      } else if (e.toString().contains('Latitude and Longitude are required')) {
+        errorMessage =
+            'Location is required for clock-in. Please enable location services.';
+      } else if (e.toString().contains('Invalid coordinates')) {
+        errorMessage =
+            'GPS signal is weak. Please move to an open area and try again.';
+      } else if (e.toString().contains('400')) {
+        // Try to extract JSON error message from the response FIRST
+        try {
+          final errorStr = e.toString();
+          print('DEBUG: Attempting to parse JSON from: $errorStr');
+          final jsonStart = errorStr.indexOf('{');
+          if (jsonStart != -1) {
+            final jsonStr = errorStr.substring(jsonStart);
+            print('DEBUG: Extracted JSON string: $jsonStr');
+            final errorData = json.decode(jsonStr);
+            print('DEBUG: Parsed JSON data: $errorData');
+            if (errorData['message'] != null) {
+              errorMessage = errorData['message'];
+              print('DEBUG: Using parsed message: $errorMessage');
+            }
+          } else {
+            print('DEBUG: No JSON found in error string');
+          }
+        } catch (jsonError) {
+          print('DEBUG: JSON parsing failed: $jsonError');
+          // If JSON parsing fails, use the original error
+          errorMessage = e
+              .toString()
+              .replaceAll('Exception: Failed to check in: 400 ', '');
+        }
+      } else if (e.toString().contains('away from') ||
+          e.toString().contains('workplace')) {
+        // Location validation failed - try to extract the specific message
+        try {
+          final errorStr = e.toString();
+          final jsonStart = errorStr.indexOf('{');
+          if (jsonStart != -1) {
+            final jsonStr = errorStr.substring(jsonStart);
+            final errorData = json.decode(jsonStr);
+            if (errorData['message'] != null) {
+              errorMessage = errorData['message'];
+            } else {
+              errorMessage =
+                  'You are too far from your workplace. Please move closer to check in.';
+            }
+          } else {
+            errorMessage =
+                'You are too far from your workplace. Please move closer to check in.';
+          }
+        } catch (jsonError) {
+          errorMessage =
+              'You are too far from your workplace. Please move closer to check in.';
+        }
+      } else if (e.toString().contains('Location validation failed') ||
+          e.toString().contains('Unable to determine')) {
+        errorMessage =
+            'Unable to determine your location. Please check your GPS signal and try again.';
       }
-      final notificationService =
-          Provider.of<GlobalNotificationService>(context, listen: false);
+
       notificationService.showError(errorMessage);
     }
   }
@@ -187,22 +302,103 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
   void _clockOut() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.user?['_id'];
-    if (userId != null) {
+    if (userId == null) {
+      final notificationService =
+          Provider.of<GlobalNotificationService>(context, listen: false);
+      notificationService.showError('User not logged in. Please log in again.');
+      return;
+    }
+
+    // Show loading indicator
+    final notificationService =
+        Provider.of<GlobalNotificationService>(context, listen: false);
+    notificationService.showInfo('Getting your location...');
+
+    try {
+      // Get current location
+      double? latitude;
+      double? longitude;
+
       try {
-        final attendanceProvider =
-            Provider.of<AttendanceProvider>(context, listen: false);
-        final attendanceService = AttendanceService(authProvider);
-        await attendanceService.checkOut(userId);
-        await attendanceProvider.fetchTodayStatus(userId);
-        // Note: fetchTodayStatus now also fetches currentAttendance data
-        final notificationService =
-            Provider.of<GlobalNotificationService>(context, listen: false);
-        notificationService.showSuccess('Clocked out successfully!');
-      } catch (e) {
-        final notificationService =
-            Provider.of<GlobalNotificationService>(context, listen: false);
-        notificationService.showError('Failed to clock out: ${e.toString()}');
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (!serviceEnabled) {
+          throw Exception('Location services are disabled');
+        }
+
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+          if (permission == LocationPermission.denied) {
+            throw Exception('Location permission denied');
+          }
+        }
+
+        if (permission == LocationPermission.deniedForever) {
+          throw Exception('Location permissions are permanently denied');
+        }
+
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 10),
+        );
+
+        latitude = position.latitude;
+        longitude = position.longitude;
+      } catch (locationError) {
+        // If location fails, try clock-out without location (backend will handle)
+        print('Location error: $locationError');
+        latitude = null;
+        longitude = null;
       }
+
+      final attendanceProvider =
+          Provider.of<AttendanceProvider>(context, listen: false);
+      final attendanceService = AttendanceService(authProvider);
+
+      // Call check-out with location data
+      await attendanceService.checkOut(
+        userId,
+        latitude: latitude,
+        longitude: longitude,
+      );
+
+      await attendanceProvider.fetchTodayStatus(userId);
+      notificationService.showSuccess('Clocked out successfully!');
+    } catch (e) {
+      String errorMessage = 'Failed to clock out.';
+
+      // Handle specific error cases
+      if (e.toString().contains('Not checked in for today')) {
+        errorMessage = 'You are not checked in for today.';
+      } else if (e.toString().contains('away from') ||
+          e.toString().contains('workplace')) {
+        // Location validation failed - extract the specific message
+        try {
+          final errorStr = e.toString();
+          final jsonStart = errorStr.indexOf('{');
+          if (jsonStart != -1) {
+            final jsonStr = errorStr.substring(jsonStart);
+            final errorData = json.decode(jsonStr);
+            if (errorData['message'] != null) {
+              errorMessage = errorData['message'];
+            } else {
+              errorMessage =
+                  'You are too far from your workplace. Please move closer to check out.';
+            }
+          } else {
+            errorMessage =
+                'You are too far from your workplace. Please move closer to check out.';
+          }
+        } catch (jsonError) {
+          errorMessage =
+              'You are too far from your workplace. Please move closer to check out.';
+        }
+      } else if (e.toString().contains('Latitude and Longitude are required')) {
+        errorMessage =
+            'Location is required for clock-out. Please enable location services.';
+      }
+
+      notificationService.showError(errorMessage);
     }
   }
 
@@ -314,8 +510,9 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return List<Map<String, dynamic>>.from(data);
+        final data = json.decode(response.body);
+        final List<dynamic> breakTypes = data['breakTypes'] ?? [];
+        return List<Map<String, dynamic>>.from(breakTypes);
       } else if (response.statusCode == 401) {
         // Unauthorized: Token expired or invalid
         final notificationService =
@@ -547,6 +744,12 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       }
       Provider.of<NotificationProvider>(context, listen: false)
           .fetchNotifications();
+      // Load features for the dashboard
+      final authProviderForFeatures =
+          Provider.of<AuthProvider>(context, listen: false);
+      if (authProviderForFeatures.featureProvider != null) {
+        authProviderForFeatures.featureProvider!.loadFeatures();
+      }
       // Fetch upcoming events
       _fetchUpcomingEvents();
     });
@@ -635,10 +838,23 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       appBar: AppBar(
         title: const Text('Employee Dashboard'),
         actions: [
-          Icon(
-            _isConnected ? Icons.wifi : Icons.wifi_off,
-            color: _isConnected ? Colors.green : Colors.red,
+          IconButton(
+            icon: const Icon(Icons.notifications, color: Colors.black87),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationScreen(),
+                ),
+              );
+            },
           ),
+          // Debug button for development
+          if (kDebugMode)
+            IconButton(
+              icon: const Icon(Icons.bug_report, color: Colors.orange),
+              onPressed: () => DebugCompanyContext.showDebugDialog(context),
+            ),
         ],
       ),
       drawer: const AppDrawer(),
@@ -688,6 +904,9 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
             const SizedBox(height: 28),
             const StatusCard(),
             const SizedBox(height: 28),
+            // Location Information Card
+            _buildLocationInfoCard(),
+            const SizedBox(height: 28),
             // Leave Status Widget
             if (_isOnLeave && _leaveInfo != null) ...[
               _buildLeaveStatusWidget(),
@@ -712,6 +931,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
               openTimesheet: (ctx) => _openTimesheet(ctx),
               openProfile: (ctx) => _openProfile(ctx),
               openEvents: (ctx) => _openEvents(ctx),
+              openCompanyInfo: (ctx) => _openCompanyInfo(ctx),
             ),
             const SizedBox(height: 28),
             // Upcoming Events Section
@@ -763,6 +983,16 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     Navigator.pushNamed(context, '/events');
   }
 
+  void _openCompanyInfo(BuildContext context) {
+    print('EMPLOYEE DASHBOARD: Navigating to Company Info Screen');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const CompanyInfoScreen(),
+      ),
+    );
+  }
+
   Widget _buildUpcomingEventsSection() {
     if (_eventsLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -779,54 +1009,488 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
             List<Map<String, dynamic>>.from(event['attendees'] ?? []);
         final currentUserId =
             Provider.of<AuthProvider>(context, listen: false).user?['_id'];
-        final isAttending =
-            attendees.any((attendee) => attendee['user'] == currentUserId);
+        final isAttending = attendees.any((attendee) =>
+            attendee['user'] == currentUserId ||
+            attendee['userId'] == currentUserId);
 
-        return Card(
+        return Container(
           margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              child: Icon(
-                Icons.event,
-                color: Colors.white,
-                size: 20,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
               ),
-            ),
-            title: Text(
-              event['title'] ?? 'Untitled Event',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  DateFormat('MMM dd, yyyy - HH:mm').format(eventDate),
-                  style: TextStyle(color: Colors.grey[600]),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isAttending
+                      ? Colors.green.shade100
+                      : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                if (event['location'] != null)
-                  Text(
-                    event['location'],
-                    style: TextStyle(color: Colors.grey[600]),
+                child: Icon(
+                  isAttending ? Icons.event_available : Icons.event,
+                  color: isAttending
+                      ? Colors.green.shade600
+                      : Colors.grey.shade600,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      event['title'] ?? 'Untitled Event',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      DateFormat('MMM dd, yyyy • HH:mm').format(eventDate),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isAttending
+                      ? Colors.green.shade100
+                      : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  isAttending ? 'Attending' : 'Not Attending',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: isAttending
+                        ? Colors.green.shade700
+                        : Colors.grey.shade700,
                   ),
-                Text(
-                  '${attendees.length} attending',
-                  style: TextStyle(color: Colors.grey[600]),
                 ),
-              ],
-            ),
-            trailing: isAttending
-                ? Chip(
-                    label: const Text('Attending'),
-                    backgroundColor: Colors.green.withOpacity(0.1),
-                    labelStyle: const TextStyle(color: Colors.green),
-                  )
-                : null,
-            onTap: () => Navigator.pushNamed(context, '/events'),
+              ),
+            ],
           ),
         );
       }).toList(),
     );
+  }
+
+  Widget _buildLocationInfoCard() {
+    return Consumer<ProfileProvider>(
+      builder: (context, profileProvider, child) {
+        final profile = profileProvider.profile;
+        final assignedLocation = profile?['assignedLocation'];
+
+        if (assignedLocation == null) {
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.orange.shade50, Colors.orange.shade100],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.orange.shade200),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.orange.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.location_off_rounded,
+                    color: Colors.orange.shade600,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'No Location Assigned',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange.shade800,
+                                ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Contact your administrator to assign a work location for clock-in',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.orange.shade700,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue.shade50, Colors.indigo.shade50],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.blue.shade200),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blue.withOpacity(0.1),
+                blurRadius: 15,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Header with location icon and status
+              Container(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.blue.shade400,
+                            Colors.indigo.shade400
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.location_on_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Work Location',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.blue.shade600,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.5,
+                                    ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            assignedLocation['name'] ?? 'Unknown Location',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue.shade800,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade100,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.green.shade300),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.check_circle_rounded,
+                            color: Colors.green.shade600,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'ACTIVE',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade700,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Divider
+              Container(
+                height: 1,
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.transparent,
+                      Colors.blue.shade200,
+                      Colors.transparent
+                    ],
+                  ),
+                ),
+              ),
+
+              // Location details
+              Container(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    // Address
+                    if (assignedLocation['address'] != null) ...[
+                      _buildDetailRow(
+                        icon: Icons.place_rounded,
+                        iconColor: Colors.blue.shade600,
+                        title: 'Address',
+                        value: _buildAddressString(assignedLocation['address']),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Geofence and coordinates
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildDetailRow(
+                            icon: Icons.radio_button_checked_rounded,
+                            iconColor: Colors.green.shade600,
+                            title: 'Geofence',
+                            value:
+                                '${assignedLocation['settings']?['geofenceRadius'] ?? 100}m radius',
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildDetailRow(
+                            icon: Icons.gps_fixed_rounded,
+                            iconColor: Colors.purple.shade600,
+                            title: 'Coordinates',
+                            value:
+                                '${assignedLocation['coordinates']?['latitude']?.toStringAsFixed(6) ?? 'N/A'}, ${assignedLocation['coordinates']?['longitude']?.toStringAsFixed(6) ?? 'N/A'}',
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Location Map
+                    Container(
+                      width: double.infinity,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade600.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.map_rounded,
+                                  size: 16,
+                                  color: Colors.blue.shade600,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Location Map',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey.shade700,
+                                    ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          EmployeeLocationMapWidget(
+                            location: assignedLocation,
+                            height: 180,
+                            showGeofence: true,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Working hours
+                    if (assignedLocation['settings']?['workingHours'] !=
+                        null) ...[
+                      _buildDetailRow(
+                        icon: Icons.access_time_rounded,
+                        iconColor: Colors.orange.shade600,
+                        title: 'Working Hours',
+                        value:
+                            '${assignedLocation['settings']['workingHours']['start'] ?? '09:00'} - ${assignedLocation['settings']['workingHours']['end'] ?? '17:00'}',
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String value,
+    int maxLines = 1,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            size: 16,
+            color: iconColor,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.3,
+                    ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey.shade800,
+                      fontWeight: FontWeight.w600,
+                    ),
+                maxLines: maxLines,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _buildAddressString(Map<String, dynamic> address) {
+    if (address == null) return 'No address available';
+
+    // Try to use full address first if available
+    if (address['fullAddress']?.isNotEmpty == true) {
+      return address['fullAddress'];
+    }
+
+    // Build address from components
+    final parts = <String>[];
+
+    // Add street address if available
+    if (address['street']?.isNotEmpty == true) {
+      parts.add(address['street']);
+    }
+
+    // Add city if available
+    if (address['city']?.isNotEmpty == true) {
+      parts.add(address['city']);
+    }
+
+    // Add state/province if available
+    if (address['state']?.isNotEmpty == true) {
+      parts.add(address['state']);
+    }
+
+    // Add postal code if available
+    if (address['postalCode']?.isNotEmpty == true) {
+      parts.add(address['postalCode']);
+    }
+
+    // Add country if available
+    if (address['country']?.isNotEmpty == true) {
+      parts.add(address['country']);
+    }
+
+    // If no structured address, try to use coordinates
+    if (parts.isEmpty) {
+      return 'Coordinates available';
+    }
+
+    return parts.join(', ');
   }
 }
 
@@ -1569,7 +2233,7 @@ class StatusCard extends StatelessWidget {
   }
 }
 
-class _QuickActions extends StatelessWidget {
+class _QuickActions extends StatefulWidget {
   final bool isOnBreak;
   final bool isOnLeave;
   final VoidCallback clockIn;
@@ -1580,6 +2244,7 @@ class _QuickActions extends StatelessWidget {
   final Function(BuildContext) openTimesheet;
   final Function(BuildContext) openProfile;
   final Function(BuildContext) openEvents;
+  final Function(BuildContext) openCompanyInfo;
   const _QuickActions({
     required this.isOnBreak,
     required this.isOnLeave,
@@ -1591,7 +2256,53 @@ class _QuickActions extends StatelessWidget {
     required this.openTimesheet,
     required this.openProfile,
     required this.openEvents,
+    required this.openCompanyInfo,
   });
+
+  @override
+  State<_QuickActions> createState() => _QuickActionsState();
+}
+
+class _QuickActionsState extends State<_QuickActions> {
+  Map<String, bool> _availableFeatures = {};
+  bool _loadingFeatures = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvailableFeatures();
+  }
+
+  Future<void> _loadAvailableFeatures() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final featureService = FeatureService(authProvider);
+      final features = await featureService.getAvailableFeatures();
+
+      if (mounted) {
+        setState(() {
+          _availableFeatures = features;
+          _loadingFeatures = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading features: $e');
+      if (mounted) {
+        setState(() {
+          _loadingFeatures = false;
+          // Default to basic features if there's an error
+          _availableFeatures = {
+            'attendance': true,
+            'profile': true,
+            'notifications': true,
+            'timesheet': true,
+            'events': true,
+            'companyInfo': true,
+          };
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1621,7 +2332,7 @@ class _QuickActions extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      isOnLeave
+                      widget.isOnLeave
                           ? 'You are on leave and cannot clock in.'
                           : 'You have not clocked in today.',
                       style: Theme.of(context)
@@ -1637,11 +2348,11 @@ class _QuickActions extends StatelessWidget {
                       child: ElevatedButton.icon(
                         icon: const Icon(Icons.login),
                         label: const Text('Clock In'),
-                        onPressed: isOnLeave ? null : clockIn,
+                        onPressed: widget.isOnLeave ? null : widget.clockIn,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isOnLeave
+                          backgroundColor: widget.isOnLeave
                               ? Colors.grey.shade400
-                              : const Color(0xFF256029), // Improved contrast
+                              : const Color(0xFF1976D2), // Vibrant blue
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                               horizontal: 24, vertical: 12),
@@ -1663,10 +2374,12 @@ class _QuickActions extends StatelessWidget {
                       context,
                       icon: Icons.logout,
                       label: 'Clock Out',
-                      color: (isOnBreak || isOnLeave)
+                      color: (widget.isOnBreak || widget.isOnLeave)
                           ? const Color(0xFFB0B0B0)
-                          : const Color(0xFFB91C1C), // Improved contrast
-                      onPressed: (isOnBreak || isOnLeave) ? null : clockOut,
+                          : const Color(0xFFF44336), // Vibrant red
+                      onPressed: (widget.isOnBreak || widget.isOnLeave)
+                          ? null
+                          : widget.clockOut,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1675,10 +2388,10 @@ class _QuickActions extends StatelessWidget {
                       context,
                       icon: Icons.free_breakfast,
                       label: 'Start Break',
-                      color: isOnLeave
+                      color: widget.isOnLeave
                           ? const Color(0xFFB0B0B0)
-                          : const Color(0xFF374151), // Improved contrast
-                      onPressed: isOnLeave ? null : startBreak,
+                          : const Color(0xFF00BCD4), // Vibrant cyan
+                      onPressed: widget.isOnLeave ? null : widget.startBreak,
                     ),
                   ),
                 ],
@@ -1703,10 +2416,10 @@ class _QuickActions extends StatelessWidget {
                       context,
                       icon: Icons.stop_circle,
                       label: 'End Break',
-                      color: isOnLeave
+                      color: widget.isOnLeave
                           ? const Color(0xFFB0B0B0)
-                          : const Color(0xFFDD6B20), // Improved contrast
-                      onPressed: isOnLeave ? null : endBreak,
+                          : const Color(0xFFE91E63), // Vibrant pink
+                      onPressed: widget.isOnLeave ? null : widget.endBreak,
                     ),
                   ),
                 ],
@@ -1719,54 +2432,69 @@ class _QuickActions extends StatelessWidget {
                 context,
                 icon: Icons.login,
                 label: 'Clock In',
-                color: isOnLeave
+                color: widget.isOnLeave
                     ? const Color(0xFFB0B0B0)
-                    : const Color(0xFF256029), // Improved contrast
-                onPressed: isOnLeave ? null : clockIn,
+                    : const Color(0xFF1976D2), // Vibrant blue
+                onPressed: widget.isOnLeave ? null : widget.clockIn,
                 isFullWidth: true,
               ),
             );
           },
         ),
         const SizedBox(height: 16),
-        GridView.count(
-          crossAxisCount: crossAxisCount,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: childAspectRatio,
-          children: [
-            _buildQuickActionCard(
-              context,
-              icon: Icons.calendar_today,
-              label: 'Apply Leave',
-              color: const Color(0xFF1E40AF), // Improved contrast
-              onPressed: () => applyLeave(context),
-            ),
-            _buildQuickActionCard(
-              context,
-              icon: Icons.access_time,
-              label: 'Timesheet',
-              color: const Color(0xFF6D28D9), // Improved contrast
-              onPressed: () => openTimesheet(context),
-            ),
-            _buildQuickActionCard(
-              context,
-              icon: Icons.person,
-              label: 'Profile',
-              color: const Color(0xFF0F766E), // Improved contrast
-              onPressed: () => openProfile(context),
-            ),
-            _buildQuickActionCard(
-              context,
-              icon: Icons.event,
-              label: 'Events',
-              color: const Color(0xFF7C3AED), // Purple color for events
-              onPressed: () => openEvents(context),
-            ),
-          ],
-        ),
+        _loadingFeatures
+            ? const Center(child: CircularProgressIndicator())
+            : GridView.count(
+                crossAxisCount: crossAxisCount,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: childAspectRatio,
+                children: [
+                  // Apply Leave - only if leaveManagement is enabled
+                  if (_availableFeatures['leaveManagement'] == true)
+                    _buildQuickActionCard(
+                      context,
+                      icon: Icons.calendar_today,
+                      label: 'Apply Leave',
+                      color: const Color(0xFF4CAF50), // Vibrant green
+                      onPressed: () => widget.applyLeave(context),
+                    ),
+                  // Timesheet - always available for employees
+                  _buildQuickActionCard(
+                    context,
+                    icon: Icons.access_time,
+                    label: 'Timesheet',
+                    color: const Color(0xFF9C27B0), // Vibrant purple
+                    onPressed: () => widget.openTimesheet(context),
+                  ),
+                  // Profile - always available
+                  _buildQuickActionCard(
+                    context,
+                    icon: Icons.person,
+                    label: 'Profile',
+                    color: const Color(0xFF2196F3), // Vibrant blue
+                    onPressed: () => widget.openProfile(context),
+                  ),
+                  // Events - always available for employees
+                  _buildQuickActionCard(
+                    context,
+                    icon: Icons.event,
+                    label: 'Events',
+                    color: const Color(0xFFFF9800), // Vibrant orange
+                    onPressed: () => widget.openEvents(context),
+                  ),
+                  // Company Info - always available for employees
+                  _buildQuickActionCard(
+                    context,
+                    icon: Icons.business,
+                    label: 'Company Info',
+                    color: const Color(0xFF607D8B), // Vibrant blue-grey
+                    onPressed: () => widget.openCompanyInfo(context),
+                  ),
+                ],
+              ),
       ],
     );
   }

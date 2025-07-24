@@ -6,6 +6,7 @@ import '../utils/logger.dart';
 
 class CompanySettingsProvider with ChangeNotifier {
   final CompanySettingsService _service;
+  final AuthProvider _authProvider;
 
   Map<String, dynamic>? _settings;
   bool isLoading = false;
@@ -13,19 +14,79 @@ class CompanySettingsProvider with ChangeNotifier {
   String? error;
 
   CompanySettingsProvider(AuthProvider auth)
-      : _service = CompanySettingsService(auth);
+      : _service = CompanySettingsService(auth),
+        _authProvider = auth;
 
   Map<String, dynamic>? get settings => _settings;
+
+  /// Auto-load company settings when user logs in
+  Future<void> autoLoad() async {
+    print('DEBUG: CompanySettingsProvider.autoLoad() called');
+    print('DEBUG: isAuthenticated: ${_authProvider.isAuthenticated}');
+    print('DEBUG: _settings is null: ${_settings == null}');
+
+    if (_authProvider.isAuthenticated && _settings == null) {
+      print('DEBUG: Calling load() from autoLoad()');
+      await load();
+    } else {
+      print('DEBUG: Skipping load() - conditions not met');
+    }
+  }
 
   Future<void> load() async {
     isLoading = true;
     error = null;
     notifyListeners();
+
+    print('DEBUG: CompanySettingsProvider.load() called');
+
     try {
-      _settings = await _service.fetchSettings();
+      final settings = await _service.fetchSettings();
+      print('DEBUG: fetchSettings() returned: $settings');
+
+      if (settings != null) {
+        _settings = settings;
+        print('DEBUG: Settings loaded successfully');
+      } else {
+        print('DEBUG: Settings is null');
+        error = 'Failed to load company settings';
+      }
     } catch (e) {
+      print('DEBUG: Error loading settings: $e');
       error = e.toString();
-      log('CompanySettingsProvider load error: $e');
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Force refresh - clear cache and reload from server
+  Future<void> forceRefresh() async {
+    print('DEBUG: CompanySettingsProvider.forceRefresh() called');
+
+    // Clear current settings to force reload
+    _settings = null;
+    error = null;
+    isLoading = true;
+    notifyListeners();
+
+    try {
+      // Wait a bit to ensure any cached data is cleared
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      final settings = await _service.fetchSettings();
+      print('DEBUG: forceRefresh() fetchSettings() returned: $settings');
+
+      if (settings != null) {
+        _settings = settings;
+        print('DEBUG: Settings force refreshed successfully');
+      } else {
+        print('DEBUG: Settings is null after force refresh');
+        error = 'Failed to load company settings';
+      }
+    } catch (e) {
+      print('DEBUG: Error force refreshing settings: $e');
+      error = e.toString();
     } finally {
       isLoading = false;
       notifyListeners();
@@ -78,12 +139,17 @@ class CompanySettingsProvider with ChangeNotifier {
   }
 
   String get logoUrl {
-    final logoPath = _settings?['logoUrl'] as String?;
+    final companyInfo = _settings?['companyInfo'] ?? _settings;
+    final logoPath = companyInfo?['logoUrl'] as String?;
     return CompanySettingsService.getLogoUrl(logoPath);
   }
 
-  String get companyName => _settings?['name'] ?? 'Your Company Name';
-  String get companyEmail => _settings?['email'] ?? '';
-  String get companyPhone => _settings?['phone'] ?? '';
-  String get companyAddress => _settings?['address'] ?? '';
+  String get companyName =>
+      (_settings?['companyInfo'] ?? _settings)?['name'] ?? 'Your Company Name';
+  String get companyEmail =>
+      (_settings?['companyInfo'] ?? _settings)?['email'] ?? '';
+  String get companyPhone =>
+      (_settings?['companyInfo'] ?? _settings)?['phone'] ?? '';
+  String get companyAddress =>
+      (_settings?['companyInfo'] ?? _settings)?['address'] ?? '';
 }

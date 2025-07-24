@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
+import 'package:sns_rooster/providers/feature_provider.dart';
 import 'package:sns_rooster/config/api_config.dart';
 import 'package:sns_rooster/screens/admin/employee_management_screen.dart';
 import 'package:sns_rooster/screens/admin/payroll_management_screen.dart';
@@ -14,8 +15,8 @@ import 'package:sns_rooster/screens/admin/help_support_screen.dart';
 import 'package:sns_rooster/screens/admin/attendance_management_screen.dart';
 import 'package:sns_rooster/screens/admin/break_management_screen.dart';
 import 'package:sns_rooster/screens/admin/event_management_screen.dart';
-import '../../widgets/admin_side_navigation.dart';
-import '../../widgets/user_avatar.dart';
+import 'package:sns_rooster/widgets/admin_side_navigation.dart';
+import 'package:sns_rooster/widgets/user_avatar.dart';
 import '../../services/employee_service.dart';
 import '../../services/api_service.dart';
 import 'package:intl/intl.dart';
@@ -24,6 +25,8 @@ import '../../widgets/notification_bell.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/payroll_analytics_provider.dart';
 import '../../providers/payroll_cycle_settings_provider.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:sns_rooster/services/secure_storage_service.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -44,6 +47,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<NotificationProvider>(context, listen: false)
           .fetchNotifications();
+      // Load features for the dashboard
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (authProvider.featureProvider != null) {
+        Logger.info('Dashboard: Loading features on init');
+        authProvider.featureProvider!.loadFeatures().then((_) {
+          Logger.info('Dashboard: Features loaded successfully');
+        }).catchError((e) {
+          Logger.error('Dashboard: Failed to load features: $e');
+        });
+      } else {
+        Logger.warning('Dashboard: FeatureProvider is null during init');
+      }
     });
     _fetchDashboardData();
   }
@@ -56,6 +71,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (authProvider.user != null) {
       // If the user has changed, re-fetch dashboard data
       _fetchDashboardData();
+
+      // Also force refresh features to ensure UI is up to date
+      if (authProvider.featureProvider != null) {
+        Logger.info(
+            'Dashboard: Force refreshing features on dependency change');
+        authProvider.featureProvider!.forceRefreshFeatures().then((_) {
+          Logger.info('Dashboard: Features force refreshed successfully');
+        }).catchError((e) {
+          Logger.error('Dashboard: Failed to force refresh features: $e');
+        });
+      }
     }
   }
 
@@ -133,12 +159,85 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final colorScheme = theme.colorScheme;
     final now = DateTime.now();
 
+    // Ensure features are loaded when dashboard is rendered
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (authProvider.featureProvider != null) {
+        final featureProvider = authProvider.featureProvider!;
+
+        if (!featureProvider.isSubscriptionPlanLoaded) {
+          if (!featureProvider.isLoading) {
+            featureProvider.forceRefreshFeatures();
+          }
+        }
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
         actions: [
+          // Feature refresh button
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () async {
+              final authProvider =
+                  Provider.of<AuthProvider>(context, listen: false);
+              if (authProvider.featureProvider != null) {
+                try {
+                  await authProvider.featureProvider!.forceRefreshFeatures();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Features refreshed successfully!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to refresh features: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Feature provider not available'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+            },
+            tooltip: 'Refresh Features',
+          ),
+          // Debug: Clear company ID button (only in debug mode)
+          if (kDebugMode)
+            IconButton(
+              icon: const Icon(Icons.bug_report),
+              onPressed: () async {
+                try {
+                  await SecureStorageService.clearCompanyId();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                          'Company ID cleared. Please logout and login again.'),
+                      backgroundColor: Colors.orange,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to clear company ID: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              tooltip: 'Clear Company ID (Debug)',
+            ),
           NotificationBell(iconColor: colorScheme.onPrimary),
         ],
       ),
@@ -193,6 +292,171 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ?.copyWith(color: colorScheme.onSurface.withOpacity(0.7)),
                 ),
                 const SizedBox(height: 24),
+                // Feature Status Debug Section (only in debug mode)
+                if (kDebugMode) ...[
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Feature Status (Debug)',
+                                  style: theme.textTheme.titleLarge),
+                              Consumer<FeatureProvider>(
+                                builder: (context, featureProvider, child) {
+                                  final planName =
+                                      featureProvider.subscriptionPlanName;
+                                  Color planColor;
+                                  String displayText;
+
+                                  if (featureProvider.isLoading) {
+                                    planColor = Colors.orange;
+                                    displayText = 'Loading...';
+                                  } else if (planName == 'No Plan') {
+                                    planColor = Colors.red;
+                                    displayText = 'No Plan';
+                                  } else {
+                                    planColor = Colors.blue;
+                                    displayText = planName;
+                                  }
+
+                                  return Text(
+                                    'Plan: $displayText',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: planColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          // Debug info section
+                          FutureBuilder<String?>(
+                            future: SecureStorageService.getCompanyId(),
+                            builder: (context, snapshot) {
+                              return Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Debug Info:',
+                                      style:
+                                          theme.textTheme.bodySmall?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Company ID: ${snapshot.data ?? 'Not found'}',
+                                      style: theme.textTheme.bodySmall,
+                                    ),
+                                    Consumer<AuthProvider>(
+                                      builder: (context, authProvider, child) {
+                                        return Text(
+                                          'User Company ID: ${authProvider.user?['companyId'] ?? 'Not found'}',
+                                          style: theme.textTheme.bodySmall,
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          Consumer<FeatureProvider>(
+                            builder: (context, featureProvider, child) {
+                              final features = [
+                                {
+                                  'key': 'multiLocation',
+                                  'name': 'Location Management'
+                                },
+                                {
+                                  'key': 'expenseManagement',
+                                  'name': 'Expense Management'
+                                },
+                                {'key': 'analytics', 'name': 'Analytics'},
+                                {
+                                  'key': 'advancedReporting',
+                                  'name': 'Advanced Reporting'
+                                },
+                                {
+                                  'key': 'customBranding',
+                                  'name': 'Custom Branding'
+                                },
+                                {'key': 'apiAccess', 'name': 'API Access'},
+                              ];
+
+                              return Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: features.map((feature) {
+                                  final isEnabled =
+                                      featureProvider.isFeatureEnabled(
+                                          feature['key'] as String);
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: isEnabled
+                                          ? Colors.green.shade100
+                                          : Colors.red.shade100,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: isEnabled
+                                            ? Colors.green
+                                            : Colors.red,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          isEnabled
+                                              ? Icons.check_circle
+                                              : Icons.cancel,
+                                          size: 16,
+                                          color: isEnabled
+                                              ? Colors.green
+                                              : Colors.red,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          feature['name'] as String,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: isEnabled
+                                                ? Colors.green.shade800
+                                                : Colors.red.shade800,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
                 // Modern Stat Card Row
                 _buildStatCardRow(),
                 const SizedBox(height: 24),

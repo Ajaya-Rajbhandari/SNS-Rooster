@@ -4,6 +4,7 @@ const Employee = require('./models/Employee');
 const Payroll = require('./models/Payroll');
 const Attendance = require('./models/Attendance');
 const { calculateAllTaxes, generateDeductionsList } = require('./utils/tax-calculator');
+const TrialService = require('./services/trialService');
 // Remove the problematic import since check_break_violations.js doesn't export the function
 // const checkAndNotifyBreakViolations = require('./check_break_violations');
 
@@ -220,6 +221,27 @@ async function generatePayslips() {
 // Schedule daily at 02:00 AM server time
 cron.schedule('0 2 * * *', generatePayslips);
 
+// Trial status check function
+async function checkTrialStatus() {
+  try {
+    console.log('SCHEDULER: Running trial status check...');
+    const result = await TrialService.checkTrialStatus();
+    console.log(`SCHEDULER: Trial check completed: ${result.checked} companies checked, ${result.expired} expired`);
+    
+    if (result.expired > 0) {
+      console.log('SCHEDULER: Expired companies:', result.expiredCompanies.map(c => c.name));
+    }
+  } catch (error) {
+    console.error('SCHEDULER: Error in trial status check:', error);
+  }
+}
+
+// Schedule trial status check daily at 9:00 AM
+cron.schedule('0 9 * * *', checkTrialStatus);
+
+// Schedule trial status check every hour during business hours (9 AM - 6 PM, weekdays)
+cron.schedule('0 9-18 * * 1-5', checkTrialStatus);
+
 // Break monitoring scheduler
 async function monitorBreaks() {
   try {
@@ -306,7 +328,15 @@ async function sendBreakTimeViolationNotification(userId, breakTypeConfig, actua
   try {
     const Notification = require('./models/Notification');
     const FCMToken = require('./models/FCMToken');
+    const User = require('./models/User');
     const { sendNotificationToUser } = require('./services/notificationService');
+    
+    // Get user to find their company
+    const user = await User.findById(userId);
+    if (!user || !user.companyId) {
+      console.warn(`User ${userId} not found or has no company`);
+      return;
+    }
     
     // Calculate duration in minutes
     const actualMinutes = Math.round(actualDuration / (1000 * 60));
@@ -318,6 +348,7 @@ async function sendBreakTimeViolationNotification(userId, breakTypeConfig, actua
     
     // Create database notification
     const notification = new Notification({
+      company: user.companyId,
       user: userId,
       title: title,
       message: message,
@@ -353,7 +384,15 @@ async function sendBreakTimeWarningNotification(userId, breakTypeConfig, current
   try {
     const Notification = require('./models/Notification');
     const FCMToken = require('./models/FCMToken');
+    const User = require('./models/User');
     const { sendNotificationToUser } = require('./services/notificationService');
+    
+    // Get user to find their company
+    const user = await User.findById(userId);
+    if (!user || !user.companyId) {
+      console.warn(`User ${userId} not found or has no company`);
+      return;
+    }
     
     // Calculate duration in minutes
     const currentMinutes = Math.round(currentDuration / (1000 * 60));
@@ -365,6 +404,7 @@ async function sendBreakTimeWarningNotification(userId, breakTypeConfig, current
     
     // Create database notification
     const notification = new Notification({
+      company: user.companyId,
       user: userId,
       title: title,
       message: message,

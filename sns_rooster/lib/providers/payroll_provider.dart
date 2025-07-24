@@ -41,7 +41,18 @@ class PayrollProvider with ChangeNotifier {
       _payrollSlips.sort((a, b) => b['periodEnd'].compareTo(a['periodEnd']));
     } catch (e) {
       log('PayrollProvider: error fetching payroll slips: $e');
-      _error = e.toString();
+
+      // Check if it's a company context error or user not found error
+      if (e.toString().contains('Company context required') ||
+          e.toString().contains('User not found') ||
+          e.toString().contains('User must be authenticated') ||
+          e.toString().contains('400')) {
+        _error =
+            'Authentication issue detected. Please log out and log back in to refresh your session.';
+      } else {
+        _error = e.toString();
+      }
+
       _payrollSlips = [];
     } finally {
       _isLoading = false;

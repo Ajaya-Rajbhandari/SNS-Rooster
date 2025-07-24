@@ -2,45 +2,50 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../config/api_config.dart';
 import '../providers/auth_provider.dart';
+import 'api_service.dart';
 
 class PayrollService {
   final AuthProvider authProvider;
-  PayrollService(this.authProvider);
+  late final ApiService _apiService;
+
+  PayrollService(this.authProvider) {
+    _apiService = ApiService(baseUrl: ApiConfig.baseUrl);
+  }
 
   Future<List<Map<String, dynamic>>> getPayrollSlips(String userId) async {
-    final token = authProvider.token;
-    final headers = {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-    final url = '${ApiConfig.baseUrl}/payroll/user/$userId';
-    final response = await http.get(Uri.parse(url), headers: headers);
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      return data.cast<Map<String, dynamic>>();
-    } else {
-      throw Exception(
-          'Failed to fetch payroll slips: ${response.statusCode} ${response.body}');
+    try {
+      final response = await _apiService.get('/payroll/user/$userId');
+
+      if (response.success) {
+        if (response.data is List) {
+          return (response.data as List).cast<Map<String, dynamic>>();
+        } else {
+          return [];
+        }
+      } else {
+        throw Exception('Failed to fetch payroll slips: ${response.message}');
+      }
+    } catch (e) {
+      throw Exception('Failed to fetch payroll slips: $e');
     }
   }
 
   Future<void> updatePayslipStatus(String payslipId, String status,
       {String? comment}) async {
-    final token = authProvider.token;
-    final headers = {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-    final url = '${ApiConfig.baseUrl}/payroll/$payslipId/status';
-    final body = json.encode({
-      'status': status,
-      if (comment != null) 'employeeComment': comment,
-    });
-    final response =
-        await http.patch(Uri.parse(url), headers: headers, body: body);
-    if (response.statusCode != 200) {
-      throw Exception(
-          'Failed to update payslip status: ${response.statusCode} ${response.body}');
+    try {
+      final body = {
+        'status': status,
+        if (comment != null) 'employeeComment': comment,
+      };
+
+      final response =
+          await _apiService.patch('/payroll/$payslipId/status', body);
+
+      if (!response.success) {
+        throw Exception('Failed to update payslip status: ${response.message}');
+      }
+    } catch (e) {
+      throw Exception('Failed to update payslip status: $e');
     }
   }
 }

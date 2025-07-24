@@ -66,6 +66,24 @@ class ApiService {
     }
   }
 
+  Future<ApiResponse> patch(String endpoint, Map<String, dynamic> data) async {
+    try {
+      final response = await _client.patch(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: await _getHeaders(),
+        body: json.encode(data),
+      );
+      return _handleResponse(response);
+    } catch (e, stack) {
+      Logger.error('PATCH $endpoint failed: $e', stack);
+      return ApiResponse(
+        success: false,
+        message: 'Unable to update data. Please try again.',
+        data: null,
+      );
+    }
+  }
+
   Future<ApiResponse> delete(String endpoint) async {
     try {
       final response = await _client.delete(
@@ -85,10 +103,23 @@ class ApiService {
 
   Future<Map<String, String>> _getHeaders() async {
     final token = await SecureStorageService.getAuthToken();
-    return {
+    final companyId = await SecureStorageService.getCompanyId();
+
+    final headers = <String, String>{
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
     };
+
+    // Add company context header if available
+    if (companyId != null && companyId.isNotEmpty) {
+      headers['x-company-id'] = companyId;
+      print('🔍 API_DEBUG: Adding company ID header: $companyId');
+    } else {
+      print('⚠️  API_DEBUG: No company ID found in secure storage');
+    }
+
+    print('🔍 API_DEBUG: Headers being sent: ${headers.keys.toList()}');
+    return headers;
   }
 
   Future<String> getAuthorizationHeader() async {
@@ -98,6 +129,28 @@ class ApiService {
 
   ApiResponse _handleResponse(http.Response response) {
     try {
+      // Check if response is HTML (server error page)
+      if (response.headers['content-type']?.contains('text/html') == true ||
+          response.body.trim().startsWith('<!DOCTYPE html>') ||
+          response.body.trim().startsWith('<html>')) {
+        Logger.error(
+            'Server returned HTML instead of JSON: ${response.body.length > 200 ? response.body.substring(0, 200) + '...' : response.body}');
+        return ApiResponse(
+          success: false,
+          message: 'Server error. Please check if the backend is running.',
+          data: null,
+        );
+      }
+
+      // Check if response body is empty
+      if (response.body.trim().isEmpty) {
+        return ApiResponse(
+          success: response.statusCode >= 200 && response.statusCode < 300,
+          message: 'Empty response from server',
+          data: null,
+        );
+      }
+
       final data = json.decode(response.body);
       if (data is List) {
         // Raw array response
@@ -123,6 +176,8 @@ class ApiService {
       }
     } catch (e, stack) {
       Logger.error('Response parsing failed: $e', stack);
+      Logger.error(
+          'Response body: ${response.body.length > 200 ? response.body.substring(0, 200) + '...' : response.body}');
       return ApiResponse(
         success: false,
         message: 'Unexpected server response. Please try again later.',

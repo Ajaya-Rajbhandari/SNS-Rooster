@@ -80,6 +80,9 @@ class ProfileProvider with ChangeNotifier {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         _updateProfileData(data['profile']); // Use 'profile' instead of 'user'
+
+        // Fetch assigned location information
+        await _fetchAssignedLocation();
       } else {
         final data = json.decode(response.body);
         _error = data['message'] ?? 'Failed to fetch profile';
@@ -87,6 +90,38 @@ class ProfileProvider with ChangeNotifier {
     } catch (e) {
       log('Error fetching profile: $e');
       _error = 'Network error occurred: ${e.toString()}';
+    }
+  }
+
+  Future<void> _fetchAssignedLocation() async {
+    if (!_authProvider.isAuthenticated || _authProvider.token == null) {
+      return;
+    }
+
+    try {
+      final userId = _authProvider.user?['_id'];
+      if (userId == null) return;
+
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/employees/me/location'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${_authProvider.token}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['assignedLocation'] != null) {
+          _profile?['assignedLocation'] = data['assignedLocation'];
+          _saveProfileToPrefs();
+          if (_disposed) return;
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      log('Error fetching assigned location: $e');
+      // Don't set error for location fetch failure as it's not critical
     }
   }
 

@@ -14,7 +14,7 @@ class EnvironmentConfig {
   // Current environment - should be set based on build configuration
   static const String currentEnvironment = String.fromEnvironment(
     'ENVIRONMENT',
-    defaultValue: production,
+    defaultValue: development,
   );
 
   // Debug mode check
@@ -24,7 +24,7 @@ class EnvironmentConfig {
 
   // API Configuration
   static const String _devApiUrl = String.fromEnvironment(
-    'DEV_API_URL',
+    'API_URL',
     defaultValue: 'http://localhost:5000/api',
   );
 

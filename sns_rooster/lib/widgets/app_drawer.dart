@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sns_rooster/utils/logger.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/feature_provider.dart';
 import '../widgets/user_avatar.dart'; // Assuming UserAvatar is a reusable widget
 import '../../providers/profile_provider.dart';
 
@@ -43,6 +44,7 @@ class AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final featureProvider = Provider.of<FeatureProvider>(context);
     final theme = Theme.of(context);
     final user = authProvider.user;
     final isAdmin = user?['role'] == 'admin';
@@ -113,10 +115,12 @@ class AppDrawer extends StatelessWidget {
                   icon: Icons.monetization_on,
                   label: 'Payroll',
                   route: '/payroll'),
-              _buildNavTile(context,
-                  icon: Icons.analytics,
-                  label: 'Analytics & Reports',
-                  route: '/analytics'),
+              // Only show Analytics & Reports if the feature is enabled
+              if (featureProvider.hasAnalytics)
+                _buildNavTile(context,
+                    icon: Icons.analytics,
+                    label: 'Analytics & Reports',
+                    route: '/analytics'),
               _buildNavTile(context,
                   icon: Icons.event, label: 'Events', route: '/events'),
               _buildNavTile(context,

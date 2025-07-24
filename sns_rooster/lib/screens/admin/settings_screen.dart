@@ -166,16 +166,6 @@ class SettingsScreen extends StatelessWidget {
                       },
                     ),
                     ListTile(
-                      title: const Text('Company Information'),
-                      subtitle: const Text(
-                          'Company details, logo & contact information'),
-                      trailing: const Icon(Icons.arrow_forward_ios),
-                      onTap: () {
-                        Navigator.of(context)
-                            .pushNamed('/admin/company_settings');
-                      },
-                    ),
-                    ListTile(
                       title: const Text('Leave Policy Settings'),
                       trailing: const Icon(Icons.arrow_forward_ios),
                       onTap: () {

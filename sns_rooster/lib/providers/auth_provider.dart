@@ -13,7 +13,10 @@ import '../services/secure_storage_service.dart';
 import '../services/auth_migration_service.dart';
 // Import main.dart to access MyApp class
 import '../providers/attendance_provider.dart';
+import '../providers/company_provider.dart';
 import '../services/fcm_service.dart';
+import '../providers/company_settings_provider.dart';
+import '../providers/feature_provider.dart';
 
 class AuthProvider with ChangeNotifier {
   String? _token;
@@ -24,6 +27,7 @@ class AuthProvider with ChangeNotifier {
   final bool _isLoggingOut = false;
   final _navigatorKey = GlobalKey<NavigatorState>();
   bool _rememberMe = false;
+  bool _scheduleFeatureLoading = false; // Add this variable
 
   // Add new keys for storing credentials
   static const String _rememberMeKey = 'remember_me';
@@ -66,19 +70,23 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> _loadStoredAuth() async {
     try {
-      log('LOAD_AUTH_DEBUG: Loading stored auth from secure storage...');
-
       // Try to load from secure storage first
       final storedToken = await SecureStorageService.getAuthToken();
-      log('LOAD_AUTH_DEBUG: Token retrieved from SecureStorage: $storedToken');
       _authToken = storedToken;
 
       final storedUserData = await SecureStorageService.getUserData();
-      log('LOAD_AUTH_DEBUG: User data retrieved from SecureStorage: $storedUserData');
       _user = storedUserData != null ? json.decode(storedUserData) : null;
 
       _token = _authToken;
-      log('LOAD_AUTH_DEBUG: Assigned _authToken to _token: $_token');
+
+      // Load features if user is authenticated
+      if (_token != null && !isTokenExpired() && _featureProvider != null) {
+        try {
+          await _featureProvider!.loadFeatures();
+        } catch (e) {
+          log('AuthProvider: Error loading features: $e');
+        }
+      }
 
       // Load Remember Me and credentials from secure storage
       final rememberedCreds =
@@ -97,11 +105,9 @@ class AuthProvider with ChangeNotifier {
         await _migrateFromSharedPreferences();
       }
 
-      log('LOAD_AUTH_DEBUG: Final _authToken: $_authToken, Final _user: $_user');
-      log('LOAD_AUTH_DEBUG: Token after loading: $_authToken');
       notifyListeners();
     } catch (e) {
-      log('LOAD_AUTH_DEBUG: Error loading stored auth: $e');
+      log('Error loading stored auth: $e');
       _authToken = null;
       _user = null;
       notifyListeners();
@@ -207,8 +213,8 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> login(String email, String password) async {
-    log('LOGIN_DEBUG: Starting login for email: $email');
+  Future<bool> login(String email, String password, {String? companyId}) async {
+    log('LOGIN_DEBUG: Starting login for email: $email, companyId: $companyId');
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -216,15 +222,22 @@ class AuthProvider with ChangeNotifier {
     try {
       log('LOGIN_DEBUG: Making API call to  ${ApiConfig.baseUrl}/auth/login');
 
+      final requestBody = {
+        'email': email,
+        'password': password,
+      };
+
+      // Add companyId if provided
+      if (companyId != null && companyId.isNotEmpty) {
+        requestBody['companyId'] = companyId;
+      }
+
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/auth/login'),
         headers: {
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
+        body: jsonEncode(requestBody),
       );
 
       log('LOGIN_DEBUG: Response status code: ${response.statusCode}');
@@ -240,6 +253,13 @@ class AuthProvider with ChangeNotifier {
         log('LOGIN_DEBUG: User data received: _user');
         log('LOGIN_DEBUG: Backend token field: ${data['token']}');
         log('LOGIN_DEBUG: Token received from backend response: _authToken');
+
+        // Extract and store company ID if available
+        if (_user != null && _user!['companyId'] != null) {
+          final companyId = _user!['companyId'].toString();
+          await SecureStorageService.storeCompanyId(companyId);
+          log('LOGIN_DEBUG: Company ID stored: $companyId');
+        }
 
         // Always save auth token and user data to SecureStorage
         await _saveAuthToPrefs();
@@ -264,47 +284,55 @@ class AuthProvider with ChangeNotifier {
         } else {
           log('LOGIN_DEBUG: ProfileProvider is not set, cannot refresh profile');
         }
-        // --- Send FCM token to backend after login ---
-        try {
-          final fcmToken = FCMService().fcmToken ??
-              await FCMService()
-                  .initialize()
-                  .then((_) => FCMService().fcmToken);
-          if (fcmToken != null) {
-            final fcmResponse = await http.post(
-              Uri.parse('${ApiConfig.baseUrl}/fcm-token'),
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer $_token',
-              },
-              body: jsonEncode({
-                'fcmToken': fcmToken,
-                'platform': 'android',
-                'appVersion': '1.0.0',
-                'deviceModel': 'flutter-app',
-              }),
-            );
-            print(
-                'FCM: Token registration ${fcmResponse.statusCode == 200 ? "✅ SUCCESS" : "❌ FAILED"} (${fcmResponse.statusCode})');
-          } else {
-            print('FCM: ❌ No token available');
+
+        // --- Load company settings after login ---
+        if (_companySettingsProvider != null) {
+          log('LOGIN_DEBUG: Loading company settings after login');
+          try {
+            await _companySettingsProvider!.autoLoad();
+            log('LOGIN_DEBUG: Company settings autoLoad completed');
+          } catch (e) {
+            log('LOGIN_DEBUG: Company settings autoLoad failed: $e');
           }
-        } catch (e) {
-          print('FCM: ❌ Registration failed: $e');
+        } else {
+          log('LOGIN_DEBUG: CompanySettingsProvider is not set, cannot load company settings');
         }
 
-        // Clear image cache to ensure fresh avatars are loaded
-        await _clearImageCache();
+        // --- Load features after login ---
+        if (_featureProvider != null) {
+          log('LOGIN_DEBUG: Loading features after login');
+          // Use the same approach as CompanyInfoWidget - load features after UI is built
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            try {
+              await _featureProvider!.loadFeatures();
+              log('LOGIN_DEBUG: Features loaded successfully');
+            } catch (e) {
+              log('LOGIN_DEBUG: Features loading failed: $e');
+              // Try to force refresh features even if initial load fails
+              try {
+                await _featureProvider!.forceRefreshFeatures();
+                log('LOGIN_DEBUG: Force refresh features successful');
+              } catch (forceError) {
+                log('LOGIN_DEBUG: Force refresh features also failed: $forceError');
+              }
+            }
+          });
+        } else {
+          log('LOGIN_DEBUG: FeatureProvider is not set, cannot load features');
+          // Schedule feature loading for when provider becomes available
+          _scheduleFeatureLoading = true;
+        }
 
         return true;
       } else {
-        _error = data['message'] ?? 'Login failed';
-        log('LOGIN_DEBUG: Login failed: $_error');
+        final errorMessage = data['message'] ?? 'Login failed';
+        log('LOGIN_DEBUG: Login failed with message: $errorMessage');
+        _error = errorMessage;
         return false;
       }
     } catch (e) {
-      _error = e.toString();
       log('LOGIN_DEBUG: Exception during login: $e');
+      _error = 'Network error: $e';
       return false;
     } finally {
       _isLoading = false;
@@ -351,6 +379,49 @@ class AuthProvider with ChangeNotifier {
     _attendanceProvider = attendanceProvider;
   }
 
+  CompanyProvider? _companyProvider;
+
+  void setCompanyProvider(CompanyProvider companyProvider) {
+    _companyProvider = companyProvider;
+  }
+
+  CompanySettingsProvider? _companySettingsProvider;
+
+  void setCompanySettingsProvider(
+      CompanySettingsProvider companySettingsProvider) {
+    _companySettingsProvider = companySettingsProvider;
+  }
+
+  FeatureProvider? _featureProvider;
+
+  void setFeatureProvider(FeatureProvider featureProvider) {
+    _featureProvider = featureProvider;
+
+    // If features were scheduled to be loaded during login, load them now
+    if (_scheduleFeatureLoading && isAuthenticated) {
+      log('LOGIN_DEBUG: Loading delayed features after FeatureProvider setup');
+      _scheduleFeatureLoading = false;
+      // Use the same approach as CompanyInfoWidget - load features after UI is built
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          await featureProvider.loadFeatures();
+          log('LOGIN_DEBUG: Delayed features loading successful');
+        } catch (e) {
+          log('LOGIN_DEBUG: Delayed features loading failed: $e');
+          // Try force refresh as fallback
+          try {
+            await featureProvider.forceRefreshFeatures();
+            log('LOGIN_DEBUG: Delayed force refresh successful');
+          } catch (forceError) {
+            log('LOGIN_DEBUG: Delayed force refresh failed: $forceError');
+          }
+        }
+      });
+    }
+  }
+
+  FeatureProvider? get featureProvider => _featureProvider;
+
   Future<void> logout() async {
     log('AUTH PROVIDER: Logout called');
     log('Logging out...');
@@ -368,7 +439,7 @@ class AuthProvider with ChangeNotifier {
     log('DEBUG: Current user: $_user');
 
     try {
-      // Clear auth data from secure storage
+      // Clear auth data from secure storage (includes company data)
       log('DEBUG: Clearing SecureStorage auth data');
       await SecureStorageService.clearAuthData();
 
@@ -389,6 +460,19 @@ class AuthProvider with ChangeNotifier {
         // _attendanceProvider!.clearAttendance();
       } else {
         log('DEBUG: AttendanceProvider is not set');
+      }
+      if (_companyProvider != null) {
+        log('DEBUG: Clearing company data via CompanyProvider');
+        await _companyProvider?.clearCompany();
+      } else {
+        log('DEBUG: CompanyProvider is not set');
+      }
+
+      if (_featureProvider != null) {
+        log('DEBUG: Clearing features via FeatureProvider');
+        _featureProvider!.clearFeatures();
+      } else {
+        log('DEBUG: FeatureProvider is not set');
       }
 
       log('DEBUG: Logout process completed');
@@ -577,24 +661,34 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// Clear all stored authentication data
   Future<void> forceClearAuth() async {
-    log('FORCE_CLEAR_AUTH: Clearing authentication state...');
-    _token = null;
-    _authToken = null;
-    _user = null;
-    _error = null;
-    notifyListeners();
-
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('token');
-      await prefs.remove('user');
-      log('FORCE_CLEAR_AUTH: SharedPreferences cleared successfully.');
-    } catch (e) {
-      log('FORCE_CLEAR_AUTH: Error clearing SharedPreferences: $e');
-    }
+      _token = null;
+      _authToken = null;
+      _user = null;
+      _error = null;
+      _isLoading = false;
 
-    log('FORCE_CLEAR_AUTH: Authentication state cleared.');
+      // Clear from secure storage
+      await SecureStorageService.clearAllData();
+
+      log('AuthProvider: All auth data cleared');
+      notifyListeners();
+    } catch (e) {
+      log('AuthProvider: Error clearing auth data: $e');
+    }
+  }
+
+  /// Clear auth data and redirect to login (for authentication issues)
+  Future<void> clearAuthAndRedirect(BuildContext context) async {
+    await forceClearAuth();
+    if (context.mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/login',
+        (route) => false,
+      );
+    }
   }
 
   // Method to update user information from other providers (e.g., ProfileProvider)

@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const Location = require('../models/Location');
 
 function getAvatarUrl(avatar) {
   if (!avatar) return null;
@@ -18,7 +19,7 @@ exports.getAllEmployees = async (req, res) => {
       return res.status(403).json({ message: 'Only admins and managers can view all employees' });
     }
     const showInactive = req.query.showInactive === 'true';
-    const filter = showInactive ? {} : { isActive: true };
+    const filter = showInactive ? { companyId: req.companyId } : { isActive: true, companyId: req.companyId };
     console.log('DEBUG: Employee filter:', filter);
     const employees = await Employee.find(filter);
     console.log('DEBUG: Found employees count:', employees.length);
@@ -39,7 +40,7 @@ exports.getEmployeeById = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized to view this employee data' });
     }
     
-    const employee = await Employee.findById(req.params.id);
+    const employee = await Employee.findOne({ _id: req.params.id, companyId: req.companyId });
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
@@ -58,7 +59,7 @@ exports.createEmployee = async (req, res) => {
     }
 
     // Check if user exists and has 'employee' role
-    const user = await User.findById(req.body.userId);
+    const user = await User.findOne({ _id: req.body.userId, companyId: req.companyId });
     if (!user) {
       return res.status(400).json({ message: 'User not found' });
     }
@@ -67,13 +68,14 @@ exports.createEmployee = async (req, res) => {
     }
 
     // Prevent duplicate employee records for the same user
-    const existingEmployee = await Employee.findOne({ userId: req.body.userId });
+    const existingEmployee = await Employee.findOne({ userId: req.body.userId, companyId: req.companyId });
     if (existingEmployee) {
       return res.status(400).json({ message: 'This user is already assigned as an employee.' });
     }
 
     const employee = new Employee({
       userId: req.body.userId,
+      companyId: req.companyId,
       firstName: req.body.firstName,
       lastName: req.body.lastName,
       email: req.body.email,
@@ -110,7 +112,7 @@ exports.updateEmployee = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized to update this employee data' });
     }
     
-    const employee = await Employee.findById(req.params.id);
+    const employee = await Employee.findOne({ _id: req.params.id, companyId: req.companyId });
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
@@ -129,7 +131,7 @@ exports.updateEmployee = async (req, res) => {
     // Sync position & department changes to User model if this employee is linked
     if (employee.userId) {
       try {
-        const linkedUser = await User.findById(employee.userId);
+        const linkedUser = await User.findOne({ _id: employee.userId, companyId: req.companyId });
         if (linkedUser) {
           if (req.body.position !== undefined) linkedUser.position = req.body.position;
           if (req.body.department !== undefined) linkedUser.department = req.body.department;
@@ -153,7 +155,7 @@ exports.deleteEmployee = async (req, res) => {
       return res.status(403).json({ message: 'Only admins can delete employees' });
     }
     
-    const employee = await Employee.findByIdAndDelete(req.params.id);
+    const employee = await Employee.findOneAndDelete({ _id: req.params.id, companyId: req.companyId });
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
@@ -186,7 +188,7 @@ exports.getEmployeeByUserId = async (req, res) => {
     const userId = req.params.userId;
     console.log('Fetching employee with userId:', userId);
 
-    const employee = await Employee.findOne({ userId });
+    const employee = await Employee.findOne({ userId, companyId: req.companyId });
 
     if (!employee) {
       console.error(`No employee found for userId: ${userId}`);
@@ -261,17 +263,21 @@ exports.getLeaveBalance = async (req, res) => {
 
 exports.getUnassignedUsers = async (req, res) => {
   try {
-    // Only consider Employee records with a valid userId
-    const assignedUserIds = (await Employee.find({}, 'userId')).map(e => e.userId && e.userId.toString()).filter(Boolean);
-    // Only return users who are not assigned, have role 'employee', and are active
+    // Only consider Employee records with a valid userId in the current company
+    const assignedUserIds = (await Employee.find({ companyId: req.companyId }, 'userId')).map(e => e.userId && e.userId.toString()).filter(Boolean);
+    
+    // Only return users who are not assigned, have role 'employee', are active, and belong to the current company
     const unassignedUsers = await User.find({
       _id: { $nin: assignedUserIds },
       role: 'employee',
-      isActive: true
+      isActive: true,
+      companyId: req.companyId
     });
-    console.log('Unassigned users:', unassignedUsers.map(u => u.email));
+    
+    console.log('Unassigned users in company', req.companyId, ':', unassignedUsers.map(u => u.email));
     res.json(unassignedUsers);
   } catch (err) {
+    console.error('Error in getUnassignedUsers:', err);
     res.status(500).json({ message: 'Error fetching unassigned users' });
   }
 };
@@ -346,5 +352,208 @@ exports.adminChangeUserPassword = async (req, res) => {
     res.json({ message: 'Password updated successfully for user.' });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+exports.getEmployeeLocation = async (req, res) => {
+  try {
+    console.log('DEBUG: getEmployeeLocation called for user:', req.user.userId);
+    
+    // Find the employee record for the current user
+    const employee = await Employee.findOne({ 
+      userId: req.user.userId, 
+      companyId: req.companyId 
+    });
+    
+    if (!employee) {
+      console.log('DEBUG: Employee record not found for user:', req.user.userId);
+      return res.status(404).json({ message: 'Employee record not found' });
+    }
+    
+    console.log('DEBUG: Employee found, locationId:', employee.locationId);
+    
+    if (!employee.locationId) {
+      console.log('DEBUG: No location assigned to employee');
+      return res.json({ assignedLocation: null });
+    }
+    
+    // Get the location details
+    const location = await Location.findById(employee.locationId);
+    
+    if (!location) {
+      console.log('DEBUG: Location not found for ID:', employee.locationId);
+      return res.json({ assignedLocation: null });
+    }
+    
+    console.log('DEBUG: Location found:', location.name);
+    
+    const locationData = {
+      _id: location._id,
+      name: location.name,
+      address: location.address,
+      coordinates: location.coordinates,
+      status: location.status,
+      settings: location.settings,
+      createdAt: location.createdAt,
+      updatedAt: location.updatedAt
+    };
+    
+    res.json({ assignedLocation: locationData });
+    
+  } catch (error) {
+    console.error('Error in getEmployeeLocation:', error);
+    res.status(500).json({ message: 'Error fetching employee location' });
+  }
+};
+
+exports.updateEmployeeLocation = async (req, res) => {
+  try {
+    console.log('DEBUG: updateEmployeeLocation called for employee:', req.params.id);
+    console.log('DEBUG: New locationId:', req.body.locationId);
+    
+    if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+      return res.status(403).json({ message: 'Only admins and managers can update employee locations' });
+    }
+    
+    const { locationId } = req.body;
+    
+    if (!locationId) {
+      return res.status(400).json({ message: 'Location ID is required' });
+    }
+    
+    // Verify the location exists and belongs to the company
+    const location = await Location.findOne({ 
+      _id: locationId, 
+      companyId: req.companyId 
+    });
+    
+    if (!location) {
+      return res.status(404).json({ message: 'Location not found' });
+    }
+    
+    // Update the employee's location
+    const employee = await Employee.findByIdAndUpdate(
+      req.params.id,
+      { locationId: locationId },
+      { new: true }
+    );
+    
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+    
+    console.log('DEBUG: Employee location updated successfully');
+    
+    res.json({ 
+      success: true,
+      message: 'Employee location updated successfully',
+      employee: {
+        _id: employee._id,
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        locationId: employee.locationId
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in updateEmployeeLocation:', error);
+    res.status(500).json({ message: 'Error updating employee location' });
+  }
+};
+
+exports.getEmployeesByLocation = async (req, res) => {
+  try {
+    console.log('DEBUG: getEmployeesByLocation called for location:', req.params.locationId);
+    
+    if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+      return res.status(403).json({ message: 'Only admins and managers can view employees by location' });
+    }
+    
+    const { locationId } = req.params;
+    
+    // Verify the location exists and belongs to the company
+    const location = await Location.findOne({ 
+      _id: locationId, 
+      companyId: req.companyId 
+    });
+    
+    if (!location) {
+      return res.status(404).json({ message: 'Location not found' });
+    }
+    
+    // Get all employees assigned to this location
+    const employees = await Employee.find({ 
+      locationId: locationId,
+      companyId: req.companyId 
+    });
+    
+    console.log('DEBUG: Found', employees.length, 'employees assigned to location');
+    
+    const employeesWithAvatar = employees.map(e => {
+      const obj = e.toObject();
+      obj.avatar = getAvatarUrl(obj.avatar);
+      return obj;
+    });
+    
+    res.json(employeesWithAvatar);
+    
+  } catch (error) {
+    console.error('Error in getEmployeesByLocation:', error);
+    res.status(500).json({ message: 'Error fetching employees by location' });
+  }
+};
+
+exports.removeEmployeeFromLocation = async (req, res) => {
+  try {
+    console.log('DEBUG: removeEmployeeFromLocation called for employee:', req.params.id);
+    
+    if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+      return res.status(403).json({ message: 'Only admins and managers can remove employees from locations' });
+    }
+    
+    const { id: employeeId } = req.params;
+    
+    // Find the employee and verify they belong to the company
+    const employee = await Employee.findOne({ 
+      _id: employeeId, 
+      companyId: req.companyId 
+    });
+    
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+    
+    // Check if employee is currently assigned to a location
+    if (!employee.locationId) {
+      return res.status(400).json({ message: 'Employee is not currently assigned to any location' });
+    }
+    
+    // Get the current location for logging
+    const currentLocation = await Location.findById(employee.locationId);
+    const locationName = currentLocation ? currentLocation.name : 'Unknown Location';
+    
+    // Remove the employee from their current location
+    employee.locationId = null;
+    await employee.save();
+    
+    console.log('DEBUG: Employee removed from location successfully');
+    
+    res.json({ 
+      success: true,
+      message: `Employee removed from ${locationName} successfully`,
+      employee: {
+        _id: employee._id,
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        locationId: employee.locationId
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in removeEmployeeFromLocation:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error removing employee from location' 
+    });
   }
 };

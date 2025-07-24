@@ -1,6 +1,14 @@
 const mongoose = require('mongoose');
 
 const adminSettingsSchema = new mongoose.Schema({
+  // Company association
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    required: true,
+    index: true
+  },
+
   // Profile feature settings
   educationSectionEnabled: {
     type: Boolean,
@@ -250,24 +258,64 @@ const adminSettingsSchema = new mongoose.Schema({
       'emergencyPhone'
     ],
   },
+
+  // Location management settings
+  locationSettings: {
+    defaultGeofenceRadius: {
+      type: Number,
+      default: 100,
+      min: 10,
+      max: 1000,
+    },
+    defaultWorkingHours: {
+      start: {
+        type: String,
+        default: '09:00',
+      },
+      end: {
+        type: String,
+        default: '17:00',
+      },
+    },
+    defaultCapacity: {
+      type: Number,
+      default: 50,
+      min: 1,
+      max: 1000,
+    },
+    notifications: {
+      locationUpdates: {
+        type: Boolean,
+        default: true,
+      },
+      employeeAssignments: {
+        type: Boolean,
+        default: true,
+      },
+      capacityAlerts: {
+        type: Boolean,
+        default: false,
+      },
+    },
+  },
 }, {
   timestamps: true,
 });
 
-// Ensure only one settings document exists
-adminSettingsSchema.statics.getSettings = async function() {
-  let settings = await this.findOne();
+// Ensure only one settings document exists per company
+adminSettingsSchema.statics.getSettings = async function(companyId) {
+  let settings = await this.findOne({ companyId });
   if (!settings) {
-    settings = await this.create({});
+    settings = await this.create({ companyId });
   }
   return settings;
 };
 
-// Update settings
-adminSettingsSchema.statics.updateSettings = async function(updates) {
-  let settings = await this.findOne();
+// Update settings for a specific company
+adminSettingsSchema.statics.updateSettings = async function(updates, companyId) {
+  let settings = await this.findOne({ companyId });
   if (!settings) {
-    settings = await this.create(updates);
+    settings = await this.create({ ...updates, companyId });
   } else {
     Object.assign(settings, updates);
     await settings.save();

@@ -73,7 +73,7 @@ class GlobalNotificationService extends ChangeNotifier {
     show(
       message: message,
       type: GlobalNotificationType.error,
-      duration: duration ?? const Duration(seconds: 3),
+      duration: duration ?? const Duration(seconds: 6),
       onDismiss: onDismiss,
     );
   }
