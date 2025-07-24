@@ -28,8 +28,32 @@ yarn-error.log*
 
 # Firebase
 serviceAccountKey.json
+firebase-adminsdk.json
 firebase-debug.log
 firebase-debug.*.log
+google-services.json
+
+# Security - Never commit these files
+*.key
+*.pem
+*.p12
+*.pfx
+COMPANY_ADMIN_CREDENTIALS.md
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.staging
+
+# Test files with credentials (remove before production)
+test-*.js
+debug-*.js
+*test*.js
+test_*.js
+check_*.js
+setup_*.js
+reset_*.js
 
 # IDE
 .idea/

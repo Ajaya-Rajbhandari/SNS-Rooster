@@ -5,23 +5,24 @@ const Notification = require('../models/Notification');
 const path = require('path');
 
 // Helper function to get or create employee record for a user
-async function getOrCreateEmployeeRecord(userId) {
+async function getOrCreateEmployeeRecord(userId, companyId) {
   const User = require('../models/User');
   
   // First check if user exists
-  const user = await User.findById(userId);
+  const user = await User.findOne({ _id: userId, companyId });
   if (!user) {
     throw new Error('User not found');
   }
 
   // Check if employee record exists
-  let employee = await Employee.findOne({ userId });
+  let employee = await Employee.findOne({ userId, companyId });
   if (!employee) {
     // Create employee record automatically if user exists but no employee record
-    const employeeCount = await Employee.countDocuments();
+    const employeeCount = await Employee.countDocuments({ companyId });
     const employeeId = `EMP${String(employeeCount + 1).padStart(5, '0')}`;
 
     employee = new Employee({
+      companyId,
       firstName: user.firstName || user.name?.split(' ')[0] || 'Unknown',
       lastName: user.lastName || user.name?.split(' ').slice(1).join(' ') || 'User',
       email: user.email,
@@ -47,7 +48,7 @@ async function getOrCreateEmployeeRecord(userId) {
 // Get all payrolls
 exports.getAllPayrolls = async (req, res) => {
   try {
-    const payrolls = await Payroll.find().populate('employee');
+    const payrolls = await Payroll.find({ companyId: req.companyId }).populate('employee');
     res.json(payrolls);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -57,7 +58,7 @@ exports.getAllPayrolls = async (req, res) => {
 // Get payrolls for a specific employee
 exports.getEmployeePayrolls = async (req, res) => {
   try {
-    const payrolls = await Payroll.find({ employee: req.params.employeeId }).populate('employee');
+    const payrolls = await Payroll.find({ employee: req.params.employeeId, companyId: req.companyId }).populate('employee');
     res.json(payrolls);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -76,6 +77,7 @@ exports.createPayroll = async (req, res) => {
     
     const payroll = new Payroll({ 
       employee, 
+      companyId: req.companyId,
       periodStart, 
       periodEnd, 
       totalHours, 
@@ -102,7 +104,7 @@ exports.createPayroll = async (req, res) => {
     console.log('DEBUG: Saved companyInfo:', payroll.companyInfo);
 
     // Fetch the employee's userId for notification
-    const emp = await Employee.findById(employee);
+    const emp = await Employee.findOne({ _id: employee, companyId: req.companyId });
     if (emp && emp.userId) {
       const notification = new Notification({
         user: emp.userId,
@@ -111,6 +113,7 @@ exports.createPayroll = async (req, res) => {
         type: 'payroll',
         link: '/payroll',
         isRead: false,
+        companyId: req.companyId,
       });
       await notification.save();
     }
@@ -124,9 +127,15 @@ exports.createPayroll = async (req, res) => {
 // Get payrolls for a specific user (by userId)
 exports.getUserPayrollsByUserId = async (req, res) => {
   try {
+    console.log('DEBUG: getUserPayrollsByUserId called');
+    console.log('DEBUG: req.user:', req.user);
+    console.log('DEBUG: req.companyId:', req.companyId);
+    console.log('DEBUG: req.params.userId:', req.params.userId);
+    
     const userId = req.params.userId;
-    const employee = await getOrCreateEmployeeRecord(userId);
-    const payrolls = await Payroll.find({ employee: employee._id }).populate('employee');
+    const employee = await getOrCreateEmployeeRecord(userId, req.companyId);
+    const payrolls = await Payroll.find({ employee: employee._id, companyId: req.companyId }).populate('employee');
+    console.log('DEBUG: Found payrolls count:', payrolls.length);
     res.json(payrolls);
   } catch (err) {
     console.error('Error in getUserPayrollsByUserId:', err);
@@ -142,8 +151,8 @@ exports.getUserPayrollsByUserId = async (req, res) => {
 exports.getCurrentUserPayrolls = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const employee = await getOrCreateEmployeeRecord(userId);
-    const payrolls = await Payroll.find({ employee: employee._id })
+    const employee = await getOrCreateEmployeeRecord(userId, req.companyId);
+    const payrolls = await Payroll.find({ employee: employee._id, companyId: req.companyId })
       .populate('employee')
       .sort({ issueDate: -1 }); // Sort by issue date, newest first
     res.json(payrolls);
@@ -173,7 +182,7 @@ exports.updatePayroll = async (req, res) => {
     console.log('  - netPay:', netPay);
     console.log('DEBUG: updatePayroll incomesList:', incomesList);
     
-    const payslip = await Payroll.findById(req.params.payrollId);
+    const payslip = await Payroll.findOne({ _id: req.params.payrollId, companyId: req.companyId });
     console.log('DEBUG: Found payslip in database:', payslip ? 'YES' : 'NO');
     
     if (!payslip) {
@@ -290,6 +299,7 @@ exports.updatePayslipStatus = async (req, res) => {
         type: 'payroll',
         link: '/admin/payroll_management',
         isRead: false,
+        companyId: req.companyId,
       });
       await adminNotification.save();
       console.log('DEBUG: Admin notification created successfully');
@@ -326,6 +336,7 @@ exports.updatePayslipStatus = async (req, res) => {
           type: 'payroll',
           link: '/payroll',
           isRead: false,
+          companyId: req.companyId,
         });
         await employeeNotification.save();
         console.log('DEBUG: Employee notification created successfully');
@@ -345,6 +356,7 @@ exports.updatePayslipStatus = async (req, res) => {
         type: 'review',
         link: '/admin/payroll_management',
         isRead: false,
+        companyId: req.companyId,
       });
       await adminNotification.save();
     }
@@ -871,7 +883,7 @@ exports.downloadAllPayslipsCsv = async (req, res) => {
 exports.downloadAllPayslipsPdfForCurrentUser = async (req, res) => {
   try {
     console.log('Current user for PDF download:', req.user);
-    const employee = await getOrCreateEmployeeRecord(req.user.userId);
+    const employee = await getOrCreateEmployeeRecord(req.user.userId, req.companyId);
     console.log('employeeId used for PDF download:', employee._id);
     req.params.employeeId = employee._id;
     // Forward query params
@@ -889,7 +901,7 @@ exports.downloadAllPayslipsPdfForCurrentUser = async (req, res) => {
 exports.downloadAllPayslipsCsvForCurrentUser = async (req, res) => {
   try {
     console.log('Current user for CSV download:', req.user);
-    const employee = await getOrCreateEmployeeRecord(req.user.userId);
+    const employee = await getOrCreateEmployeeRecord(req.user.userId, req.companyId);
     console.log('employeeId used for CSV download:', employee._id);
     req.params.employeeId = employee._id;
     // Forward query params to shared function

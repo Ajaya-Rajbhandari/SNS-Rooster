@@ -9,11 +9,21 @@ class AttendanceService {
 
   AttendanceService(this.authProvider);
 
-  Future<Map<String, dynamic>> checkIn(String userId, {String? notes}) async {
+  Future<Map<String, dynamic>> checkIn(String userId,
+      {String? notes, double? latitude, double? longitude}) async {
     final token = authProvider.token;
     if (token == null) {
       throw Exception('No valid token found');
     }
+
+    // Validate coordinates if provided
+    if (latitude != null && (latitude.isNaN || latitude.isInfinite)) {
+      throw Exception('Invalid latitude value');
+    }
+    if (longitude != null && (longitude.isNaN || longitude.isInfinite)) {
+      throw Exception('Invalid longitude value');
+    }
+
     final headers = {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
@@ -22,8 +32,10 @@ class AttendanceService {
     final body = json.encode({
       'userId': userId,
       if (notes != null) 'notes': notes,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
     });
-    log('DEBUG: Sending userId in checkIn API call: $userId');
+    log('DEBUG: Sending checkIn request with location: Lat: $latitude, Lng: $longitude');
     log('DEBUG: Authorization header for API call: Bearer $token');
     final response =
         await http.post(Uri.parse(url), headers: headers, body: body);
@@ -35,11 +47,21 @@ class AttendanceService {
     }
   }
 
-  Future<Map<String, dynamic>> checkOut(String userId, {String? notes}) async {
+  Future<Map<String, dynamic>> checkOut(String userId,
+      {String? notes, double? latitude, double? longitude}) async {
     final token = authProvider.token;
     if (token == null) {
       throw Exception('No valid token found');
     }
+
+    // Validate coordinates if provided
+    if (latitude != null && (latitude.isNaN || latitude.isInfinite)) {
+      throw Exception('Invalid latitude value');
+    }
+    if (longitude != null && (longitude.isNaN || longitude.isInfinite)) {
+      throw Exception('Invalid longitude value');
+    }
+
     final headers = {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
@@ -48,8 +70,10 @@ class AttendanceService {
     final body = json.encode({
       'userId': userId,
       if (notes != null) 'notes': notes,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
     });
-    log('DEBUG: Sending userId in checkOut API call: $userId');
+    log('DEBUG: Sending checkOut request with location: Lat: $latitude, Lng: $longitude');
     log('DEBUG: Authorization header for API call: Bearer $token');
     final response =
         await http.patch(Uri.parse(url), headers: headers, body: body);
@@ -197,7 +221,7 @@ class AttendanceService {
         return json.decode(response.body);
       } catch (_) {
         throw Exception(
-            'Failed to end break: {response.statusCode} {response.body}');
+            'Failed to end break:  {response.statusCode}  {response.body}');
       }
     }
   }

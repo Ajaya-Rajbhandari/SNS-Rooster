@@ -3,6 +3,7 @@ import 'package:sns_rooster/utils/logger.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/profile_provider.dart';
+import '../providers/feature_provider.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
 import '../screens/admin/employee_management_screen.dart';
 import '../screens/admin/payroll_management_screen.dart';
@@ -22,6 +23,11 @@ import '../screens/admin/event_management_screen.dart';
 import '../screens/admin/timesheet_approval_screen.dart';
 import '../widgets/user_avatar.dart';
 import 'package:sns_rooster/main.dart'; // Re-added import for navigatorKey
+import '../screens/admin/company_settings_screen.dart';
+import '../screens/admin/feature_management_screen.dart';
+import '../screens/admin/advanced_reporting_screen.dart';
+import '../screens/admin/location_management_screen.dart';
+import '../screens/admin/expense_management_screen.dart';
 
 class AdminSideNavigation extends StatelessWidget {
   final String currentRoute;
@@ -38,6 +44,9 @@ class AdminSideNavigation extends StatelessWidget {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final profileProvider =
         Provider.of<ProfileProvider>(context, listen: false);
+    final featureProvider =
+        Provider.of<FeatureProvider>(context, listen: false);
+
     return Drawer(
       child: Column(
         children: [
@@ -59,31 +68,27 @@ class AdminSideNavigation extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        user?['firstName'] ?? 'Admin User',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                            color: Colors.white, fontWeight: FontWeight.bold),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        user?['name'] ?? 'Administrator',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
+                      const SizedBox(height: 4),
                       Text(
-                        user?['email'] ?? 'admin@example.com',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: Colors.white70),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        user?['email'] ?? 'admin@company.com',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 14,
+                        ),
                       ),
-                      const SizedBox(height: 2),
-                      const Text('Administrator',
-                          style:
-                              TextStyle(color: Colors.white60, fontSize: 12)),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
-
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
@@ -151,14 +156,16 @@ class AdminSideNavigation extends StatelessWidget {
                   screen: const NotificationAlertScreen(),
                   colorScheme: colorScheme,
                 ),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.analytics,
-                  title: 'Analytics & Reports',
-                  route: '/analytics',
-                  screen: const AdminAnalyticsScreen(),
-                  colorScheme: colorScheme,
-                ),
+                // Only show Analytics & Reports if the feature is enabled
+                if (featureProvider.hasAnalytics)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.analytics,
+                    title: 'Analytics & Reports',
+                    route: '/analytics',
+                    screen: const AdminAnalyticsScreen(),
+                    colorScheme: colorScheme,
+                  ),
                 _buildDrawerItem(
                   context,
                   icon: Icons.event,
@@ -212,6 +219,50 @@ class AdminSideNavigation extends StatelessWidget {
                   screen: const SettingsScreen(),
                   colorScheme: colorScheme,
                 ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.business,
+                  title: 'Company Settings',
+                  route: '/admin/company_settings',
+                  screen: const CompanySettingsScreen(),
+                  colorScheme: colorScheme,
+                ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.featured_play_list,
+                  title: 'Feature Management',
+                  route: '/admin/feature_management',
+                  screen: const FeatureManagementScreen(),
+                  colorScheme: colorScheme,
+                ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.assessment,
+                  title: 'Advanced Reporting',
+                  route: '/advanced-reporting',
+                  screen: const AdvancedReportingScreen(),
+                  colorScheme: colorScheme,
+                ),
+
+                // 🏢 ENTERPRISE FEATURES
+                if (featureProvider.hasMultiLocation)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.location_on,
+                    title: 'Location Management',
+                    route: '/location_management',
+                    screen: const LocationManagementScreen(),
+                    colorScheme: colorScheme,
+                  ),
+                if (featureProvider.hasExpenseManagement)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.receipt_long,
+                    title: 'Expense Management',
+                    route: '/expense_management',
+                    screen: const ExpenseManagementScreen(),
+                    colorScheme: colorScheme,
+                  ),
 
                 const SizedBox(height: 8),
 

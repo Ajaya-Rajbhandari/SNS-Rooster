@@ -12,6 +12,154 @@ function getUtcMidnight(date = new Date()) {
 const Attendance = require("../models/Attendance");
 const User = require("../models/User");
 const BreakType = require("../models/BreakType");
+const Employee = require("../models/Employee");
+const Location = require("../models/Location");
+
+// Helper function to calculate distance between two coordinates using Haversine formula
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  // Validate input parameters
+  if (lat1 === null || lat1 === undefined || isNaN(lat1) ||
+      lon1 === null || lon1 === undefined || isNaN(lon1) ||
+      lat2 === null || lat2 === undefined || isNaN(lat2) ||
+      lon2 === null || lon2 === undefined || isNaN(lon2)) {
+    console.error('DEBUG: Invalid coordinates provided to calculateDistance:', { lat1, lon1, lat2, lon2 });
+    throw new Error('Invalid coordinates provided for distance calculation');
+  }
+
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) *
+    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  const distance = R * c; // Distance in meters
+  
+  // Validate result
+  if (isNaN(distance) || distance < 0) {
+    console.error('DEBUG: Distance calculation returned invalid result:', { distance, lat1, lon1, lat2, lon2 });
+    throw new Error('Distance calculation failed');
+  }
+
+  return distance;
+}
+
+// Helper function to check if user is within their assigned location's geofence
+async function checkLocationValidation(userId, userLat, userLng, companyId) {
+  try {
+    console.log('DEBUG: checkLocationValidation called with:', { userId, userLat, userLng, companyId });
+    
+    // First check if the company has location-based attendance enabled
+    const Company = require('../models/Company');
+    console.log('DEBUG: About to find company by ID:', companyId);
+    const company = await Company.findById(companyId).populate('subscriptionPlan');
+    console.log('DEBUG: Company found:', company ? company.name : 'Not found');
+    
+    if (!company || !company.subscriptionPlan) {
+      console.log('DEBUG: No subscription plan found, allowing check-in without location validation');
+      return { isValid: true, message: 'No subscription plan - location validation disabled' };
+    }
+    
+    console.log('DEBUG: Subscription plan found:', company.subscriptionPlan.name);
+    console.log('DEBUG: Subscription plan features:', company.subscriptionPlan.features);
+    
+    const hasLocationFeature = company.subscriptionPlan.features?.locationBasedAttendance;
+    console.log('DEBUG: Location feature enabled:', hasLocationFeature);
+    
+    if (!hasLocationFeature) {
+      console.log('DEBUG: Location-based attendance not enabled in subscription plan, allowing check-in');
+      return { isValid: true, message: 'Location validation not available in current plan' };
+    }
+
+    console.log('DEBUG: Location feature is enabled, proceeding with validation...');
+
+    // Find the employee record for this user
+    const employee = await Employee.findOne({ userId: userId });
+    console.log('DEBUG: Employee found:', employee ? `${employee.firstName} ${employee.lastName}` : 'Not found');
+    
+    if (!employee || !employee.locationId) {
+      console.log('DEBUG: No location assigned to employee, allowing check-in');
+      return { isValid: true, message: 'No location assigned' };
+    }
+
+    // Get the location details
+    const location = await Location.findById(employee.locationId);
+    console.log('DEBUG: Location found:', location ? location.name : 'Not found');
+    
+    if (!location || !location.coordinates) {
+      console.log('DEBUG: Location not found or no coordinates, allowing check-in');
+      return { isValid: true, message: 'Location coordinates not available' };
+    }
+
+    // Calculate distance between user and location
+    console.log('DEBUG: Location validation - User coordinates:', { userLat, userLng });
+    console.log('DEBUG: Location validation - Location coordinates:', { 
+      lat: location.coordinates.latitude, 
+      lng: location.coordinates.longitude 
+    });
+    
+    const distance = calculateDistance(
+      userLat, userLng,
+      location.coordinates.latitude, location.coordinates.longitude
+    );
+
+    const geofenceRadius = location.settings?.geofenceRadius || 100; // Default 100 meters
+    const isValid = distance <= geofenceRadius;
+
+    console.log(`DEBUG: Location validation - Distance: ${distance.toFixed(2)}m, Geofence: ${geofenceRadius}m, Valid: ${isValid}`);
+
+    // Create user-friendly error messages
+    let userMessage;
+    if (isValid) {
+      userMessage = `Check-in successful at ${location.name}`;
+    } else {
+      const distanceKm = distance >= 1000 ? `${(distance / 1000).toFixed(1)}km` : `${Math.round(distance)}m`;
+      const geofenceKm = geofenceRadius >= 1000 ? `${(geofenceRadius / 1000).toFixed(1)}km` : `${geofenceRadius}m`;
+      
+      if (distance < 500) {
+        userMessage = `You're ${distanceKm} away from your workplace. Please move closer to ${location.name} (within ${geofenceKm}) to check in.`;
+      } else if (distance < 5000) {
+        userMessage = `You're ${distanceKm} away from ${location.name}. Please travel to your workplace to check in.`;
+      } else {
+        userMessage = `You're too far from ${location.name} (${distanceKm} away). Please ensure you're at your workplace to check in.`;
+      }
+    }
+
+    return {
+      isValid,
+      distance: Math.round(distance),
+      geofenceRadius,
+      locationName: location.name,
+      message: userMessage
+    };
+  } catch (error) {
+    console.error('Error in location validation:', error);
+    console.error('Error stack:', error.stack);
+    
+    // If it's a coordinate error, provide a more helpful message
+    if (error.message.includes('Invalid coordinates') || error.message.includes('Distance calculation failed')) {
+      return { 
+        isValid: false, 
+        distance: null,
+        geofenceRadius: 100,
+        locationName: 'Unknown',
+        message: 'Unable to determine your location. Please check your GPS signal and try again.'
+      };
+    }
+    
+    return { 
+      isValid: false, 
+      distance: null,
+      geofenceRadius: 100,
+      locationName: 'Unknown',
+      message: 'Location validation failed. Please try again or contact support if the issue persists.'
+    };
+  }
+}
 
 // Helper function to check if user is on leave for a specific date
 async function checkUserLeaveStatus(userId, date) {
@@ -68,7 +216,7 @@ async function checkUserLeaveStatus(userId, date) {
 }
 
 exports.checkIn = async (req, res) => {
-              if (!req.user || typeof req.user !== "object") {
+  if (!req.user || typeof req.user !== "object") {
     console.error(
       "ERROR: req.user is undefined or not an object in /check-in route"
     );
@@ -103,6 +251,8 @@ exports.checkIn = async (req, res) => {
     console.log(
       "DEBUG: checkIn - Querying for userId:",
       userId,
+      "companyId:",
+      req.companyId,
       "and date range (UTC):",
       today,
       "-",
@@ -111,6 +261,7 @@ exports.checkIn = async (req, res) => {
 
     const existingAttendance = await Attendance.findOne({
       user: userId,
+      companyId: req.companyId,
       date: { $gte: today, $lt: tomorrow },
     });
 
@@ -135,10 +286,39 @@ exports.checkIn = async (req, res) => {
       });
     }
 
+    // Get user's current location for validation
+    const userLat = req.body.latitude;
+    const userLng = req.body.longitude;
+
+    if (!userLat || !userLng) {
+      return res.status(400).json({ message: "Latitude and Longitude are required for location validation." });
+    }
+
+    const locationValidationResult = await checkLocationValidation(userId, userLat, userLng, req.companyId);
+    if (!locationValidationResult.isValid) {
+      return res.status(400).json({
+        message: locationValidationResult.message,
+        distance: locationValidationResult.distance,
+        geofenceRadius: locationValidationResult.geofenceRadius,
+        locationName: locationValidationResult.locationName
+      });
+    }
+
     const attendance = new Attendance({
       user: userId,
+      companyId: req.companyId,
       date: today,
       checkInTime: new Date(),
+      checkInLocation: {
+        latitude: userLat,
+        longitude: userLng
+      },
+      locationValidation: {
+        isValid: locationValidationResult.isValid,
+        distance: locationValidationResult.distance,
+        geofenceRadius: locationValidationResult.geofenceRadius,
+        locationName: locationValidationResult.locationName
+      }
     });
 
     await attendance.save();
@@ -162,6 +342,10 @@ exports.checkOut = async (req, res) => {
   try {
     const userId = req.user.userId;
     
+    // Get user's current location for validation
+    const userLat = req.body.latitude;
+    const userLng = req.body.longitude;
+
     // Use UTC for date comparison to match checkIn logic
     const now = new Date();
     const today = new Date(
@@ -169,10 +353,7 @@ exports.checkOut = async (req, res) => {
         now.getUTCFullYear(),
         now.getUTCMonth(),
         now.getUTCDate(),
-        0,
-        0,
-        0,
-        0
+        0, 0, 0, 0
       )
     );
     const tomorrow = new Date(today);
@@ -181,6 +362,8 @@ exports.checkOut = async (req, res) => {
     console.log(
       "DEBUG: checkOut - Querying for userId:",
       userId,
+      "companyId:",
+      req.companyId,
       "and date range (UTC):",
       today,
       "-",
@@ -189,6 +372,7 @@ exports.checkOut = async (req, res) => {
 
     const attendance = await Attendance.findOne({
       user: userId,
+      companyId: req.companyId,
       date: { $gte: today, $lt: tomorrow },
       checkOutTime: { $exists: false },
     });
@@ -209,7 +393,26 @@ exports.checkOut = async (req, res) => {
         .json({ message: "Not checked in for today or already checked out." });
     }
 
+    // Apply location validation if coordinates are provided
+    if (userLat && userLng) {
+      const locationValidationResult = await checkLocationValidation(userId, userLat, userLng, req.companyId);
+      if (!locationValidationResult.isValid) {
+        return res.status(400).json({
+          message: locationValidationResult.message,
+          distance: locationValidationResult.distance,
+          geofenceRadius: locationValidationResult.geofenceRadius,
+          locationName: locationValidationResult.locationName
+        });
+      }
+    }
+
     attendance.checkOutTime = new Date();
+    if (userLat && userLng) {
+      attendance.checkOutLocation = {
+        latitude: userLat,
+        longitude: userLng
+      };
+    }
     await attendance.save();
 
     console.log(
@@ -238,10 +441,10 @@ exports.startBreak = async (req, res) => {
       return res.status(400).json({ message: "breakTypeId is required" });
     }
 
-    // ensure it's a valid type
-    const typeObj = await BreakType.findById(breakTypeId);
+    // ensure it's a valid type - company-scoped
+    const typeObj = await BreakType.findOne({ _id: breakTypeId, companyId: req.companyId });
     if (!typeObj) {
-      console.error("startBreak error: Break type not found for id", breakTypeId);
+      console.error("startBreak error: Break type not found for id", breakTypeId, "in company", req.companyId);
       return res.status(404).json({ message: "Break type not found" });
     }
 
@@ -276,6 +479,7 @@ exports.startBreak = async (req, res) => {
     
     const attendance = await Attendance.findOne({
       user: userId,
+      companyId: req.companyId,
       date: today,
       checkOutTime: { $exists: false },
     });
@@ -325,9 +529,10 @@ exports.endBreak = async (req, res) => {
     console.log("DEBUG: endBreak - Today UTC:", today);
     console.log("DEBUG: endBreak - Tomorrow UTC:", tomorrow);
 
-    // Find attendance for today (UTC)
+    // Find attendance for today (UTC) - company-scoped
     const attendance = await Attendance.findOne({
       user: userId,
+      companyId: req.companyId,
       date: { $gte: today, $lt: tomorrow },
       checkInTime: { $exists: true },
       checkOutTime: { $exists: false },
@@ -396,6 +601,7 @@ exports.getAttendanceStatus = async (req, res) => {
 
     const attendance = await Attendance.findOne({
       user: userId,
+      companyId: req.companyId,
       date: { $gte: today, $lt: tomorrow },
     });
 
@@ -471,7 +677,7 @@ exports.getAttendanceStatus = async (req, res) => {
 exports.getMyAttendance = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const attendanceRecords = await Attendance.find({ user: userId })
+    const attendanceRecords = await Attendance.find({ user: userId, companyId: req.companyId })
       .populate("user", "firstName lastName email role")
       .sort({ date: -1 }); // Sort by date, newest first
 
@@ -526,9 +732,10 @@ exports.getMyTimesheet = async (req, res) => {
       }
     }
 
-    // Find attendance records for the user with date filter
+    // Find attendance records for the user with date filter - company-scoped
     const attendanceRecords = await Attendance.find({
       user: userId,
+      companyId: req.companyId,
       ...dateFilter
     })
     .populate("breaks.type", "displayName description")
@@ -601,7 +808,7 @@ exports.getUserAttendance = async (req, res) => {
         .json({ message: "Unauthorized to view this attendance data" });
     }
 
-    const attendanceRecords = await Attendance.find({ user: userId })
+    const attendanceRecords = await Attendance.find({ user: userId, companyId: req.companyId })
       .populate("user", "firstName lastName email role")
       .sort({ date: -1 }); // Sort by date, newest first
 
@@ -646,7 +853,7 @@ exports.getUserAttendance = async (req, res) => {
 
 exports.getBreakTypes = async (req, res) => {
   try {
-    const types = await BreakType.find({ isActive: true }).sort("displayName");
+    const types = await BreakType.find({ isActive: true, companyId: req.companyId }).sort("displayName");
     res.json(types);
   } catch (err) {
     console.error("Error fetching break types", err);
@@ -661,15 +868,15 @@ exports.getTodayAttendanceStats = async (req, res) => {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
-    // Get all active users (employees and admins)
-    const users = await User.find({ isActive: true, role: { $in: ['employee', 'admin'] } });
+    // Get all active users (employees and admins) - company-scoped
+    const users = await User.find({ isActive: true, role: { $in: ['employee', 'admin'] }, companyId: req.companyId });
     // Separate pending users (never logged in)
     const pendingUsers = users.filter(u => !u.lastLogin);
     const activeConfirmedUsers = users.filter(u => u.lastLogin); // Only those who have logged in
     const userIds = activeConfirmedUsers.map(u => u._id);
-    // Get all Employee docs for those users
+    // Get all Employee docs for those users - company-scoped
     const EmployeeModel = require('../models/Employee');
-    const employees = await EmployeeModel.find({ userId: { $in: userIds } });
+    const employees = await EmployeeModel.find({ userId: { $in: userIds }, companyId: req.companyId });
     const employeeIds = employees.map(e => e._id.toString());
 
     // Get today's date at UTC midnight
@@ -685,9 +892,10 @@ exports.getTodayAttendanceStats = async (req, res) => {
     const tomorrow = new Date(today);
     tomorrow.setUTCDate(today.getUTCDate() + 1);
 
-    // Find all attendance records for today
+    // Find all attendance records for today - company-scoped
     const attendanceToday = await Attendance.find({
       user: { $in: userIds },
+      companyId: req.companyId,
       date: { $gte: today, $lt: tomorrow },
     });
     const presentIds = attendanceToday.map((a) => String(a.user));
@@ -700,6 +908,7 @@ exports.getTodayAttendanceStats = async (req, res) => {
       const Leave = require("../models/Leave");
       const leaveToday = await Leave.find({
         employee: { $in: employeeIds },
+        companyId: req.companyId,
         status: { $regex: /^approved$/i },
         startDate: { $lte: today },
         endDate: { $gte: today },
@@ -732,9 +941,9 @@ exports.getTodayEmployeeList = async (req, res) => {
     if (!['present', 'absent', 'onleave', 'pending'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status parameter' });
     }
-    // Get all active users (employees and admins)
+    // Get all active users (employees and admins) - company-scoped
     const User = require('../models/User');
-    const users = await User.find({ isActive: true, role: { $in: ['employee', 'admin'] } });
+    const users = await User.find({ isActive: true, role: { $in: ['employee', 'admin'] }, companyId: req.companyId });
     // Separate pending users (never logged in)
     const pendingUsers = users.filter(u => !u.lastLogin);
     const activeConfirmedUsers = users.filter(u => u.lastLogin);
@@ -742,7 +951,7 @@ exports.getTodayEmployeeList = async (req, res) => {
 
     // Get all Employee docs for those users
     const EmployeeModel = require('../models/Employee');
-    const employees = await EmployeeModel.find({ userId: { $in: userIds } });
+    const employees = await EmployeeModel.find({ userId: { $in: userIds }, companyId: req.companyId });
     const employeeIds = employees.map(e => e._id.toString());
 
     // Get today's date at UTC midnight
@@ -833,6 +1042,7 @@ exports.approveTimesheet = async (req, res) => {
       type: 'timesheet',
       link: '/timesheet',
       isRead: false,
+      companyId: req.companyId // Add company isolation
     });
     await employeeNotification.save();
 
@@ -897,6 +1107,7 @@ exports.rejectTimesheet = async (req, res) => {
       type: 'timesheet',
       link: '/timesheet',
       isRead: false,
+      companyId: req.companyId // Add company isolation
     });
     await employeeNotification.save();
 
@@ -928,7 +1139,10 @@ exports.getPendingTimesheets = async (req, res) => {
     const { page = 1, limit = 10, userId } = req.query;
     const skip = (page - 1) * limit;
 
-    const query = { status: 'pending' };
+    const query = { 
+      status: 'pending',
+      companyId: req.companyId // Add company isolation
+    };
     if (userId) {
       query.user = userId;
     }

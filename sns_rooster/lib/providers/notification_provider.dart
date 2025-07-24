@@ -6,14 +6,14 @@ class NotificationProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = false;
   String? _error;
+  int _unreadCount = 0;
 
   NotificationProvider(this.notificationService);
 
   List<Map<String, dynamic>> get notifications => _notifications;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  int get unreadCount =>
-      _notifications.where((n) => n['isRead'] == false).length;
+  int get unreadCount => _unreadCount;
 
   Future<void> fetchNotifications() async {
     _isLoading = true;
@@ -21,6 +21,7 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _notifications = await notificationService.fetchNotifications();
+      _unreadCount = await notificationService.getUnreadCount();
     } catch (e) {
       _error = e.toString();
     }

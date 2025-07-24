@@ -3,30 +3,40 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:sns_rooster/models/user_model.dart';
 import '../../config/api_config.dart'; // Import ApiConfig
+import 'secure_storage_service.dart';
 
 class UserService {
   // Use ApiConfig.baseUrl
   final String _baseUrl = ApiConfig.baseUrl;
 
   Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token'); // Use 'token' key from SharedPreferences
+    return await SecureStorageService.getAuthToken();
+  }
+
+  Future<Map<String, String>> _getHeaders() async {
+    final token = await _getToken();
+    final companyId = await SecureStorageService.getCompanyId();
+
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+
+    // Add company context header if available
+    if (companyId != null && companyId.isNotEmpty) {
+      headers['x-company-id'] = companyId;
+    }
+
+    return headers;
   }
 
   // Fetches all users, potentially to be filtered for those not yet employees
   Future<List<UserModel>> getUsers() async {
-    final token = await _getToken();
-    if (token == null) {
-      throw Exception('Authentication token not found');
-    }
+    final headers = await _getHeaders();
 
     final response = await http.get(
-      Uri.parse(
-          '$_baseUrl/auth/users'), // Endpoint to get all users, aligned with user_management_screen.dart
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      Uri.parse('$_baseUrl/auth/users'),
+      headers: headers,
     );
 
     if (response.statusCode == 200) {
@@ -38,23 +48,17 @@ class UserService {
     } else {
       // Consider more specific error handling based on status code
       throw Exception(
-          'Failed to load users: \\${response.statusCode} \\${response.body}');
+          'Failed to load users: ${response.statusCode} ${response.body}');
     }
   }
 
   // Fetch users not already assigned as employees
   Future<List<UserModel>> getUnassignedUsers() async {
-    final token = await _getToken();
-    if (token == null) {
-      throw Exception('Authentication token not found');
-    }
+    final headers = await _getHeaders();
 
     final response = await http.get(
       Uri.parse('$_baseUrl/employees/unassigned-users'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: headers,
     );
 
     if (response.statusCode == 200) {
@@ -64,7 +68,7 @@ class UserService {
       return users;
     } else {
       throw Exception(
-          'Failed to load unassigned users: \\${response.statusCode} \\${response.body}');
+          'Failed to load unassigned users: ${response.statusCode} ${response.body}');
     }
   }
 

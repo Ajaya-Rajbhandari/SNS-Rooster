@@ -13,7 +13,7 @@ exports.getAttendanceAnalytics = async (req, res) => {
   try {
     const userId = req.params.userId;
     const range = parseInt(req.query.range) || 7;
-    const attendanceRecords = await Attendance.find({ user: userId }).sort({ date: 1 });
+    const attendanceRecords = await Attendance.find({ user: userId, companyId: req.companyId }).sort({ date: 1 });
     const lastN = attendanceRecords.slice(-range);
     let present = 0, absent = 0, leave = 0;
     
@@ -69,7 +69,7 @@ exports.getWorkHoursAnalytics = async (req, res) => {
   try {
     const userId = req.params.userId;
     const range = parseInt(req.query.range) || 7;
-    const attendanceRecords = await Attendance.find({ user: userId }).sort({ date: -1 }).limit(range);
+    const attendanceRecords = await Attendance.find({ user: userId, companyId: req.companyId }).sort({ date: -1 }).limit(range);
     // Return work hours for the last N days (or available days)
     const workHours = attendanceRecords.map(record => {
       if (record.checkInTime && record.checkOutTime) {
@@ -91,7 +91,7 @@ exports.getAnalyticsSummary = async (req, res) => {
   try {
     const userId = req.params.userId;
     const range = parseInt(req.query.range) || 7;
-    const attendanceRecords = await Attendance.find({ user: userId }).sort({ date: 1 }); // oldest first
+    const attendanceRecords = await Attendance.find({ user: userId, companyId: req.companyId }).sort({ date: 1 }); // oldest first
     const lastN = attendanceRecords.slice(-range);
     // Longest Present Streak (in all records)
     let longestStreak = 0, currentStreak = 0;
@@ -157,7 +157,7 @@ exports.getLeaveTypesBreakdown = async (req, res) => {
     }
     // Optional: filter by date range
     const { startDate, endDate } = req.query;
-    const match = { user: userId };
+    const match = { user: userId, companyId: req.companyId };
     if (startDate && endDate) {
       match.startDate = { $gte: new Date(startDate) };
       match.endDate = { $lte: new Date(endDate) };
@@ -186,7 +186,7 @@ exports.getLeaveTypesBreakdownAdmin = async (req, res) => {
     }
 
     const { startDate, endDate } = req.query;
-    const match = {};
+    const match = { companyId: req.companyId };
     if (startDate && endDate) {
       match.startDate = { $gte: new Date(startDate) };
       match.endDate = { $lte: new Date(endDate) };
@@ -230,6 +230,7 @@ exports.getMonthlyHoursTrendAdmin = async (req, res) => {
     // Fetch attendance records in range
     const records = await Attendance.find({
       date: { $gte: startDate, $lte: endDate },
+      companyId: req.companyId
     }).lean();
 
     // Aggregate hours per month
@@ -275,7 +276,7 @@ exports.getLateCheckins = async (req, res) => {
     const userId = req.params.userId || (req.user && req.user.id);
     if (!userId) return res.status(400).json({ error: 'User ID required' });
     const range = parseInt(req.query.range) || 30; // default last 30 days
-    const attendanceRecords = await Attendance.find({ user: userId }).sort({ date: -1 }).limit(range);
+    const attendanceRecords = await Attendance.find({ user: userId, companyId: req.companyId }).sort({ date: -1 }).limit(range);
     const lateThresholdHour = 9, lateThresholdMinute = 15;
     let lateCount = 0;
     const lateDates = [];
@@ -300,7 +301,7 @@ exports.getAverageCheckoutTime = async (req, res) => {
     const userId = req.params.userId || (req.user && req.user.id);
     if (!userId) return res.status(400).json({ error: 'User ID required' });
     const range = parseInt(req.query.range) || 30;
-    const attendanceRecords = await Attendance.find({ user: userId, checkOutTime: { $exists: true, $ne: null } }).sort({ date: -1 }).limit(range);
+    const attendanceRecords = await Attendance.find({ user: userId, checkOutTime: { $exists: true, $ne: null }, companyId: req.companyId }).sort({ date: -1 }).limit(range);
     let totalMinutes = 0, count = 0;
     attendanceRecords.forEach(record => {
       if (record.checkOutTime) {
@@ -328,7 +329,7 @@ exports.getRecentActivity = async (req, res) => {
     const userId = req.params.userId || (req.user && req.user.id);
     if (!userId) return res.status(400).json({ error: 'User ID required' });
     const limit = parseInt(req.query.limit) || 10;
-    const records = await Attendance.find({ user: userId }).sort({ date: -1 }).limit(limit);
+    const records = await Attendance.find({ user: userId, companyId: req.companyId }).sort({ date: -1 }).limit(limit);
     
     // Process records to format times consistently
     const processedRecords = records.map(record => {
@@ -375,9 +376,13 @@ exports.getAdminOverview = async (req, res) => {
       startDate.setUTCDate(today.getUTCDate() - range + 1);
     }
 
-    // Get all active users (employees and admins)
+    // Get all active users (employees and admins) for this company only
     const User = require('../models/User');
-    const users = await User.find({ isActive: true, role: { $in: ['employee', 'admin'] } });
+    const users = await User.find({ 
+      isActive: true, 
+      role: { $in: ['employee', 'admin'] },
+      companyId: req.companyId 
+    });
     // Separate pending users (never logged in)
     const pendingUsers = users.filter(u => !u.lastLogin);
     const activeConfirmedUsers = users.filter(u => u.lastLogin);
@@ -392,11 +397,12 @@ exports.getAdminOverview = async (req, res) => {
     const todayStart = new Date(today); // already UTC midnight
     const todayEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999));
 
-    // Find all attendance records for today (UTC)
+    // Find all attendance records for today (UTC) for this company only
     const Attendance = require('../models/Attendance');
     const attendanceToday = await Attendance.find({
       user: { $in: userIds },
       date: { $gte: todayStart, $lte: todayEnd },
+      companyId: req.companyId
     });
     const presentIds = attendanceToday.map((a) => String(a.user));
 
@@ -410,6 +416,7 @@ exports.getAdminOverview = async (req, res) => {
         status: { $regex: /^approved$/i },
         startDate: { $lte: todayStart },
         endDate: { $gte: todayStart },
+        companyId: req.companyId
       });
       leaveIds = new Set(leaveToday.map(lr => lr.employee.toString()));
       // Map leave employeeIds to userIds
@@ -450,7 +457,7 @@ exports.getAdminOverview = async (req, res) => {
 
     // Work hours trend (average per day for all employees)
     const workHoursByDay = {};
-    const attendanceRecords = await Attendance.find({ user: { $in: userIds } }).sort({ date: -1 });
+    const attendanceRecords = await Attendance.find({ user: { $in: userIds }, companyId: req.companyId }).sort({ date: -1 });
     attendanceRecords.forEach(record => {
       if (record.checkInTime && record.checkOutTime) {
         const dateStr = record.date.toISOString().slice(0, 10);
@@ -486,7 +493,7 @@ exports.getAdminOverview = async (req, res) => {
     });
 
     // Recent activity (last 10 attendance records, newest first)
-    const recentActivity = await Attendance.find({ user: { $in: userIds } })
+    const recentActivity = await Attendance.find({ user: { $in: userIds }, companyId: req.companyId })
       .sort({ date: -1 })
       .limit(10)
       .populate('user', 'firstName lastName email');
@@ -496,14 +503,14 @@ exports.getAdminOverview = async (req, res) => {
     let notificationCount = 0;
     try {
       const Payroll = require('../models/Payroll');
-      payslipCount = await Payroll.countDocuments();
+      payslipCount = await Payroll.countDocuments({ companyId: req.companyId });
     } catch (err) {
       console.error('Error counting payslips:', err);
       payslipCount = 0;
     }
     try {
       const Notification = require('../models/Notification');
-      notificationCount = await Notification.countDocuments();
+      notificationCount = await Notification.countDocuments({ companyId: req.companyId });
     } catch (err) {
       console.error('Error counting notifications:', err);
       notificationCount = 0;
@@ -555,7 +562,8 @@ exports.getSummary = async (req, res) => {
 
     // Total hours & overtime approximation (duration between checkIn/Out minus breaks)
     const records = await Attendance.find({
-      date: { $gte: start, $lte: end }
+      date: { $gte: start, $lte: end },
+      companyId: req.companyId
     }).lean();
 
     let totalMs = 0;
@@ -662,6 +670,7 @@ exports.getPayrollTrendAdmin = async (req, res) => {
       {
         $match: {
           issueDate: { $gte: startDate, $lte: endDate },
+          companyId: req.companyId
         },
       },
       {
@@ -729,6 +738,7 @@ exports.getPayrollDeductionsBreakdownAdmin = async (req, res) => {
       {
         $match: {
           issueDate: { $gte: startDate, $lte: endDate },
+          companyId: req.companyId
         },
       },
       { $unwind: '$deductionsList' },
@@ -776,12 +786,12 @@ exports.generateReport = async (req, res) => {
       payrollData,
       companyData
     ] = await Promise.all([
-      getSummaryData(startDate, endDate),
-      getMonthlyHoursData(startDate, endDate),
-      getLeaveBreakdownData(startDate, endDate),
-      getAttendanceData(startDate, endDate),
+      getSummaryData(startDate, endDate, req.companyId),
+      getMonthlyHoursData(startDate, endDate, req.companyId),
+      getLeaveBreakdownData(startDate, endDate, req.companyId),
+      getAttendanceData(startDate, endDate, req.companyId),
       getEmployeeData(),
-      getPayrollData(startDate, endDate),
+      getPayrollData(startDate, endDate, req.companyId),
       getCompanyData()
     ]);
 
@@ -837,7 +847,11 @@ exports.getActiveUsersList = async (req, res) => {
     if (!req.user || req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Admin access required' });
     }
-    const users = await require('../models/User').find({ isActive: true, role: { $in: ['employee', 'admin'] } });
+    const users = await require('../models/User').find({ 
+      isActive: true, 
+      role: { $in: ['employee', 'admin'] },
+      companyId: req.companyId 
+    });
     // Return basic info for modal
     const result = users.map(u => ({
       _id: u._id,
@@ -855,9 +869,10 @@ exports.getActiveUsersList = async (req, res) => {
 };
 
 // Helper functions for data collection
-async function getSummaryData(startDate, endDate) {
+async function getSummaryData(startDate, endDate, companyId) {
   const records = await Attendance.find({
-    date: { $gte: startDate, $lte: endDate }
+    date: { $gte: startDate, $lte: endDate },
+    companyId: companyId
   }).lean();
 
   let totalMs = 0, overtimeMs = 0;
@@ -894,9 +909,10 @@ async function getSummaryData(startDate, endDate) {
   };
 }
 
-async function getMonthlyHoursData(startDate, endDate) {
+async function getMonthlyHoursData(startDate, endDate, companyId) {
   const records = await Attendance.find({
-    date: { $gte: startDate, $lte: endDate }
+    date: { $gte: startDate, $lte: endDate },
+    companyId: companyId
   }).lean();
 
   const monthMap = {};
@@ -914,10 +930,11 @@ async function getMonthlyHoursData(startDate, endDate) {
   }));
 }
 
-async function getLeaveBreakdownData(startDate, endDate) {
+async function getLeaveBreakdownData(startDate, endDate, companyId) {
   const leaves = await Leave.find({
     startDate: { $gte: startDate },
-    endDate: { $lte: endDate }
+    endDate: { $lte: endDate },
+    companyId: companyId
   }).lean();
 
   const breakdown = {};
@@ -928,9 +945,10 @@ async function getLeaveBreakdownData(startDate, endDate) {
   return breakdown;
 }
 
-async function getAttendanceData(startDate, endDate) {
+async function getAttendanceData(startDate, endDate, companyId) {
   const records = await Attendance.find({
-    date: { $gte: startDate, $lte: endDate }
+    date: { $gte: startDate, $lte: endDate },
+    companyId: companyId
   }).populate('user', 'firstName lastName email').lean();
 
   return records.map(r => ({
@@ -952,9 +970,10 @@ async function getEmployeeData() {
   };
 }
 
-async function getPayrollData(startDate, endDate) {
+async function getPayrollData(startDate, endDate, companyId) {
   const payrolls = await Payroll.find({
-    issueDate: { $gte: startDate, $lte: endDate }
+    issueDate: { $gte: startDate, $lte: endDate },
+    companyId: companyId
   }).lean();
 
   const totalGross = payrolls.reduce((sum, p) => sum + (p.grossPay || 0), 0);

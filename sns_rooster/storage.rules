@@ -1,0 +1,34 @@
+rules_version = '2';
+
+// Craft rules based on data in your Firestore database
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow public read access to company logos
+    match /company/{fileName} {
+      allow read: if true; // Public read access for company logos
+      allow write: if true; // Allow uploads without Firebase Auth (app uses custom JWT auth)
+                   // && request.resource.size < 5 * 1024 * 1024 // 5MB limit
+                   // && request.resource.contentType.matches('image/.*'); // Only images
+    }
+    
+    // Allow public read access to user avatars
+    match /avatars/{fileName} {
+      allow read: if true; // Public read access for avatars
+      allow write: if true; // Allow uploads without Firebase Auth (app uses custom JWT auth)
+                   // && request.resource.size < 2 * 1024 * 1024 // 2MB limit
+                   // && request.resource.contentType.matches('image/.*'); // Only images
+    }
+    
+    // Allow public read access to documents
+    match /documents/{fileName} {
+      allow read: if true; // Public read access for documents
+      allow write: if true; // Allow uploads without Firebase Auth (app uses custom JWT auth)
+                   // && request.resource.size < 10 * 1024 * 1024 // 10MB limit;
+    }
+    
+    // Default rule - deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+} 

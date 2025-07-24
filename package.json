@@ -1,7 +1,15 @@
 {
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.2.0",
+    "@mui/material": "^7.2.0",
+    "@mui/x-charts": "^8.8.0",
+    "@mui/x-data-grid": "^8.8.0",
     "axios": "^1.10.0",
+    "jwt-decode": "^4.0.0",
     "mongoose": "^8.16.0",
-    "nodemailer": "^7.0.4"
+    "nodemailer": "^7.0.4",
+    "react-router-dom": "^7.7.0"
   }
 }

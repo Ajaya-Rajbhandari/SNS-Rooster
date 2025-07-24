@@ -17,17 +17,46 @@ const analyticsRoutes = require('./routes/analyticsRoutes');
 const adminSettingsRoutes = require('./routes/adminSettingsRoutes');
 const fcmRoutes = require('./routes/fcmRoutes');
 const eventRoutes = require('./routes/event-routes');
+const companyRoutes = require('./routes/companyRoutes');
+const superAdminRoutes = require('./routes/superAdminRoutes');
+const trialRoutes = require('./routes/trialRoutes');
+
+// Enterprise Features Routes
+const locationRoutes = require('./routes/locationRoutes');
+const expenseRoutes = require('./routes/expenseRoutes');
+const performanceRoutes = require('./routes/performanceRoutes');
+const trainingRoutes = require('./routes/trainingRoutes');
 
 const app = express();
 
 // Middleware
 app.use(cors({
-  origin: [
-    'https://sns-rooster-8cca5.web.app',
-    'https://sns-rooster.onrender.com',
-    'http://localhost:3000',
-    'http://192.168.1.119:8080' // <-- add this line!
-  ],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'https://sns-rooster-8cca5.web.app',
+      'https://sns-rooster.onrender.com',
+      'http://localhost:3000',  // Flutter web app
+      'http://localhost:3001',  // Admin portal
+      'http://192.168.1.119:8080'
+    ];
+    
+    // Allow any localhost port for development (Flutter web uses random ports)
+    if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:')) {
+      return callback(null, true);
+    }
+    
+    // Allow specific origins
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      return callback(null, true);
+    }
+    
+    // Log blocked origins for debugging
+    console.log('CORS blocked origin:', origin);
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true, // Only needed if you use cookies/auth
 }));
 app.use(express.json()); // For parsing application/json
@@ -52,8 +81,17 @@ app.use('/api/leave', leaveRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin/settings', adminSettingsRoutes);
+app.use('/api/companies', companyRoutes);
+app.use('/api/super-admin', superAdminRoutes);
+app.use('/api/trial', trialRoutes);
 app.use('/api', fcmRoutes);
 app.use('/api/events', eventRoutes);
+
+// Enterprise Features Routes
+app.use('/api/locations', locationRoutes);
+app.use('/api/expenses', expenseRoutes);
+app.use('/api/performance', performanceRoutes);
+app.use('/api/training', trainingRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {

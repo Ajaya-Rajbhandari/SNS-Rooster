@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/secure_storage_service.dart';
+import '../../services/company_service.dart';
+import '../../models/company.dart';
 import '../employee/employee_dashboard_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
+import '../super_admin/super_admin_dashboard_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -21,10 +24,16 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _rememberMe = false;
 
+  // Company selection
+  List<Company> _availableCompanies = [];
+  Company? _selectedCompany;
+  bool _isLoadingCompanies = false;
+
   @override
   void initState() {
     super.initState();
     _loadSavedCredentials();
+    _loadAvailableCompanies();
   }
 
   void _loadSavedCredentials() async {
@@ -67,6 +76,33 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _loadAvailableCompanies() async {
+    setState(() {
+      _isLoadingCompanies = true;
+    });
+
+    try {
+      final companies = await CompanyService.getAvailableCompanies();
+      setState(() {
+        _availableCompanies = companies;
+        if (_availableCompanies.isNotEmpty) {
+          _selectedCompany = _availableCompanies.first;
+        }
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to load companies: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoadingCompanies = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -76,22 +112,54 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedCompany == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a company'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+      // Set remember me state in AuthProvider
+      authProvider.setRememberMe(_rememberMe);
+
+      // Store selected company ID before login
+      await SecureStorageService.storeCompanyId(_selectedCompany!.id);
+
       final success = await authProvider.login(
         _emailController.text,
         _passwordController.text,
+        companyId: _selectedCompany!.id,
       );
 
       if (!mounted) return;
 
       if (success) {
-        // Credentials are now stored in secure storage by AuthProvider
-        // No need to handle it here separately
-        if (authProvider.user?['role'] == 'admin') {
+        // Store remembered credentials if remember me is enabled
+        if (_rememberMe) {
+          await SecureStorageService.storeRememberedCredentials(
+            email: _emailController.text,
+            password: _passwordController.text,
+            rememberMe: true,
+          );
+        } else {
+          // Clear remembered credentials if remember me is disabled
+          await SecureStorageService.clearRememberedCredentials();
+        }
+
+        if (authProvider.user?['role'] == 'super_admin') {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+                builder: (_) => const SuperAdminDashboardScreen()),
+          );
+        } else if (authProvider.user?['role'] == 'admin') {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
           );
@@ -168,6 +236,55 @@ class _LoginScreenState extends State<LoginScreen> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 32),
+
+                    // Company Selection Dropdown
+                    if (_isLoadingCompanies)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    else if (_availableCompanies.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: DropdownButtonFormField<Company>(
+                          value: _selectedCompany,
+                          decoration: const InputDecoration(
+                            labelText: 'Select Company',
+                            border: InputBorder.none,
+                            prefixIcon: Icon(Icons.business),
+                          ),
+                          items: _availableCompanies.map((company) {
+                            return DropdownMenuItem<Company>(
+                              value: company,
+                              child: Text(company.name),
+                            );
+                          }).toList(),
+                          onChanged: (Company? company) {
+                            setState(() {
+                              _selectedCompany = company;
+                            });
+                          },
+                          validator: (value) {
+                            if (value == null) {
+                              return 'Please select a company';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+
+                    const SizedBox(height: 16),
+
                     TextFormField(
                       controller: _emailController,
                       decoration: InputDecoration(
@@ -192,7 +309,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         }
                         return null;
                       },
-                      // Removed onChanged handler to fix cursor jumping issue
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -220,70 +336,130 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       obscureText: _obscurePassword,
                       validator: (value) {
-                        final trimmed = value?.trim() ?? '';
-                        if (trimmed.isEmpty) {
+                        if (value?.trim().isEmpty == true) {
                           return 'Please enter your password';
-                        }
-                        if (trimmed.length < 8) {
-                          return 'Password must be at least 8 characters';
-                        }
-                        if (trimmed.contains(' ')) {
-                          return 'Password cannot contain spaces';
                         }
                         return null;
                       },
-                      // Removed onChanged handler to fix cursor jumping issue
                     ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/forgot_password');
-                        },
-                        child: Text(
-                          'Forgot Password?',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.white70,
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        // Improved Remember Me Checkbox
+                        GestureDetector(
+                          onTap: () async {
+                            setState(() {
+                              _rememberMe = !_rememberMe;
+                            });
+
+                            // If unchecking remember me, clear saved credentials
+                            if (!_rememberMe) {
+                              await SecureStorageService
+                                  .clearRememberedCredentials();
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    color: _rememberMe
+                                        ? Colors.white
+                                        : Colors.transparent,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: _rememberMe
+                                      ? const Icon(
+                                          Icons.check,
+                                          size: 16,
+                                          color: Colors.blue,
+                                        )
+                                      : null,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Remember me',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: _rememberMe
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushNamed(context, '/forgot_password');
+                          },
+                          child: const Text(
+                            'Forgot Password?',
+                            style: TextStyle(
+                              color: Colors.white,
+                              decoration: TextDecoration.underline,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+                    // Show indicator if credentials were loaded from remember me
+                    if (_rememberMe && _emailController.text.isNotEmpty)
+                      Container(
+                        margin: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Credentials loaded from saved data',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     const SizedBox(height: 24),
-                    SwitchListTile(
-                      title: const Text(
-                        'Remember Me',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      value: _rememberMe,
-                      onChanged: (value) {
-                        setState(() {
-                          _rememberMe = value;
-                        });
-                        // Sync with provider
-                        final authProvider =
-                            Provider.of<AuthProvider>(context, listen: false);
-                        authProvider.setRememberMe(value);
-                      },
-                    ),
                     ElevatedButton(
                       onPressed: _isLoading ? null : _login,
                       style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: theme.colorScheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: theme.colorScheme.secondary,
-                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.black),
-                              ),
-                            )
+                          ? const CircularProgressIndicator()
                           : const Text(
-                              'Login',
+                              'Sign In',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,

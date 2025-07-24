@@ -9,13 +9,22 @@ const emailService = require('../services/emailService');
 
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, companyId } = req.body;
 
     // DEBUG LOGGING START
     console.log('--- LOGIN DEBUG ---');
-    console.log('Login attempt:', { email, password });
-    const user = await User.findOne({ email });
-    console.log('User found:', !!user);
+    console.log('Login attempt:', { email, password, companyId });
+    
+    // If companyId is provided, find user within that company
+    let user;
+    if (companyId) {
+      user = await User.findOne({ email, companyId });
+      console.log('User found in company:', !!user);
+    } else {
+      user = await User.findOne({ email });
+      console.log('User found (no company filter):', !!user);
+    }
+    
     if (user) {
       console.log('DB hash:', user.password);
       const isMatch = await user.comparePassword(password);
@@ -74,6 +83,7 @@ exports.login = async (req, res) => {
           userId: user._id,
           email: user.email,
           role: user.role,
+          companyId: user.companyId,
           isProfileComplete: user.isProfileComplete,
           isEmailVerified: user.isEmailVerified
         },
@@ -104,9 +114,9 @@ exports.register = async (req, res) => {
 
     const { email, password, firstName, lastName, role, department, position, sendWelcomeEmail = true } = req.body;
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email, companyId: req.companyId });
     if (existingUser) {
-      return res.status(400).json({ message: 'Email already registered' });
+      return res.status(400).json({ message: 'Email already registered in this company' });
     }
 
     const tempPassword = password || crypto.randomBytes(8).toString('hex');
@@ -120,6 +130,7 @@ exports.register = async (req, res) => {
       role: role || 'employee',
       department,
       position,
+      companyId: req.companyId,
       isProfileComplete: false,
       isEmailVerified: isDev ? true : false, // Auto-verify in dev, require in prod
       avatar: 'https://storage.googleapis.com/sns-rooster-8cca5.firebasestorage.app/avatars/default-avatar.png',
@@ -495,7 +506,7 @@ exports.updateUserProfileByAdmin = async (req, res) => {
       return res.status(400).json({ message: 'Invalid updates!' });
     }
 
-    const user = await User.findById(id);
+    const user = await User.findOne({ _id: id, companyId: req.companyId });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -536,7 +547,7 @@ exports.updateUserProfileByAdmin = async (req, res) => {
     await user.save();
 
     // --- Sync Employee record ---
-    const employee = await Employee.findOne({ userId: user._id });
+    const employee = await Employee.findOne({ userId: user._id, companyId: req.companyId });
     if (employee) {
       // Only update fields that exist in Employee schema
       const employeeFields = ['firstName', 'lastName', 'email', 'department', 'position', 'address'];
@@ -592,7 +603,7 @@ exports.getAllUsers = async (req, res) => {
       return res.status(403).json({ message: 'Only admins can view all users' });
     }
     const showInactive = req.query.showInactive === 'true';
-    const filter = showInactive ? {} : { isActive: true };
+    const filter = showInactive ? { companyId: req.companyId } : { isActive: true, companyId: req.companyId };
     const users = await User.find(filter, '-password'); // Exclude password
     res.status(200).json(users);
   } catch (error) {
@@ -605,14 +616,14 @@ exports.getUserById = async (req, res) => {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Only admins can view user by ID' });
     }
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await User.findOne({ _id: req.params.id, companyId: req.companyId }).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
     // Attempt to enrich with position & department from Employee collection
     try {
-      const empRecord = await Employee.findOne({ userId: user._id });
+      const empRecord = await Employee.findOne({ userId: user._id, companyId: req.companyId });
       if (empRecord) {
         if (!user.position && empRecord.position) user.position = empRecord.position;
         if (!user.department && empRecord.department) user.department = empRecord.department;
@@ -639,22 +650,22 @@ exports.deleteUser = async (req, res) => {
     }
 
     // Check if the user to delete is an admin
-    const userToDelete = await User.findById(req.params.id);
+    const userToDelete = await User.findOne({ _id: req.params.id, companyId: req.companyId });
     if (!userToDelete) {
       return res.status(404).json({ message: 'User not found' });
     }
     if (userToDelete.role === 'admin') {
-      const adminCount = await User.countDocuments({ role: 'admin' });
+      const adminCount = await User.countDocuments({ role: 'admin', companyId: req.companyId });
       if (adminCount <= 1) {
-        return res.status(400).json({ message: 'At least one admin must remain.' });
+        return res.status(400).json({ message: 'At least one admin must remain in this company.' });
       }
     }
 
     // Cascade delete: Remove Employee and Attendance records for this user
     const Employee = require('../models/Employee');
     const Attendance = require('../models/Attendance');
-    await Employee.deleteOne({ userId: userToDelete._id });
-    await Attendance.deleteMany({ user: userToDelete._id });
+    await Employee.deleteOne({ userId: userToDelete._id, companyId: req.companyId });
+    await Attendance.deleteMany({ user: userToDelete._id, companyId: req.companyId });
 
     await User.findByIdAndDelete(req.params.id);
     res.status(200).json({ message: 'User, employee, and attendance records deleted successfully' });
@@ -754,7 +765,7 @@ exports.uploadDocument = async (req, res) => {
 
 exports.debugCreateUser = async (req, res) => {
   try {
-    const { email, password, firstName, lastName, role, department, position } = req.body;
+    const { email, password, firstName, lastName, role, department, position, companyId } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -765,6 +776,11 @@ exports.debugCreateUser = async (req, res) => {
       return res.status(400).json({ message: 'First name and last name are required' });
     }
 
+    // Validate companyId is provided for non-super_admin users
+    if (role !== 'super_admin' && !companyId) {
+      return res.status(400).json({ message: 'Company ID is required for non-super-admin users' });
+    }
+
     const user = new User({
       email,
       password,
@@ -773,6 +789,7 @@ exports.debugCreateUser = async (req, res) => {
       role: role || 'employee',
       department,
       position,
+      companyId: role === 'super_admin' ? undefined : companyId, // Only set companyId for non-super_admin users
       isActive: true,
       isProfileComplete: false,
     });
@@ -794,7 +811,7 @@ exports.toggleUserActive = async (req, res) => {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Only admins can update user status' });
     }
-    const user = await User.findById(req.params.id);
+    const user = await User.findOne({ _id: req.params.id, companyId: req.companyId });
     if (!user) return res.status(404).json({ message: 'User not found' });
     if (typeof req.body.isActive !== 'boolean') {
       return res.status(400).json({ message: 'isActive must be a boolean' });
@@ -802,7 +819,7 @@ exports.toggleUserActive = async (req, res) => {
     user.isActive = req.body.isActive;
     await user.save();
     // Sync Employee record if exists
-    const employee = await Employee.findOne({ userId: user._id });
+    const employee = await Employee.findOne({ userId: user._id, companyId: req.companyId });
     if (employee) {
       employee.isActive = req.body.isActive;
       await employee.save();

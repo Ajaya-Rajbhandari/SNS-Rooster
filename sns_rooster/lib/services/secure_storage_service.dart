@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../utils/logger.dart';
 
 /// Secure Storage Service for sensitive data
-/// 
+///
 /// This service provides encrypted storage for sensitive information
 /// like authentication tokens, passwords, and user credentials.
 /// It uses platform-specific secure storage implementations.
@@ -32,6 +32,8 @@ class SecureStorageService {
   static const String _rememberedPasswordKey = 'remembered_password';
   static const String _rememberMeKey = 'remember_me';
   static const String _fcmTokenKey = 'fcm_token';
+  static const String _companyIdKey = 'company_id';
+  static const String _companyDataKey = 'company_data';
 
   /// Store authentication token securely
   static Future<void> storeAuthToken(String token) async {
@@ -122,18 +124,18 @@ class SecureStorageService {
   static Future<Map<String, String?>> getRememberedCredentials() async {
     try {
       final rememberMe = await _storage.read(key: _rememberMeKey);
-      
+
       if (rememberMe == 'true') {
         final email = await _storage.read(key: _rememberedEmailKey);
         final password = await _storage.read(key: _rememberedPasswordKey);
-        
+
         return {
           'email': email,
           'password': password,
           'remember_me': 'true',
         };
       }
-      
+
       return {
         'email': null,
         'password': null,
@@ -181,6 +183,69 @@ class SecureStorageService {
     }
   }
 
+  /// Store company ID securely
+  static Future<void> storeCompanyId(String companyId) async {
+    try {
+      await _storage.write(key: _companyIdKey, value: companyId);
+      log('SecureStorage: Company ID stored successfully');
+    } catch (e) {
+      Logger.error('Failed to store company ID: $e');
+      rethrow;
+    }
+  }
+
+  /// Retrieve company ID
+  static Future<String?> getCompanyId() async {
+    try {
+      return await _storage.read(key: _companyIdKey);
+    } catch (e) {
+      Logger.error('Failed to retrieve company ID: $e');
+      return null;
+    }
+  }
+
+  /// Store company data securely
+  static Future<void> storeCompanyData(String companyData) async {
+    try {
+      await _storage.write(key: _companyDataKey, value: companyData);
+      log('SecureStorage: Company data stored successfully');
+    } catch (e) {
+      Logger.error('Failed to store company data: $e');
+      rethrow;
+    }
+  }
+
+  /// Retrieve company data
+  static Future<String?> getCompanyData() async {
+    try {
+      return await _storage.read(key: _companyDataKey);
+    } catch (e) {
+      Logger.error('Failed to retrieve company data: $e');
+      return null;
+    }
+  }
+
+  /// Clear company data
+  static Future<void> clearCompanyData() async {
+    try {
+      await _storage.delete(key: _companyIdKey);
+      await _storage.delete(key: _companyDataKey);
+      log('SecureStorage: Company data cleared successfully');
+    } catch (e) {
+      Logger.error('Failed to clear company data: $e');
+    }
+  }
+
+  /// Clear only company ID (for debugging)
+  static Future<void> clearCompanyId() async {
+    try {
+      await _storage.delete(key: _companyIdKey);
+      log('SecureStorage: Company ID cleared successfully');
+    } catch (e) {
+      Logger.error('Failed to clear company ID: $e');
+    }
+  }
+
   /// Clear all stored data (logout)
   static Future<void> clearAllData() async {
     try {
@@ -198,6 +263,7 @@ class SecureStorageService {
       await _storage.delete(key: _refreshTokenKey);
       await _storage.delete(key: _userDataKey);
       await _storage.delete(key: _fcmTokenKey);
+      await clearCompanyData(); // Clear company data on logout
       log('SecureStorage: Auth data cleared successfully');
     } catch (e) {
       Logger.error('Failed to clear auth data: $e');
@@ -210,11 +276,11 @@ class SecureStorageService {
       // Try to write and read a test value
       const testKey = 'test_availability';
       const testValue = 'test';
-      
+
       await _storage.write(key: testKey, value: testValue);
       final result = await _storage.read(key: testKey);
       await _storage.delete(key: testKey);
-      
+
       return result == testValue;
     } catch (e) {
       Logger.error('Secure storage not available: $e');
@@ -227,7 +293,7 @@ class SecureStorageService {
     if (kReleaseMode) {
       throw Exception('getAllKeys() is only available in debug mode');
     }
-    
+
     try {
       final map = await _storage.readAll();
       return map.keys.toSet();
@@ -249,11 +315,11 @@ class SecureStorageService {
       if (token != null) {
         await storeAuthToken(token);
       }
-      
+
       if (userData != null) {
         await storeUserData(userData);
       }
-      
+
       if (email != null && password != null && rememberMe != null) {
         await storeRememberedCredentials(
           email: email,
@@ -261,7 +327,7 @@ class SecureStorageService {
           rememberMe: rememberMe,
         );
       }
-      
+
       log('SecureStorage: Migration from SharedPreferences completed');
     } catch (e) {
       Logger.error('Failed to migrate from SharedPreferences: $e');

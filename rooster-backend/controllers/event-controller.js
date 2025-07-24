@@ -39,7 +39,8 @@ const createEvent = async (req, res) => {
       recurrencePattern,
       recurrenceEndDate,
       tags,
-      createdBy: req.user.userId
+      createdBy: req.user.userId,
+      companyId: req.companyId // Add company isolation
     });
 
     await event.save();
@@ -143,7 +144,9 @@ const getEvents = async (req, res) => {
       page = 1
     } = req.query;
 
-    const filter = {};
+    const filter = {
+      companyId: req.companyId // Add company isolation
+    };
 
     // Show events that are:
     // 1. Public events (visible to all)
@@ -198,8 +201,8 @@ const getUpcomingEvents = async (req, res) => {
     const now = new Date();
 
     const events = await Event.find({
+      companyId: req.companyId, // Add company isolation
       startDate: { $gte: now },
-      status: 'published',
       $or: [
         { isPublic: true },
         { 'attendees.user': req.user.userId },

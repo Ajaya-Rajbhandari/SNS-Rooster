@@ -13,14 +13,15 @@ class ApiConfig {
   // Network Configuration
   static const String localhostIP = '127.0.0.1';
   static const String androidEmulatorIP = '10.0.2.2';
-  static const String fallbackIP = '192.168.1.68';
+  static const String fallbackIP = 'localhost'; // Updated to use localhost
   static const String officeIP = '10.0.0.45';
   static const String devPort = '5000';
   static const String httpsPort = '443';
 
   // Production URLs (HTTPS only)
   static const String productionApiUrl = 'https://sns-rooster.onrender.com/api';
-  static const String stagingApiUrl = 'https://sns-rooster-staging.onrender.com/api';
+  static const String stagingApiUrl =
+      'https://sns-rooster-staging.onrender.com/api';
 
   static Future<Map<String, dynamic>> getDetailedDebugInfo() async {
     return {
@@ -44,19 +45,41 @@ class ApiConfig {
       return _getDevBaseUrl();
     }
 
-    // If somehow in release mode but not production, force HTTPS
-    Logger.warning('Release mode detected but not in production - forcing HTTPS');
-    return productionApiUrl;
+    // If somehow in release mode but not production, use environment variable
+    Logger.warning(
+        'Release mode detected but not in production - using environment API_URL');
+    return const String.fromEnvironment('API_URL',
+        defaultValue: productionApiUrl);
   }
 
   /// Get development base URL with HTTP (debug mode only)
   static String _getDevBaseUrl() {
     if (kIsWeb) {
-      const url = 'http://localhost:$devPort/api';
+      // Use environment variable for web
+      final url = const String.fromEnvironment('API_URL',
+          defaultValue: 'http://localhost:$devPort/api');
       log('DEV_API: Web app using: $url');
       return url;
     } else if (Platform.isAndroid) {
-      const url = 'http://$androidEmulatorIP:$devPort/api';
+      // For Android devices, use environment variable or detect IP
+      String androidIP =
+          const String.fromEnvironment('API_HOST', defaultValue: '');
+
+      if (androidIP.isEmpty) {
+        // Check if we're explicitly told to use emulator IP
+        if (const String.fromEnvironment('USE_EMULATOR_IP',
+                defaultValue: 'false') ==
+            'true') {
+          androidIP = androidEmulatorIP;
+          log('DEV_API: Android emulator mode forced, using: $androidIP');
+        } else {
+          // For physical devices, use your computer's IP address
+          androidIP = '192.168.1.80'; // Your computer's IP address (current)
+          log('DEV_API: Android physical device mode, using: $androidIP');
+        }
+      }
+
+      final url = 'http://$androidIP:$devPort/api';
       log('DEV_API: Android using: $url');
       return url;
     } else if (Platform.isIOS) {
@@ -163,9 +186,7 @@ class ApiConfig {
 
   /// Check if current environment allows HTTP
   static bool get allowsHttp {
-    return EnvironmentConfig.isDevelopment && 
-           kDebugMode && 
-           !kReleaseMode;
+    return EnvironmentConfig.isDevelopment && kDebugMode && !kReleaseMode;
   }
 
   /// Get environment info for debugging (development only)
@@ -189,7 +210,7 @@ class ApiConfig {
   static bool validateConfiguration() {
     try {
       final url = baseUrl;
-      
+
       // Check URL format
       if (!url.startsWith('http://') && !url.startsWith('https://')) {
         Logger.error('Invalid URL format: $url');
@@ -243,7 +264,7 @@ class ApiConfig {
 class SecurityException implements Exception {
   final String message;
   SecurityException(this.message);
-  
+
   @override
   String toString() => 'SecurityException: $message';
 }

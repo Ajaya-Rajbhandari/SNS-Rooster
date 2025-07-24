@@ -1,6 +1,13 @@
 const mongoose = require('mongoose');
 
 const PayrollSchema = new mongoose.Schema({
+  // Company Association
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    required: true,
+    index: true
+  },
   employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
   periodStart: { type: Date, required: true },
   periodEnd: { type: Date, required: true },

@@ -4,7 +4,7 @@ importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-comp
 // Add error handling for iOS Safari compatibility
 try {
   firebase.initializeApp({
-    apiKey: "AIzaSyDrqjkWAfQqSWBPmKCAxYxs6cjuDEbPZGc",
+    apiKey: "FIREBASE_API_KEY_PLACEHOLDER", // Replace with environment variable
     authDomain: "sns-rooster-8cca5.firebaseapp.com",
     projectId: "sns-rooster-8cca5",
     storageBucket: "sns-rooster-8cca5.appspot.com",

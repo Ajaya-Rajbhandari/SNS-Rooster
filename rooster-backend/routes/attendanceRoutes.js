@@ -1,40 +1,46 @@
 const express = require("express");
 const router = express.Router();
 const { authenticateToken } = require("../middleware/auth");
+const { validateCompanyContext, validateUserCompanyAccess, requireFeature } = require("../middleware/companyContext");
 const attendanceController = require("../controllers/attendance-controller");
 const BreakType = require("../models/BreakType");
 const Attendance = require('../models/Attendance');
 const analyticsController = require('../controllers/analytics-controller');
 
+// Apply authentication first, then company context
+router.use(authenticateToken);
+router.use(validateCompanyContext);
+router.use(validateUserCompanyAccess);
+
 // Check-in (User can check-in once per day)
-router.post("/check-in", authenticateToken, attendanceController.checkIn);
+router.post("/check-in", attendanceController.checkIn);
 
 // Check-out
-router.patch("/check-out", authenticateToken, attendanceController.checkOut);
+router.patch("/check-out", attendanceController.checkOut);
 
 // Start break
-router.post("/start-break", authenticateToken, attendanceController.startBreak);
+router.post("/start-break", attendanceController.startBreak);
 
 // End break
-router.patch("/end-break", authenticateToken, attendanceController.endBreak);
+router.patch("/end-break", attendanceController.endBreak);
 
 // Get current user's own attendance data
-router.get("/my-attendance", authenticateToken, attendanceController.getMyAttendance);
+router.get("/my-attendance", attendanceController.getMyAttendance);
 
 // Get current user's timesheet entries
-router.get("/timesheet", authenticateToken, attendanceController.getMyTimesheet);
+router.get("/timesheet", attendanceController.getMyTimesheet);
 
 // Get attendance for a specific user (Admin/Manager only, or self)
-router.get("/user/:userId", authenticateToken, attendanceController.getUserAttendance);
+router.get("/user/:userId", attendanceController.getUserAttendance);
 
 // Get all attendance records (Admin only, with optional date range and employee filter)
-router.get("/", authenticateToken, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({ message: "Unauthorized to view all attendance data" });
     }
     const { start, end, employeeId } = req.query;
-    let filter = {};
+    let filter = { companyId: req.companyId };
     if (start || end) {
       filter.date = {};
       if (start) filter.date.$gte = new Date(start);
@@ -56,14 +62,18 @@ router.get("/", authenticateToken, async (req, res) => {
 });
 
 // Edit/correct an attendance record (Admin only)
-router.put("/:attendanceId", authenticateToken, async (req, res) => {
+router.put("/:attendanceId", async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({ message: "Admin access required" });
     }
     const { attendanceId } = req.params;
     const update = req.body;
-    const updated = await Attendance.findByIdAndUpdate(attendanceId, { $set: update }, { new: true });
+    const updated = await Attendance.findOneAndUpdate(
+      { _id: attendanceId, companyId: req.companyId }, 
+      { $set: update }, 
+      { new: true }
+    );
     if (!updated) return res.status(404).json({ message: "Attendance not found" });
     res.json(updated);
   } catch (error) {
@@ -73,13 +83,13 @@ router.put("/:attendanceId", authenticateToken, async (req, res) => {
 });
 
 // Export attendance records as CSV (Admin only)
-router.get("/export", authenticateToken, async (req, res) => {
+router.get("/export", async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({ message: "Admin access required" });
     }
     const { start, end, employeeId } = req.query;
-    let filter = {};
+    let filter = { companyId: req.companyId };
     if (start || end) {
       filter.date = {};
       if (start) filter.date.$gte = new Date(start);
@@ -107,11 +117,19 @@ router.get("/export", authenticateToken, async (req, res) => {
   }
 });
 
-// Get available break types (for employees)
-router.get('/break-types', authenticateToken, attendanceController.getBreakTypes);
+// Get available break types (for employees) - company-scoped
+router.get('/break-types', async (req, res) => {
+  try {
+    const breakTypes = await BreakType.find({ companyId: req.companyId });
+    res.json({ breakTypes });
+  } catch (error) {
+    console.error("Get break types error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 // Attendance summary for a user within a date range
-router.get("/summary/:userId", authenticateToken, async (req, res) => {
+router.get("/summary/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     const { start, end } = req.query;
@@ -138,9 +156,10 @@ router.get("/summary/:userId", authenticateToken, async (req, res) => {
       endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
     }
 
-    // Find attendance records for user in range
+    // Find attendance records for user in range - company-scoped
     console.log('DEBUG: Attendance summary query params:', {
       userId,
+      companyId: req.companyId,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
       statusFilter: { $in: ["present", "completed", "approved"] }
@@ -148,6 +167,7 @@ router.get("/summary/:userId", authenticateToken, async (req, res) => {
     
     const records = await Attendance.find({
       user: userId,
+      companyId: req.companyId,
       date: { $gte: startDate, $lte: endDate },
       status: { $in: ["present", "completed", "approved"] },
     });
@@ -221,9 +241,10 @@ router.post("/debug/clock-in/:userId", authenticateToken, async (req, res) => {
     const tomorrow = new Date(today);
     tomorrow.setUTCDate(today.getUTCDate() + 1);
 
-    // Check if user has already clocked in today
+    // Check if user has already clocked in today - company-scoped
     const attendance = await Attendance.findOne({
       user: userId,
+      companyId: req.companyId,
       date: { $gte: today, $lt: tomorrow },
     });
 
@@ -234,6 +255,7 @@ router.post("/debug/clock-in/:userId", authenticateToken, async (req, res) => {
     // Simulate clock-in
     const newAttendance = new Attendance({
       user: userId,
+      companyId: req.companyId,
       date: today,
       checkInTime: new Date(),
     });
@@ -252,14 +274,13 @@ router.post("/debug/clock-in/:userId", authenticateToken, async (req, res) => {
 // Aggregate attendance stats for today (admin only)
 router.get("/today", authenticateToken, attendanceController.getTodayAttendanceStats);
 
-// Add leave types breakdown analytics endpoint
-// If you have an auth middleware, add it as needed (e.g., authMiddleware)
-router.get('/analytics/leave-types-breakdown', analyticsController.getLeaveTypesBreakdown);
+// Add leave types breakdown analytics endpoint - requires analytics feature
+router.get('/analytics/leave-types-breakdown', requireFeature('analytics'), analyticsController.getLeaveTypesBreakdown);
 
-// Add analytics endpoints for employee dashboard
-router.get('/analytics/late-checkins/:userId', analyticsController.getLateCheckins);
-router.get('/analytics/avg-checkout/:userId', analyticsController.getAverageCheckoutTime);
-router.get('/analytics/recent-activity/:userId', analyticsController.getRecentActivity);
+// Add analytics endpoints for employee dashboard - requires analytics feature
+router.get('/analytics/late-checkins/:userId', requireFeature('analytics'), analyticsController.getLateCheckins);
+router.get('/analytics/avg-checkout/:userId', requireFeature('analytics'), analyticsController.getAverageCheckoutTime);
+router.get('/analytics/recent-activity/:userId', requireFeature('analytics'), analyticsController.getRecentActivity);
 
 // GET /attendance/today-list?status=present|absent|onleave
 router.get('/today-list', authenticateToken, attendanceController.getTodayEmployeeList);

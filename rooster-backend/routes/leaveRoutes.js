@@ -1,7 +1,12 @@
 const express = require('express');
 const router = express.Router();
+const { validateCompanyContext, validateUserCompanyAccess } = require('../middleware/companyContext');
 const leaveController = require('../controllers/leave-controller');
 const { authenticateToken } = require('../middleware/auth');
+
+// Apply company context middleware to all routes
+router.use(validateCompanyContext);
+router.use(validateUserCompanyAccess);
 
 // Apply for leave
 router.post('/apply', authenticateToken, leaveController.applyLeave);

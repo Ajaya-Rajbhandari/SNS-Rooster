@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
+import 'package:sns_rooster/providers/feature_provider.dart';
 import 'package:sns_rooster/widgets/app_drawer.dart';
 import 'package:sns_rooster/widgets/admin_side_navigation.dart';
 import 'attendance_detail_widgets.dart';
@@ -294,6 +295,54 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       drawer: const AppDrawer(),
       body: Column(
         children: [
+          // Location validation status indicator
+          Consumer<FeatureProvider>(
+            builder: (context, featureProvider, child) {
+              final hasLocationFeature =
+                  featureProvider.hasLocationBasedAttendance;
+              return Container(
+                margin: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(12.0),
+                decoration: BoxDecoration(
+                  color: hasLocationFeature
+                      ? Colors.green.shade50
+                      : Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8.0),
+                  border: Border.all(
+                    color: hasLocationFeature
+                        ? Colors.green.shade200
+                        : Colors.orange.shade200,
+                    width: 1.0,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      hasLocationFeature
+                          ? Icons.location_on
+                          : Icons.location_off,
+                      color: hasLocationFeature ? Colors.green : Colors.orange,
+                      size: 20.0,
+                    ),
+                    const SizedBox(width: 8.0),
+                    Expanded(
+                      child: Text(
+                        hasLocationFeature
+                            ? 'Location validation is enabled. You must be at your assigned location to check in/out.'
+                            : 'Location validation is not available in your current plan. You can check in/out from anywhere.',
+                        style: TextStyle(
+                          color: hasLocationFeature
+                              ? Colors.green.shade700
+                              : Colors.orange.shade700,
+                          fontSize: 12.0,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           // First row: Date Range Picker
           Padding(
             padding:

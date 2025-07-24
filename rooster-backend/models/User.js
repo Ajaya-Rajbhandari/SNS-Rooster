@@ -4,6 +4,16 @@ const fs = require('fs');
 const path = require('path');
 
 const userSchema = new mongoose.Schema({
+  // Company Association
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    required: function() {
+      // Super admins don't need to belong to a company
+      return this.role !== 'super_admin';
+    },
+    index: true
+  },
   document: {
     type: String, // File path or URL for uploaded document
     trim: true,
@@ -11,7 +21,6 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
     trim: true,
     lowercase: true,
   },
@@ -31,7 +40,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'employee'],
+    enum: ['super_admin', 'admin', 'employee'],
     default: 'employee',
   },
   department: {
@@ -318,6 +327,9 @@ userSchema.methods.incrementPasswordResetAttempts = function() {
   this.resetPasswordLastAttempt = new Date();
   return this.save();
 };
+
+// Compound unique index for email within company
+userSchema.index({ companyId: 1, email: 1 }, { unique: true });
 
 const User = mongoose.model('User', userSchema);
 

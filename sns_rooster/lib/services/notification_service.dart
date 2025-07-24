@@ -23,6 +23,22 @@ class NotificationService {
     }
   }
 
+  Future<int> getUnreadCount() async {
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/notifications/unread-count'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${authProvider.token}',
+      },
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['count'] ?? 0;
+    } else {
+      throw Exception('Failed to fetch unread count');
+    }
+  }
+
   Future<void> markAsRead(String notificationId) async {
     final response = await http.patch(
       Uri.parse('${ApiConfig.baseUrl}/notifications/$notificationId/read'),

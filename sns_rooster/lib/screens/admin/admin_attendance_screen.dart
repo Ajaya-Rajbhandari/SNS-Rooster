@@ -238,14 +238,15 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
       final attendanceProvider =
           Provider.of<AttendanceProvider>(context, listen: false);
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/attendance/break-types'),
+        Uri.parse('${ApiConfig.baseUrl}/admin/break-types'),
         headers: {
           'Authorization':
               'Bearer ${Provider.of<AuthProvider>(context, listen: false).token}',
         },
       );
       if (response.statusCode == 200) {
-        final List<dynamic> types = List.from(jsonDecode(response.body));
+        final data = jsonDecode(response.body);
+        final List<dynamic> types = List.from(data['breakTypes'] ?? []);
         setState(() {
           _breakTypes = types.cast<Map<String, dynamic>>();
         });
@@ -737,7 +738,8 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
                         _buildStatCard(
                             'Total Hours',
                             _formatDurationFromHours(
-                                _weeklyStats!['totalHoursWorked'] ?? 0),
+                                (_weeklyStats!['totalHoursWorked'] ?? 0)
+                                    .toDouble()),
                             Icons.access_time,
                             Colors.blue),
                       ],
@@ -749,13 +751,15 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
                         _buildStatCard(
                             'Avg. Hours/Day',
                             _formatDurationFromHours(
-                                _weeklyStats!['averageHoursPerDay'] ?? 0),
+                                (_weeklyStats!['averageHoursPerDay'] ?? 0)
+                                    .toDouble()),
                             Icons.trending_up,
                             Colors.orange),
                         _buildStatCard(
                             'Break Time',
                             _formatDurationFromHours(
-                                _weeklyStats!['totalBreakTime'] ?? 0),
+                                (_weeklyStats!['totalBreakTime'] ?? 0)
+                                    .toDouble()),
                             Icons.coffee,
                             Colors.purple),
                       ],

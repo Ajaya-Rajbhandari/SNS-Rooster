@@ -25,6 +25,7 @@ exports.applyLeave = async (req, res) => {
       // For admins, check overlapping leaves by user ID
       overlappingLeave = await Leave.findOne({
         user: userId,
+        companyId: req.companyId,
         status: { $in: ['Pending', 'Approved'] },
         $or: [
           { startDate: { $lte: end }, endDate: { $gte: start } }
@@ -32,12 +33,13 @@ exports.applyLeave = async (req, res) => {
       });
     } else {
       // For employees, get employee ID and check overlapping leaves
-      const employee = await Employee.findOne({ userId: userId });
+      const employee = await Employee.findOne({ userId: userId, companyId: req.companyId });
       if (!employee) {
         return res.status(400).json({ message: 'Employee record not found.' });
       }
       overlappingLeave = await Leave.findOne({
         employee: employee._id,
+        companyId: req.companyId,
         status: { $in: ['Pending', 'Approved'] },
         $or: [
           { startDate: { $lte: end }, endDate: { $gte: start } }
@@ -54,18 +56,20 @@ exports.applyLeave = async (req, res) => {
     if (userRole === 'admin') {
       leave = new Leave({
         user: userId,
+        companyId: req.companyId,
         leaveType,
         startDate,
         endDate,
         reason
       });
     } else {
-      const employee = await Employee.findOne({ userId: userId });
+      const employee = await Employee.findOne({ userId: userId, companyId: req.companyId });
       if (!employee) {
         return res.status(400).json({ message: 'Employee record not found.' });
       }
       leave = new Leave({
         employee: employee._id,
+        companyId: req.companyId,
         leaveType,
         startDate,
         endDate,
@@ -80,15 +84,16 @@ exports.applyLeave = async (req, res) => {
     const adminUsers = await User.find({ 
       role: 'admin', 
       isActive: true,
+      companyId: req.companyId,
       _id: { $ne: userId } // Exclude the requesting admin
     });
     
     let requesterName = '';
     if (userRole === 'admin') {
-      const requestingUser = await User.findById(userId);
+      const requestingUser = await User.findOne({ _id: userId, companyId: req.companyId });
       requesterName = `${requestingUser?.firstName || ''} ${requestingUser?.lastName || ''}`.trim();
     } else {
-      const employee = await Employee.findOne({ userId: userId });
+      const employee = await Employee.findOne({ userId: userId, companyId: req.companyId });
       requesterName = `${employee?.firstName || ''} ${employee?.lastName || ''}`.trim();
     }
     
@@ -100,6 +105,7 @@ exports.applyLeave = async (req, res) => {
         type: 'leave',
         link: '/admin/leave_management',
         isRead: false,
+        companyId: req.companyId,
       });
       await adminNotification.save();
     }
@@ -110,7 +116,7 @@ exports.applyLeave = async (req, res) => {
         'admins',
         'New Leave Request Submitted',
         `${requesterName} (${userRole}) has submitted a leave request from ${start.toDateString()} to ${end.toDateString()}.`,
-        { type: 'leave', leaveId: leave._id.toString() }
+        { type: 'leave', leaveId: leave._id.toString(), companyId: req.companyId }
       );
     } catch (fcmError) {
       console.log('FCM notification failed, but database notification was created:', fcmError.message);
@@ -127,7 +133,7 @@ exports.getLeaveHistory = async (req, res) => {
   try {
     const employeeId = req.query.employeeId || (req.user && req.user.id);
     if (!employeeId) return res.status(400).json({ message: 'Employee ID is required.' });
-    const leaves = await Leave.find({ employee: employeeId }).populate('employee').sort({ appliedAt: -1 });
+    const leaves = await Leave.find({ employee: employeeId, companyId: req.companyId }).populate('employee').sort({ appliedAt: -1 });
     const result = leaves.map(leave => ({
       _id: leave._id,
       employee: leave.employee?._id,
@@ -152,7 +158,7 @@ exports.getAllLeaveRequests = async (req, res) => {
     const { includeAdmins = 'true' } = req.query;
     
     // Get all leaves with both employee and user population, sorted by latest appliedAt first
-    let leaves = await Leave.find()
+    let leaves = await Leave.find({ companyId: req.companyId })
       .sort({ appliedAt: -1 })
       .populate('employee')
       .populate('user', 'firstName lastName email role');
@@ -259,6 +265,7 @@ exports.approveLeaveRequest = async (req, res) => {
         type: 'info',
         link: '/leave_request',
         isRead: false,
+        companyId: req.companyId,
       });
       await notification.save();
       
@@ -316,6 +323,7 @@ exports.rejectLeaveRequest = async (req, res) => {
       type: 'alert',
       link: '/leave_request',
       isRead: false,
+      companyId: req.companyId,
     });
     await employeeNotification.save();
     // FCM: Notify the employee

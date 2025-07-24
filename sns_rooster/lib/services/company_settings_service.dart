@@ -14,20 +14,31 @@ class CompanySettingsService {
 
   Future<Map<String, dynamic>?> fetchSettings() async {
     if (!_authProvider.isAuthenticated) return null;
-    final uri = Uri.parse('${ApiConfig.baseUrl}/api/admin/settings/company');
+    final uri = Uri.parse('${ApiConfig.baseUrl}/admin/settings/company');
+    print('DEBUG: CompanySettingsService.fetchSettings() - Calling API: $uri');
+
     final res = await http.get(uri, headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ${_authProvider.token}',
     });
+
+    print(
+        'DEBUG: CompanySettingsService.fetchSettings() - Response status: ${res.statusCode}');
+    print(
+        'DEBUG: CompanySettingsService.fetchSettings() - Response body: ${res.body}');
+
     if (res.statusCode == 200) {
-      return json.decode(res.body);
+      final data = json.decode(res.body);
+      print(
+          'DEBUG: CompanySettingsService.fetchSettings() - Parsed data: $data');
+      return data;
     }
     throw Exception('Failed to load company settings');
   }
 
   Future<void> saveSettings(Map<String, dynamic> data) async {
     if (!_authProvider.isAuthenticated) return;
-    final uri = Uri.parse('${ApiConfig.baseUrl}/api/admin/settings/company');
+    final uri = Uri.parse('${ApiConfig.baseUrl}/admin/settings/company');
     final res = await http.put(uri,
         headers: {
           'Content-Type': 'application/json',
@@ -47,8 +58,7 @@ class CompanySettingsService {
     if (kIsWeb) {
       throw UnsupportedError('Use uploadLogoWeb for web uploads');
     }
-    final uri =
-        Uri.parse('${ApiConfig.baseUrl}/api/admin/settings/company/logo');
+    final uri = Uri.parse('${ApiConfig.baseUrl}/admin/settings/company/logo');
     var request = http.MultipartRequest('POST', uri);
     request.headers['Authorization'] = 'Bearer ${_authProvider.token}';
     // Add the file to the request
@@ -75,8 +85,7 @@ class CompanySettingsService {
     if (!_authProvider.isAuthenticated) {
       throw Exception('Not authenticated');
     }
-    final uri =
-        Uri.parse('${ApiConfig.baseUrl}/api/admin/settings/company/logo');
+    final uri = Uri.parse('${ApiConfig.baseUrl}/admin/settings/company/logo');
     var request = http.MultipartRequest('POST', uri);
     request.headers['Authorization'] = 'Bearer ${_authProvider.token}';
     request.files.add(
@@ -97,10 +106,26 @@ class CompanySettingsService {
       return '';
     }
 
-    // Construct the full URL to the logo
+    // If it's already a full URL (GCS or other remote storage), return as is
+    if (logoPath.startsWith('http://') ||
+        logoPath.startsWith('https://') ||
+        logoPath.contains('://')) {
+      return logoPath;
+    }
+
+    // For local files (uploads), construct the full URL
+    // If it starts with /uploads, it's a local file
+    if (logoPath.startsWith('/uploads/')) {
+      // ApiConfig.baseUrl is like 'http://192.168.1.68:5000/api'
+      // We need 'http://192.168.1.68:5000/uploads/filename.ext'
+      final baseWithoutApi = ApiConfig.baseUrl.replaceAll('/api', '');
+      return '$baseWithoutApi$logoPath';
+    }
+
+    // For other local files, construct the full URL
     // ApiConfig.baseUrl is like 'http://192.168.1.68:5000/api'
     // We need 'http://192.168.1.68:5000/uploads/company/filename.ext'
     final baseWithoutApi = ApiConfig.baseUrl.replaceAll('/api', '');
-    return '$baseWithoutApi/$logoPath';
+    return '$baseWithoutApi/uploads/company/$logoPath';
   }
 }

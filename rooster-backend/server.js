@@ -20,13 +20,38 @@ console.debug('JWT_SECRET configured:', !!process.env.JWT_SECRET);
 console.debug('EMAIL_PROVIDER:', process.env.EMAIL_PROVIDER);
 console.debug('RESEND_API_KEY configured:', !!process.env.RESEND_API_KEY);
 
-// MongoDB Connection
+// MongoDB Connection with proper configuration
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/sns-rooster';
-mongoose.connect(MONGODB_URI, {
-    tlsAllowInvalidCertificates: true, // Add this line for debugging
-  })
+
+// Configure mongoose connection options
+const mongooseOptions = {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 30000, // 30 seconds for server selection
+  socketTimeoutMS: 45000, // 45 seconds for socket operations
+  connectTimeoutMS: 30000, // 30 seconds for initial connection
+  maxPoolSize: 10, // Maximum number of connections in the pool
+  minPoolSize: 1, // Minimum number of connections in the pool
+  maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
+  retryWrites: true,
+  w: 'majority',
+  // Remove tlsAllowInvalidCertificates for production
+  // tlsAllowInvalidCertificates: true, // Only for debugging SSL issues
+};
+
+console.debug('SERVER: Connecting to MongoDB with options:', {
+  serverSelectionTimeoutMS: mongooseOptions.serverSelectionTimeoutMS,
+  socketTimeoutMS: mongooseOptions.socketTimeoutMS,
+  maxPoolSize: mongooseOptions.maxPoolSize
+});
+
+mongoose.connect(MONGODB_URI, mongooseOptions)
   .then(() => {
-    Logger.info('Connected to MongoDB');
+    Logger.info('Connected to MongoDB successfully');
+    console.log('✅ MongoDB connection established');
+    
+    // Log connection status
+    console.debug('MongoDB connection state:', mongoose.connection.readyState);
     
     // Ensure upload directories exist
     const uploadDirs = [
@@ -43,7 +68,26 @@ mongoose.connect(MONGODB_URI, {
       }
     });
   })
-  .catch((err) => Logger.error('MongoDB connection error:', err));
+  .catch((err) => {
+    Logger.error('MongoDB connection error:', err);
+    console.error('❌ Failed to connect to MongoDB:', err.message);
+    
+    // Don't exit immediately, let the server start but log the error
+    console.error('Server will start but database operations will fail');
+  });
+
+// Add connection event listeners for better monitoring
+mongoose.connection.on('connected', () => {
+  console.log('✅ Mongoose connected to MongoDB');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ Mongoose connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('⚠️ Mongoose disconnected from MongoDB');
+});
 
 // Start server
 const PORT = process.env.PORT || 5000;
@@ -57,6 +101,7 @@ console.debug('SERVER: MongoDB URI:', MONGODB_URI);
 
 // Close MongoDB connection on server close
 process.on('SIGINT', async () => {
+  console.log('Shutting down server...');
   await mongoose.connection.close();
   Logger.info('MongoDB connection closed');
   process.exit(0);

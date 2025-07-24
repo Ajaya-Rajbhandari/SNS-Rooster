@@ -104,7 +104,7 @@ class _BreakTimeWarningWidgetState extends State<BreakTimeWarningWidget> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/attendance/break-types'),
+        Uri.parse('${ApiConfig.baseUrl}/admin/break-types'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${authProvider.token}',
@@ -112,14 +112,15 @@ class _BreakTimeWarningWidgetState extends State<BreakTimeWarningWidget> {
       );
 
       if (response.statusCode == 200) {
-        final breakTypes = jsonDecode(response.body) as List;
+        final data = jsonDecode(response.body);
+        final breakTypes = data['breakTypes'] as List;
         return breakTypes.firstWhere(
           (type) => type['_id'] == breakTypeId,
           orElse: () => null,
         );
       }
     } catch (e) {
-      // Handle error silently
+      // Silently handle errors
     }
     return null;
   }

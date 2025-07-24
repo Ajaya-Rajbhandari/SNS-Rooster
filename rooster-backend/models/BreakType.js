@@ -1,10 +1,16 @@
 const mongoose = require('mongoose');
 
 const breakTypeSchema = new mongoose.Schema({
+  // Company Association
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    required: true,
+    index: true
+  },
   name: {
     type: String,
-    required: true,
-    unique: true
+    required: true
   },
   displayName: {
     type: String,
@@ -66,6 +72,9 @@ const breakTypeSchema = new mongoose.Schema({
     default: 100
   }
 }, { timestamps: true });
+
+// Compound unique index for name within company
+breakTypeSchema.index({ companyId: 1, name: 1 }, { unique: true });
 
 const BreakType = mongoose.model('BreakType', breakTypeSchema);
 

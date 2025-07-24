@@ -158,7 +158,7 @@ class _NotificationProgressBar extends StatefulWidget {
 }
 
 class _NotificationProgressBarState extends State<_NotificationProgressBar>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _controller;
 
   @override

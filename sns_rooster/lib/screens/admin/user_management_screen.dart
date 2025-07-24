@@ -5,6 +5,8 @@ import 'dart:convert';
 import '../../providers/auth_provider.dart';
 import '../../config/api_config.dart';
 import '../../widgets/admin_side_navigation.dart';
+import '../../services/api_service.dart';
+import '../../utils/logger.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({Key? key}) : super(key: key);
@@ -48,91 +50,50 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       _error = null; // Always clear error at the start of loading
     });
 
-    print('Attempting to load users...');
+    Logger.info('Attempting to load users...');
 
     try {
-      final token = Provider.of<AuthProvider>(context, listen: false).token;
-      print('Auth Token: $token');
-
-      print('DEBUG: ApiConfig.baseUrl = \'${ApiConfig.baseUrl}\'');
-      print('DEBUG: Auth Token = $token');
-
-      if (token == null || token.isEmpty) {
-        print('Authentication token is missing or empty.');
-        setState(() {
-          _error = 'Authentication token is missing.';
-          _isLoading = false;
-        });
-        return;
-      }
+      final apiService = ApiService(baseUrl: ApiConfig.baseUrl);
 
       // Add showInactive parameter to the URL
-      final url =
-          '${ApiConfig.baseUrl}/auth/users${_showInactive ? '?showInactive=true' : ''}';
-      print('Requesting users from: $url');
+      final endpoint =
+          '/auth/users${_showInactive ? '?showInactive=true' : ''}';
+      Logger.info('Requesting users from: ${ApiConfig.baseUrl}$endpoint');
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json; charset=UTF-8',
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final response = await apiService.get(endpoint);
 
-      print('Response Status Code: ${response.statusCode}');
-      print('Response Body: ${response.body}');
+      Logger.info('Load users response success: ${response.success}');
+      Logger.info('Load users response message: ${response.message}');
 
-      if (response.statusCode == 200) {
-        // Backend returns a list, not a map
-        final List<dynamic> usersJson = json.decode(response.body);
+      if (response.success) {
         setState(() {
-          _users = usersJson.cast<Map<String, dynamic>>();
+          _users = List<Map<String, dynamic>>.from(response.data ?? []);
           _isLoading = false;
           _error = null; // Clear error on successful load
         });
-        print('Users loaded successfully: \\${_users.length} users');
-      } else if (response.statusCode == 401) {
+        Logger.info('Users loaded successfully: ${_users.length} users');
+      } else {
         setState(() {
-          _error = 'Session expired or invalid token. Please log in again.';
+          _error = response.message ?? 'Failed to load users';
           _isLoading = false;
         });
         // Show a snackbar for better UX
-        if (mounted) {
+        if (mounted && showErrors) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Session expired. Please log in again.')),
+            SnackBar(content: Text(_error ?? 'Failed to load users')),
           );
         }
-        // Navigate to login screen
-        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-      } else {
-        print(
-            'Failed to load users. Status: ${response.statusCode}, Body: ${response.body}');
-        if (showErrors) {
-          setState(() {
-            _error =
-                'Failed to load users: ${response.statusCode} ${response.body}';
-            _isLoading = false;
-          });
-        } else {
-          setState(() {
-            _isLoading = false;
-          });
-        }
       }
-    } catch (e, stackTrace) {
-      print('NETWORK ERROR during user list reload: $e');
-      print('Error loading users: $e');
-      print('Stack trace: $stackTrace');
-      if (showErrors) {
-        setState(() {
-          _error = 'Failed to load users: $e';
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _isLoading = false;
-        });
+    } catch (e) {
+      Logger.error('Error loading users: $e');
+      setState(() {
+        _error = 'Network error occurred';
+        _isLoading = false;
+      });
+      if (mounted && showErrors) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Network error occurred')),
+        );
       }
     }
   }
@@ -143,6 +104,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     _passwordController.clear();
     _firstNameController.clear();
     _lastNameController.clear();
+    setState(() {
+      _selectedRole = null;
+    });
     // _generateEmployeeId(); // Also, auto-generate Employee ID after form reset
   }
 
@@ -156,29 +120,26 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     });
 
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/auth/register'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${authProvider.token}',
-        },
-        body: json.encode({
-          'email': _emailController.text,
-          'password': _passwordController.text,
-          'firstName': _firstNameController.text,
-          'lastName': _lastNameController.text,
-          'role': _selectedRole,
-        }),
-      );
+      final apiService = ApiService(baseUrl: ApiConfig.baseUrl);
 
-      print('Create user response status: \\${response.statusCode}');
-      print('Create user response body: \\${response.body}');
+      final userData = {
+        'email': _emailController.text,
+        'password': _passwordController.text,
+        'firstName': _firstNameController.text,
+        'lastName': _lastNameController.text,
+        'role': _selectedRole,
+      };
+
+      Logger.info('Creating user with data: $userData');
+
+      final response = await apiService.post('/auth/register', userData);
+
+      Logger.info('Create user response success: ${response.success}');
+      Logger.info('Create user response message: ${response.message}');
 
       if (!mounted) return;
-      final data = json.decode(response.body);
 
-      if (response.statusCode == 201) {
+      if (response.success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User created successfully')),
         );
@@ -188,7 +149,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         // Do NOT call setState here; _loadUsers handles _isLoading and _error
       } else {
         setState(() {
-          _error = data['message'] ?? 'Failed to create user';
+          _error = response.message ?? 'Failed to create user';
           _isLoading = false;
         });
         // Show error in a SnackBar for visibility
@@ -199,6 +160,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         }
       }
     } catch (e) {
+      Logger.error('Error creating user: $e');
       if (!mounted) return;
       setState(() {
         _error = 'Network error occurred';
@@ -210,28 +172,22 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   Future<void> _toggleUserStatus(String userId, bool currentStatus) async {
     if (!mounted) return;
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final response = await http.patch(
-        Uri.parse('${ApiConfig.baseUrl}/auth/users/$userId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${authProvider.token}',
-        },
-        body: json.encode({'isActive': !currentStatus}),
-      );
+      final apiService = ApiService(baseUrl: ApiConfig.baseUrl);
+      final response = await apiService
+          .patch('/auth/users/$userId', {'isActive': !currentStatus});
 
       if (!mounted) return;
-      if (response.statusCode == 200) {
+      if (response.success) {
         _loadUsers();
       } else {
-        final data = json.decode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(data['message'] ?? 'Failed to update user status'),
+            content: Text(response.message ?? 'Failed to update user status'),
           ),
         );
       }
     } catch (e) {
+      Logger.error('Error toggling user status: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -273,37 +229,28 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     });
 
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final response = await http.delete(
-        Uri.parse(
-            '${ApiConfig.baseUrl}/auth/users/$userId'), // Assuming this is the delete endpoint
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${authProvider.token}',
-        },
-      );
+      final apiService = ApiService(baseUrl: ApiConfig.baseUrl);
+      final response = await apiService.delete('/auth/users/$userId');
 
       if (!mounted) return;
 
-      if (response.statusCode == 200 || response.statusCode == 204) {
+      if (response.success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User deleted successfully')),
         );
         _loadUsers(); // Refresh the user list
       } else {
-        final data = json.decode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(data['message'] ??
-                'Failed to delete user: ${response.statusCode}'),
+            content: Text(response.message ?? 'Failed to delete user'),
           ),
         );
       }
     } catch (e) {
+      Logger.error('Error deleting user: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Network error occurred while deleting user')),
+        const SnackBar(content: Text('Network error occurred')),
       );
     } finally {
       if (mounted) {
@@ -457,9 +404,25 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                       : null,
                                 ),
                                 const SizedBox(height: 16),
-                                ElevatedButton(
-                                  onPressed: _isLoading ? null : _createUser,
-                                  child: const Text('Create User'),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed:
+                                            _isLoading ? null : _createUser,
+                                        child: const Text('Create User'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: OutlinedButton(
+                                        onPressed: _isLoading
+                                            ? null
+                                            : _resetFormFields,
+                                        child: const Text('Clear Form'),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
