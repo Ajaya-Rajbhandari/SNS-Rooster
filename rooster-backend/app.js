@@ -37,6 +37,7 @@ app.use(cors({
     
     const allowedOrigins = [
       'https://sns-rooster-8cca5.web.app',
+      'https://sns-rooster-admin.web.app',  // Admin portal
       'https://sns-rooster.onrender.com',
       'http://localhost:3000',  // Flutter web app
       'http://localhost:3001',  // Admin portal
