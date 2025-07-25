@@ -64,6 +64,19 @@ const app = express();
 // Validate environment variables on startup
 validateEnvironmentVariables();
 
+// Simple CORS middleware for immediate fix
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, companyId, x-company-id');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
+
 // CORS middleware (must be before security middleware for preflight requests)
 app.use(cors({
   origin: function (origin, callback) {
@@ -94,10 +107,14 @@ app.use(cors({
       return callback(null, true);
     }
     
+    // TEMPORARY: Allow all origins for debugging (remove in production)
+    console.log('CORS: TEMPORARILY allowing origin:', origin);
+    return callback(null, true);
+    
     // Log blocked origins for debugging
-    console.log('CORS: Blocked origin:', origin);
-    console.log('CORS: Allowed origins:', allowedOrigins);
-    return callback(new Error('Not allowed by CORS'));
+    // console.log('CORS: Blocked origin:', origin);
+    // console.log('CORS: Allowed origins:', allowedOrigins);
+    // return callback(new Error('Not allowed by CORS'));
   },
   credentials: true, // Only needed if you use cookies/auth
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
