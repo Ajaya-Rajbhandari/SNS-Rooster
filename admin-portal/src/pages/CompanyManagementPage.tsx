@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container,
   Typography,
   Button,
   Paper,
@@ -89,6 +88,7 @@ const CompanyManagementPage: React.FC = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [creatingCompany, setCreatingCompany] = useState(false);
@@ -99,6 +99,8 @@ const CompanyManagementPage: React.FC = () => {
   const [changePlanDialogOpen, setChangePlanDialogOpen] = useState(false);
   const [availablePlans, setAvailablePlans] = useState<any[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
   const [changingPlan, setChangingPlan] = useState(false);
   
   // Custom plan state
@@ -359,18 +361,54 @@ const CompanyManagementPage: React.FC = () => {
   };
 
   const handleDeleteCompany = async (company: Company) => {
-    if (window.confirm(`Are you sure you want to delete ${company.name}?`)) {
+    if (window.confirm(`Are you sure you want to PERMANENTLY delete ${company.name}? This action cannot be undone.`)) {
       try {
-        console.log('Deleting company:', company._id);
-        const response = await apiService.delete(`/api/super-admin/companies/${company._id}`);
-                  console.log('Delete response:', response);
+        console.log('Hard deleting company:', company._id);
+        const response = await apiService.delete(`/api/super-admin/companies/${company._id}/hard`);
+        console.log('Hard delete response:', response);
         await fetchCompanies(); // Refresh the list
         setError(''); // Clear any previous errors
+        setSuccessMessage(`Company ${company.name} permanently deleted`);
       } catch (err: any) {
-        console.error('Error deleting company:', err);
+        console.error('Error hard deleting company:', err);
         console.error('Error response:', err.response?.data);
         setError(err.response?.data?.message || err.response?.data?.error || 'Failed to delete company');
       }
+    }
+  };
+
+  const handleBulkDeleteEmptyCompanies = async () => {
+    setBulkDeleteLoading(true);
+    setError('');
+    try {
+      // Find companies with no employees (including cancelled ones)
+      const emptyCompanies = companies.filter(company => 
+        (company.employeeCount === 0 || company.employeeCount === undefined) && 
+        company.status !== 'expired'
+      );
+
+      if (emptyCompanies.length === 0) {
+        setError('No companies found with zero employees');
+        return;
+      }
+
+      // Hard delete each empty company
+      const deletePromises = emptyCompanies.map(company =>
+        apiService.delete(`/api/super-admin/companies/${company._id}/hard`)
+      );
+
+      await Promise.all(deletePromises);
+      
+      setSuccessMessage(`Successfully deleted ${emptyCompanies.length} companies with no employees`);
+      
+      // Refresh the company list
+      await fetchCompanies();
+      
+      setBulkDeleteDialogOpen(false);
+    } catch (err: any) {
+      setError(`Failed to delete companies: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setBulkDeleteLoading(false);
     }
   };
 
@@ -472,13 +510,22 @@ const CompanyManagementPage: React.FC = () => {
             <Typography variant="h4" component="h1">
               Company Management
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleCreateCompany}
-            >
-              Create Company
-            </Button>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={() => setBulkDeleteDialogOpen(true)}
+              >
+                Hard Delete Empty Companies
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleCreateCompany}
+              >
+                Create Company
+              </Button>
+            </Box>
           </Box>
           
           <TextField
@@ -495,6 +542,13 @@ const CompanyManagementPage: React.FC = () => {
         {error && (
           <Alert severity="error" onClose={() => setError('')}>
             {error}
+          </Alert>
+        )}
+
+        {/* Success Alert */}
+        {successMessage && (
+          <Alert severity="success" onClose={() => setSuccessMessage('')}>
+            {successMessage}
           </Alert>
         )}
 
@@ -995,6 +1049,41 @@ const CompanyManagementPage: React.FC = () => {
             disabled={!selectedPlanId || changingPlan}
           >
             {changingPlan ? <CircularProgress size={20} /> : 'Change Plan'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Delete Empty Companies Dialog */}
+      <Dialog
+        open={bulkDeleteDialogOpen}
+        onClose={() => setBulkDeleteDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Permanently Delete Companies with No Employees</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            Are you sure you want to PERMANENTLY delete all companies that have zero employees?
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
+            This action will permanently remove companies from the database. 
+            This action cannot be undone. Expired companies will be excluded from this operation.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setBulkDeleteDialogOpen(false)}
+            disabled={bulkDeleteLoading}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleBulkDeleteEmptyCompanies}
+            variant="contained"
+            color="error"
+            disabled={bulkDeleteLoading}
+          >
+            {bulkDeleteLoading ? 'Deleting...' : 'Delete Empty Companies'}
           </Button>
         </DialogActions>
       </Dialog>

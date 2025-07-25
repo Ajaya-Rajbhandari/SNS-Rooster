@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import apiService from '../services/apiService';
 
 interface User {
@@ -16,6 +16,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
+  validateToken: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -46,59 +47,82 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [token]);
 
+  // Validate token with server
+  const validateToken = useCallback(async (): Promise<boolean> => {
+    if (!token) return false;
+    
+    try {
+      const response = await apiService.get<{valid: boolean, user: User}>('/api/auth/validate');
+      if (response.valid && response.user) {
+        setUser(response.user);
+        localStorage.setItem('user', JSON.stringify(response.user));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      // If validation endpoint is not available, try to use stored user data
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          setUser(userData);
+          return true;
+        } catch (parseError) {
+          return false;
+        }
+      }
+      return false;
+    }
+  }, [token]);
+
   // Check if token is valid on app start
   useEffect(() => {
-    const validateToken = async () => {
+    const checkToken = async () => {
       if (token) {
-        try {
-          // You can add a token validation endpoint here
-          // For now, we'll just check if the token exists
-          const userData = localStorage.getItem('user');
-          if (userData) {
-            setUser(JSON.parse(userData));
-          }
-        } catch (error) {
-          console.error('Token validation failed:', error);
-          logout();
+        const isValid = await validateToken();
+        if (!isValid) {
+          setToken(null);
+          setUser(null);
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          localStorage.removeItem('superAdminToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('companyId');
         }
       }
       setIsLoading(false);
     };
 
-    validateToken();
-  }, [token]);
+    checkToken();
+  }, []); // Only run once on mount
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setIsLoading(true);
-      console.log('AuthContext: Starting login...');
       
       const response = await apiService.post<{token: string, user: User}>('/api/auth/login', {
         email,
         password
       });
 
-      console.log('AuthContext: Login response received:', response);
       const { token: newToken, user: userData } = response;
 
       if (newToken && userData) {
-        console.log('AuthContext: Setting token and user data');
         setToken(newToken);
         setUser(userData);
         localStorage.setItem('authToken', newToken);
         localStorage.setItem('user', JSON.stringify(userData));
-        // Also save as superAdminToken if role is super_admin
+        
+        // Store super admin token separately if needed
         if (userData.role === 'super_admin') {
           localStorage.setItem('superAdminToken', newToken);
         }
-        console.log('AuthContext: Login successful');
+        
         return true;
       }
       
-      console.log('AuthContext: Login failed - missing token or user data');
       return false;
     } catch (error) {
-      console.error('AuthContext: Login failed:', error);
       return false;
     } finally {
       setIsLoading(false);
@@ -110,6 +134,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('superAdminToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('companyId');
   };
 
   const value: AuthContextType = {
@@ -118,7 +145,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isLoading,
     login,
     logout,
-    isAuthenticated: !!token && !!user
+    isAuthenticated: !!token && !!user,
+    validateToken
   };
 
   return (

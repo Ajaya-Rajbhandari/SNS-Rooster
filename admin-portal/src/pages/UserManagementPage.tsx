@@ -28,7 +28,6 @@ import {
   Edit as EditIcon, 
   Delete as DeleteIcon, 
   LockReset as ResetIcon,
-  LockOpen as UnlockIcon,
   ExpandMore as ExpandMoreIcon,
   Business as BusinessIcon,
   People as PeopleIcon
@@ -78,6 +77,7 @@ interface UsersResponse {
 const UserManagementPage: React.FC = () => {
   // const [unlockLoading, setUnlockLoading] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
   const [companyGroups, setCompanyGroups] = useState<CompanyGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -91,21 +91,41 @@ const UserManagementPage: React.FC = () => {
     password: '',
     userEmail: ''
   });
+  const [bulkTransferDialog, setBulkTransferDialog] = useState<{ open: boolean; fromCompany: string; toCompany: string }>({
+    open: false,
+    fromCompany: '',
+    toCompany: ''
+  });
+  const [bulkTransferLoading, setBulkTransferLoading] = useState(false);
 
   useEffect(() => {
     fetchUsers();
+    fetchCompanies();
   }, []);
 
   useEffect(() => {
     groupUsersByCompany();
-  }, [users]);
+  }, [users, companies]);
+
+  const fetchCompanies = async () => {
+    try {
+      console.log('Fetching companies...');
+      const data = await apiService.get<any>('/api/super-admin/companies?limit=1000');
+      console.log('Companies response:', data);
+      setCompanies(data.companies || []);
+    } catch (err: any) {
+      console.error('Error fetching companies:', err);
+      console.error('Error response:', err.response?.data);
+    }
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
     setError('');
     try {
       console.log('Fetching users...');
-      const data = await apiService.get<UsersResponse>('/api/super-admin/users');
+      // Fetch all users without pagination for user management view
+      const data = await apiService.get<UsersResponse>('/api/super-admin/users?limit=1000');
       console.log('Users response:', data);
       setUsers(data.users || []);
     } catch (err: any) {
@@ -120,8 +140,29 @@ const UserManagementPage: React.FC = () => {
   const groupUsersByCompany = () => {
     const groups: { [key: string]: CompanyGroup } = {};
     
-    // Group users by company
+    // First, add all companies (even those without users)
+    companies.forEach(company => {
+      if (company.status !== 'cancelled' && company.status !== 'expired') {
+        groups[company._id] = {
+          company: {
+            _id: company._id,
+            name: company.name,
+            domain: company.domain
+          },
+          users: [],
+          employeeCount: 0,
+          adminCount: 0
+        };
+      }
+    });
+    
+    // Group users by company (excluding super admin users)
     users.forEach(user => {
+      // Skip super admin users - they should not be managed through this interface
+      if (user.role === 'super_admin') {
+        return;
+      }
+      
       const companyId = user.companyId?._id || 'no-company';
       const companyName = user.companyId?.name || 'No Company';
       const companyDomain = user.companyId?.domain || 'N/A';
@@ -283,6 +324,42 @@ const UserManagementPage: React.FC = () => {
     setSuccessMessage('');
   };
 
+  const handleBulkTransfer = async (fromCompanyId: string, toCompanyId: string) => {
+    setBulkTransferLoading(true);
+    setError('');
+    try {
+      // Get all users from the source company
+      const sourceCompanyUsers = users.filter(user => 
+        user.companyId?._id === fromCompanyId && user.role !== 'super_admin'
+      );
+
+      if (sourceCompanyUsers.length === 0) {
+        setError('No users found in the source company');
+        return;
+      }
+
+      // Transfer each user to the target company
+      const transferPromises = sourceCompanyUsers.map(user =>
+        apiService.put(`/api/super-admin/users/${user._id}`, {
+          companyId: toCompanyId
+        })
+      );
+
+      await Promise.all(transferPromises);
+      
+      setSuccessMessage(`Successfully transferred ${sourceCompanyUsers.length} users from ${sourceCompanyUsers[0]?.companyId?.name || 'Default Company'} to SNS Tech Services`);
+      
+      // Refresh the user list
+      await fetchUsers();
+      
+      setBulkTransferDialog({ open: false, fromCompany: '', toCompany: '' });
+    } catch (err: any) {
+      setError(`Failed to transfer users: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setBulkTransferLoading(false);
+    }
+  };
+
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'super_admin': return '#d32f2f';
@@ -312,8 +389,11 @@ const UserManagementPage: React.FC = () => {
     <Layout>
       <Container maxWidth="lg">
         <Box my={4}>
-          <Typography variant="h4" gutterBottom>User Management</Typography>
-          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+          <Typography variant="h4" gutterBottom>Company User Management</Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+            Manage users across all companies. Super admin users are not shown in this interface.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
             <Button 
               variant="contained" 
               startIcon={<AddIcon />} 
@@ -335,6 +415,30 @@ const UserManagementPage: React.FC = () => {
               }}
             >
               Test Connection
+            </Button>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={() => {
+                const defaultCompany = companyGroups.find(group => 
+                  group.company.name.toLowerCase().includes('default')
+                );
+                const snsCompany = companyGroups.find(group => 
+                  group.company.name.toLowerCase().includes('sns tech')
+                );
+                
+                if (defaultCompany && snsCompany) {
+                  setBulkTransferDialog({
+                    open: true,
+                    fromCompany: defaultCompany.company._id,
+                    toCompany: snsCompany.company._id
+                  });
+                } else {
+                  setError('Default Company or SNS Tech Services not found');
+                }
+              }}
+            >
+              Move Default Company Users to SNS Tech
             </Button>
           </Box>
         </Box>
@@ -551,6 +655,41 @@ const UserManagementPage: React.FC = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setPasswordDialog({ ...passwordDialog, open: false })}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Bulk Transfer Dialog */}
+        <Dialog
+          open={bulkTransferDialog.open}
+          onClose={() => setBulkTransferDialog({ ...bulkTransferDialog, open: false })}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Bulk Transfer Users</DialogTitle>
+          <DialogContent>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              Are you sure you want to move all users from <strong>Default Company</strong> to <strong>SNS Tech Services</strong>?
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              This action will transfer all users (admins and employees) from Default Company to SNS Tech Services. 
+              This action cannot be undone.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button 
+              onClick={() => setBulkTransferDialog({ ...bulkTransferDialog, open: false })}
+              disabled={bulkTransferLoading}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => handleBulkTransfer(bulkTransferDialog.fromCompany, bulkTransferDialog.toCompany)}
+              variant="contained"
+              color="secondary"
+              disabled={bulkTransferLoading}
+            >
+              {bulkTransferLoading ? 'Transferring...' : 'Confirm Transfer'}
+            </Button>
           </DialogActions>
         </Dialog>
       </Container>

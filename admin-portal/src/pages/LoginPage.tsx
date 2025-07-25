@@ -39,19 +39,14 @@ const LoginPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      console.log('Attempting login with:', { email, password });
       const success = await login(email, password);
-      console.log('Login result:', success);
       
       if (success) {
-        console.log('Login successful, navigating to dashboard...');
         navigate('/dashboard');
       } else {
-        console.log('Login failed');
         setError('Invalid email or password');
       }
     } catch (err) {
-      console.error('Login error:', err);
       setError('Login failed. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -202,6 +197,23 @@ const LoginPage: React.FC = () => {
                 'Sign In'
               )}
             </Button>
+
+            <Box sx={{ mt: 2, textAlign: 'center' }}>
+              <Button
+                variant="text"
+                size="small"
+                onClick={() => navigate('/forgot-password')}
+                sx={{
+                  color: 'primary.main',
+                  textTransform: 'none',
+                  '&:hover': {
+                    textDecoration: 'underline',
+                  }
+                }}
+              >
+                Forgot Password?
+              </Button>
+            </Box>
           </Box>
 
           <Divider sx={{ width: '100%', my: 3 }}>

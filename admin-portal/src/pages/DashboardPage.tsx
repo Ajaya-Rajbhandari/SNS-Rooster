@@ -3,11 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
-  Grid,
   Paper,
   Button,
-  Card,
-  CardContent,
   List,
   ListItem,
   ListItemText,
@@ -16,8 +13,7 @@ import {
   Chip,
   Divider,
   Alert,
-  CircularProgress,
-  useTheme
+  CircularProgress
 } from '@mui/material';
 import {
   Business as BusinessIcon,
@@ -25,10 +21,8 @@ import {
   Subscriptions as SubscriptionsIcon,
   TrendingUp as TrendingUpIcon,
   Notifications as NotificationsIcon,
-  Schedule as ScheduleIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
-  Error as ErrorIcon,
   ArrowForward as ArrowForwardIcon
 } from '@mui/icons-material';
 import Layout from '../components/Layout';
@@ -66,7 +60,6 @@ const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const theme = useTheme();
 
   useEffect(() => {
     fetchDashboardData();

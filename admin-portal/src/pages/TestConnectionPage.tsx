@@ -6,7 +6,8 @@ import {
   Paper,
   Alert,
   CircularProgress,
-  Container
+  Container,
+  TextField
 } from '@mui/material';
 import apiService from '../services/apiService';
 
@@ -14,20 +15,25 @@ const TestConnectionPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string>('');
+  const [testEmail, setTestEmail] = useState('');
+  const [testPassword, setTestPassword] = useState('');
 
   const testLogin = async () => {
+    if (!testEmail || !testPassword) {
+      setError('Please enter test credentials');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setResult(null);
 
     try {
-      console.log('Testing login...');
       const response = await apiService.post('/api/auth/login', {
-        email: 'superadmin@snstechservices.com.au',
-        password: 'SuperAdmin@123'
+        email: testEmail,
+        password: testPassword
       });
 
-      console.log('Login response:', response);
       setResult({
         type: 'login',
         data: response,
@@ -37,21 +43,17 @@ const TestConnectionPage: React.FC = () => {
       // Test subscription plans with the token
       if ((response as any).token) {
         try {
-          console.log('Testing subscription plans...');
           const plansResponse = await apiService.get('/api/super-admin/subscription-plans');
-          console.log('Plans response:', plansResponse);
           setResult({
             type: 'plans',
             data: plansResponse,
             success: true
           });
         } catch (plansError: any) {
-          console.error('Plans error:', plansError);
           setError(`Plans error: ${plansError.response?.data?.message || plansError.message}`);
         }
       }
     } catch (err: any) {
-      console.error('Login error:', err);
       setError(`Login error: ${err.response?.data?.message || err.message}`);
     } finally {
       setLoading(false);
@@ -64,16 +66,13 @@ const TestConnectionPage: React.FC = () => {
     setResult(null);
 
     try {
-      console.log('Testing subscription plans directly...');
       const response = await apiService.get('/api/super-admin/subscription-plans');
-      console.log('Plans response:', response);
       setResult({
         type: 'plans',
         data: response,
         success: true
       });
     } catch (err: any) {
-      console.error('Plans error:', err);
       setError(`Plans error: ${err.response?.data?.message || err.message}`);
     } finally {
       setLoading(false);
@@ -105,8 +104,26 @@ const TestConnectionPage: React.FC = () => {
         
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            Test Steps
+            Test Credentials
           </Typography>
+          
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
+            <TextField
+              fullWidth
+              label="Test Email"
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              placeholder="Enter test email"
+            />
+            <TextField
+              fullWidth
+              label="Test Password"
+              type="password"
+              value={testPassword}
+              onChange={(e) => setTestPassword(e.target.value)}
+              placeholder="Enter test password"
+            />
+          </Box>
           
           <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
             <Button
@@ -120,7 +137,7 @@ const TestConnectionPage: React.FC = () => {
             <Button
               variant="contained"
               onClick={testLogin}
-              disabled={loading}
+              disabled={loading || !testEmail || !testPassword}
             >
               Test Login
             </Button>
@@ -169,7 +186,7 @@ const TestConnectionPage: React.FC = () => {
             1. <strong>Check Auth Token</strong> - Verify if you're logged in
           </Typography>
           <Typography variant="body2" paragraph>
-            2. <strong>Test Login</strong> - Login as super admin and test subscription plans
+            2. <strong>Test Login</strong> - Login with test credentials and test subscription plans
           </Typography>
           <Typography variant="body2" paragraph>
             3. <strong>Test Plans</strong> - Test subscription plans with existing token

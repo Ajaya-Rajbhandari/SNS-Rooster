@@ -4,17 +4,23 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import SuperAdminRoute from './components/SuperAdminRoute';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import CompanyManagementPage from './pages/CompanyManagementPage';
 import SubscriptionPlanManagementPage from './pages/SubscriptionPlanManagementPage';
 import TestConnectionPage from './pages/TestConnectionPage';
 import UserManagementPage from './pages/UserManagementPage';
+import ChangePasswordPage from './pages/ChangePasswordPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import ResetPasswordWithCodePage from './pages/ResetPasswordWithCodePage';
+import AnalyticsPage from './pages/AnalyticsPage';
+import MonitoringPage from './pages/MonitoringPage';
+import SettingsPage from './pages/SettingsPage';
 
 // Placeholder components
 const NotFoundPage = () => <div>404 - Page Not Found</div>;
-const AnalyticsPage = () => <div>Analytics - Coming Soon</div>;
-const SettingsPage = () => <div>Settings - Coming Soon</div>;
 
 // Create a modern theme
 const theme = createTheme({
@@ -71,6 +77,9 @@ function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/reset-password-code" element={<ResetPasswordWithCodePage />} />
             <Route path="/test" element={<TestConnectionPage />} />
             <Route 
               path="/dashboard" 
@@ -83,40 +92,56 @@ function App() {
             <Route 
               path="/companies" 
               element={
-                <ProtectedRoute>
+                <SuperAdminRoute>
                   <CompanyManagementPage />
-                </ProtectedRoute>
+                </SuperAdminRoute>
               } 
             />
             <Route 
               path="/subscription-plans" 
               element={
-                <ProtectedRoute>
+                <SuperAdminRoute>
                   <SubscriptionPlanManagementPage />
-                </ProtectedRoute>
+                </SuperAdminRoute>
               } 
             />
             <Route 
               path="/users" 
               element={
-                <ProtectedRoute>
+                <SuperAdminRoute>
                   <UserManagementPage />
-                </ProtectedRoute>
+                </SuperAdminRoute>
               } 
             />
             <Route 
               path="/analytics" 
               element={
-                <ProtectedRoute>
+                <SuperAdminRoute>
                   <AnalyticsPage />
-                </ProtectedRoute>
+                </SuperAdminRoute>
+              } 
+            />
+            <Route 
+              path="/monitoring" 
+              element={
+                <SuperAdminRoute>
+                  <MonitoringPage />
+                </SuperAdminRoute>
               } 
             />
             <Route 
               path="/settings" 
               element={
-                <ProtectedRoute>
+                <SuperAdminRoute>
                   <SettingsPage />
+                </SuperAdminRoute>
+              } 
+            />
+            <Route 
+              path="/change-password" 
+              element={
+                <ProtectedRoute>
+                  <ChangePasswordPage />
                 </ProtectedRoute>
               } 
             />

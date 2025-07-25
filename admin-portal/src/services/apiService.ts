@@ -59,11 +59,19 @@ apiClient.interceptors.response.use(
           return apiClient(originalRequest);
         }
       } catch (refreshError) {
-        // Refresh failed, redirect to login
+        // Refresh failed, clear auth data but don't redirect
         localStorage.removeItem('authToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('companyId');
-        window.location.href = '/login';
+        localStorage.removeItem('superAdminToken');
+        localStorage.removeItem('user');
+        
+        // Let the component handle the redirect
+        return Promise.reject({
+          ...error,
+          isAuthError: true,
+          message: 'Authentication failed. Please login again.'
+        });
       }
     }
     
