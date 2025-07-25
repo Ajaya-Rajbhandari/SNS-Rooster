@@ -4,14 +4,20 @@ class EmailService {
   constructor() {
     this.transporter = null;
     this.resend = null;
-    this.emailProvider = process.env.EMAIL_PROVIDER || 'smtp';
+    this.emailProvider = process.env.EMAIL_PROVIDER || 'development';
     this.initializeTransporter();
   }
 
   async initializeTransporter() {
     const emailProvider = this.emailProvider;
+    console.log(`📧 Initializing email service with provider: ${emailProvider}`);
+    
     try {
       switch (emailProvider.toLowerCase()) {
+        case 'development':
+          console.log('🟢 Development mode - Emails will be logged to console');
+          this.transporter = null;
+          break;
         case 'resend':
           if (!Resend) {
             throw new Error('Resend SDK not installed. Run `npm install resend`.');
@@ -116,6 +122,40 @@ class EmailService {
     } catch (error) {
       console.error('❌ Email service initialization failed:', error.message);
       console.warn('📧 Emails will be logged to console in development mode');
+      console.log('🔧 To configure email service, set the following environment variables:');
+      console.log('   EMAIL_PROVIDER=development|smtp|gmail|sendgrid|mailgun|ses|outlook');
+      console.log('   EMAIL_FROM=your-email@domain.com');
+      
+      // Show specific configuration based on provider
+      switch (emailProvider.toLowerCase()) {
+        case 'smtp':
+          console.log('   SMTP_HOST=smtp.example.com');
+          console.log('   SMTP_USER=your-email@example.com');
+          console.log('   SMTP_PASS=your-password');
+          console.log('   SMTP_PORT=587 (optional)');
+          break;
+        case 'gmail':
+          console.log('   GMAIL_USER=your-gmail@gmail.com');
+          console.log('   GMAIL_APP_PASSWORD=your-app-password');
+          break;
+        case 'sendgrid':
+          console.log('   SENDGRID_API_KEY=your-sendgrid-api-key');
+          break;
+        case 'mailgun':
+          console.log('   MAILGUN_SMTP_LOGIN=your-mailgun-login');
+          console.log('   MAILGUN_SMTP_PASSWORD=your-mailgun-password');
+          break;
+        case 'ses':
+          console.log('   AWS_SES_ACCESS_KEY_ID=your-aws-access-key');
+          console.log('   AWS_SES_SECRET_ACCESS_KEY=your-aws-secret-key');
+          console.log('   AWS_REGION=us-east-1 (optional)');
+          break;
+        case 'outlook':
+          console.log('   OUTLOOK_EMAIL=your-outlook@outlook.com');
+          console.log('   OUTLOOK_PASSWORD=your-outlook-password');
+          break;
+      }
+      
       this.transporter = null;
     }
   }
@@ -128,6 +168,28 @@ class EmailService {
       html: htmlContent,
       text: textContent || undefined,
     };
+
+    // Check if transporter is available
+    if (!this.transporter) {
+      // In development mode, log the email instead of sending
+      if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+        console.log('\n📧 EMAIL WOULD BE SENT (Development Mode):');
+        console.log('To:', to);
+        console.log('Subject:', subject);
+        console.log('From:', mailOptions.from);
+        console.log('HTML Content Length:', htmlContent.length, 'characters');
+        console.log('📧 END EMAIL LOG\n');
+        
+        // Return a mock success response
+        return Promise.resolve({
+          messageId: 'dev-' + Date.now(),
+          response: 'Email logged to console (development mode)'
+        });
+      } else {
+        throw new Error('Email service not configured. Please set up email environment variables.');
+      }
+    }
+
     return this.transporter.sendMail(mailOptions);
   }
 
@@ -136,6 +198,14 @@ class EmailService {
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/#/reset-password?token=${resetToken}`;
     const subject = 'Password Reset Request - SNS Rooster HR';
     const htmlContent = this.getPasswordResetTemplate(user, resetUrl);
+    return this.sendEmail(user.email, subject, htmlContent);
+  }
+
+  // Super Admin password reset
+  async sendSuperAdminPasswordResetEmail(user, resetToken) {
+    const resetUrl = `${process.env.ADMIN_PORTAL_URL || 'http://localhost:3001'}/reset-password?token=${resetToken}`;
+    const subject = 'Super Admin Password Reset - SNS Rooster Admin Portal';
+    const htmlContent = this.getSuperAdminPasswordResetTemplate(user, resetUrl);
     return this.sendEmail(user.email, subject, htmlContent);
   }
 
@@ -176,6 +246,66 @@ class EmailService {
             </div>
             <div class="footer">
                 <p>&copy; 2024 SNS Rooster HR System. All rights reserved.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+  }
+
+  getSuperAdminPasswordResetTemplate(user, resetUrl) {
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Super Admin Password Reset</title>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #1976d2; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px 20px; background: #f9f9f9; }
+            .button { display: inline-block; padding: 12px 30px; background: #1976d2; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+            .footer { padding: 20px; text-align: center; color: #666; font-size: 12px; }
+            .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            .admin-notice { background: #e3f2fd; border: 1px solid #bbdefb; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Super Admin Password Reset</h1>
+                <p>SNS Rooster Admin Portal</p>
+            </div>
+            <div class="content">
+                <h2>Hello ${user.firstName || user.email},</h2>
+                <p>We received a request to reset your password for the SNS Rooster Admin Portal.</p>
+                
+                <div class="admin-notice">
+                    <strong>Admin Portal Access:</strong> This reset link is for the Super Admin Portal only. 
+                    If you need to reset your password for the main SNS Rooster application, please use the main app's forgot password feature.
+                </div>
+                
+                <div class="warning">
+                    <strong>Security Notice:</strong> If you did not request this password reset, please ignore this email or contact support immediately.
+                </div>
+                
+                <p>Click the button below to reset your password:</p>
+                <a href="${resetUrl}" class="button">Reset Super Admin Password</a>
+                
+                <p>Or copy and paste this link into your browser:</p>
+                <p style="word-break: break-all; color: #1976d2;">${resetUrl}</p>
+                
+                <p><strong>This link will expire in 1 hour for security reasons.</strong></p>
+                
+                <p>After resetting your password, you can access the admin portal at:</p>
+                <p style="color: #1976d2; font-weight: bold;">${process.env.ADMIN_PORTAL_URL || 'http://localhost:3001'}</p>
+                
+                <p>If you have any questions or did not request this, please contact support immediately.</p>
+            </div>
+            <div class="footer">
+                <p>&copy; 2024 SNS Rooster Admin Portal. All rights reserved.</p>
+                <p>This is a restricted access portal for authorized administrators only.</p>
             </div>
         </div>
     </body>

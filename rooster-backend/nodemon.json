@@ -1,0 +1,44 @@
+{
+  "watch": [
+    "server.js",
+    "app.js",
+    "routes/",
+    "controllers/",
+    "middleware/",
+    "models/",
+    "services/",
+    "config/"
+  ],
+  "ignore": [
+    "node_modules/",
+    "logs/",
+    "uploads/",
+    "exports/",
+    "tests/",
+    "test*.js",
+    "*.test.js",
+    "*.spec.js",
+    "debug-*.js",
+    "check-*.js",
+    "fix-*.js",
+    "verify-*.js",
+    "update-*.js",
+    "assign-*.js",
+    "reset-*.js",
+    "setup-*.js",
+    "simple-*.js",
+    "gcs*.js",
+    "list*.js",
+    "generate*.js",
+    "*.bat",
+    "*.md",
+    "package-lock.json",
+    ".gitignore",
+    ".qodo/"
+  ],
+  "ext": "js,json",
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "delay": 1000
+} 

@@ -4,9 +4,17 @@ const { authenticateToken } = require('../middleware/auth');
 const { requireSuperAdmin, requirePermission } = require('../middleware/superAdmin');
 const SuperAdminController = require('../controllers/super-admin-controller');
 
-// All routes require super admin authentication
+// Security middleware
+const {
+  superAdminLimiter,
+  validateCompanyCreation,
+  handleValidationErrors
+} = require('../middleware/security');
+
+// All routes require super admin authentication and rate limiting
 router.use(authenticateToken);
 router.use(requireSuperAdmin);
+router.use(superAdminLimiter);
 
 // ===== COMPANY MANAGEMENT =====
 
@@ -19,6 +27,8 @@ router.get('/companies',
 // Create new company
 router.post('/companies', 
   requirePermission('manageCompanies'), 
+  validateCompanyCreation,
+  handleValidationErrors,
   SuperAdminController.createCompany
 );
 
@@ -38,6 +48,12 @@ router.put('/companies/:companyId/subscription-plan',
 router.delete('/companies/:companyId', 
   requirePermission('manageCompanies'), 
   SuperAdminController.deleteCompany
+);
+
+// Hard delete company (for development/testing)
+router.delete('/companies/:companyId/hard', 
+  requirePermission('manageCompanies'), 
+  SuperAdminController.hardDeleteCompany
 );
 
 // ===== SUBSCRIPTION MANAGEMENT =====
@@ -110,6 +126,44 @@ router.get('/system/overview',
 router.get('/dashboard/stats', 
   requirePermission('viewAnalytics'), 
   SuperAdminController.getDashboardStats
+);
+
+// Get comprehensive analytics data
+router.get('/analytics', 
+  requirePermission('viewAnalytics'), 
+  SuperAdminController.getAnalytics
+);
+
+// Get advanced user activity analytics
+router.get('/analytics/user-activity', 
+  requirePermission('viewAnalytics'), 
+  SuperAdminController.getUserActivityAnalytics
+);
+
+// Get company performance metrics
+router.get('/analytics/company-performance', 
+  requirePermission('viewAnalytics'), 
+  SuperAdminController.getCompanyPerformanceMetrics
+);
+
+// Generate custom reports
+router.post('/analytics/reports', 
+  requirePermission('viewAnalytics'), 
+  SuperAdminController.generateCustomReport
+);
+
+// ===== SYSTEM SETTINGS =====
+
+// Get system settings
+router.get('/settings', 
+  requirePermission('systemSettings'), 
+  SuperAdminController.getSettings
+);
+
+// Update system settings
+router.put('/settings', 
+  requirePermission('systemSettings'), 
+  SuperAdminController.updateSettings
 );
 
 module.exports = router; 

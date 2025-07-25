@@ -41,7 +41,7 @@ async function createAdminUsersForCompanies() {
 
       // Create admin user for this company
       const adminEmail = `admin@${company.domain}.com`;
-      const adminPassword = 'Admin@123'; // Default password
+      const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'Admin@123'; // Use environment variable
       
       console.log(`📝 Creating admin user for ${company.name}:`);
       console.log(`   Email: ${adminEmail}`);

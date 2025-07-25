@@ -6,12 +6,34 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
+
+// Security middleware
+const {
+  helmetConfig,
+  apiLimiter,
+  authValidationLimiter,
+  validateEnvironmentVariables
+} = require('./middleware/security');
+
+// Error tracking middleware
+const {
+  errorTrackingMiddleware,
+  performanceTrackingMiddleware
+} = require('./middleware/errorTracking');
+
+// Performance optimization middleware
+const {
+  compressionMiddleware,
+  performanceMonitor,
+  cacheMiddleware
+} = require('./middleware/performance');
 const authRoutes = require('./routes/authRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const adminAttendanceRoutes = require('./routes/adminAttendanceRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const payrollRoutes = require('./routes/payrollRoutes');
 const leaveRoutes = require('./routes/leaveRoutes');
+const dataExportRoutes = require('./routes/dataExportRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const adminSettingsRoutes = require('./routes/adminSettingsRoutes');
@@ -20,6 +42,7 @@ const eventRoutes = require('./routes/event-routes');
 const companyRoutes = require('./routes/companyRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
 const trialRoutes = require('./routes/trialRoutes');
+const healthRoutes = require('./routes/healthRoutes');
 
 // Enterprise Features Routes
 const locationRoutes = require('./routes/locationRoutes');
@@ -27,9 +50,21 @@ const expenseRoutes = require('./routes/expenseRoutes');
 const performanceRoutes = require('./routes/performanceRoutes');
 const trainingRoutes = require('./routes/trainingRoutes');
 
+// Performance monitoring routes
+const performanceMonitoringRoutes = require('./routes/performanceRoutes');
+
+// Mobile optimization routes
+const mobileOptimizationRoutes = require('./routes/mobileOptimizationRoutes');
+
+// Monitoring routes
+const monitoringRoutes = require('./routes/monitoringRoutes');
+
 const app = express();
 
-// Middleware
+// Validate environment variables on startup
+validateEnvironmentVariables();
+
+// CORS middleware (must be before security middleware for preflight requests)
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
@@ -59,7 +94,25 @@ app.use(cors({
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true, // Only needed if you use cookies/auth
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'companyId']
 }));
+
+// Security middleware (apply after CORS)
+app.use(helmetConfig);
+
+// Rate limiting for all API routes (but not for OPTIONS requests)
+app.use('/api', (req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    return next(); // Skip rate limiting for preflight requests
+  }
+  return apiLimiter(req, res, next);
+});
+
+// Performance optimization middleware
+app.use(compressionMiddleware);
+app.use(performanceMonitor);
+app.use(performanceTrackingMiddleware);
 app.use(express.json()); // For parsing application/json
 app.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
 
@@ -72,6 +125,9 @@ mongoose.connect(MONGODB_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch((err) => console.error('MongoDB connection error:', err));
 
+// Health check routes (no rate limiting, with caching)
+app.use('/health', cacheMiddleware(60), healthRoutes); // Cache health checks for 1 minute
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/attendance', attendanceRoutes);
@@ -79,8 +135,9 @@ app.use('/api/admin', adminAttendanceRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/leave', leaveRoutes);
+app.use('/api/export', dataExportRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/analytics', analyticsRoutes);
+app.use('/api/analytics', cacheMiddleware(300), analyticsRoutes); // Cache analytics for 5 minutes
 app.use('/api/admin/settings', adminSettingsRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/super-admin', superAdminRoutes);
@@ -94,10 +151,22 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/performance', performanceRoutes);
 app.use('/api/training', trainingRoutes);
 
+// Performance monitoring routes
+app.use('/api/performance-monitoring', performanceMonitoringRoutes);
+
+// Mobile optimization routes
+app.use('/api/mobile', mobileOptimizationRoutes);
+
+// Monitoring routes
+app.use('/api/monitoring', monitoringRoutes);
+
 // Basic route for testing
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to SNS Rooster API' });
 });
+
+// Error tracking middleware (must be before error handling)
+app.use(errorTrackingMiddleware);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

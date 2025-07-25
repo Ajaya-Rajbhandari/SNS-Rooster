@@ -2,7 +2,7 @@ const axios = require('axios');
 
 const BASE_URL = 'http://localhost:5000';
 const SUPER_ADMIN_EMAIL = 'superadmin@snstechservices.com.au';
-const SUPER_ADMIN_PASSWORD = 'SuperAdmin@123';
+const SUPER_ADMIN_PASSWORD = process.env.DEFAULT_SUPER_ADMIN_PASSWORD || 'SuperAdmin@123';
 
 async function createDistinctiveUser() {
   try {
@@ -31,7 +31,7 @@ async function createDistinctiveUser() {
     // Step 3: Create a very distinctive test user
     console.log('3. Creating distinctive test user...');
     const testEmail = `testuser${Date.now()}@example.com`;
-    const simplePassword = 'Test123!';
+    const simplePassword = process.env.DEFAULT_TEST_PASSWORD || 'Test123!';
     
     const createUserResponse = await axios.post(`${BASE_URL}/api/super-admin/users`, {
       firstName: 'TEST_USER',

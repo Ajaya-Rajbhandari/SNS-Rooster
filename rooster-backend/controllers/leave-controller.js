@@ -355,3 +355,411 @@ exports.rejectLeaveRequest = async (req, res) => {
     res.status(500).json({ message: 'Error rejecting leave request.' });
   }
 };
+
+// ===== PHASE 2 ENHANCEMENTS =====
+
+// Get leave policies for the company
+exports.getLeavePolicies = async (req, res) => {
+  try {
+    // Default leave policies (can be customized per company)
+    const policies = {
+      annual: {
+        name: 'Annual Leave',
+        daysPerYear: 12,
+        description: 'Paid annual leave for vacation and personal time',
+        requiresApproval: true,
+        maxConsecutiveDays: 30,
+        advanceNotice: 7 // days
+      },
+      sick: {
+        name: 'Sick Leave',
+        daysPerYear: 10,
+        description: 'Paid sick leave for medical reasons',
+        requiresApproval: false,
+        maxConsecutiveDays: 14,
+        advanceNotice: 0
+      },
+      casual: {
+        name: 'Casual Leave',
+        daysPerYear: 5,
+        description: 'Short-term leave for personal matters',
+        requiresApproval: true,
+        maxConsecutiveDays: 3,
+        advanceNotice: 1
+      },
+      maternity: {
+        name: 'Maternity Leave',
+        daysPerYear: 90,
+        description: 'Maternity leave for expecting mothers',
+        requiresApproval: true,
+        maxConsecutiveDays: 90,
+        advanceNotice: 30
+      },
+      paternity: {
+        name: 'Paternity Leave',
+        daysPerYear: 10,
+        description: 'Paternity leave for new fathers',
+        requiresApproval: true,
+        maxConsecutiveDays: 10,
+        advanceNotice: 14
+      },
+      unpaid: {
+        name: 'Unpaid Leave',
+        daysPerYear: 0,
+        description: 'Unpaid leave for extended absences',
+        requiresApproval: true,
+        maxConsecutiveDays: 60,
+        advanceNotice: 14
+      }
+    };
+
+    res.json(policies);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching leave policies.', error: error.message });
+  }
+};
+
+// Get leave calendar data for a specific month
+exports.getLeaveCalendar = async (req, res) => {
+  try {
+    const { year, month, employeeId } = req.query;
+    
+    if (!year || !month) {
+      return res.status(400).json({ message: 'Year and month are required.' });
+    }
+
+    const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+    const endDate = new Date(parseInt(year), parseInt(month), 0);
+
+    let query = {
+      companyId: req.companyId,
+      status: 'Approved',
+      $or: [
+        { startDate: { $lte: endDate, $gte: startDate } },
+        { endDate: { $gte: startDate, $lte: endDate } },
+        { startDate: { $lte: startDate }, endDate: { $gte: endDate } }
+      ]
+    };
+
+    // Filter by employee if specified
+    if (employeeId) {
+      const employee = await Employee.findOne({ _id: employeeId, companyId: req.companyId });
+      if (employee) {
+        query.employee = employeeId;
+      }
+    }
+
+    const leaves = await Leave.find(query)
+      .populate('employee', 'firstName lastName department')
+      .populate('user', 'firstName lastName');
+
+    const calendarData = leaves.map(leave => {
+      const person = leave.employee || leave.user;
+      return {
+        id: leave._id,
+        title: `${person?.firstName || ''} ${person?.lastName || ''}`,
+        start: leave.startDate,
+        end: leave.endDate,
+        leaveType: leave.leaveType,
+        department: leave.employee?.department || 'Administration',
+        role: leave.user ? 'admin' : 'employee',
+        color: getLeaveTypeColor(leave.leaveType)
+      };
+    });
+
+    res.json(calendarData);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching leave calendar.', error: error.message });
+  }
+};
+
+// Bulk approve/reject leave requests
+exports.bulkUpdateLeaveRequests = async (req, res) => {
+  try {
+    const { leaveIds, action, reason } = req.body;
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+
+    if (userRole !== 'admin') {
+      return res.status(403).json({ message: 'Only admins can perform bulk operations.' });
+    }
+
+    if (!leaveIds || !Array.isArray(leaveIds) || leaveIds.length === 0) {
+      return res.status(400).json({ message: 'Leave IDs array is required.' });
+    }
+
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ message: 'Action must be either "approve" or "reject".' });
+    }
+
+    const updateData = {
+      status: action === 'approve' ? 'Approved' : 'Rejected'
+    };
+
+    if (action === 'approve') {
+      updateData.approvedBy = userId;
+      updateData.approvedAt = new Date();
+    }
+
+    const result = await Leave.updateMany(
+      { 
+        _id: { $in: leaveIds },
+        companyId: req.companyId,
+        status: 'Pending'
+      },
+      updateData
+    );
+
+    // Send notifications for updated leaves
+    const updatedLeaves = await Leave.find({ _id: { $in: leaveIds } })
+      .populate('employee')
+      .populate('user');
+
+    for (const leave of updatedLeaves) {
+      let recipientUserId;
+      let recipientName = '';
+
+      if (leave.employee) {
+        const employee = await Employee.findById(leave.employee);
+        recipientUserId = employee?.userId;
+        recipientName = `${employee?.firstName || ''} ${employee?.lastName || ''}`.trim();
+      } else if (leave.user) {
+        recipientUserId = leave.user._id;
+        recipientName = `${leave.user?.firstName || ''} ${leave.user?.lastName || ''}`.trim();
+      }
+
+      if (recipientUserId) {
+        const notification = new Notification({
+          user: recipientUserId,
+          title: `Leave Request ${action === 'approve' ? 'Approved' : 'Rejected'}`,
+          message: `Your leave request from ${leave.startDate.toDateString()} to ${leave.endDate.toDateString()} has been ${action === 'approve' ? 'approved' : 'rejected'}.`,
+          type: action === 'approve' ? 'info' : 'alert',
+          link: '/leave_request',
+          isRead: false,
+          companyId: req.companyId,
+        });
+        await notification.save();
+      }
+    }
+
+    res.json({
+      message: `Successfully ${action}d ${result.modifiedCount} leave requests.`,
+      updatedCount: result.modifiedCount
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error performing bulk operation.', error: error.message });
+  }
+};
+
+// Get leave statistics and analytics
+exports.getLeaveStatistics = async (req, res) => {
+  try {
+    const { year, department } = req.query;
+    const currentYear = year || new Date().getFullYear();
+
+    let matchQuery = {
+      companyId: req.companyId,
+      appliedAt: {
+        $gte: new Date(currentYear, 0, 1),
+        $lt: new Date(currentYear + 1, 0, 1)
+      }
+    };
+
+    if (department) {
+      // Get employees in the specified department
+      const employees = await Employee.find({ 
+        companyId: req.companyId, 
+        department: department 
+      }).select('_id');
+      const employeeIds = employees.map(emp => emp._id);
+      matchQuery.$or = [
+        { employee: { $in: employeeIds } },
+        { user: { $exists: true } } // Include admin leaves
+      ];
+    }
+
+    const leaves = await Leave.aggregate([
+      { $match: matchQuery },
+      {
+        $lookup: {
+          from: 'employees',
+          localField: 'employee',
+          foreignField: '_id',
+          as: 'employeeData'
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user',
+          foreignField: '_id',
+          as: 'userData'
+        }
+      },
+      {
+        $addFields: {
+          department: {
+            $cond: {
+              if: { $gt: [{ $size: '$employeeData' }, 0] },
+              then: { $arrayElemAt: ['$employeeData.department', 0] },
+              else: 'Administration'
+            }
+          },
+          duration: {
+            $add: [
+              1,
+              {
+                $divide: [
+                  { $subtract: ['$endDate', '$startDate'] },
+                  1000 * 60 * 60 * 24
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            leaveType: '$leaveType',
+            status: '$status',
+            department: '$department'
+          },
+          count: { $sum: 1 },
+          totalDays: { $sum: '$duration' }
+        }
+      }
+    ]);
+
+    // Calculate summary statistics
+    const summary = {
+      totalRequests: 0,
+      approvedRequests: 0,
+      rejectedRequests: 0,
+      pendingRequests: 0,
+      totalDays: 0,
+      byLeaveType: {},
+      byDepartment: {},
+      byStatus: {}
+    };
+
+    leaves.forEach(item => {
+      const { leaveType, status, department } = item._id;
+      
+      summary.totalRequests += item.count;
+      summary.totalDays += item.totalDays;
+
+      // By status
+      summary.byStatus[status] = (summary.byStatus[status] || 0) + item.count;
+
+      // By leave type
+      if (!summary.byLeaveType[leaveType]) {
+        summary.byLeaveType[leaveType] = { count: 0, days: 0 };
+      }
+      summary.byLeaveType[leaveType].count += item.count;
+      summary.byLeaveType[leaveType].days += item.totalDays;
+
+      // By department
+      if (!summary.byDepartment[department]) {
+        summary.byDepartment[department] = { count: 0, days: 0 };
+      }
+      summary.byDepartment[department].count += item.count;
+      summary.byDepartment[department].days += item.totalDays;
+    });
+
+    summary.approvedRequests = summary.byStatus['Approved'] || 0;
+    summary.rejectedRequests = summary.byStatus['Rejected'] || 0;
+    summary.pendingRequests = summary.byStatus['Pending'] || 0;
+
+    res.json({
+      year: currentYear,
+      summary,
+      details: leaves
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching leave statistics.', error: error.message });
+  }
+};
+
+// Cancel leave request (for employees)
+exports.cancelLeaveRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+
+    const leave = await Leave.findById(id);
+    if (!leave) {
+      return res.status(404).json({ message: 'Leave request not found.' });
+    }
+
+    // Check if user owns this leave request
+    let isOwner = false;
+    if (userRole === 'admin' && leave.user && leave.user.toString() === userId) {
+      isOwner = true;
+    } else if (userRole === 'employee') {
+      const employee = await Employee.findOne({ userId: userId, companyId: req.companyId });
+      if (employee && leave.employee && leave.employee.toString() === employee._id.toString()) {
+        isOwner = true;
+      }
+    }
+
+    if (!isOwner) {
+      return res.status(403).json({ message: 'You can only cancel your own leave requests.' });
+    }
+
+    // Only allow cancellation of pending requests
+    if (leave.status !== 'Pending') {
+      return res.status(400).json({ message: 'Only pending leave requests can be cancelled.' });
+    }
+
+    // Check if leave starts within 24 hours
+    const now = new Date();
+    const leaveStart = new Date(leave.startDate);
+    const hoursUntilLeave = (leaveStart - now) / (1000 * 60 * 60);
+    
+    if (hoursUntilLeave < 24) {
+      return res.status(400).json({ message: 'Leave requests cannot be cancelled within 24 hours of start date.' });
+    }
+
+    await Leave.findByIdAndDelete(id);
+
+    // Notify admins about cancellation
+    const User = require('../models/User');
+    const adminUsers = await User.find({ 
+      role: 'admin', 
+      isActive: true,
+      companyId: req.companyId
+    });
+
+    for (const admin of adminUsers) {
+      const notification = new Notification({
+        user: admin._id,
+        title: 'Leave Request Cancelled',
+        message: `A leave request has been cancelled by ${req.user.firstName} ${req.user.lastName}.`,
+        type: 'info',
+        link: '/admin/leave_management',
+        isRead: false,
+        companyId: req.companyId,
+      });
+      await notification.save();
+    }
+
+    res.json({ message: 'Leave request cancelled successfully.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error cancelling leave request.', error: error.message });
+  }
+};
+
+// Helper function to get color for leave type
+function getLeaveTypeColor(leaveType) {
+  const colors = {
+    'Annual Leave': '#4CAF50',
+    'Sick Leave': '#F44336',
+    'Casual Leave': '#FF9800',
+    'Maternity Leave': '#E91E63',
+    'Paternity Leave': '#2196F3',
+    'Unpaid Leave': '#9E9E9E'
+  };
+  return colors[leaveType] || '#607D8B';
+}

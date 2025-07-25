@@ -1,10 +1,15 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const bcrypt = require('bcrypt');
+require('dotenv').config();
+
+// Use environment variable for MongoDB URI
+const MONGODB_URI = process.env.MONGODB_URI;
 
 async function forceCreateAdmin() {
   try {
     // Connect to MongoDB Atlas
-    await mongoose.connect('mongodb+srv://ajaya:ysjevCMEPSwMcCDl@cluster0.1ufkdju.mongodb.net/sns-rooster?retryWrites=true&w=majority&appName=Cluster0');
+    await mongoose.connect(MONGODB_URI);
     console.log('Connected to MongoDB');
 
     // Delete existing admin if any

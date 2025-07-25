@@ -26,7 +26,8 @@ async function resetAdminPassword() {
 
     // Hash the password manually (bypassing the pre-save middleware)
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash('Admin123!', salt);
+    const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'Admin123!';
+    const hashedPassword = await bcrypt.hash(defaultPassword, salt);
     
     // Update the password directly in the database to avoid double hashing
     await User.updateOne(
@@ -43,7 +44,8 @@ async function resetAdminPassword() {
 
     // Test password verification using the model method
     const updatedUser = await User.findById(user._id);
-    const isPasswordValid = await updatedUser.comparePassword('Admin123!');
+    const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'Admin123!';
+    const isPasswordValid = await updatedUser.comparePassword(defaultPassword);
     console.log(`Password verification test: ${isPasswordValid ? '✅ PASS' : '❌ FAIL'}`);
 
   } catch (error) {

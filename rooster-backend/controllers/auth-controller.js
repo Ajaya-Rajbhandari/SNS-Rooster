@@ -275,40 +275,61 @@ exports.requestPasswordReset = async (req, res) => {
 };
 
 exports.resetPassword = async (req, res) => {
-  console.log('RESET DEBUG: Entered resetPassword function');
-  const { token, newPassword, confirmPassword } = req.body;
-  if (!token || !newPassword || !confirmPassword) {
-    console.log('RESET DEBUG: Missing required fields', { token, newPassword, confirmPassword });
-    return res.status(400).json({ message: 'Token, new password, and confirm password are required.' });
-  }
-  if (newPassword !== confirmPassword) {
-    console.log('RESET DEBUG: Passwords do not match', { newPassword, confirmPassword });
-    return res.status(400).json({ message: 'Passwords do not match.' });
-  }
-  const user = await User.findOne({
-    resetPasswordToken: token,
-    resetPasswordExpires: { $gt: Date.now() }
-  });
-  console.log('RESET DEBUG: User found for token?', !!user, 'Token:', token);
-  if (!user) {
-    console.log('RESET DEBUG: No user found for token or token expired', { token });
-    return res.status(400).json({ message: 'Invalid or expired reset code.' });
-  }
-  console.log('RESET DEBUG: Found user for reset:', user.email);
-  user.password = newPassword;
-  console.log('RESET DEBUG: About to save new password:', newPassword);
   try {
+    const { token, newPassword } = req.body;
+    
+    if (!token || !newPassword) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Token and new password are required.' 
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Password must be at least 8 characters long.' 
+      });
+    }
+
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid or expired reset token.' 
+      });
+    }
+
+    // Update user password (pre-save middleware will hash it)
+    user.password = newPassword;
+    user.passwordChangedAt = new Date();
+    
+    // Clear reset token fields
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    user.resetPasswordAttempts = 0;
+    user.resetPasswordLastAttempt = undefined;
+    
     await user.save();
-    console.log('RESET DEBUG: Saved user, new hash:', user.password);
-  } catch (err) {
-    console.error('RESET DEBUG: Error saving user:', err);
+
+    // Log password reset for security
+    console.log(`Password reset for user: ${user.email} (${user.role}) at ${new Date().toISOString()}`);
+
+    res.json({ 
+      success: true, 
+      message: 'Password has been reset successfully. You can now log in with your new password.' 
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'An error occurred while resetting your password. Please try again.' 
+    });
   }
-  user.resetPasswordToken = undefined;
-  user.resetPasswordExpires = undefined;
-  user.resetPasswordAttempts = 0;
-  user.resetPasswordLastAttempt = undefined;
-  await user.save();
-  res.json({ message: 'Password has been reset successfully. You can now log in with your new password.' });
 };
 
 exports.getCurrentUserProfile = async (req, res) => {
@@ -832,20 +853,196 @@ exports.toggleUserActive = async (req, res) => {
 };
 
 exports.forgotPassword = async (req, res) => {
-  const { email } = req.body;
-  const user = await User.findOne({ email });
-  if (!user) {
-    return res.json({ message: "If your email is registered, you will receive a reset code." });
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Email address is required' 
+      });
+    }
+
+    const user = await User.findOne({ email });
+    
+    // For security reasons, don't reveal if the email exists or not
+    if (!user) {
+      return res.json({ 
+        success: true, 
+        message: "If your email is registered, you will receive a reset link." 
+      });
+    }
+
+    // Check if user is super admin (for admin portal)
+    if (user.role === 'super_admin') {
+      // Generate a 6-digit numeric code (same as regular users)
+      const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+      user.resetPasswordToken = resetCode;
+      user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+      await user.save();
+
+      // Send password reset code to super admin
+      try {
+        await emailService.sendPasswordResetCode(user, resetCode);
+        console.log(`Password reset code sent to super admin: ${email}`);
+      } catch (emailError) {
+        console.error('Failed to send super admin password reset code:', emailError);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Failed to send reset code. Please try again later.' 
+        });
+      }
+
+      return res.json({ 
+        success: true, 
+        message: "If your email is registered, you will receive a reset code." 
+      });
+    } else {
+      // For regular users, use the existing code-based reset
+      const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+      user.resetPasswordToken = resetCode;
+      user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+      await user.save();
+
+      try {
+        await emailService.sendPasswordResetCode(user, resetCode);
+      } catch (emailError) {
+        console.error('Failed to send password reset code:', emailError);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Failed to send reset code. Please try again later.' 
+        });
+      }
+
+      return res.json({ 
+        success: true, 
+        message: "If your email is registered, you will receive a reset code." 
+      });
+    }
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'An error occurred. Please try again later.' 
+    });
   }
+};
 
-  // Generate a 6-digit numeric code (or use a secure random string if preferred)
-  const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-  user.resetPasswordToken = resetCode;
-  user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
-  await user.save();
+exports.validateToken = async (req, res) => {
+  try {
+    // If we reach here, the token is valid (authenticateToken middleware passed)
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(401).json({ valid: false, message: 'User not found' });
+    }
 
-  // Send password reset code to the user (not a link)
-  await emailService.sendPasswordResetCode(user, resetCode);
+    if (!user.isActive) {
+      return res.status(401).json({ valid: false, message: 'User account is deactivated' });
+    }
 
-  return res.json({ message: "If your email is registered, you will receive a reset code." });
+    res.json({
+      valid: true,
+      user: user.getPublicProfile()
+    });
+  } catch (error) {
+    console.error('Token validation error:', error);
+    res.status(500).json({ valid: false, message: 'Server error' });
+  }
+};
+
+exports.validateResetToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({ valid: false, message: 'Reset token is required' });
+    }
+
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.json({ valid: false, message: 'Reset token is invalid or has expired' });
+    }
+
+    res.json({ valid: true, message: 'Reset token is valid' });
+  } catch (error) {
+    console.error('Reset token validation error:', error);
+    res.status(500).json({ valid: false, message: 'Server error' });
+  }
+};
+
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.userId;
+
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Current password and new password are required' 
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'New password must be at least 8 characters long' 
+      });
+    }
+
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Current password is incorrect' 
+      });
+    }
+
+    // Check if new password is same as current
+    const isNewPasswordSame = await bcrypt.compare(newPassword, user.password);
+    if (isNewPasswordSame) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'New password must be different from current password' 
+      });
+    }
+
+    // Hash new password
+    const saltRounds = 12;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    user.password = hashedNewPassword;
+    user.passwordChangedAt = new Date();
+    await user.save();
+
+    // Log password change for security
+    console.log(`Password changed for user: ${user.email} (${user.role}) at ${new Date().toISOString()}`);
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error' 
+    });
+  }
 };
