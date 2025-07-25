@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container,
   Typography,
   Paper,
   Box,
@@ -18,12 +17,7 @@ import {
   MenuItem,
   Chip,
   Alert,
-  CircularProgress,
-  Card,
-  CardContent,
-  CardActions,
-  IconButton,
-  Tooltip
+  CircularProgress
 } from '@mui/material';
 import {
   DataGrid,
@@ -36,8 +30,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
-  CheckCircle as CheckIcon,
-  Cancel as CancelIcon
+  CheckCircle as CheckIcon
 } from '@mui/icons-material';
 import apiService from '../services/apiService';
 import Layout from '../components/Layout';

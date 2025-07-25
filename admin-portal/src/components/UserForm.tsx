@@ -45,7 +45,7 @@ interface FormData {
   lastName: string;
   email: string;
   companyId: string;
-  role: 'employee' | 'admin' | 'super_admin';
+  role: 'employee' | 'admin';
   department: string;
   position: string;
   password: string;
@@ -67,7 +67,7 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel, loading =
     lastName: user?.lastName || '',
     email: user?.email || '',
     companyId: user?.companyId?._id || '',
-    role: user?.role || 'employee',
+    role: (user?.role === 'super_admin' ? 'admin' : user?.role) || 'employee',
     department: user?.department || '',
     position: user?.position || '',
     password: '',
@@ -77,7 +77,6 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel, loading =
   const [errors, setErrors] = useState<FormErrors>({});
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
-  const [generatedPassword, setGeneratedPassword] = useState<string>('');
 
   const isEditMode = !!user;
 
@@ -114,8 +113,8 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel, loading =
       newErrors.email = 'Please enter a valid email address';
     }
 
-    if (formData.role !== 'super_admin' && !formData.companyId) {
-      newErrors.companyId = 'Company is required for non-super admin users';
+    if (!formData.companyId) {
+      newErrors.companyId = 'Company is required';
     }
 
     if (!formData.generatePassword && !formData.password.trim()) {
@@ -140,7 +139,7 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel, loading =
       role: formData.role,
       department: formData.department.trim() || undefined,
       position: formData.position.trim() || undefined,
-      ...(formData.role !== 'super_admin' && formData.companyId && { companyId: formData.companyId }),
+      ...(formData.companyId && { companyId: formData.companyId }),
       ...(formData.generatePassword ? {} : { password: formData.password })
     };
 
@@ -168,7 +167,6 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel, loading =
     for (let i = 0; i < 12; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    setGeneratedPassword(password);
     setFormData(prev => ({ ...prev, password: password, generatePassword: false }));
   };
 
@@ -243,12 +241,7 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel, loading =
                   <Typography>Admin</Typography>
                 </Box>
               </MenuItem>
-              <MenuItem value="super_admin">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Chip label="SUPER ADMIN" size="small" sx={{ backgroundColor: '#d32f2f', color: 'white' }} />
-                  <Typography>Super Admin</Typography>
-                </Box>
-              </MenuItem>
+
             </Select>
             {errors.role && <FormHelperText>{errors.role}</FormHelperText>}
           </FormControl>
@@ -256,7 +249,7 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel, loading =
 
         {/* Company */}
         <Box>
-          <FormControl fullWidth error={!!errors.companyId} disabled={loading || formData.role === 'super_admin'}>
+          <FormControl fullWidth error={!!errors.companyId} disabled={loading}>
             <InputLabel>Company</InputLabel>
             <Select
               value={formData.companyId}
@@ -284,9 +277,7 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel, loading =
               )}
             </Select>
             {errors.companyId && <FormHelperText>{errors.companyId}</FormHelperText>}
-            {formData.role === 'super_admin' && (
-              <FormHelperText>Super admins are not assigned to specific companies</FormHelperText>
-            )}
+
           </FormControl>
         </Box>
 

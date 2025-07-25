@@ -1,0 +1,13 @@
+{
+  "projects": {},
+  "targets": {
+    "sns-rooster-8cca5": {
+      "hosting": {
+        "admin-portal": [
+          "sns-rooster-8cca5"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

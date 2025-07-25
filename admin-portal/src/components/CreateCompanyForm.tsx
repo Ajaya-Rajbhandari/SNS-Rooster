@@ -3,13 +3,11 @@ import {
   Box,
   TextField,
   Button,
-  Grid,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   Typography,
-  Alert,
   CircularProgress,
   Divider,
   Checkbox,
@@ -24,8 +22,7 @@ import {
 import {
   ExpandMore as ExpandMoreIcon,
   Build as BuildIcon,
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon
+  CheckCircle as CheckCircleIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -108,23 +105,14 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loadingPlans, setLoadingPlans] = useState(true);
 
-  // Debug subscription plans changes
-  useEffect(() => {
-    console.log('Subscription plans state changed:', subscriptionPlans);
-  }, [subscriptionPlans]);
-
   // Fetch subscription plans
   useEffect(() => {
     const fetchSubscriptionPlans = async () => {
       try {
-        console.log('Fetching subscription plans...');
-        
         // Get token from localStorage
         const token = localStorage.getItem('authToken');
-        console.log('Token from localStorage:', token ? 'Present' : 'Missing');
         
         if (!token) {
-          console.log('No token available, skipping subscription plans fetch');
           setSubscriptionPlans([]);
           setLoadingPlans(false);
           return;
@@ -135,17 +123,10 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
             'Authorization': `Bearer ${token}`
           }
         });
-        console.log('Subscription plans response:', response.data);
         const plans = response.data.plans || [];
-        console.log('Setting subscription plans:', plans);
         setSubscriptionPlans(plans);
       } catch (error: any) {
-        console.error('Error fetching subscription plans:', error);
-        console.error('Error response:', error.response?.data);
-        console.error('Error status:', error.response?.status);
-        
         if (error.response?.status === 401) {
-          console.log('Authentication failed - user needs to login');
           setSubscriptionPlans([]);
         }
       } finally {
@@ -167,7 +148,6 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
   }, [isAuthenticated, token]);
 
   const handleInputChange = (field: string, value: string) => {
-    console.log(`🔍 Input change - Field: ${field}, Value: ${value}`);
     
     setFormData(prev => ({
       ...prev,
@@ -244,16 +224,10 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('🔍 Form submission - Current form data:', formData);
-    console.log('🔍 Selected subscription plan ID:', formData.subscriptionPlanId);
-    console.log('🔍 Available subscription plans:', subscriptionPlans);
-    
     if (!validateForm()) {
-      console.log('❌ Form validation failed');
       return;
     }
 
-    console.log('✅ Form validation passed, submitting...');
     try {
       // Prepare submission data
       const submissionData = {
@@ -266,7 +240,6 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
         subscriptionPlanId: formData.subscriptionPlanId === 'custom' ? undefined : formData.subscriptionPlanId
       };
 
-      console.log('📤 Submitting company data:', submissionData);
       await onSubmit(submissionData);
     } catch (error) {
       console.error('Error creating company:', error);

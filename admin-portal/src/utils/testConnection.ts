@@ -18,44 +18,39 @@ interface UsersResponse {
   total: number;
 }
 
-export const testBackendConnection = async () => {
+export const testBackendConnection = async (email?: string, password?: string) => {
   try {
-    console.log('🧪 Testing backend connection...');
-    
     // Test 1: Basic connectivity
-    console.log('1. Testing basic connectivity...');
-    const response = await fetch('http://localhost:5000/');
-    console.log('✅ Backend is reachable');
+    await fetch('http://localhost:5000/');
     
-    // Test 2: Super admin login
-    console.log('2. Testing super admin login...');
-    const loginResponse = await apiService.post<LoginResponse>('/api/auth/login', {
-      email: 'superadmin@snstechservices.com.au',
-      password: 'SuperAdmin@123'
-    });
-    console.log('✅ Super admin login successful');
-    console.log('Token:', loginResponse.token ? 'Present' : 'Missing');
-    console.log('User role:', loginResponse.user?.role);
+    // Test 2: Super admin login (if credentials provided)
+    let loginResponse: LoginResponse | null = null;
+    if (email && password) {
+      loginResponse = await apiService.post<LoginResponse>('/api/auth/login', {
+        email,
+        password
+      });
+    }
     
-    // Test 3: Get users with token
-    console.log('3. Testing get users endpoint...');
-    const usersResponse = await apiService.get<UsersResponse>('/api/super-admin/users');
-    console.log('✅ Get users successful');
-    console.log('Users count:', usersResponse.users?.length || 0);
-    console.log('Total users:', usersResponse.total);
+    // Test 3: Get users with token (if login successful)
+    let usersResponse: UsersResponse | null = null;
+    if (loginResponse?.token) {
+      usersResponse = await apiService.get<UsersResponse>('/api/super-admin/users');
+    }
     
     return {
       success: true,
       message: 'All tests passed',
       data: {
-        usersCount: usersResponse.users?.length || 0,
-        totalUsers: usersResponse.total,
-        userRole: loginResponse.user?.role
+        backendReachable: true,
+        loginSuccessful: !!loginResponse,
+        usersCount: usersResponse?.users?.length || 0,
+        totalUsers: usersResponse?.total || 0,
+        userRole: loginResponse?.user?.role
       }
     };
     
   } catch (error: any) {
-    console.error('❌ Test failed:', error);
     return {
       success: false,
       message: error.message,

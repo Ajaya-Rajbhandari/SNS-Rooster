@@ -68,7 +68,10 @@ validateEnvironmentVariables();
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log('CORS: Allowing request with no origin');
+      return callback(null, true);
+    }
     
     const allowedOrigins = [
       'https://sns-rooster-8cca5.web.app',
@@ -81,21 +84,24 @@ app.use(cors({
     
     // Allow any localhost port for development (Flutter web uses random ports)
     if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:')) {
+      console.log('CORS: Allowing localhost origin:', origin);
       return callback(null, true);
     }
     
     // Allow specific origins
     if (allowedOrigins.indexOf(origin) !== -1) {
+      console.log('CORS: Allowing origin:', origin);
       return callback(null, true);
     }
     
     // Log blocked origins for debugging
-    console.log('CORS blocked origin:', origin);
+    console.log('CORS: Blocked origin:', origin);
+    console.log('CORS: Allowed origins:', allowedOrigins);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true, // Only needed if you use cookies/auth
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'companyId']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'companyId', 'x-company-id']
 }));
 
 // Security middleware (apply after CORS)

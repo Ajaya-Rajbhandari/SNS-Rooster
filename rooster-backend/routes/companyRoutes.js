@@ -40,6 +40,105 @@ router.get('/available', async (req, res) => {
   }
 });
 
+// Get company features (public endpoint for login) - MUST BE BEFORE /:companyId
+router.get('/features/public/:companyId', async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    
+    if (!companyId) {
+      return res.status(400).json({ error: 'Company ID is required' });
+    }
+
+    const company = await Company.findById(companyId).populate('subscriptionPlan');
+    
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+
+    // Handle companies without subscription plans - provide default features
+    const subscriptionPlan = company.subscriptionPlan;
+    const planFeatures = subscriptionPlan?.features || {};
+    
+    // Default features for companies without plans
+    const defaultFeatures = {
+      attendance: true,
+      payroll: true,
+      leaveManagement: true,
+      analytics: false,
+      documentManagement: true,
+      notifications: true,
+      customBranding: false,
+      apiAccess: false,
+      multiLocation: false,
+      advancedReporting: false,
+      timeTracking: true,
+      expenseManagement: false,
+      performanceReviews: false,
+      trainingManagement: false,
+      locationBasedAttendance: false,
+      // Location management features
+      locationManagement: false,
+      locationSettings: false,
+      locationNotifications: false,
+      locationGeofencing: false,
+      locationCapacity: false,
+    };
+
+    // Default limits for companies without plans
+    const defaultLimits = {
+      maxEmployees: 10,
+      maxStorageGB: 5,
+      maxApiCallsPerDay: 1000,
+      maxDepartments: 3,
+      dataRetention: 365,
+    };
+
+    const response = {
+      features: {
+        // Feature flags (boolean values only) - use plan features or defaults
+        attendance: defaultFeatures.attendance,
+        payroll: defaultFeatures.payroll,
+        leaveManagement: defaultFeatures.leaveManagement,
+        analytics: planFeatures.analytics || defaultFeatures.analytics,
+        documentManagement: defaultFeatures.documentManagement,
+        notifications: defaultFeatures.notifications,
+        customBranding: planFeatures.customBranding || defaultFeatures.customBranding,
+        apiAccess: planFeatures.apiAccess || defaultFeatures.apiAccess,
+        multiLocation: planFeatures.multiLocationSupport || defaultFeatures.multiLocation,
+        advancedReporting: planFeatures.advancedReporting || defaultFeatures.advancedReporting,
+        timeTracking: defaultFeatures.timeTracking,
+        expenseManagement: planFeatures.expenseManagement || defaultFeatures.expenseManagement,
+        performanceReviews: planFeatures.performanceReviews || defaultFeatures.performanceReviews,
+        trainingManagement: planFeatures.trainingManagement || defaultFeatures.trainingManagement,
+        locationBasedAttendance: planFeatures.locationBasedAttendance || defaultFeatures.locationBasedAttendance,
+        // Location management features - enabled for Professional and Enterprise plans
+        locationManagement: planFeatures.locationManagement !== undefined ? planFeatures.locationManagement : (subscriptionPlan?.name?.toLowerCase() !== 'basic'),
+        locationSettings: planFeatures.locationSettings !== undefined ? planFeatures.locationSettings : (subscriptionPlan?.name?.toLowerCase() !== 'basic'),
+        locationNotifications: planFeatures.locationNotifications !== undefined ? planFeatures.locationNotifications : (subscriptionPlan?.name?.toLowerCase() !== 'basic'),
+        locationGeofencing: planFeatures.locationGeofencing !== undefined ? planFeatures.locationGeofencing : (subscriptionPlan?.name?.toLowerCase() !== 'basic'),
+        locationCapacity: planFeatures.locationCapacity !== undefined ? planFeatures.locationCapacity : (subscriptionPlan?.name?.toLowerCase() !== 'basic'),
+      },
+      limits: {
+        maxEmployees: planFeatures.maxEmployees || defaultLimits.maxEmployees,
+        maxStorageGB: planFeatures.maxStorageGB || defaultLimits.maxStorageGB,
+        maxApiCallsPerDay: planFeatures.maxApiCallsPerDay || defaultLimits.maxApiCallsPerDay,
+        maxDepartments: planFeatures.maxDepartments || defaultLimits.maxDepartments,
+        dataRetention: planFeatures.dataRetention || defaultLimits.dataRetention,
+      },
+      subscription: {
+        planName: subscriptionPlan?.name || 'Basic',
+        planType: subscriptionPlan?.type || 'basic',
+        status: company.status
+      }
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error fetching company features:', error);
+    res.status(500).json({ error: 'Failed to fetch company features' });
+  }
+});
+
 // Get company features (for frontend feature checking) - MUST BE BEFORE /:companyId
 router.get('/features', authenticateToken, validateCompanyContext, async (req, res) => {
   try {

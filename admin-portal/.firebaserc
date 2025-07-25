@@ -1,0 +1,22 @@
+{
+  "projects": {
+    "default": "sns-rooster-8cca5"
+  },
+  "targets": {
+    "sns-rooster-8cca5": {
+      "hosting": {
+        "admin-portal": [
+          "sns-rooster-admin"
+        ]
+      }
+    },
+    "sns-rooster-admin": {
+      "hosting": {
+        "admin-portal": [
+          "sns-rooster-admin"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

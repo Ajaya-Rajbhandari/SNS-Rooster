@@ -6,7 +6,6 @@ import {
   Toolbar,
   List,
   Typography,
-  Divider,
   IconButton,
   ListItem,
   ListItemButton,
@@ -18,7 +17,6 @@ import {
   Badge,
   Chip,
   useTheme,
-  useMediaQuery,
   Tooltip
 } from '@mui/material';
 import {
@@ -33,10 +31,13 @@ import {
   AccountCircle as AccountCircleIcon,
   Logout as LogoutIcon,
   ChevronLeft as ChevronLeftIcon,
-  ChevronRight as ChevronRightIcon
+  ChevronRight as ChevronRightIcon,
+  Lock as LockIcon,
+  Monitor as MonitorIcon
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import NotificationCenter from './NotificationCenter';
 
 const drawerWidth = 280;
 const collapsedDrawerWidth = 70;
@@ -49,8 +50,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null);
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
@@ -71,9 +72,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     setAnchorEl(null);
   };
 
+  const handleNotificationMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setNotificationAnchorEl(event.currentTarget);
+  };
+
+  const handleNotificationMenuClose = () => {
+    setNotificationAnchorEl(null);
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/login');
+    handleProfileMenuClose();
+  };
+
+  const handleChangePassword = () => {
+    navigate('/change-password');
     handleProfileMenuClose();
   };
 
@@ -83,6 +97,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { text: 'Subscription Plans', icon: <SubscriptionsIcon />, path: '/subscription-plans' },
     { text: 'Users', icon: <PeopleIcon />, path: '/users' },
     { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
+    { text: 'Monitoring', icon: <MonitorIcon />, path: '/monitoring' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   ];
 
@@ -254,7 +269,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {/* Notifications */}
-            <IconButton color="inherit" size="large">
+            <IconButton 
+              color="inherit" 
+              size="large"
+              onClick={handleNotificationMenuOpen}
+            >
               <Badge badgeContent={4} color="error">
                 <NotificationsIcon />
               </Badge>
@@ -381,6 +400,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </ListItemIcon>
           Profile
         </MenuItem>
+        <MenuItem onClick={handleChangePassword}>
+          <ListItemIcon>
+            <LockIcon fontSize="small" />
+          </ListItemIcon>
+          Change Password
+        </MenuItem>
         <MenuItem onClick={handleLogout}>
           <ListItemIcon>
             <LogoutIcon fontSize="small" />
@@ -388,6 +413,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           Logout
         </MenuItem>
       </Menu>
+
+      {/* Notification Center */}
+      <NotificationCenter
+        open={Boolean(notificationAnchorEl)}
+        onClose={handleNotificationMenuClose}
+        anchorEl={notificationAnchorEl}
+      />
     </Box>
   );
 };
