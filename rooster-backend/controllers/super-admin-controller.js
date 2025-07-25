@@ -474,6 +474,51 @@ class SuperAdminController {
   }
   
   /**
+   * Hard delete company (for development/testing purposes)
+   */
+  static async hardDeleteCompany(req, res) {
+    try {
+      const { companyId } = req.params;
+      
+      console.log('Attempting to hard delete company:', companyId);
+      
+      // Check if company has any users
+      const userCount = await User.countDocuments({ companyId });
+      if (userCount > 0) {
+        return res.status(400).json({
+          error: 'Cannot delete company with existing users',
+          message: `Company has ${userCount} users. Please transfer or delete users first.`
+        });
+      }
+      
+      // Hard delete the company
+      const deletedCompany = await Company.findByIdAndDelete(companyId);
+      
+      if (!deletedCompany) {
+        console.log('Company not found:', companyId);
+        return res.status(404).json({
+          error: 'Company not found',
+          message: 'The specified company does not exist'
+        });
+      }
+      
+      console.log('Company hard deleted:', deletedCompany.name);
+      
+      res.json({
+        message: 'Company permanently deleted',
+        companyId: deletedCompany._id,
+        companyName: deletedCompany.name
+      });
+    } catch (error) {
+      console.error('Error hard deleting company:', error);
+      res.status(500).json({ 
+        error: 'Failed to delete company',
+        details: error.message 
+      });
+    }
+  }
+
+  /**
    * Change company subscription plan
    */
   static async changeCompanySubscriptionPlan(req, res) {
@@ -756,6 +801,695 @@ class SuperAdminController {
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
       res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+    }
+  }
+
+  /**
+   * Get comprehensive analytics data
+   */
+  static async getAnalytics(req, res) {
+    try {
+      const { timeRange = '30d' } = req.query;
+      
+      // Calculate date range
+      const now = new Date();
+      let startDate;
+      switch (timeRange) {
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        case '1y':
+          startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+
+      // Get overview data
+      const [
+        totalCompanies,
+        activeCompanies,
+        totalUsers,
+        totalEmployees,
+        subscriptionPlans
+      ] = await Promise.all([
+        Company.countDocuments(),
+        Company.countDocuments({ status: 'active' }),
+        User.countDocuments(),
+        User.countDocuments({ role: 'employee' }),
+        SubscriptionPlan.find({ isActive: true })
+      ]);
+
+      // Calculate growth rates (mock data for now)
+      const monthlyGrowth = 12.5;
+      const userGrowth = 8.3;
+      const totalRevenue = 125000; // Mock revenue data
+
+      // Generate revenue data (mock data)
+      const revenueData = [];
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
+      let baseRevenue = 85000;
+      let baseSubscriptions = 32;
+      
+      months.forEach((month, index) => {
+        const growth = 1 + (index * 0.05);
+        revenueData.push({
+          month,
+          revenue: Math.round(baseRevenue * growth),
+          subscriptions: Math.round(baseSubscriptions + (index * 2))
+        });
+      });
+
+      // Generate company growth data
+      const companyGrowth = [];
+      let baseCompanies = 28;
+      months.forEach((month, index) => {
+        companyGrowth.push({
+          month,
+          newCompanies: Math.floor(Math.random() * 5) + 5,
+          activeCompanies: baseCompanies + (index * 2)
+        });
+      });
+
+      // Generate user activity data (last 7 days)
+      const userActivity = [];
+      const last7Days = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        last7Days.push(date.toISOString().split('T')[0]);
+      }
+      
+      let baseUsers = 1150;
+      last7Days.forEach((date, index) => {
+        userActivity.push({
+          date,
+          activeUsers: baseUsers + (index * 15),
+          newUsers: Math.floor(Math.random() * 20) + 40
+        });
+      });
+
+      // Get subscription distribution
+      const subscriptionDistribution = [];
+      const planCounts = await Company.aggregate([
+        {
+          $lookup: {
+            from: 'subscriptionplans',
+            localField: 'subscriptionPlan',
+            foreignField: '_id',
+            as: 'plan'
+          }
+        },
+        {
+          $group: {
+            _id: '$plan.name',
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      // If no real data, use mock data
+      if (planCounts.length === 0) {
+        subscriptionDistribution.push(
+          { plan: 'Basic', companies: 15, percentage: 33.3 },
+          { plan: 'Professional', companies: 18, percentage: 40.0 },
+          { plan: 'Enterprise', companies: 8, percentage: 17.8 },
+          { plan: 'Custom', companies: 4, percentage: 8.9 }
+        );
+      } else {
+        const total = planCounts.reduce((sum, plan) => sum + plan.count, 0);
+        planCounts.forEach(plan => {
+          subscriptionDistribution.push({
+            plan: plan._id[0] || 'Unknown',
+            companies: plan.count,
+            percentage: Math.round((plan.count / total) * 100)
+          });
+        });
+      }
+
+      // Get top companies
+      const topCompanies = await Company.aggregate([
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: 'companyId',
+            as: 'users'
+          }
+        },
+        {
+          $project: {
+            name: 1,
+            status: 1,
+            userCount: { $size: '$users' },
+            revenue: { $multiply: [{ $size: '$users' }, 500] } // Mock revenue calculation
+          }
+        },
+        {
+          $sort: { userCount: -1 }
+        },
+        {
+          $limit: 5
+        }
+      ]);
+
+      // Format top companies data
+      const formattedTopCompanies = topCompanies.map(company => ({
+        name: company.name,
+        users: company.userCount,
+        revenue: company.revenue,
+        status: company.status
+      }));
+
+      // If no real data, use mock data
+      const finalTopCompanies = formattedTopCompanies.length > 0 ? formattedTopCompanies : [
+        { name: 'TechCorp Solutions', users: 156, revenue: 25000, status: 'active' },
+        { name: 'Global Industries', users: 142, revenue: 22000, status: 'active' },
+        { name: 'InnovateTech', users: 128, revenue: 20000, status: 'active' },
+        { name: 'Digital Dynamics', users: 115, revenue: 18000, status: 'active' },
+        { name: 'Future Systems', users: 98, revenue: 15000, status: 'active' }
+      ];
+
+      res.json({
+        overview: {
+          totalCompanies,
+          activeCompanies,
+          totalUsers,
+          totalRevenue,
+          monthlyGrowth,
+          userGrowth
+        },
+        revenueData,
+        companyGrowth,
+        userActivity,
+        subscriptionDistribution,
+        topCompanies: finalTopCompanies
+      });
+
+    } catch (error) {
+      console.error('Error fetching analytics data:', error);
+      res.status(500).json({ error: 'Failed to fetch analytics data' });
+    }
+  }
+
+  /**
+   * Get advanced user activity analytics
+   */
+  static async getUserActivityAnalytics(req, res) {
+    try {
+      const { timeRange = '30d', companyId } = req.query;
+      
+      // Calculate date range
+      const now = new Date();
+      let startDate;
+      switch (timeRange) {
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+
+      // Build query
+      const query = { createdAt: { $gte: startDate } };
+      if (companyId) {
+        query.companyId = companyId;
+      }
+
+      // Get user activity data
+      const userActivity = await User.aggregate([
+        { $match: query },
+        {
+          $group: {
+            _id: {
+              $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
+            },
+            newUsers: { $sum: 1 },
+            activeUsers: { $sum: { $cond: [{ $eq: ["$isActive", true] }, 1, 0] } },
+            adminUsers: { $sum: { $cond: [{ $eq: ["$role", "admin"] }, 1, 0] } },
+            employeeUsers: { $sum: { $cond: [{ $eq: ["$role", "employee"] }, 1, 0] } }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]);
+
+      // Get role distribution
+      const roleDistribution = await User.aggregate([
+        { $match: query },
+        {
+          $group: {
+            _id: "$role",
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      // Get company-wise user distribution
+      const companyUserDistribution = await User.aggregate([
+        { $match: query },
+        {
+          $lookup: {
+            from: 'companies',
+            localField: 'companyId',
+            foreignField: '_id',
+            as: 'company'
+          }
+        },
+        {
+          $group: {
+            _id: '$company.name',
+            userCount: { $sum: 1 },
+            adminCount: { $sum: { $cond: [{ $eq: ["$role", "admin"] }, 1, 0] } },
+            employeeCount: { $sum: { $cond: [{ $eq: ["$role", "employee"] }, 1, 0] } }
+          }
+        },
+        { $sort: { userCount: -1 } },
+        { $limit: 10 }
+      ]);
+
+      // Generate mock login activity (in real app, this would come from login logs)
+      const loginActivity = [];
+      const days = Math.ceil((now - startDate) / (1000 * 60 * 60 * 24));
+      for (let i = 0; i < days; i++) {
+        const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
+        loginActivity.push({
+          date: date.toISOString().split('T')[0],
+          logins: Math.floor(Math.random() * 200) + 100,
+          uniqueUsers: Math.floor(Math.random() * 50) + 30
+        });
+      }
+
+      res.json({
+        userActivity,
+        roleDistribution,
+        companyUserDistribution,
+        loginActivity,
+        timeRange
+      });
+
+    } catch (error) {
+      console.error('Error fetching user activity analytics:', error);
+      res.status(500).json({ error: 'Failed to fetch user activity analytics' });
+    }
+  }
+
+  /**
+   * Get company performance metrics
+   */
+  static async getCompanyPerformanceMetrics(req, res) {
+    try {
+      const { timeRange = '30d' } = req.query;
+      
+      // Calculate date range
+      const now = new Date();
+      let startDate;
+      switch (timeRange) {
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+
+      // Get company performance data
+      const companyPerformance = await Company.aggregate([
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: 'companyId',
+            as: 'users'
+          }
+        },
+        {
+          $project: {
+            name: 1,
+            status: 1,
+            createdAt: 1,
+            subscriptionPlan: 1,
+            userCount: { $size: '$users' },
+            adminCount: {
+              $size: {
+                $filter: {
+                  input: '$users',
+                  cond: { $eq: ['$$this.role', 'admin'] }
+                }
+              }
+            },
+            employeeCount: {
+              $size: {
+                $filter: {
+                  input: '$users',
+                  cond: { $eq: ['$$this.role', 'employee'] }
+                }
+              }
+            },
+            activeUsers: {
+              $size: {
+                $filter: {
+                  input: '$users',
+                  cond: { $eq: ['$$this.isActive', true] }
+                }
+              }
+            }
+          }
+        },
+        {
+          $match: {
+            createdAt: { $gte: startDate }
+          }
+        },
+        {
+          $sort: { userCount: -1 }
+        }
+      ]);
+
+      // Calculate performance metrics
+      const performanceMetrics = {
+        totalCompanies: companyPerformance.length,
+        averageUsersPerCompany: companyPerformance.length > 0 
+          ? Math.round(companyPerformance.reduce((sum, company) => sum + company.userCount, 0) / companyPerformance.length)
+          : 0,
+        topPerformingCompanies: companyPerformance.slice(0, 5),
+        companyGrowthRate: 15.2, // Mock data
+        averageEmployeeUtilization: 78.5, // Mock data
+        subscriptionPlanDistribution: await Company.aggregate([
+          {
+            $lookup: {
+              from: 'subscriptionplans',
+              localField: 'subscriptionPlan',
+              foreignField: '_id',
+              as: 'plan'
+            }
+          },
+          {
+            $group: {
+              _id: { $arrayElemAt: ['$plan.name', 0] },
+              count: { $sum: 1 }
+            }
+          },
+          {
+            $match: {
+              _id: { $ne: null }
+            }
+          }
+        ])
+      };
+
+      res.json({
+        companyPerformance,
+        performanceMetrics,
+        timeRange
+      });
+
+    } catch (error) {
+      console.error('Error fetching company performance metrics:', error);
+      res.status(500).json({ error: 'Failed to fetch company performance metrics' });
+    }
+  }
+
+  /**
+   * Generate custom report
+   */
+  static async generateCustomReport(req, res) {
+    try {
+      const { 
+        reportType, 
+        timeRange = '30d', 
+        companyId, 
+        format = 'json',
+        includeInactive = false 
+      } = req.body;
+
+      // Calculate date range
+      const now = new Date();
+      let startDate;
+      switch (timeRange) {
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+
+      let reportData = {};
+
+      switch (reportType) {
+        case 'user_activity':
+          reportData = await SuperAdminController.generateUserActivityReport(startDate, companyId, includeInactive);
+          break;
+        case 'company_performance':
+          reportData = await SuperAdminController.generateCompanyPerformanceReport(startDate, includeInactive);
+          break;
+        case 'subscription_analysis':
+          reportData = await SuperAdminController.generateSubscriptionAnalysisReport(startDate);
+          break;
+        case 'system_overview':
+          reportData = await SuperAdminController.generateSystemOverviewReport(startDate);
+          break;
+        default:
+          return res.status(400).json({ error: 'Invalid report type' });
+      }
+
+      // Add metadata
+      reportData.metadata = {
+        generatedAt: new Date().toISOString(),
+        reportType,
+        timeRange,
+        companyId: companyId || 'all',
+        format
+      };
+
+      if (format === 'csv') {
+        // Convert to CSV format
+        const csvData = SuperAdminController.convertToCSV(reportData);
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${reportType}_${timeRange}_${new Date().toISOString().split('T')[0]}.csv"`);
+        return res.send(csvData);
+      }
+
+      res.json(reportData);
+
+    } catch (error) {
+      console.error('Error generating custom report:', error);
+      res.status(500).json({ error: 'Failed to generate custom report' });
+    }
+  }
+
+  /**
+   * Helper method to convert data to CSV
+   */
+  static convertToCSV(data) {
+    // Simple CSV conversion - in production, use a proper CSV library
+    if (data.rows && Array.isArray(data.rows)) {
+      const headers = Object.keys(data.rows[0] || {});
+      const csvRows = [headers.join(',')];
+      
+      data.rows.forEach(row => {
+        const values = headers.map(header => {
+          const value = row[header];
+          return typeof value === 'string' && value.includes(',') ? `"${value}"` : value;
+        });
+        csvRows.push(values.join(','));
+      });
+      
+      return csvRows.join('\n');
+    }
+    return JSON.stringify(data);
+  }
+
+  /**
+   * Helper methods for report generation
+   */
+  static async generateUserActivityReport(startDate, companyId, includeInactive) {
+    const query = { createdAt: { $gte: startDate } };
+    if (companyId) query.companyId = companyId;
+    if (!includeInactive) query.isActive = true;
+
+    const users = await User.find(query).populate('companyId', 'name');
+    
+    return {
+      title: 'User Activity Report',
+      rows: users.map(user => ({
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        company: user.companyId?.name || 'No Company',
+        status: user.isActive ? 'Active' : 'Inactive',
+        createdAt: user.createdAt.toISOString().split('T')[0]
+      }))
+    };
+  }
+
+  static async generateCompanyPerformanceReport(startDate, includeInactive) {
+    const query = { createdAt: { $gte: startDate } };
+    if (!includeInactive) query.status = 'active';
+
+    const companies = await Company.find(query);
+    
+    return {
+      title: 'Company Performance Report',
+      rows: companies.map(company => ({
+        name: company.name,
+        domain: company.domain,
+        status: company.status,
+        createdAt: company.createdAt.toISOString().split('T')[0],
+        subscriptionPlan: company.subscriptionPlan?.name || 'No Plan'
+      }))
+    };
+  }
+
+  static async generateSubscriptionAnalysisReport(startDate) {
+    const companies = await Company.find({ createdAt: { $gte: startDate } })
+      .populate('subscriptionPlan', 'name price');
+    
+    return {
+      title: 'Subscription Analysis Report',
+      rows: companies.map(company => ({
+        company: company.name,
+        plan: company.subscriptionPlan?.name || 'No Plan',
+        price: company.subscriptionPlan?.price?.monthly || 0,
+        status: company.status,
+        createdAt: company.createdAt.toISOString().split('T')[0]
+      }))
+    };
+  }
+
+  static async generateSystemOverviewReport(startDate) {
+    const [totalCompanies, totalUsers, activeCompanies, activeUsers] = await Promise.all([
+      Company.countDocuments({ createdAt: { $gte: startDate } }),
+      User.countDocuments({ createdAt: { $gte: startDate } }),
+      Company.countDocuments({ createdAt: { $gte: startDate }, status: 'active' }),
+      User.countDocuments({ createdAt: { $gte: startDate }, isActive: true })
+    ]);
+    
+    return {
+      title: 'System Overview Report',
+      rows: [
+        { metric: 'Total Companies', value: totalCompanies },
+        { metric: 'Active Companies', value: activeCompanies },
+        { metric: 'Total Users', value: totalUsers },
+        { metric: 'Active Users', value: activeUsers },
+        { metric: 'Report Period', value: `${startDate.toISOString().split('T')[0]} to ${new Date().toISOString().split('T')[0]}` }
+      ]
+    };
+  }
+
+  /**
+   * Get system settings
+   */
+  static async getSettings(req, res) {
+    try {
+      // In a real application, you'd store settings in a database
+      // For now, we'll return default settings
+      const settings = {
+        platform: {
+          siteName: 'SNS Rooster',
+          siteUrl: 'https://snstechservices.com.au',
+          supportEmail: 'support@snstechservices.com.au',
+          maxFileSize: 10,
+          allowedFileTypes: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'],
+          maintenanceMode: false,
+          debugMode: false
+        },
+        security: {
+          passwordMinLength: 8,
+          requireSpecialChars: true,
+          requireNumbers: true,
+          requireUppercase: true,
+          sessionTimeout: 30,
+          maxLoginAttempts: 5,
+          enableTwoFactor: false,
+          ipWhitelist: []
+        },
+        notifications: {
+          emailEnabled: true,
+          smsEnabled: false,
+          pushEnabled: true,
+          emailProvider: 'smtp',
+          smsProvider: 'twilio',
+          defaultFromEmail: 'noreply@snstechservices.com.au',
+          alertThreshold: 10
+        },
+        backup: {
+          autoBackup: true,
+          backupFrequency: 'daily',
+          retentionDays: 30,
+          backupLocation: 'local',
+          lastBackup: new Date().toISOString(),
+          nextBackup: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        },
+        payment: {
+          stripeEnabled: true,
+          paypalEnabled: false,
+          defaultCurrency: 'USD',
+          taxRate: 10.0,
+          invoicePrefix: 'SNS'
+        }
+      };
+
+      res.json(settings);
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      res.status(500).json({ error: 'Failed to fetch settings' });
+    }
+  }
+
+  /**
+   * Update system settings
+   */
+  static async updateSettings(req, res) {
+    try {
+      const newSettings = req.body;
+      
+      // Validate settings structure
+      const requiredSections = ['platform', 'security', 'notifications', 'backup', 'payment'];
+      for (const section of requiredSections) {
+        if (!newSettings[section]) {
+          return res.status(400).json({
+            error: 'Invalid settings structure',
+            message: `Missing ${section} section`
+          });
+        }
+      }
+
+      // In a real application, you'd save settings to a database
+      // For now, we'll just log the changes
+      console.log('Settings updated:', JSON.stringify(newSettings, null, 2));
+
+      // Log the settings change for audit
+      console.log(`Settings updated by super admin: ${req.user.email} at ${new Date().toISOString()}`);
+
+      res.json({
+        success: true,
+        message: 'Settings updated successfully'
+      });
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      res.status(500).json({ error: 'Failed to update settings' });
     }
   }
 

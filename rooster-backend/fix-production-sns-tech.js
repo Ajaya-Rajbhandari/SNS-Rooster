@@ -1,11 +1,13 @@
 const mongoose = require('mongoose');
 const Company = require('./models/Company');
 const AdminSettings = require('./models/AdminSettings');
+require('dotenv').config();
+
+const MONGODB_URI = process.env.MONGODB_URI;
 
 async function fixProductionSnsTech() {
   try {
     // Connect to production database (MongoDB Atlas)
-    const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://ajaya:ysjevCMEPSwMcCDl@cluster0.1ufkdju.mongodb.net/sns-rooster?retryWrites=true&w=majority&appName=Cluster0';
     await mongoose.connect(MONGODB_URI);
     console.log('Connected to production MongoDB');
 

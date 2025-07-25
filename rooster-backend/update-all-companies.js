@@ -2,9 +2,10 @@ const mongoose = require('mongoose');
 const AdminSettings = require('./models/AdminSettings');
 const User = require('./models/User');
 const Company = require('./models/Company');
+require('dotenv').config();
 
-// MongoDB connection
-const MONGODB_URI = 'mongodb+srv://ajaya:ysjevCMEPSwMcCDl@cluster0.1ufkdju.mongodb.net/sns-rooster?retryWrites=true&w=majority&appName=Cluster0';
+// Use environment variable for MongoDB URI
+const MONGODB_URI = process.env.MONGODB_URI;
 
 async function updateAllCompanies() {
   try {
