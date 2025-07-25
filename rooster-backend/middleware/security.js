@@ -12,7 +12,7 @@ const { body, validationResult } = require('express-validator');
 // Rate limiter for authentication endpoints (prevent brute force attacks)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 requests per window per IP
+  max: 20, // Increased from 5 to 20 requests per window per IP
   message: {
     error: 'Too many login attempts',
     message: 'Please try again after 15 minutes'
@@ -30,7 +30,7 @@ const authLimiter = rateLimit({
 // Rate limiter for general API endpoints
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per window per IP
+  max: 200, // Increased from 100 to 200 requests per window per IP
   message: {
     error: 'Rate limit exceeded',
     message: 'Too many requests, please try again later'
@@ -42,7 +42,7 @@ const apiLimiter = rateLimit({
 // Rate limiter for auth validation (more lenient to prevent loops)
 const authValidationLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 30, // 30 requests per minute per IP
+  max: 60, // Increased from 30 to 60 requests per minute per IP
   message: {
     error: 'Rate limit exceeded',
     message: 'Too many validation requests, please try again later'
