@@ -156,36 +156,40 @@ const DashboardPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Layout>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-          <CircularProgress />
-        </Box>
-      </Layout>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
   return (
-    <Layout>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {/* Header */}
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
-            Dashboard
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Welcome back! Here's what's happening with your SNS Rooster platform.
-          </Typography>
-        </Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
+      {/* Welcome Message */}
+      <Box sx={{ mb: 1 }}>
+        <Typography variant="body1" color="text.secondary">
+          Welcome back! Here's what's happening with your SNS Rooster platform.
+        </Typography>
+      </Box>
 
-        {/* Error Alert */}
-        {error && (
-          <Alert severity="error" onClose={() => setError('')}>
-            {error}
-          </Alert>
-        )}
+      {/* Error Alert */}
+      {error && (
+        <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
-        {/* Stats Cards */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 3 }}>
+      {/* Stats Cards */}
+      <Box sx={{ 
+        display: 'grid', 
+        gridTemplateColumns: { 
+          xs: '1fr',
+          sm: 'repeat(2, 1fr)',
+          md: 'repeat(2, 1fr)',
+          lg: 'repeat(4, 1fr)'
+        }, 
+        gap: 2,
+        mb: 2
+      }}>
           <StatCard
             title="Total Companies"
             value={stats.totalCompanies}
@@ -223,15 +227,32 @@ const DashboardPage: React.FC = () => {
         </Box>
 
         {/* Main Content Grid */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 3, '@media (min-width: 960px)': { gridTemplateColumns: '2fr 1fr' } }}>
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { 
+            xs: '1fr',
+            lg: '1fr 1fr'
+          },
+          gap: 2,
+          flex: 1,
+          minHeight: 0
+        }}>
           {/* Quick Actions */}
-          <Paper sx={{ p: 3, height: '100%' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
                 Quick Actions
               </Typography>
             </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 2 }}>
+            <Box sx={{ 
+              display: 'grid', 
+              gridTemplateColumns: { 
+                xs: '1fr',
+                sm: 'repeat(2, 1fr)'
+              }, 
+              gap: 2,
+              flex: 1
+            }}>
               <Button
                 variant="contained"
                 fullWidth
@@ -295,63 +316,12 @@ const DashboardPage: React.FC = () => {
             </Box>
           </Paper>
 
-          {/* System Status */}
-          <Paper sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h6" component="h2" sx={{ fontWeight: 600, mb: 3 }}>
-              System Status
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <CheckCircleIcon color="success" />
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" fontWeight={500}>
-                    Backend API
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    All systems operational
-                  </Typography>
-                </Box>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <CheckCircleIcon color="success" />
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" fontWeight={500}>
-                    Database
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Connected and healthy
-                  </Typography>
-                </Box>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <CheckCircleIcon color="success" />
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" fontWeight={500}>
-                    Email Service
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Sending emails normally
-                  </Typography>
-                </Box>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <WarningIcon color="warning" />
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" fontWeight={500}>
-                    Storage
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    75% capacity used
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-          </Paper>
+
         </Box>
 
         {/* Recent Activities */}
-        <Paper sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Paper sx={{ p: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
               Recent Activities
             </Typography>
@@ -373,7 +343,11 @@ const DashboardPage: React.FC = () => {
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
-                    primary={activity.title}
+                    primary={
+                      <Typography component="div">
+                        {activity.title}
+                      </Typography>
+                    }
                     secondary={
                       <Box>
                         <Typography variant="body2" component="div" color="text.secondary">
@@ -384,11 +358,8 @@ const DashboardPage: React.FC = () => {
                         </Typography>
                       </Box>
                     }
-                    primaryTypographyProps={{
-                      component: 'div' // Change from 'p' to 'div' to prevent nesting issues
-                    }}
                     secondaryTypographyProps={{
-                      component: 'div' // Change from 'p' to 'div' to prevent nesting issues
+                      component: 'div'
                     }}
                   />
                   <Chip
@@ -404,7 +375,6 @@ const DashboardPage: React.FC = () => {
           </List>
         </Paper>
       </Box>
-    </Layout>
   );
 };
 

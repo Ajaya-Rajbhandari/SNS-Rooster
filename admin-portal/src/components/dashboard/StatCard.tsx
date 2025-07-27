@@ -102,6 +102,7 @@ const StatCard: React.FC<StatCardProps> = ({
           <Typography 
             variant="body2" 
             color="text.secondary" 
+            component="div"
             sx={{ 
               fontWeight: 500,
               textTransform: 'uppercase',
@@ -145,6 +146,7 @@ const StatCard: React.FC<StatCardProps> = ({
           <Typography 
             variant="body2" 
             color="text.secondary"
+            component="div"
             sx={{ mb: trend ? 1 : 0 }}
           >
             {subtitle}

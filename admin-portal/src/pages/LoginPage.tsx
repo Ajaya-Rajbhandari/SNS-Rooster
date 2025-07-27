@@ -217,7 +217,7 @@ const LoginPage: React.FC = () => {
           </Box>
 
           <Divider sx={{ width: '100%', my: 3 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" component="div">
               Super Admin Access Only
             </Typography>
           </Divider>
