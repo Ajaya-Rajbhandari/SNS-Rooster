@@ -211,6 +211,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                       primary={item.text}
                       primaryTypographyProps={{
                         fontWeight: isActive ? 600 : 400,
+                        component: 'div' // Change from 'p' to 'div' to prevent nesting issues
                       }}
                       sx={{
                         '& .MuiListItemText-primary': {
