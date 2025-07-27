@@ -14,6 +14,7 @@ import {
   Chip
 } from '@mui/material';
 import companyService, { Company } from '../services/companyService';
+import apiService from '../services/apiService'; // Added import for apiService
 
 interface User {
   _id: string;
@@ -143,7 +144,27 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel, loading =
       ...(formData.generatePassword ? {} : { password: formData.password })
     };
 
-    await onSubmit(submitData);
+    // For existing users, handle password change separately
+    if (isEditMode && !formData.generatePassword && formData.password) {
+      try {
+        // First update user data
+        await onSubmit(submitData);
+        
+        // Then change password if provided
+        const passwordChangeData = {
+          newPassword: formData.password
+        };
+        
+        // Call the password change API
+        await apiService.post(`/api/super-admin/users/${user?._id}/change-password`, passwordChangeData);
+        
+      } catch (error) {
+        console.error('Error updating user or changing password:', error);
+        throw error;
+      }
+    } else {
+      await onSubmit(submitData);
+    }
   };
 
   const handleInputChange = (field: keyof FormData, value: any) => {
@@ -307,56 +328,112 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel, loading =
         <Box sx={{ gridColumn: '1 / -1' }}>
           <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
             <Typography variant="subtitle2" gutterBottom>
-              Password Settings
+              {isEditMode ? 'Change Password (Optional)' : 'Password Settings'}
             </Typography>
             
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-              <Button
-                variant={formData.generatePassword ? "contained" : "outlined"}
-                size="small"
-                onClick={() => handleInputChange('generatePassword', true)}
-                disabled={loading}
-              >
-                Auto-generate Password
-              </Button>
-              <Button
-                variant={!formData.generatePassword ? "contained" : "outlined"}
-                size="small"
-                onClick={() => handleInputChange('generatePassword', false)}
-                disabled={loading}
-              >
-                Set Custom Password
-              </Button>
-              {!formData.generatePassword && (
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={generateRandomPassword}
-                  disabled={loading}
-                >
-                  Generate Random
-                </Button>
-              )}
-            </Box>
+            {isEditMode ? (
+              // Password change for existing users
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                  <Button
+                    variant={formData.generatePassword ? "contained" : "outlined"}
+                    size="small"
+                    onClick={() => handleInputChange('generatePassword', true)}
+                    disabled={loading}
+                  >
+                    Keep Current Password
+                  </Button>
+                  <Button
+                    variant={!formData.generatePassword ? "contained" : "outlined"}
+                    size="small"
+                    onClick={() => handleInputChange('generatePassword', false)}
+                    disabled={loading}
+                  >
+                    Change Password
+                  </Button>
+                  {!formData.generatePassword && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={generateRandomPassword}
+                      disabled={loading}
+                    >
+                      Generate Random
+                    </Button>
+                  )}
+                </Box>
 
-            {!formData.generatePassword && (
-              <TextField
-                fullWidth
-                label="Password"
-                type="password"
-                value={formData.password}
-                onChange={(e) => handleInputChange('password', e.target.value)}
-                error={!!errors.password}
-                helperText={errors.password || "Enter a strong password (minimum 8 characters)"}
-                disabled={loading}
-                required
-              />
-            )}
+                {!formData.generatePassword && (
+                  <TextField
+                    fullWidth
+                    label="New Password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => handleInputChange('password', e.target.value)}
+                    error={!!errors.password}
+                    helperText={errors.password || "Enter a strong password (minimum 8 characters)"}
+                    disabled={loading}
+                  />
+                )}
 
-            {formData.generatePassword && (
-              <Alert severity="info" sx={{ mt: 1 }}>
-                A secure password will be automatically generated and displayed after user creation.
-              </Alert>
+                {formData.generatePassword && (
+                  <Alert severity="info" sx={{ mt: 1 }}>
+                    Current password will be kept unchanged.
+                  </Alert>
+                )}
+              </Box>
+            ) : (
+              // Password creation for new users
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                  <Button
+                    variant={formData.generatePassword ? "contained" : "outlined"}
+                    size="small"
+                    onClick={() => handleInputChange('generatePassword', true)}
+                    disabled={loading}
+                  >
+                    Auto-generate Password
+                  </Button>
+                  <Button
+                    variant={!formData.generatePassword ? "contained" : "outlined"}
+                    size="small"
+                    onClick={() => handleInputChange('generatePassword', false)}
+                    disabled={loading}
+                  >
+                    Set Custom Password
+                  </Button>
+                  {!formData.generatePassword && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={generateRandomPassword}
+                      disabled={loading}
+                    >
+                      Generate Random
+                    </Button>
+                  )}
+                </Box>
+
+                {!formData.generatePassword && (
+                  <TextField
+                    fullWidth
+                    label="Password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => handleInputChange('password', e.target.value)}
+                    error={!!errors.password}
+                    helperText={errors.password || "Enter a strong password (minimum 8 characters)"}
+                    disabled={loading}
+                    required
+                  />
+                )}
+
+                {formData.generatePassword && (
+                  <Alert severity="info" sx={{ mt: 1 }}>
+                    A secure password will be automatically generated and displayed after user creation.
+                  </Alert>
+                )}
+              </Box>
             )}
           </Box>
         </Box>
