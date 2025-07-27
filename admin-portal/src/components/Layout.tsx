@@ -166,7 +166,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     },
                   }}
                 >
-                  <ListItemIcon sx={{ minWidth: sidebarCollapsed ? 'auto' : 40 }}>
+                  <ListItemIcon sx={{ 
+                    minWidth: sidebarCollapsed ? 'auto' : 40,
+                    mr: sidebarCollapsed ? 0 : 2
+                  }}>
                     {item.icon}
                   </ListItemIcon>
                   {!sidebarCollapsed && (
@@ -174,6 +177,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                       primary={item.text}
                       primaryTypographyProps={{
                         fontWeight: isActive ? 600 : 400,
+                      }}
+                      sx={{
+                        '& .MuiListItemText-primary': {
+                          fontSize: '0.875rem',
+                          lineHeight: 1.2
+                        }
                       }}
                     />
                   )}

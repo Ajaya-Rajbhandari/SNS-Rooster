@@ -28,6 +28,7 @@ import {
   Edit as EditIcon, 
   Delete as DeleteIcon, 
   LockReset as ResetIcon,
+  LockOpen as UnlockIcon,
   ExpandMore as ExpandMoreIcon,
   Business as BusinessIcon,
   People as PeopleIcon
@@ -243,6 +244,27 @@ const UserManagementPage: React.FC = () => {
       });
     } catch (err: any) {
       setError(`Password reset failed: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUnlockUser = async (user: User) => {
+    if (!window.confirm(`Unlock account for ${user.firstName} ${user.lastName}?`)) return;
+    setLoading(true);
+    try {
+      await apiService.post(`/api/super-admin/users/${user._id}/unlock`);
+      setSuccessMessage(`User account unlocked successfully!`);
+      
+      // Refresh the user list
+      await fetchUsers();
+      
+      // Clear success message after a delay
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 3000);
+    } catch (err: any) {
+      setError(`Failed to unlock user: ${err.response?.data?.error || err.message}`);
     } finally {
       setLoading(false);
     }
@@ -604,7 +626,13 @@ const UserManagementPage: React.FC = () => {
                                   >
                                     <ResetIcon fontSize="small" />
                                   </IconButton>
-                                  {/* Unlock button removed as requested */}
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleUnlockUser(user)}
+                                    disabled={user.isActive}
+                                  >
+                                    <UnlockIcon fontSize="small" />
+                                  </IconButton>
                                 </Box>
                               </TableCell>
                             </TableRow>

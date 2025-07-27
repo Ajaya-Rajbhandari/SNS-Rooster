@@ -1722,6 +1722,50 @@ class SuperAdminController {
       res.status(500).json({ error: 'Failed to reset password' });
     }
   }
+
+  /**
+   * Change user password (with custom password)
+   */
+  static async changeUserPassword(req, res) {
+    try {
+      const { userId } = req.params;
+      const { newPassword } = req.body;
+      
+      if (!newPassword) {
+        return res.status(400).json({ error: 'New password is required' });
+      }
+      
+      if (newPassword.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+      }
+      
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      
+      // Update user password
+      user.password = hashedPassword;
+      user.resetPasswordAttempts = 0;
+      user.resetPasswordLastAttempt = null;
+      user.passwordChangedAt = new Date();
+      await user.save();
+      
+      // Log password change for security
+      console.log(`Password changed for user: ${user.email} (${user.role}) by super admin at ${new Date().toISOString()}`);
+      
+      res.json({
+        success: true,
+        message: 'Password changed successfully'
+      });
+    } catch (error) {
+      console.error('Error changing user password:', error);
+      res.status(500).json({ error: 'Failed to change password' });
+    }
+  }
 }
 
 module.exports = SuperAdminController; 

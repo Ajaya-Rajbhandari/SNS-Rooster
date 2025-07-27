@@ -108,6 +108,12 @@ router.post('/users/:userId/reset-password',
   SuperAdminController.resetUserPassword
 );
 
+// Change user password (with custom password)
+router.post('/users/:userId/change-password', 
+  requirePermission('manageUsers'), 
+  SuperAdminController.changeUserPassword
+);
+
 // Unlock user account (clear lock and failed attempts)
 router.post('/users/:userId/unlock', 
   requirePermission('manageUsers'), 
