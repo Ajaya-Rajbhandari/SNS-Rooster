@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -15,19 +15,15 @@ import {
   TableHead,
   TableRow,
   Paper,
-  IconButton,
   Tooltip
 } from '@mui/material';
-import Layout from '../components/Layout';
+
 import {
   Refresh as RefreshIcon,
-  Warning as WarningIcon,
   CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
   Memory as MemoryIcon,
   Storage as StorageIcon,
-  Speed as SpeedIcon,
-  Security as SecurityIcon
+  Speed as SpeedIcon
 } from '@mui/icons-material';
 import apiService from '../services/apiService';
 
@@ -150,7 +146,7 @@ const MonitoringPage: React.FC = () => {
     }
   };
 
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -166,7 +162,7 @@ const MonitoringPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchAllData();
@@ -174,7 +170,7 @@ const MonitoringPage: React.FC = () => {
     // Refresh data every 30 seconds
     const interval = setInterval(fetchAllData, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchAllData]);
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -220,24 +216,22 @@ const MonitoringPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Layout>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-          <CircularProgress />
-        </Box>
-      </Layout>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+      </Box>
     );
   }
 
   return (
-    <Layout>
-      <Box p={3}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
           <Typography variant="h4" component="h1">
             System Monitoring
           </Typography>
           <Button
             variant="outlined"
             startIcon={<RefreshIcon />}
+            size="small"
             onClick={fetchAllData}
           >
             Refresh
@@ -245,13 +239,13 @@ const MonitoringPage: React.FC = () => {
         </Box>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
+          <Alert severity="error" sx={{ mb: 1 }}>
             {error}
           </Alert>
         )}
 
         {/* Health Status Overview */}
-        <Box display="flex" flexWrap="wrap" gap={2} mb={3}>
+        <Box display="flex" flexWrap="wrap" gap={2} mb={2}>
           <Card sx={{ minWidth: 250, flex: '1 1 250px' }}>
             <CardContent>
               <Box display="flex" alignItems="center" mb={2}>
@@ -471,7 +465,6 @@ const MonitoringPage: React.FC = () => {
           )}
         </Box>
       </Box>
-    </Layout>
   );
 };
 

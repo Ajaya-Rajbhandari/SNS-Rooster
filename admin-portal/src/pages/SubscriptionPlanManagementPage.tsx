@@ -1,39 +1,52 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Box,
   Typography,
   Paper,
-  Box,
   Button,
   TextField,
+  Alert,
+  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   FormControl,
-  FormControlLabel,
-  Switch,
   InputLabel,
   Select,
   MenuItem,
   Chip,
-  Alert,
-  CircularProgress
+  IconButton,
+  Tooltip,
+  Switch,
+  FormControlLabel,
+  Divider,
+  Grid,
+  Card,
+  CardContent,
+  CardActions
 } from '@mui/material';
-import {
-  DataGrid,
-  GridColDef,
-  GridActionsCellItem,
-  GridToolbar
-} from '@mui/x-data-grid';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
-  CheckCircle as CheckIcon
+  Search as SearchIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  Warning as WarningIcon,
+  Star as StarIcon,
+  Business as BusinessIcon,
+  People as PeopleIcon,
+  Storage as StorageIcon,
+  Speed as SpeedIcon,
+  Security as SecurityIcon,
+  Support as SupportIcon,
+  Backup as BackupIcon
 } from '@mui/icons-material';
+import { DataGrid, GridColDef, GridValueGetter, GridActionsCellItem, GridToolbar } from '@mui/x-data-grid';
 import apiService from '../services/apiService';
-import Layout from '../components/Layout';
+import cachedApiService from '../services/cachedApiService';
 
 interface SubscriptionPlan {
   _id: string;
@@ -283,9 +296,13 @@ const SubscriptionPlanManagementPage: React.FC = () => {
       field: 'description',
       headerName: 'Description',
       flex: 1,
-      minWidth: 200,
+      minWidth: 300,
       renderCell: (params) => (
-        <Typography variant="body2" color="textSecondary" noWrap>
+        <Typography variant="body2" color="textSecondary" component="div" sx={{ 
+          wordBreak: 'break-word',
+          lineHeight: 1.4,
+          maxWidth: '100%'
+        }}>
           {params.value || 'No description'}
         </Typography>
       ),
@@ -375,7 +392,7 @@ const SubscriptionPlanManagementPage: React.FC = () => {
             label="Default"
             color="primary"
             size="small"
-            icon={<CheckIcon />}
+            icon={<CheckCircleIcon />}
           />
         ) : null
       ),
@@ -678,71 +695,79 @@ const SubscriptionPlanManagementPage: React.FC = () => {
   };
 
   return (
-    <Layout>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {/* Header */}
-        <Paper sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h4" component="h1">
-              Subscription Plan Management
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleCreatePlan}
-            >
-              Create Plan
-            </Button>
-          </Box>
-          <Typography variant="body1" color="textSecondary">
-            Manage subscription plans and their features. Companies can subscribe to these plans.
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
+      {/* Header */}
+      <Paper sx={{ p: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="h4" component="h1">
+            Subscription Plan Management
           </Typography>
-        </Paper>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            size="small"
+            onClick={handleCreatePlan}
+          >
+            Create Plan
+          </Button>
+        </Box>
+        <Typography variant="body1" color="textSecondary">
+          Manage subscription plans and their features. Companies can subscribe to these plans.
+        </Typography>
+      </Paper>
 
-        {/* Error Alert */}
-        {error && (
-          <Alert severity="error" onClose={() => setError('')}>
-            {error}
-          </Alert>
+      {/* Error Alert */}
+      {error && (
+        <Alert severity="error" onClose={() => setError('')} sx={{ mb: 1 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Data Grid */}
+      <Box sx={{ flex: 1, minHeight: 0 }}>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <DataGrid
+            rows={plans}
+            columns={columns}
+            initialState={{
+              pagination: {
+                paginationModel: { page: 0, pageSize: 10 },
+              },
+            }}
+            pageSizeOptions={[10, 25, 50]}
+            checkboxSelection
+            disableRowSelectionOnClick
+            getRowId={(row) => row._id}
+            slots={{
+              toolbar: GridToolbar,
+            }}
+            slotProps={{
+              toolbar: {
+                showQuickFilter: true,
+                quickFilterProps: { debounceMs: 500 },
+              },
+            }}
+            sx={{
+              '& .MuiDataGrid-cell': {
+                borderBottom: '1px solid #e0e0e0',
+              },
+              '& .MuiDataGrid-columnHeaders': {
+                backgroundColor: '#f5f5f5',
+                borderBottom: '2px solid #e0e0e0',
+              },
+            }}
+          />
         )}
-
-        {/* Data Grid */}
-        <Paper sx={{ height: 600, width: '100%' }}>
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <DataGrid
-              rows={plans}
-              columns={columns}
-              initialState={{
-                pagination: {
-                  paginationModel: { page: 0, pageSize: 10 },
-                },
-              }}
-              pageSizeOptions={[10, 25, 50]}
-              checkboxSelection
-              disableRowSelectionOnClick
-              getRowId={(row) => row._id}
-              slots={{
-                toolbar: GridToolbar,
-              }}
-              slotProps={{
-                toolbar: {
-                  showQuickFilter: true,
-                  quickFilterProps: { debounceMs: 500 },
-                },
-              }}
-            />
-          )}
-        </Paper>
-
-        {/* Dialogs */}
-        {renderPlanDialog(false)} {/* Create/Edit Dialog */}
-        {renderPlanDialog(true)}  {/* View Dialog */}
       </Box>
-    </Layout>
+
+      {/* Dialogs */}
+      {renderPlanDialog(false)} {/* Create/Edit Dialog */}
+      {renderPlanDialog(true)}  {/* View Dialog */}
+    </Box>
   );
 };
 

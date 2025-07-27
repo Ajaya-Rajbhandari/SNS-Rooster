@@ -3,33 +3,54 @@ import {
   Box,
   Typography,
   Paper,
-  Switch,
-  FormControlLabel,
-  TextField,
   Button,
+  TextField,
   Alert,
   CircularProgress,
-  Tabs,
-  Tab,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  Chip
+  Switch,
+  FormControlLabel,
+  Divider,
+  Grid,
+  Card,
+  CardContent,
+  CardActions,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Chip,
+  IconButton,
+  Tooltip
 } from '@mui/material';
-
 import {
+  Save as SaveIcon,
+  Refresh as RefreshIcon,
   Settings as SettingsIcon,
   Security as SecurityIcon,
   Notifications as NotificationsIcon,
   Storage as StorageIcon,
-  Payment as PaymentIcon,
-  Save as SaveIcon,
-  Refresh as RefreshIcon,
-  Warning as WarningIcon
+  Speed as SpeedIcon,
+  Business as BusinessIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
+  Error as ErrorIcon,
+  Info as InfoIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Add as AddIcon,
+  Backup as BackupIcon,
+  AttachMoney
 } from '@mui/icons-material';
-import Layout from '../components/Layout';
 import apiService from '../services/apiService';
+import cachedApiService from '../services/cachedApiService';
 
 interface SystemSettings {
   platform: {
@@ -200,437 +221,725 @@ const SettingsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Layout>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-          <CircularProgress />
-        </Box>
-      </Layout>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
   return (
-    <Layout>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {/* Header */}
-        <Paper sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Box>
-              <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
-                System Settings
-              </Typography>
-              <Typography variant="body1" color="text.secondary">
-                Configure platform settings, security, notifications, and more
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
+      {/* Header */}
+      <Paper sx={{ p: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Box>
+            <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
+              System Settings
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Configure platform settings, security, notifications, and more
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              size="small"
+              onClick={handleReset}
+              disabled={saving}
+            >
+              Reset
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
+              size="small"
+              onClick={handleSave}
+              disabled={saving || !hasChanges}
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </Box>
+        </Box>
+        {hasChanges && (
+          <Chip
+            icon={<WarningIcon />}
+            label="You have unsaved changes"
+            color="warning"
+            variant="outlined"
+            size="small"
+          />
+        )}
+      </Paper>
+
+      {/* Error/Success Alerts */}
+      {error && (
+        <Alert severity="error" onClose={() => setError('')} sx={{ mb: 1 }}>
+          {error}
+        </Alert>
+      )}
+      {success && (
+        <Alert severity="success" onClose={() => setSuccess('')} sx={{ mb: 1 }}>
+          {success}
+        </Alert>
+      )}
+
+      {settings && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {/* Platform Settings */}
+          <Paper sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <BusinessIcon color="primary" />
+                  Platform Settings
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Basic platform configuration and general settings
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Site Name"
+              value={settings.platform.siteName}
+              onChange={(e) => handleSettingChange('platform', 'siteName', e.target.value)}
+              margin="normal"
+            />
+            <TextField
+              fullWidth
+              label="Site URL"
+              value={settings.platform.siteUrl}
+              onChange={(e) => handleSettingChange('platform', 'siteUrl', e.target.value)}
+              margin="normal"
+            />
+            <TextField
+              fullWidth
+              label="Support Email"
+              value={settings.platform.supportEmail}
+              onChange={(e) => handleSettingChange('platform', 'supportEmail', e.target.value)}
+              margin="normal"
+            />
+            <TextField
+              fullWidth
+              label="Max File Size (MB)"
+              type="number"
+              value={settings.platform.maxFileSize}
+              onChange={(e) => handleSettingChange('platform', 'maxFileSize', parseInt(e.target.value))}
+              margin="normal"
+            />
+            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.platform.maintenanceMode}
+                    onChange={(e) => handleSettingChange('platform', 'maintenanceMode', e.target.checked)}
+                  />
+                }
+                label="Maintenance Mode"
+              />
+              <Typography variant="caption" color="text.secondary" display="block">
+                When enabled, only super admins can access the platform
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.platform.debugMode}
+                    onChange={(e) => handleSettingChange('platform', 'debugMode', e.target.checked)}
+                  />
+                }
+                label="Debug Mode"
+              />
+              <Typography variant="caption" color="text.secondary" display="block">
+                Enable detailed error logging and debugging information
+              </Typography>
+            </Box>
+          </Box>
+
+          <Divider sx={{ my: 3 }} />
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+            <TextField
+              fullWidth
+              label="Minimum Password Length"
+              type="number"
+              value={settings.security.passwordMinLength}
+              onChange={(e) => handleSettingChange('security', 'passwordMinLength', parseInt(e.target.value))}
+              margin="normal"
+            />
+            <TextField
+              fullWidth
+              label="Session Timeout (minutes)"
+              type="number"
+              value={settings.security.sessionTimeout}
+              onChange={(e) => handleSettingChange('security', 'sessionTimeout', parseInt(e.target.value))}
+              margin="normal"
+            />
+            <TextField
+              fullWidth
+              label="Max Login Attempts"
+              type="number"
+              value={settings.security.maxLoginAttempts}
+              onChange={(e) => handleSettingChange('security', 'maxLoginAttempts', parseInt(e.target.value))}
+              margin="normal"
+            />
+            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.security.requireSpecialChars}
+                    onChange={(e) => handleSettingChange('security', 'requireSpecialChars', e.target.checked)}
+                  />
+                }
+                label="Require Special Characters in Passwords"
+              />
+            </Box>
+            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.security.requireNumbers}
+                    onChange={(e) => handleSettingChange('security', 'requireNumbers', e.target.checked)}
+                  />
+                }
+                label="Require Numbers in Passwords"
+              />
+            </Box>
+            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.security.requireUppercase}
+                    onChange={(e) => handleSettingChange('security', 'requireUppercase', e.target.checked)}
+                  />
+                }
+                label="Require Uppercase Letters in Passwords"
+              />
+            </Box>
+            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.security.enableTwoFactor}
+                    onChange={(e) => handleSettingChange('security', 'enableTwoFactor', e.target.checked)}
+                  />
+                }
+                label="Enable Two-Factor Authentication"
+              />
+            </Box>
+          </Box>
+
+          <Divider sx={{ my: 3 }} />
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Email Provider</InputLabel>
+              <Select
+                value={settings.notifications.emailProvider}
+                onChange={(e) => handleSettingChange('notifications', 'emailProvider', e.target.value)}
+                label="Email Provider"
+              >
+                <MenuItem value="smtp">SMTP</MenuItem>
+                <MenuItem value="sendgrid">SendGrid</MenuItem>
+                <MenuItem value="mailgun">Mailgun</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>SMS Provider</InputLabel>
+              <Select
+                value={settings.notifications.smsProvider}
+                onChange={(e) => handleSettingChange('notifications', 'smsProvider', e.target.value)}
+                label="SMS Provider"
+              >
+                <MenuItem value="twilio">Twilio</MenuItem>
+                <MenuItem value="aws-sns">AWS SNS</MenuItem>
+                <MenuItem value="nexmo">Nexmo</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              label="Default From Email"
+              value={settings.notifications.defaultFromEmail}
+              onChange={(e) => handleSettingChange('notifications', 'defaultFromEmail', e.target.value)}
+              margin="normal"
+            />
+            <TextField
+              fullWidth
+              label="Alert Threshold"
+              type="number"
+              value={settings.notifications.alertThreshold}
+              onChange={(e) => handleSettingChange('notifications', 'alertThreshold', parseInt(e.target.value))}
+              margin="normal"
+            />
+            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.notifications.emailEnabled}
+                    onChange={(e) => handleSettingChange('notifications', 'emailEnabled', e.target.checked)}
+                  />
+                }
+                label="Enable Email Notifications"
+              />
+            </Box>
+            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.notifications.smsEnabled}
+                    onChange={(e) => handleSettingChange('notifications', 'smsEnabled', e.target.checked)}
+                  />
+                }
+                label="Enable SMS Notifications"
+              />
+            </Box>
+            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.notifications.pushEnabled}
+                    onChange={(e) => handleSettingChange('notifications', 'pushEnabled', e.target.checked)}
+                  />
+                }
+                label="Enable Push Notifications"
+              />
+            </Box>
+          </Box>
+
+          <Divider sx={{ my: 3 }} />
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Backup Frequency</InputLabel>
+              <Select
+                value={settings.backup.backupFrequency}
+                onChange={(e) => handleSettingChange('backup', 'backupFrequency', e.target.value)}
+                label="Backup Frequency"
+              >
+                <MenuItem value="hourly">Hourly</MenuItem>
+                <MenuItem value="daily">Daily</MenuItem>
+                <MenuItem value="weekly">Weekly</MenuItem>
+                <MenuItem value="monthly">Monthly</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              label="Retention Days"
+              type="number"
+              value={settings.backup.retentionDays}
+              onChange={(e) => handleSettingChange('backup', 'retentionDays', parseInt(e.target.value))}
+              margin="normal"
+            />
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Backup Location</InputLabel>
+              <Select
+                value={settings.backup.backupLocation}
+                onChange={(e) => handleSettingChange('backup', 'backupLocation', e.target.value)}
+                label="Backup Location"
+              >
+                <MenuItem value="local">Local Storage</MenuItem>
+                <MenuItem value="s3">AWS S3</MenuItem>
+                <MenuItem value="gcs">Google Cloud Storage</MenuItem>
+                <MenuItem value="azure">Azure Blob Storage</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              label="Last Backup"
+              value={formatDate(settings.backup.lastBackup)}
+              margin="normal"
+              InputProps={{ readOnly: true }}
+            />
+            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.backup.autoBackup}
+                    onChange={(e) => handleSettingChange('backup', 'autoBackup', e.target.checked)}
+                  />
+                }
+                label="Enable Automatic Backups"
+              />
+            </Box>
+          </Box>
+
+          <Divider sx={{ my: 3 }} />
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Default Currency</InputLabel>
+              <Select
+                value={settings.payment.defaultCurrency}
+                onChange={(e) => handleSettingChange('payment', 'defaultCurrency', e.target.value)}
+                label="Default Currency"
+              >
+                <MenuItem value="USD">USD ($)</MenuItem>
+                <MenuItem value="EUR">EUR (€)</MenuItem>
+                <MenuItem value="GBP">GBP (£)</MenuItem>
+                <MenuItem value="AUD">AUD ($)</MenuItem>
+                <MenuItem value="CAD">CAD ($)</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              label="Tax Rate (%)"
+              type="number"
+              value={settings.payment.taxRate}
+              onChange={(e) => handleSettingChange('payment', 'taxRate', parseFloat(e.target.value))}
+              margin="normal"
+            />
+            <TextField
+              fullWidth
+              label="Invoice Prefix"
+              value={settings.payment.invoicePrefix}
+              onChange={(e) => handleSettingChange('payment', 'invoicePrefix', e.target.value)}
+              margin="normal"
+            />
+            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.payment.stripeEnabled}
+                    onChange={(e) => handleSettingChange('payment', 'stripeEnabled', e.target.checked)}
+                  />
+                }
+                label="Enable Stripe Payments"
+              />
+            </Box>
+            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings.payment.paypalEnabled}
+                    onChange={(e) => handleSettingChange('payment', 'paypalEnabled', e.target.checked)}
+                  />
+                }
+                label="Enable PayPal Payments"
+              />
+            </Box>
+          </Box>
+        </Paper>
+
+          {/* Security Settings */}
+          <Paper sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <SecurityIcon color="primary" />
+                  Security Settings
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Password policies, authentication, and security configurations
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+              <TextField
+                fullWidth
+                label="Minimum Password Length"
+                type="number"
+                value={settings.security.passwordMinLength}
+                onChange={(e) => handleSettingChange('security', 'passwordMinLength', parseInt(e.target.value))}
+                margin="normal"
+              />
+              <TextField
+                fullWidth
+                label="Session Timeout (minutes)"
+                type="number"
+                value={settings.security.sessionTimeout}
+                onChange={(e) => handleSettingChange('security', 'sessionTimeout', parseInt(e.target.value))}
+                margin="normal"
+              />
+              <TextField
+                fullWidth
+                label="Max Login Attempts"
+                type="number"
+                value={settings.security.maxLoginAttempts}
+                onChange={(e) => handleSettingChange('security', 'maxLoginAttempts', parseInt(e.target.value))}
+                margin="normal"
+              />
+              <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.security.requireSpecialChars}
+                      onChange={(e) => handleSettingChange('security', 'requireSpecialChars', e.target.checked)}
+                    />
+                  }
+                  label="Require Special Characters in Passwords"
+                />
+              </Box>
+              <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.security.requireNumbers}
+                      onChange={(e) => handleSettingChange('security', 'requireNumbers', e.target.checked)}
+                    />
+                  }
+                  label="Require Numbers in Passwords"
+                />
+              </Box>
+              <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.security.requireUppercase}
+                      onChange={(e) => handleSettingChange('security', 'requireUppercase', e.target.checked)}
+                    />
+                  }
+                  label="Require Uppercase Letters in Passwords"
+                />
+              </Box>
+              <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.security.enableTwoFactor}
+                      onChange={(e) => handleSettingChange('security', 'enableTwoFactor', e.target.checked)}
+                    />
+                  }
+                  label="Enable Two-Factor Authentication"
+                />
+              </Box>
+            </Box>
+          </Paper>
+
+          {/* Notification Settings */}
+          <Paper sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <NotificationsIcon color="primary" />
+                  Notification Settings
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Email, SMS, and push notification configurations
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+              <TextField
+                fullWidth
+                label="Default From Email"
+                value={settings.notifications.defaultFromEmail}
+                onChange={(e) => handleSettingChange('notifications', 'defaultFromEmail', e.target.value)}
+                margin="normal"
+              />
+              <TextField
+                fullWidth
+                label="Alert Threshold"
+                type="number"
+                value={settings.notifications.alertThreshold}
+                onChange={(e) => handleSettingChange('notifications', 'alertThreshold', parseInt(e.target.value))}
+                margin="normal"
+              />
+              <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.notifications.emailEnabled}
+                      onChange={(e) => handleSettingChange('notifications', 'emailEnabled', e.target.checked)}
+                    />
+                  }
+                  label="Enable Email Notifications"
+                />
+              </Box>
+              <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.notifications.smsEnabled}
+                      onChange={(e) => handleSettingChange('notifications', 'smsEnabled', e.target.checked)}
+                    />
+                  }
+                  label="Enable SMS Notifications"
+                />
+              </Box>
+              <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.notifications.pushEnabled}
+                      onChange={(e) => handleSettingChange('notifications', 'pushEnabled', e.target.checked)}
+                    />
+                  }
+                  label="Enable Push Notifications"
+                />
+              </Box>
+            </Box>
+          </Paper>
+
+          {/* Backup Settings */}
+          <Paper sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <BackupIcon color="primary" />
+                  Backup Settings
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Data backup and retention configurations
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Backup Frequency</InputLabel>
+                <Select
+                  value={settings.backup.backupFrequency}
+                  onChange={(e) => handleSettingChange('backup', 'backupFrequency', e.target.value)}
+                  label="Backup Frequency"
+                >
+                  <MenuItem value="daily">Daily</MenuItem>
+                  <MenuItem value="weekly">Weekly</MenuItem>
+                  <MenuItem value="monthly">Monthly</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                fullWidth
+                label="Retention Days"
+                type="number"
+                value={settings.backup.retentionDays}
+                onChange={(e) => handleSettingChange('backup', 'retentionDays', parseInt(e.target.value))}
+                margin="normal"
+              />
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Backup Location</InputLabel>
+                <Select
+                  value={settings.backup.backupLocation}
+                  onChange={(e) => handleSettingChange('backup', 'backupLocation', e.target.value)}
+                  label="Backup Location"
+                >
+                  <MenuItem value="local">Local Storage</MenuItem>
+                  <MenuItem value="s3">AWS S3</MenuItem>
+                  <MenuItem value="gcs">Google Cloud Storage</MenuItem>
+                  <MenuItem value="azure">Azure Blob Storage</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                fullWidth
+                label="Last Backup"
+                value={formatDate(settings.backup.lastBackup)}
+                margin="normal"
+                InputProps={{ readOnly: true }}
+              />
+              <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.backup.autoBackup}
+                      onChange={(e) => handleSettingChange('backup', 'autoBackup', e.target.checked)}
+                    />
+                  }
+                  label="Enable Automatic Backups"
+                />
+              </Box>
+            </Box>
+          </Paper>
+
+          {/* Payment Settings */}
+          <Paper sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <AttachMoney color="primary" />
+                  Payment Settings
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Payment gateway and billing configurations
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Default Currency</InputLabel>
+                <Select
+                  value={settings.payment.defaultCurrency}
+                  onChange={(e) => handleSettingChange('payment', 'defaultCurrency', e.target.value)}
+                  label="Default Currency"
+                >
+                  <MenuItem value="USD">USD ($)</MenuItem>
+                  <MenuItem value="EUR">EUR (€)</MenuItem>
+                  <MenuItem value="GBP">GBP (£)</MenuItem>
+                  <MenuItem value="AUD">AUD ($)</MenuItem>
+                  <MenuItem value="CAD">CAD ($)</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                fullWidth
+                label="Tax Rate (%)"
+                type="number"
+                value={settings.payment.taxRate}
+                onChange={(e) => handleSettingChange('payment', 'taxRate', parseFloat(e.target.value))}
+                margin="normal"
+              />
+              <TextField
+                fullWidth
+                label="Invoice Prefix"
+                value={settings.payment.invoicePrefix}
+                onChange={(e) => handleSettingChange('payment', 'invoicePrefix', e.target.value)}
+                margin="normal"
+              />
+              <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.payment.stripeEnabled}
+                      onChange={(e) => handleSettingChange('payment', 'stripeEnabled', e.target.checked)}
+                    />
+                  }
+                  label="Enable Stripe Payments"
+                />
+              </Box>
+              <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings.payment.paypalEnabled}
+                      onChange={(e) => handleSettingChange('payment', 'paypalEnabled', e.target.checked)}
+                    />
+                  }
+                  label="Enable PayPal Payments"
+                />
+              </Box>
+            </Box>
+          </Paper>
+
+          {/* Action Buttons */}
+          <Paper sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
               <Button
                 variant="outlined"
                 startIcon={<RefreshIcon />}
+                size="small"
                 onClick={handleReset}
                 disabled={saving}
               >
-                Reset
+                Reset All Settings
               </Button>
               <Button
                 variant="contained"
                 startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
+                size="small"
                 onClick={handleSave}
                 disabled={saving || !hasChanges}
               >
-                {saving ? 'Saving...' : 'Save Changes'}
+                {saving ? 'Saving...' : 'Save All Changes'}
               </Button>
             </Box>
-          </Box>
-          {hasChanges && (
-            <Chip
-              icon={<WarningIcon />}
-              label="You have unsaved changes"
-              color="warning"
-              variant="outlined"
-            />
-          )}
-        </Paper>
-
-        {/* Error/Success Alerts */}
-        {error && (
-          <Alert severity="error" onClose={() => setError('')}>
-            {error}
-          </Alert>
-        )}
-        {success && (
-          <Alert severity="success" onClose={() => setSuccess('')}>
-            {success}
-          </Alert>
-        )}
-
-        {settings && (
-          <Paper sx={{ p: 3 }}>
-            <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 3 }}>
-              <Tab label="Platform" icon={<SettingsIcon />} />
-              <Tab label="Security" icon={<SecurityIcon />} />
-              <Tab label="Notifications" icon={<NotificationsIcon />} />
-              <Tab label="Backup" icon={<StorageIcon />} />
-              <Tab label="Payment" icon={<PaymentIcon />} />
-            </Tabs>
-
-            {/* Platform Settings */}
-            {activeTab === 0 && (
-              <Box>
-                <Typography variant="h6" gutterBottom>
-                  Platform Configuration
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-                  <TextField
-                    fullWidth
-                    label="Site Name"
-                    value={settings.platform.siteName}
-                    onChange={(e) => handleSettingChange('platform', 'siteName', e.target.value)}
-                    margin="normal"
-                  />
-                  <TextField
-                    fullWidth
-                    label="Site URL"
-                    value={settings.platform.siteUrl}
-                    onChange={(e) => handleSettingChange('platform', 'siteUrl', e.target.value)}
-                    margin="normal"
-                  />
-                  <TextField
-                    fullWidth
-                    label="Support Email"
-                    value={settings.platform.supportEmail}
-                    onChange={(e) => handleSettingChange('platform', 'supportEmail', e.target.value)}
-                    margin="normal"
-                  />
-                  <TextField
-                    fullWidth
-                    label="Max File Size (MB)"
-                    type="number"
-                    value={settings.platform.maxFileSize}
-                    onChange={(e) => handleSettingChange('platform', 'maxFileSize', parseInt(e.target.value))}
-                    margin="normal"
-                  />
-                  <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.platform.maintenanceMode}
-                          onChange={(e) => handleSettingChange('platform', 'maintenanceMode', e.target.checked)}
-                        />
-                      }
-                      label="Maintenance Mode"
-                    />
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      When enabled, only super admins can access the platform
-                    </Typography>
-                  </Box>
-                  <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.platform.debugMode}
-                          onChange={(e) => handleSettingChange('platform', 'debugMode', e.target.checked)}
-                        />
-                      }
-                      label="Debug Mode"
-                    />
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Enable detailed error logging and debugging information
-                    </Typography>
-                  </Box>
-                </Box>
-              </Box>
-            )}
-
-            {/* Security Settings */}
-            {activeTab === 1 && (
-              <Box>
-                <Typography variant="h6" gutterBottom>
-                  Security Configuration
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-                  <TextField
-                    fullWidth
-                    label="Minimum Password Length"
-                    type="number"
-                    value={settings.security.passwordMinLength}
-                    onChange={(e) => handleSettingChange('security', 'passwordMinLength', parseInt(e.target.value))}
-                    margin="normal"
-                  />
-                  <TextField
-                    fullWidth
-                    label="Session Timeout (minutes)"
-                    type="number"
-                    value={settings.security.sessionTimeout}
-                    onChange={(e) => handleSettingChange('security', 'sessionTimeout', parseInt(e.target.value))}
-                    margin="normal"
-                  />
-                  <TextField
-                    fullWidth
-                    label="Max Login Attempts"
-                    type="number"
-                    value={settings.security.maxLoginAttempts}
-                    onChange={(e) => handleSettingChange('security', 'maxLoginAttempts', parseInt(e.target.value))}
-                    margin="normal"
-                  />
-                  <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.security.requireSpecialChars}
-                          onChange={(e) => handleSettingChange('security', 'requireSpecialChars', e.target.checked)}
-                        />
-                      }
-                      label="Require Special Characters in Passwords"
-                    />
-                  </Box>
-                  <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.security.requireNumbers}
-                          onChange={(e) => handleSettingChange('security', 'requireNumbers', e.target.checked)}
-                        />
-                      }
-                      label="Require Numbers in Passwords"
-                    />
-                  </Box>
-                  <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.security.requireUppercase}
-                          onChange={(e) => handleSettingChange('security', 'requireUppercase', e.target.checked)}
-                        />
-                      }
-                      label="Require Uppercase Letters in Passwords"
-                    />
-                  </Box>
-                  <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.security.enableTwoFactor}
-                          onChange={(e) => handleSettingChange('security', 'enableTwoFactor', e.target.checked)}
-                        />
-                      }
-                      label="Enable Two-Factor Authentication"
-                    />
-                  </Box>
-                </Box>
-              </Box>
-            )}
-
-            {/* Notification Settings */}
-            {activeTab === 2 && (
-              <Box>
-                <Typography variant="h6" gutterBottom>
-                  Notification Configuration
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-                  <FormControl fullWidth margin="normal">
-                    <InputLabel>Email Provider</InputLabel>
-                    <Select
-                      value={settings.notifications.emailProvider}
-                      onChange={(e) => handleSettingChange('notifications', 'emailProvider', e.target.value)}
-                      label="Email Provider"
-                    >
-                      <MenuItem value="smtp">SMTP</MenuItem>
-                      <MenuItem value="sendgrid">SendGrid</MenuItem>
-                      <MenuItem value="mailgun">Mailgun</MenuItem>
-                    </Select>
-                  </FormControl>
-                  <FormControl fullWidth margin="normal">
-                    <InputLabel>SMS Provider</InputLabel>
-                    <Select
-                      value={settings.notifications.smsProvider}
-                      onChange={(e) => handleSettingChange('notifications', 'smsProvider', e.target.value)}
-                      label="SMS Provider"
-                    >
-                      <MenuItem value="twilio">Twilio</MenuItem>
-                      <MenuItem value="aws-sns">AWS SNS</MenuItem>
-                      <MenuItem value="nexmo">Nexmo</MenuItem>
-                    </Select>
-                  </FormControl>
-                  <TextField
-                    fullWidth
-                    label="Default From Email"
-                    value={settings.notifications.defaultFromEmail}
-                    onChange={(e) => handleSettingChange('notifications', 'defaultFromEmail', e.target.value)}
-                    margin="normal"
-                  />
-                  <TextField
-                    fullWidth
-                    label="Alert Threshold"
-                    type="number"
-                    value={settings.notifications.alertThreshold}
-                    onChange={(e) => handleSettingChange('notifications', 'alertThreshold', parseInt(e.target.value))}
-                    margin="normal"
-                  />
-                  <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.notifications.emailEnabled}
-                          onChange={(e) => handleSettingChange('notifications', 'emailEnabled', e.target.checked)}
-                        />
-                      }
-                      label="Enable Email Notifications"
-                    />
-                  </Box>
-                  <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.notifications.smsEnabled}
-                          onChange={(e) => handleSettingChange('notifications', 'smsEnabled', e.target.checked)}
-                        />
-                      }
-                      label="Enable SMS Notifications"
-                    />
-                  </Box>
-                  <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.notifications.pushEnabled}
-                          onChange={(e) => handleSettingChange('notifications', 'pushEnabled', e.target.checked)}
-                        />
-                      }
-                      label="Enable Push Notifications"
-                    />
-                  </Box>
-                </Box>
-              </Box>
-            )}
-
-            {/* Backup Settings */}
-            {activeTab === 3 && (
-              <Box>
-                <Typography variant="h6" gutterBottom>
-                  Backup & Maintenance
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-                  <FormControl fullWidth margin="normal">
-                    <InputLabel>Backup Frequency</InputLabel>
-                    <Select
-                      value={settings.backup.backupFrequency}
-                      onChange={(e) => handleSettingChange('backup', 'backupFrequency', e.target.value)}
-                      label="Backup Frequency"
-                    >
-                      <MenuItem value="hourly">Hourly</MenuItem>
-                      <MenuItem value="daily">Daily</MenuItem>
-                      <MenuItem value="weekly">Weekly</MenuItem>
-                      <MenuItem value="monthly">Monthly</MenuItem>
-                    </Select>
-                  </FormControl>
-                  <TextField
-                    fullWidth
-                    label="Retention Days"
-                    type="number"
-                    value={settings.backup.retentionDays}
-                    onChange={(e) => handleSettingChange('backup', 'retentionDays', parseInt(e.target.value))}
-                    margin="normal"
-                  />
-                  <FormControl fullWidth margin="normal">
-                    <InputLabel>Backup Location</InputLabel>
-                    <Select
-                      value={settings.backup.backupLocation}
-                      onChange={(e) => handleSettingChange('backup', 'backupLocation', e.target.value)}
-                      label="Backup Location"
-                    >
-                      <MenuItem value="local">Local Storage</MenuItem>
-                      <MenuItem value="s3">AWS S3</MenuItem>
-                      <MenuItem value="gcs">Google Cloud Storage</MenuItem>
-                      <MenuItem value="azure">Azure Blob Storage</MenuItem>
-                    </Select>
-                  </FormControl>
-                  <TextField
-                    fullWidth
-                    label="Last Backup"
-                    value={formatDate(settings.backup.lastBackup)}
-                    margin="normal"
-                    InputProps={{ readOnly: true }}
-                  />
-                  <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.backup.autoBackup}
-                          onChange={(e) => handleSettingChange('backup', 'autoBackup', e.target.checked)}
-                        />
-                      }
-                      label="Enable Automatic Backups"
-                    />
-                  </Box>
-                </Box>
-              </Box>
-            )}
-
-            {/* Payment Settings */}
-            {activeTab === 4 && (
-              <Box>
-                <Typography variant="h6" gutterBottom>
-                  Payment Configuration
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-                  <FormControl fullWidth margin="normal">
-                    <InputLabel>Default Currency</InputLabel>
-                    <Select
-                      value={settings.payment.defaultCurrency}
-                      onChange={(e) => handleSettingChange('payment', 'defaultCurrency', e.target.value)}
-                      label="Default Currency"
-                    >
-                      <MenuItem value="USD">USD ($)</MenuItem>
-                      <MenuItem value="EUR">EUR (€)</MenuItem>
-                      <MenuItem value="GBP">GBP (£)</MenuItem>
-                      <MenuItem value="AUD">AUD ($)</MenuItem>
-                      <MenuItem value="CAD">CAD ($)</MenuItem>
-                    </Select>
-                  </FormControl>
-                  <TextField
-                    fullWidth
-                    label="Tax Rate (%)"
-                    type="number"
-                    value={settings.payment.taxRate}
-                    onChange={(e) => handleSettingChange('payment', 'taxRate', parseFloat(e.target.value))}
-                    margin="normal"
-                  />
-                  <TextField
-                    fullWidth
-                    label="Invoice Prefix"
-                    value={settings.payment.invoicePrefix}
-                    onChange={(e) => handleSettingChange('payment', 'invoicePrefix', e.target.value)}
-                    margin="normal"
-                  />
-                  <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.payment.stripeEnabled}
-                          onChange={(e) => handleSettingChange('payment', 'stripeEnabled', e.target.checked)}
-                        />
-                      }
-                      label="Enable Stripe Payments"
-                    />
-                  </Box>
-                  <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.payment.paypalEnabled}
-                          onChange={(e) => handleSettingChange('payment', 'paypalEnabled', e.target.checked)}
-                        />
-                      }
-                      label="Enable PayPal Payments"
-                    />
-                  </Box>
-                </Box>
-              </Box>
-            )}
           </Paper>
-        )}
-      </Box>
-    </Layout>
+        </Box>
+      )}
+    </Box>
   );
 };
 

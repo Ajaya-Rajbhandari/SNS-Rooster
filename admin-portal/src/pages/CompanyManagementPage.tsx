@@ -39,7 +39,6 @@ import {
 } from '@mui/icons-material';
 import apiService from '../services/apiService';
 import CreateCompanyForm from '../components/CreateCompanyForm';
-import Layout from '../components/Layout';
 
 interface Company {
   _id: string;
@@ -502,18 +501,15 @@ const CompanyManagementPage: React.FC = () => {
   };
 
   return (
-    <Layout>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
         {/* Header */}
-        <Paper sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h4" component="h1">
-              Company Management
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 2 }}>
+        <Paper sx={{ p: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <Button
                 variant="outlined"
                 color="error"
+                size="small"
                 onClick={() => setBulkDeleteDialogOpen(true)}
               >
                 Hard Delete Empty Companies
@@ -521,39 +517,40 @@ const CompanyManagementPage: React.FC = () => {
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
+                size="small"
                 onClick={handleCreateCompany}
               >
                 Create Company
               </Button>
             </Box>
+            
+            <TextField
+              variant="outlined"
+              placeholder="Search companies..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              size="small"
+              sx={{ minWidth: 250 }}
+            />
           </Box>
-          
-          <TextField
-            fullWidth
-            variant="outlined"
-            placeholder="Search companies by name, domain, or subdomain..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ maxWidth: 400 }}
-          />
         </Paper>
 
         {/* Error Alert */}
         {error && (
-          <Alert severity="error" onClose={() => setError('')}>
+          <Alert severity="error" onClose={() => setError('')} sx={{ mb: 1 }}>
             {error}
           </Alert>
         )}
 
         {/* Success Alert */}
         {successMessage && (
-          <Alert severity="success" onClose={() => setSuccessMessage('')}>
+          <Alert severity="success" onClose={() => setSuccessMessage('')} sx={{ mb: 1 }}>
             {successMessage}
           </Alert>
         )}
 
         {/* Data Grid */}
-        <Paper sx={{ height: 600, width: '100%' }}>
+        <Paper sx={{ flex: 1, minHeight: 0 }}>
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
               <CircularProgress />
@@ -583,7 +580,6 @@ const CompanyManagementPage: React.FC = () => {
             />
           )}
         </Paper>
-      </Box>
 
       {/* Create Company Dialog */}
       <Dialog
@@ -665,23 +661,23 @@ const CompanyManagementPage: React.FC = () => {
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
                     <Box sx={{ flex: '1 1 300px' }}>
                       <Typography variant="subtitle2" color="text.secondary">Street</Typography>
-                      <Typography variant="body1">{selectedCompany.address.street || 'N/A'}</Typography>
+                      <Typography variant="body1">{selectedCompany.address?.street || 'N/A'}</Typography>
                     </Box>
                     <Box sx={{ flex: '1 1 300px' }}>
                       <Typography variant="subtitle2" color="text.secondary">City</Typography>
-                      <Typography variant="body1">{selectedCompany.address.city || 'N/A'}</Typography>
+                      <Typography variant="body1">{selectedCompany.address?.city || 'N/A'}</Typography>
                     </Box>
                     <Box sx={{ flex: '1 1 300px' }}>
                       <Typography variant="subtitle2" color="text.secondary">State/Province</Typography>
-                      <Typography variant="body1">{selectedCompany.address.state || 'N/A'}</Typography>
+                      <Typography variant="body1">{selectedCompany.address?.state || 'N/A'}</Typography>
                     </Box>
                     <Box sx={{ flex: '1 1 300px' }}>
                       <Typography variant="subtitle2" color="text.secondary">Postal Code</Typography>
-                      <Typography variant="body1">{selectedCompany.address.postalCode || 'N/A'}</Typography>
+                      <Typography variant="body1">{selectedCompany.address?.postalCode || 'N/A'}</Typography>
                     </Box>
                     <Box sx={{ flex: '1 1 300px' }}>
                       <Typography variant="subtitle2" color="text.secondary">Country</Typography>
-                      <Typography variant="body1">{selectedCompany.address.country || 'N/A'}</Typography>
+                      <Typography variant="body1">{selectedCompany.address?.country || 'N/A'}</Typography>
                     </Box>
                   </Box>
                 </Box>
@@ -1087,7 +1083,7 @@ const CompanyManagementPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Layout>
+    </Box>
   );
 };
 
