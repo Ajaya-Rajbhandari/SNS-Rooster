@@ -1,4 +1,5 @@
 import apiService from '../services/apiService';
+import API_CONFIG from '../config/api';
 
 interface LoginResponse {
   token: string;
@@ -21,7 +22,7 @@ interface UsersResponse {
 export const testBackendConnection = async (email?: string, password?: string) => {
   try {
     // Test 1: Basic connectivity
-    await fetch('http://localhost:5000/');
+    await fetch(`${API_CONFIG.BASE_URL}/`);
     
     // Test 2: Super admin login (if credentials provided)
     let loginResponse: LoginResponse | null = null;

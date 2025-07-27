@@ -26,6 +26,7 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import API_CONFIG from '../config/api';
 
 interface SubscriptionPlan {
   _id: string;
@@ -118,7 +119,7 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
           return;
         }
         
-        const response = await axios.get('http://localhost:5000/api/super-admin/subscription-plans', {
+        const response = await axios.get(`${API_CONFIG.BASE_URL}/api/super-admin/subscription-plans`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }

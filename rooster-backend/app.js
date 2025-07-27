@@ -64,17 +64,13 @@ const app = express();
 // Validate environment variables on startup
 validateEnvironmentVariables();
 
-// Simple CORS middleware for immediate fix
+// Manual CORS handler for OPTIONS requests
+app.options('*', cors());
+
+// Debug middleware to log all requests
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, companyId, x-company-id');
-  
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-  } else {
-    next();
-  }
+  console.log(`${req.method} ${req.path} - Origin: ${req.headers.origin}`);
+  next();
 });
 
 // CORS middleware (must be before security middleware for preflight requests)
@@ -118,15 +114,51 @@ app.use(cors({
   },
   credentials: true, // Only needed if you use cookies/auth
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'companyId', 'x-company-id']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'companyId', 'x-company-id'],
+  optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
 }));
 
 // Security middleware (apply after CORS)
 app.use(helmetConfig);
 
+// Specific CORS handler for problematic routes
+app.use('/api/auth/me', (req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, companyId, x-company-id');
+    res.status(200).end();
+    return;
+  }
+  next();
+});
+
+app.use('/api/companies/features', (req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, companyId, x-company-id');
+    res.status(200).end();
+    return;
+  }
+  next();
+});
+
+app.use('/api/admin/settings', (req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, companyId, x-company-id');
+    res.status(200).end();
+    return;
+  }
+  next();
+});
+
 // Rate limiting for all API routes (but not for OPTIONS requests)
 app.use('/api', (req, res, next) => {
   if (req.method === 'OPTIONS') {
+    console.log('Skipping rate limiting for OPTIONS request');
     return next(); // Skip rate limiting for preflight requests
   }
   return apiLimiter(req, res, next);

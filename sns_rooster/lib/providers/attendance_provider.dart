@@ -168,7 +168,12 @@ class AttendanceProvider with ChangeNotifier {
 
   void clearAttendance() {
     _attendanceRecords = [];
+    _attendanceSummary = null;
+    _todayStatus = null;
+    _currentAttendance = null;
+    _leaveInfo = null;
     _error = null;
+    _isLoading = false;
     notifyListeners();
   }
 
