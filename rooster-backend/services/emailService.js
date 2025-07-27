@@ -1,11 +1,9 @@
 const nodemailer = require('nodemailer');
-const { Resend } = require('resend');
 
 class EmailService {
   constructor() {
     this.transporter = null;
-    this.resend = null;
-    this.emailProvider = process.env.EMAIL_PROVIDER || 'development';
+    this.emailProvider = process.env.EMAIL_PROVIDER || 'gmail';
     this.initializeTransporter();
   }
 
@@ -19,20 +17,13 @@ class EmailService {
           console.log('🟢 Development mode - Emails will be logged to console');
           this.transporter = null;
           break;
-        case 'resend':
-          if (!Resend) {
-            throw new Error('Resend SDK not installed. Run `npm install resend`.');
-          }
-          if (!process.env.RESEND_API_KEY) {
-            throw new Error('RESEND_API_KEY not set in environment.');
-          }
-          this.resend = new Resend(process.env.RESEND_API_KEY);
-          this.transporter = null;
-          console.log('✅ Email service initialized with Resend');
-          break;
+
         case 'gmail':
           if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-            throw new Error('GMAIL_USER and GMAIL_APP_PASSWORD must be set for Gmail provider.');
+            console.log('⚠️ GMAIL_USER and GMAIL_APP_PASSWORD not set - falling back to development mode');
+            console.log('📧 Emails will be logged to console instead of sent');
+            this.transporter = null;
+            break;
           }
           this.transporter = nodemailer.createTransport({
             service: 'gmail',
@@ -41,6 +32,7 @@ class EmailService {
               pass: process.env.GMAIL_APP_PASSWORD, // Use app password, not regular password
             },
           });
+          console.log('✅ Email service initialized with Gmail');
           break;
         case 'sendgrid':
           if (!process.env.SENDGRID_API_KEY) {
@@ -171,7 +163,7 @@ class EmailService {
     };
 
     // Check if transporter is available
-    if (!this.transporter && !this.resend) {
+    if (!this.transporter) {
       // In development mode or when no email provider is configured, log the email
       console.log('\n📧 EMAIL WOULD BE SENT (No Email Provider Configured):');
       console.log('To:', to);
@@ -187,48 +179,8 @@ class EmailService {
       });
     }
 
-    // Use Resend if available
-    if (this.resend) {
-      try {
-        const result = await this.resend.emails.send({
-          from: mailOptions.from,
-          to: [mailOptions.to],
-          subject: mailOptions.subject,
-          html: mailOptions.html,
-          text: mailOptions.text
-        });
-        return result;
-      } catch (error) {
-        console.error('Resend email error:', error);
-        // Fallback to logging if Resend fails
-        console.log('\n📧 EMAIL FAILED TO SEND (Resend Error):');
-        console.log('To:', to);
-        console.log('Subject:', subject);
-        console.log('Error:', error.message);
-        console.log('📧 END EMAIL LOG\n');
-        
-        return Promise.resolve({
-          messageId: 'resend-failed-' + Date.now(),
-          response: 'Email failed to send via Resend, logged to console'
-        });
-      }
-    }
-
     // Use nodemailer transporter if available
-    if (this.transporter) {
-      return this.transporter.sendMail(mailOptions);
-    }
-
-    // Fallback - should not reach here but just in case
-    console.log('\n📧 EMAIL WOULD BE SENT (Fallback):');
-    console.log('To:', to);
-    console.log('Subject:', subject);
-    console.log('📧 END EMAIL LOG\n');
-    
-    return Promise.resolve({
-      messageId: 'fallback-' + Date.now(),
-      response: 'Email logged to console (fallback)'
-    });
+    return this.transporter.sendMail(mailOptions);
   }
 
   // Password reset
