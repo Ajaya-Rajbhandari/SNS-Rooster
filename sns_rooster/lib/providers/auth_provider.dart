@@ -17,6 +17,10 @@ import '../providers/company_provider.dart';
 import '../services/fcm_service.dart';
 import '../providers/company_settings_provider.dart';
 import '../providers/feature_provider.dart';
+import '../models/user_model.dart';
+import '../services/cached_api_service.dart';
+import '../services/cache_service.dart';
+import '../models/employee.dart';
 
 class AuthProvider with ChangeNotifier {
   String? _token;
@@ -367,35 +371,28 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  // Provider references for clearing state during logout
   ProfileProvider? _profileProvider;
-
-  void setProfileProvider(ProfileProvider profileProvider) {
-    _profileProvider = profileProvider;
-  }
-
   AttendanceProvider? _attendanceProvider;
-
-  void setAttendanceProvider(AttendanceProvider attendanceProvider) {
-    _attendanceProvider = attendanceProvider;
-  }
-
   CompanyProvider? _companyProvider;
-
-  void setCompanyProvider(CompanyProvider companyProvider) {
-    _companyProvider = companyProvider;
-  }
-
+  FeatureProvider? _featureProvider;
   CompanySettingsProvider? _companySettingsProvider;
 
-  void setCompanySettingsProvider(
-      CompanySettingsProvider companySettingsProvider) {
-    _companySettingsProvider = companySettingsProvider;
+  // Methods to set provider references
+  void setProfileProvider(ProfileProvider provider) {
+    _profileProvider = provider;
   }
 
-  FeatureProvider? _featureProvider;
+  void setAttendanceProvider(AttendanceProvider provider) {
+    _attendanceProvider = provider;
+  }
 
-  void setFeatureProvider(FeatureProvider featureProvider) {
-    _featureProvider = featureProvider;
+  void setCompanyProvider(CompanyProvider provider) {
+    _companyProvider = provider;
+  }
+
+  void setFeatureProvider(FeatureProvider provider) {
+    _featureProvider = provider;
 
     // If features were scheduled to be loaded during login, load them now
     if (_scheduleFeatureLoading && isAuthenticated) {
@@ -404,19 +401,53 @@ class AuthProvider with ChangeNotifier {
       // Use the same approach as CompanyInfoWidget - load features after UI is built
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         try {
-          await featureProvider.loadFeatures();
+          await provider.loadFeatures();
           log('LOGIN_DEBUG: Delayed features loading successful');
         } catch (e) {
           log('LOGIN_DEBUG: Delayed features loading failed: $e');
           // Try force refresh as fallback
           try {
-            await featureProvider.forceRefreshFeatures();
+            await provider.forceRefreshFeatures();
             log('LOGIN_DEBUG: Delayed force refresh successful');
           } catch (forceError) {
             log('LOGIN_DEBUG: Delayed force refresh failed: $forceError');
           }
         }
       });
+    }
+  }
+
+  void setCompanySettingsProvider(CompanySettingsProvider provider) {
+    _companySettingsProvider = provider;
+  }
+
+  /// Clear all provider states during logout
+  Future<void> _clearAllProviders() async {
+    log('DEBUG: Clearing all providers');
+
+    if (_profileProvider != null) {
+      log('DEBUG: Clearing profile via ProfileProvider');
+      await _profileProvider?.clearProfile();
+    }
+
+    if (_attendanceProvider != null) {
+      log('DEBUG: Clearing attendance via AttendanceProvider');
+      _attendanceProvider!.clearAttendance();
+    }
+
+    if (_companyProvider != null) {
+      log('DEBUG: Clearing company data via CompanyProvider');
+      await _companyProvider?.clearCompany();
+    }
+
+    if (_featureProvider != null) {
+      log('DEBUG: Clearing features via FeatureProvider');
+      _featureProvider!.clearFeatures();
+    }
+
+    if (_companySettingsProvider != null) {
+      log('DEBUG: Clearing company settings');
+      _companySettingsProvider!.clearSettings();
     }
   }
 
@@ -449,36 +480,16 @@ class AuthProvider with ChangeNotifier {
         log('DEBUG: Cleared remembered credentials from SecureStorage');
       }
 
-      if (_profileProvider != null) {
-        log('DEBUG: Clearing profile via ProfileProvider');
-        await _profileProvider?.clearProfile();
-      } else {
-        log('DEBUG: ProfileProvider is not set');
-      }
-      if (_attendanceProvider != null) {
-        log('DEBUG: Clearing attendance via AttendanceProvider');
-        // _attendanceProvider!.clearAttendance();
-      } else {
-        log('DEBUG: AttendanceProvider is not set');
-      }
-      if (_companyProvider != null) {
-        log('DEBUG: Clearing company data via CompanyProvider');
-        await _companyProvider?.clearCompany();
-      } else {
-        log('DEBUG: CompanyProvider is not set');
-      }
-
-      if (_featureProvider != null) {
-        log('DEBUG: Clearing features via FeatureProvider');
-        _featureProvider!.clearFeatures();
-      } else {
-        log('DEBUG: FeatureProvider is not set');
-      }
+      // Clear all provider states
+      await _clearAllProviders();
 
       log('DEBUG: Logout process completed');
     } catch (e) {
       log('ERROR: Exception during logout: $e');
     }
+
+    // Invalidate cache after logout
+    await cacheService.clear();
 
     // Navigate to login screen after logout
     WidgetsBinding.instance.addPostFrameCallback((_) {

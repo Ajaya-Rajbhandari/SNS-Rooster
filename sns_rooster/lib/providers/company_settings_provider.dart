@@ -152,4 +152,13 @@ class CompanySettingsProvider with ChangeNotifier {
       (_settings?['companyInfo'] ?? _settings)?['phone'] ?? '';
   String get companyAddress =>
       (_settings?['companyInfo'] ?? _settings)?['address'] ?? '';
+
+  /// Clear settings data (on logout)
+  void clearSettings() {
+    _settings = null;
+    error = null;
+    isLoading = false;
+    isUploading = false;
+    notifyListeners();
+  }
 }

@@ -86,14 +86,15 @@ const helmetConfig = helmet({
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
       scriptSrc: ["'self'"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", "https://sns-rooster.onrender.com", "https://sns-rooster-8cca5.web.app"],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: []
     }
   },
   crossOriginEmbedderPolicy: false, // Disable for file uploads
-  crossOriginResourcePolicy: { policy: "cross-origin" } // Allow cross-origin for uploads
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin for uploads
+  crossOriginOpenerPolicy: false // Disable for cross-origin requests
 });
 
 // ===== INPUT VALIDATION SCHEMAS =====

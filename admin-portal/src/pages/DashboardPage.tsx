@@ -27,7 +27,9 @@ import {
 } from '@mui/icons-material';
 import Layout from '../components/Layout';
 import StatCard from '../components/dashboard/StatCard';
-import apiService from '../services/apiService';
+import cachedApiService from '../services/cachedApiService';
+import { useCache } from '../contexts/CacheContext';
+import CacheStatsWidget from '../components/CacheStatsWidget';
 
 interface DashboardStats {
   totalCompanies: number;
@@ -60,6 +62,7 @@ const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { stats: cacheStats } = useCache();
 
   useEffect(() => {
     fetchDashboardData();
@@ -69,7 +72,7 @@ const DashboardPage: React.FC = () => {
     try {
       setLoading(true);
       // Fetch stats from backend
-      const statsResponse = await apiService.get<any>('/api/super-admin/dashboard/stats');
+      const statsResponse = await cachedApiService.get<any>('/api/super-admin/dashboard/stats');
       setStats(statsResponse);
 
       // Mock recent activities for now

@@ -1,69 +1,32 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { CssBaseline } from '@mui/material';
+import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './contexts/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import SuperAdminRoute from './components/SuperAdminRoute';
+import { CacheProvider } from './contexts/CacheContext';
+import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import CompanyManagementPage from './pages/CompanyManagementPage';
-import SubscriptionPlanManagementPage from './pages/SubscriptionPlanManagementPage';
-import TestConnectionPage from './pages/TestConnectionPage';
 import UserManagementPage from './pages/UserManagementPage';
-import ChangePasswordPage from './pages/ChangePasswordPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import ResetPasswordPage from './pages/ResetPasswordPage';
-import ResetPasswordWithCodePage from './pages/ResetPasswordWithCodePage';
+import SubscriptionPlanManagementPage from './pages/SubscriptionPlanManagementPage';
 import AnalyticsPage from './pages/AnalyticsPage';
-import MonitoringPage from './pages/MonitoringPage';
 import SettingsPage from './pages/SettingsPage';
+import MonitoringPage from './pages/MonitoringPage';
+import TestConnectionPage from './pages/TestConnectionPage';
+import ChangePasswordPage from './pages/ChangePasswordPage';
+import SuperAdminRoute from './components/SuperAdminRoute';
+import AdminRoute from './components/AdminRoute';
 
-// Placeholder components
-const NotFoundPage = () => <div>404 - Page Not Found</div>;
-
-// Create a modern theme
+// Create theme
 const theme = createTheme({
   palette: {
+    mode: 'light',
     primary: {
       main: '#1976d2',
-      light: '#42a5f5',
-      dark: '#1565c0',
     },
     secondary: {
       main: '#dc004e',
-    },
-    background: {
-      default: '#f5f5f5',
-    },
-  },
-  typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-    h4: {
-      fontWeight: 700,
-    },
-    h6: {
-      fontWeight: 600,
-    },
-  },
-  shape: {
-    borderRadius: 12,
-  },
-  components: {
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          border: '1px solid rgba(0,0,0,0.08)',
-        },
-      },
-    },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        },
-      },
     },
   },
 });
@@ -73,81 +36,87 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/reset-password-code" element={<ResetPasswordWithCodePage />} />
-            <Route path="/test" element={<TestConnectionPage />} />
-            <Route 
-              path="/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <DashboardPage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/companies" 
-              element={
+        <CacheProvider>
+          <Router>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/test-connection" element={<TestConnectionPage />} />
+              
+              {/* Protected Routes */}
+              <Route path="/" element={
                 <SuperAdminRoute>
-                  <CompanyManagementPage />
+                  <Layout>
+                    <DashboardPage />
+                  </Layout>
                 </SuperAdminRoute>
-              } 
-            />
-            <Route 
-              path="/subscription-plans" 
-              element={
+              } />
+              
+              <Route path="/dashboard" element={
                 <SuperAdminRoute>
-                  <SubscriptionPlanManagementPage />
+                  <Layout>
+                    <DashboardPage />
+                  </Layout>
                 </SuperAdminRoute>
-              } 
-            />
-            <Route 
-              path="/users" 
-              element={
+              } />
+              
+              <Route path="/companies" element={
                 <SuperAdminRoute>
-                  <UserManagementPage />
+                  <Layout>
+                    <CompanyManagementPage />
+                  </Layout>
                 </SuperAdminRoute>
-              } 
-            />
-            <Route 
-              path="/analytics" 
-              element={
+              } />
+              
+              <Route path="/users" element={
                 <SuperAdminRoute>
-                  <AnalyticsPage />
+                  <Layout>
+                    <UserManagementPage />
+                  </Layout>
                 </SuperAdminRoute>
-              } 
-            />
-            <Route 
-              path="/monitoring" 
-              element={
+              } />
+              
+              <Route path="/subscription-plans" element={
                 <SuperAdminRoute>
-                  <MonitoringPage />
+                  <Layout>
+                    <SubscriptionPlanManagementPage />
+                  </Layout>
                 </SuperAdminRoute>
-              } 
-            />
-            <Route 
-              path="/settings" 
-              element={
+              } />
+              
+              <Route path="/analytics" element={
                 <SuperAdminRoute>
-                  <SettingsPage />
+                  <Layout>
+                    <AnalyticsPage />
+                  </Layout>
                 </SuperAdminRoute>
-              } 
-            />
-            <Route 
-              path="/change-password" 
-              element={
-                <ProtectedRoute>
-                  <ChangePasswordPage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </BrowserRouter>
+              } />
+              
+              <Route path="/settings" element={
+                <SuperAdminRoute>
+                  <Layout>
+                    <SettingsPage />
+                  </Layout>
+                </SuperAdminRoute>
+              } />
+              
+              <Route path="/monitoring" element={
+                <SuperAdminRoute>
+                  <Layout>
+                    <MonitoringPage />
+                  </Layout>
+                </SuperAdminRoute>
+              } />
+              
+              <Route path="/change-password" element={
+                <AdminRoute>
+                  <Layout>
+                    <ChangePasswordPage />
+                  </Layout>
+                </AdminRoute>
+              } />
+            </Routes>
+          </Router>
+        </CacheProvider>
       </AuthProvider>
     </ThemeProvider>
   );

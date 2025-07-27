@@ -3,7 +3,7 @@
 
 export async function unlockUser(userId, superAdminToken) {
   // Use absolute base URL if needed
-  const baseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
+  const baseUrl = process.env.REACT_APP_API_BASE_URL || 'https://sns-rooster.onrender.com';
   const response = await fetch(`${baseUrl}/api/super-admin/users/${userId}/unlock`, {
     method: 'POST',
     headers: {
