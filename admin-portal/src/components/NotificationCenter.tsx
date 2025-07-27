@@ -276,18 +276,19 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ open, onClose, 
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <Typography
                             variant="subtitle2"
+                            component="div"
                             sx={{ fontWeight: notification.read ? 400 : 600 }}
                           >
                             {notification.title}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" component="div" color="text.secondary">
                             {formatTimestamp(notification.timestamp)}
                           </Typography>
                         </Box>
                       }
                       secondary={
                         <Box>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" component="div" color="text.secondary">
                             {notification.message}
                           </Typography>
                           <Chip
@@ -298,6 +299,12 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ open, onClose, 
                           />
                         </Box>
                       }
+                      primaryTypographyProps={{
+                        component: 'div' // Change from 'p' to 'div' to prevent nesting issues
+                      }}
+                      secondaryTypographyProps={{
+                        component: 'div' // Change from 'p' to 'div' to prevent nesting issues
+                      }}
                     />
                     <Box>
                       {!notification.read && (
