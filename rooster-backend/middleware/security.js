@@ -30,7 +30,7 @@ const authLimiter = rateLimit({
 // Rate limiter for general API endpoints
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // Increased from 100 to 200 requests per window per IP
+  max: 500, // Increased from 200 to 500 requests per window per IP
   message: {
     error: 'Rate limit exceeded',
     message: 'Too many requests, please try again later'
@@ -42,7 +42,7 @@ const apiLimiter = rateLimit({
 // Rate limiter for auth validation (more lenient to prevent loops)
 const authValidationLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 60, // Increased from 30 to 60 requests per minute per IP
+  max: 120, // Increased from 60 to 120 requests per minute per IP
   message: {
     error: 'Rate limit exceeded',
     message: 'Too many validation requests, please try again later'
@@ -54,7 +54,7 @@ const authValidationLimiter = rateLimit({
 // Rate limiter for file uploads (prevent abuse)
 const uploadLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // 10 uploads per hour per IP
+  max: 20, // Increased from 10 to 20 uploads per hour per IP
   message: {
     error: 'Upload limit exceeded',
     message: 'Too many file uploads, please try again later'
@@ -63,13 +63,25 @@ const uploadLimiter = rateLimit({
   legacyHeaders: false
 });
 
-// Rate limiter for super admin endpoints (stricter limits)
+// Rate limiter for super admin endpoints (more lenient for dashboard)
 const superAdminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50, // 50 requests per window per IP
+  max: 200, // Increased from 50 to 200 requests per window per IP
   message: {
     error: 'Rate limit exceeded',
     message: 'Too many super admin requests, please try again later'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Rate limiter for dashboard and analytics endpoints (very lenient)
+const dashboardLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // 1000 requests per window per IP for dashboard
+  message: {
+    error: 'Rate limit exceeded',
+    message: 'Too many dashboard requests, please try again later'
   },
   standardHeaders: true,
   legacyHeaders: false
@@ -361,6 +373,7 @@ module.exports = {
   authValidationLimiter,
   uploadLimiter,
   superAdminLimiter,
+  dashboardLimiter,
   
   // Security headers
   helmetConfig,

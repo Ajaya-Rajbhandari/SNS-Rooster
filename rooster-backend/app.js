@@ -12,6 +12,7 @@ const {
   helmetConfig,
   apiLimiter,
   authValidationLimiter,
+  dashboardLimiter,
   validateEnvironmentVariables
 } = require('./middleware/security');
 
@@ -163,6 +164,11 @@ app.use('/api', (req, res, next) => {
   }
   return apiLimiter(req, res, next);
 });
+
+// Rate limiting for dashboard and analytics endpoints (more lenient)
+app.use('/api/super-admin/dashboard', dashboardLimiter);
+app.use('/api/super-admin/analytics', dashboardLimiter);
+app.use('/api/analytics', dashboardLimiter);
 
 // Performance optimization middleware
 app.use(compressionMiddleware);
