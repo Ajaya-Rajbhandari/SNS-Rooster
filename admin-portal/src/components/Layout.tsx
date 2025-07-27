@@ -162,13 +162,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     },
                     '& .MuiListItemIcon-root': {
                       color: isActive ? 'white' : 'text.secondary',
-                      minWidth: sidebarCollapsed ? 'auto' : 40,
+                      minWidth: sidebarCollapsed ? 'auto' : 32,
                     },
+                    '& .MuiListItemText-root': {
+                      margin: 0,
+                      padding: 0
+                    }
                   }}
                 >
                   <ListItemIcon sx={{ 
-                    minWidth: sidebarCollapsed ? 'auto' : 40,
-                    mr: sidebarCollapsed ? 0 : 2
+                    minWidth: sidebarCollapsed ? 'auto' : 32,
+                    mr: sidebarCollapsed ? 0 : 1
                   }}>
                     {item.icon}
                   </ListItemIcon>
@@ -182,6 +186,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                         '& .MuiListItemText-primary': {
                           fontSize: '0.875rem',
                           lineHeight: 1.2
+                        },
+                        '& .MuiListItemText-root': {
+                          margin: 0
                         }
                       }}
                     />
