@@ -56,6 +56,31 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const { user, logout } = useAuth();
 
+  // Add global CSS overrides for sidebar layout
+  React.useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .MuiListItemIcon-root {
+        min-width: 32px !important;
+        margin-right: 8px !important;
+      }
+      .MuiListItemText-root {
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .MuiListItemText-primary {
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      if (document.head.contains(style)) {
+        document.head.removeChild(style);
+      }
+    };
+  }, []);
+
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
@@ -167,12 +192,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     '& .MuiListItemText-root': {
                       margin: 0,
                       padding: 0
+                    },
+                    '& .MuiListItemText-primary': {
+                      margin: 0,
+                      padding: 0
                     }
                   }}
                 >
                   <ListItemIcon sx={{ 
                     minWidth: sidebarCollapsed ? 'auto' : 32,
-                    mr: sidebarCollapsed ? 0 : 1
+                    mr: sidebarCollapsed ? 0 : 1,
+                    flexShrink: 0
                   }}>
                     {item.icon}
                   </ListItemIcon>
@@ -185,10 +215,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                       sx={{
                         '& .MuiListItemText-primary': {
                           fontSize: '0.875rem',
-                          lineHeight: 1.2
+                          lineHeight: 1.2,
+                          margin: 0,
+                          padding: 0
                         },
                         '& .MuiListItemText-root': {
-                          margin: 0
+                          margin: 0,
+                          padding: 0,
+                          flex: 1
                         }
                       }}
                     />
