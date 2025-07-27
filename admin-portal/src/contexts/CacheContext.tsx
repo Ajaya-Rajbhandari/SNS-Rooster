@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import cachedApiService from '../services/cachedApiService';
+import { useAuth } from './AuthContext';
 
 interface CacheContextType {
   stats: any;
@@ -25,6 +26,7 @@ interface CacheProviderProps {
 
 export const CacheProvider: React.FC<CacheProviderProps> = ({ children }) => {
   const [stats, setStats] = useState<any>({});
+  const { isAuthenticated } = useAuth();
 
   const refreshStats = () => {
     setStats(cachedApiService.getCacheStats());
@@ -41,8 +43,11 @@ export const CacheProvider: React.FC<CacheProviderProps> = ({ children }) => {
   };
 
   const preloadData = async () => {
-    await cachedApiService.preloadData();
-    refreshStats();
+    // Only preload data if user is authenticated
+    if (isAuthenticated) {
+      await cachedApiService.preloadData();
+      refreshStats();
+    }
   };
 
   // Refresh stats periodically
@@ -54,10 +59,12 @@ export const CacheProvider: React.FC<CacheProviderProps> = ({ children }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // Preload important data on mount
+  // Preload important data only when authenticated
   useEffect(() => {
-    preloadData();
-  }, []);
+    if (isAuthenticated) {
+      preloadData();
+    }
+  }, [isAuthenticated]);
 
   const value: CacheContextType = {
     stats,
