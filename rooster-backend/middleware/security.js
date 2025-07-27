@@ -19,6 +19,7 @@ const authLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skipSuccessfulRequests: true,
   handler: (req, res) => {
     res.status(429).json({
       error: 'Rate limit exceeded',
@@ -36,7 +37,8 @@ const apiLimiter = rateLimit({
     message: 'Too many requests, please try again later'
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skipSuccessfulRequests: false
 });
 
 // Rate limiter for auth validation (more lenient to prevent loops)
@@ -48,7 +50,8 @@ const authValidationLimiter = rateLimit({
     message: 'Too many validation requests, please try again later'
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skipSuccessfulRequests: true
 });
 
 // Rate limiter for file uploads (prevent abuse)
@@ -60,7 +63,8 @@ const uploadLimiter = rateLimit({
     message: 'Too many file uploads, please try again later'
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skipSuccessfulRequests: false
 });
 
 // Rate limiter for super admin endpoints (more lenient for dashboard)
@@ -72,7 +76,8 @@ const superAdminLimiter = rateLimit({
     message: 'Too many super admin requests, please try again later'
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skipSuccessfulRequests: false
 });
 
 // Rate limiter for dashboard and analytics endpoints (very lenient)
@@ -84,7 +89,8 @@ const dashboardLimiter = rateLimit({
     message: 'Too many dashboard requests, please try again later'
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skipSuccessfulRequests: false
 });
 
 // ===== SECURITY HEADERS CONFIGURATION =====

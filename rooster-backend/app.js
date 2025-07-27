@@ -62,6 +62,9 @@ const monitoringRoutes = require('./routes/monitoringRoutes');
 
 const app = express();
 
+// Trust proxy for rate limiting (required for Render deployment)
+app.set('trust proxy', 1);
+
 // Validate environment variables on startup
 validateEnvironmentVariables();
 
