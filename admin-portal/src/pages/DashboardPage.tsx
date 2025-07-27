@@ -376,14 +376,20 @@ const DashboardPage: React.FC = () => {
                     primary={activity.title}
                     secondary={
                       <Box>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" component="div" color="text.secondary">
                           {activity.description}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" component="div" color="text.secondary">
                           {formatDate(activity.timestamp)}
                         </Typography>
                       </Box>
                     }
+                    primaryTypographyProps={{
+                      component: 'div' // Change from 'p' to 'div' to prevent nesting issues
+                    }}
+                    secondaryTypographyProps={{
+                      component: 'div' // Change from 'p' to 'div' to prevent nesting issues
+                    }}
                   />
                   <Chip
                     label={activity.status}
