@@ -187,8 +187,25 @@ const validatePasswordChange = [
   body('newPassword')
     .isLength({ min: 8 })
     .withMessage('New password must be at least 8 characters long')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
-    .withMessage('New password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'),
+    .custom((value) => {
+      // Check for uppercase letter
+      if (!/[A-Z]/.test(value)) {
+        throw new Error('Password must contain at least one uppercase letter (A-Z)');
+      }
+      // Check for lowercase letter
+      if (!/[a-z]/.test(value)) {
+        throw new Error('Password must contain at least one lowercase letter (a-z)');
+      }
+      // Check for number
+      if (!/\d/.test(value)) {
+        throw new Error('Password must contain at least one number (0-9)');
+      }
+      // Check for special character
+      if (!/[@$!%*?&]/.test(value)) {
+        throw new Error('Password must contain at least one special character (@$!%*?&)');
+      }
+      return true;
+    }),
   
   body('confirmPassword')
     .custom((value, { req }) => {

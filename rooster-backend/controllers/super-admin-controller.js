@@ -35,10 +35,16 @@ class SuperAdminController {
    */
   static async getAllCompanies(req, res) {
     try {
-      const { page = 1, limit = 10, status, search, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+      const { page = 1, limit = 10, status, search, sortBy = 'createdAt', sortOrder = 'desc', includeArchived = false } = req.query;
       
       const filter = {};
       if (status) filter.status = status;
+      
+      // By default, exclude archived companies unless explicitly requested
+      if (!includeArchived || includeArchived === 'false') {
+        filter.archived = { $ne: true };
+      }
+      
       if (search) {
         filter.$or = [
           { name: { $regex: search, $options: 'i' } },
@@ -88,6 +94,65 @@ class SuperAdminController {
     }
   }
   
+  /**
+   * Get archived companies
+   */
+  static async getArchivedCompanies(req, res) {
+    try {
+      const { page = 1, limit = 10, search, sortBy = 'archivedAt', sortOrder = 'desc' } = req.query;
+      
+      const filter = { archived: true };
+      
+      if (search) {
+        filter.$or = [
+          { name: { $regex: search, $options: 'i' } },
+          { domain: { $regex: search, $options: 'i' } },
+          { adminEmail: { $regex: search, $options: 'i' } }
+        ];
+      }
+      
+      const sort = {};
+      sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+      
+      const companies = await Company.find(filter)
+        .populate('subscriptionPlan', 'name price features')
+        .populate('createdBy', 'firstName lastName email')
+        .populate('assignedSuperAdmin', 'firstName lastName email')
+        .populate('archivedBy', 'firstName lastName email')
+        .sort(sort)
+        .limit(limit * 1)
+        .skip((page - 1) * limit)
+        .exec();
+      
+      // Add employee count for each company
+      const companiesWithEmployeeCount = await Promise.all(
+        companies.map(async (company) => {
+          const employeeCount = await User.countDocuments({ 
+            companyId: company._id,
+            role: { $ne: 'super_admin' }
+          });
+          
+          return {
+            ...company.toObject(),
+            employeeCount
+          };
+        })
+      );
+      
+      const total = await Company.countDocuments(filter);
+      
+      res.json({
+        companies: companiesWithEmployeeCount,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        total
+      });
+    } catch (error) {
+      console.error('Error fetching archived companies:', error);
+      res.status(500).json({ error: 'Failed to fetch archived companies' });
+    }
+  }
+
   /**
    * Create a new company
    */
@@ -473,6 +538,172 @@ class SuperAdminController {
     }
   }
   
+  /**
+   * Archive company (soft delete with data preservation)
+   */
+  static async archiveCompany(req, res) {
+    try {
+      const { companyId } = req.params;
+      const { reason } = req.body;
+      
+      console.log('Attempting to archive company:', companyId);
+      
+      const company = await Company.findById(companyId);
+      
+      if (!company) {
+        console.log('Company not found:', companyId);
+        return res.status(404).json({
+          error: 'Company not found',
+          message: 'The specified company does not exist'
+        });
+      }
+      
+      if (company.archived) {
+        return res.status(400).json({
+          error: 'Company already archived',
+          message: 'This company is already archived'
+        });
+      }
+      
+      // Archive the company (preserve all data)
+      const archivedCompany = await Company.findByIdAndUpdate(
+        companyId,
+        {
+          status: 'archived',
+          archived: true,
+          archivedAt: new Date(),
+          archivedBy: req.user._id,
+          archiveReason: reason || 'Archived by super admin'
+        },
+        { new: true, runValidators: false }
+      );
+      
+      console.log('Company archived:', archivedCompany.name);
+      
+      res.json({
+        message: 'Company archived successfully',
+        companyId: archivedCompany._id,
+        companyName: archivedCompany.name,
+        archivedAt: archivedCompany.archivedAt
+      });
+    } catch (error) {
+      console.error('Error archiving company:', error);
+      res.status(500).json({ 
+        error: 'Failed to archive company',
+        details: error.message 
+      });
+    }
+  }
+
+  /**
+   * Restore archived company
+   */
+  static async restoreCompany(req, res) {
+    try {
+      const { companyId } = req.params;
+      
+      console.log('Attempting to restore company:', companyId);
+      
+      const company = await Company.findById(companyId);
+      
+      if (!company) {
+        console.log('Company not found:', companyId);
+        return res.status(404).json({
+          error: 'Company not found',
+          message: 'The specified company does not exist'
+        });
+      }
+      
+      if (!company.archived) {
+        return res.status(400).json({
+          error: 'Company not archived',
+          message: 'This company is not archived'
+        });
+      }
+      
+      // Restore the company
+      const restoredCompany = await Company.findByIdAndUpdate(
+        companyId,
+        {
+          status: 'active',
+          archived: false,
+          archivedAt: null,
+          archivedBy: null,
+          archiveReason: null
+        },
+        { new: true, runValidators: false }
+      );
+      
+      console.log('Company restored:', restoredCompany.name);
+      
+      res.json({
+        message: 'Company restored successfully',
+        companyId: restoredCompany._id,
+        companyName: restoredCompany.name
+      });
+    } catch (error) {
+      console.error('Error restoring company:', error);
+      res.status(500).json({ 
+        error: 'Failed to restore company',
+        details: error.message 
+      });
+    }
+  }
+
+  /**
+   * Hard delete archived company
+   */
+  static async hardDeleteArchivedCompany(req, res) {
+    try {
+      const { companyId } = req.params;
+      
+      console.log('Attempting to hard delete archived company:', companyId);
+      
+      const company = await Company.findById(companyId);
+      
+      if (!company) {
+        console.log('Company not found:', companyId);
+        return res.status(404).json({
+          error: 'Company not found',
+          message: 'The specified company does not exist'
+        });
+      }
+      
+      if (!company.archived) {
+        return res.status(400).json({
+          error: 'Company not archived',
+          message: 'Only archived companies can be permanently deleted'
+        });
+      }
+      
+      // Check if company has any users
+      const userCount = await User.countDocuments({ companyId });
+      if (userCount > 0) {
+        return res.status(400).json({
+          error: 'Cannot delete company with existing users',
+          message: `Company has ${userCount} users. Please transfer or delete users first.`
+        });
+      }
+      
+      // Hard delete the archived company
+      const deletedCompany = await Company.findByIdAndDelete(companyId);
+      
+      console.log('Archived company hard deleted:', deletedCompany.name);
+      
+      res.json({
+        message: 'Company permanently deleted',
+        companyId: deletedCompany._id,
+        companyName: deletedCompany.name
+      });
+    } catch (error) {
+      console.error('Error hard deleting archived company:', error);
+      res.status(500).json({ 
+        error: 'Failed to delete company',
+        details: error.message 
+      });
+    }
+  }
+
   /**
    * Hard delete company (for development/testing purposes)
    */

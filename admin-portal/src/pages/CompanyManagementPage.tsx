@@ -28,6 +28,7 @@ import {
   GridColDef,
   GridActionsCellItem,
   GridToolbar,
+  GridRowSelectionModel,
 } from '@mui/x-data-grid';
 import {
   Add as AddIcon,
@@ -98,9 +99,14 @@ const CompanyManagementPage: React.FC = () => {
   const [changePlanDialogOpen, setChangePlanDialogOpen] = useState(false);
   const [availablePlans, setAvailablePlans] = useState<any[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
-  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
-  const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
+
   const [changingPlan, setChangingPlan] = useState(false);
+  const [selectedCompanies, setSelectedCompanies] = useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
+  const [deleteSelectedDialogOpen, setDeleteSelectedDialogOpen] = useState(false);
+  const [deleteSelectedLoading, setDeleteSelectedLoading] = useState(false);
+  const [archiveReason, setArchiveReason] = useState('');
+  const [showReasonDialog, setShowReasonDialog] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<any[]>([]);
   
   // Custom plan state
   const [isCustomPlan, setIsCustomPlan] = useState(false);
@@ -216,27 +222,27 @@ const CompanyManagementPage: React.FC = () => {
   const columns: GridColDef[] = [
     {
       field: 'name',
-      headerName: 'Company Name',
-      flex: 1,
+      headerName: 'Company',
+      flex: 2,
       minWidth: 200,
-    },
-    {
-      field: 'domain',
-      headerName: 'Domain',
-      flex: 1,
-      minWidth: 150,
-    },
-    {
-      field: 'subdomain',
-      headerName: 'Subdomain',
-      flex: 1,
-      minWidth: 150,
+      maxWidth: 350,
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
+          <Typography variant="body2" fontWeight="medium" noWrap>
+            {params.value}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {params.row.domain}
+          </Typography>
+        </Box>
+      ),
     },
     {
       field: 'status',
       headerName: 'Status',
-      flex: 1,
-      minWidth: 120,
+      flex: 0.8,
+      minWidth: 80,
+      maxWidth: 120,
       renderCell: (params) => (
         <Chip
           label={params.value}
@@ -254,69 +260,95 @@ const CompanyManagementPage: React.FC = () => {
     },
     {
       field: 'planName',
-      headerName: 'Plan',
-      flex: 1,
+      headerName: 'Plan & Price',
+      flex: 1.2,
       minWidth: 120,
-    },
-    {
-      field: 'employeeLimit',
-      headerName: 'Employee Limit',
-      flex: 1,
-      minWidth: 120,
+      maxWidth: 180,
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
+          <Typography variant="body2" fontWeight="medium" noWrap>
+            {params.value}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {params.row.planPrice}
+          </Typography>
+        </Box>
+      ),
     },
     {
       field: 'currentEmployeesDisplay',
-      headerName: 'Current Employees',
+      headerName: 'Usage',
       flex: 1,
-      minWidth: 120,
+      minWidth: 100,
+      maxWidth: 140,
       renderCell: (params) => {
         const count = params.row.employeeCount || 0;
         const maxEmployees = params.row.subscriptionPlan?.features?.maxEmployees || 0;
         
-        if (count > maxEmployees * 0.9) {
-          return (
-            <Box sx={{ color: 'warning.main', fontWeight: 'bold' }}>
+        return (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
+            <Typography 
+              variant="body2" 
+              fontWeight="medium"
+              noWrap
+              sx={{ 
+                color: count > maxEmployees * 0.9 ? 'warning.main' : 'inherit',
+                fontWeight: count > maxEmployees * 0.9 ? 'bold' : 'medium'
+              }}
+            >
               {params.value}
-            </Box>
-          );
-        }
-        return params.value;
+            </Typography>
+            <Typography variant="caption" color="text.secondary" noWrap>
+              {params.row.employeeLimit}
+            </Typography>
+          </Box>
+        );
       },
     },
     {
       field: 'planFeatures',
-      headerName: 'Plan Features',
-      flex: 1,
-      minWidth: 150,
-    },
-    {
-      field: 'planPrice',
-      headerName: 'Plan Price',
-      flex: 1,
+      headerName: 'Features',
+      flex: 1.5,
       minWidth: 120,
+      maxWidth: 200,
+      renderCell: (params) => {
+        const features = params.value;
+        const displayFeatures = features?.split(', ').slice(0, 2).join(', ');
+        const hasMore = features?.split(', ').length > 2;
+        
+        return (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
+            <Typography variant="body2" noWrap title={features}>
+              {displayFeatures}
+            </Typography>
+            {hasMore && (
+              <Typography variant="caption" color="text.secondary" noWrap>
+                +{features?.split(', ').length - 2} more
+              </Typography>
+            )}
+          </Box>
+        );
+      },
     },
     {
       field: 'createdAt',
       headerName: 'Created',
-      flex: 1,
-      minWidth: 120,
-      renderCell: (params) => {
-        const createdAt = params.value;
-        if (!createdAt) return 'N/A';
-        try {
-          return new Date(createdAt).toLocaleDateString();
-        } catch (error) {
-          console.error('Error parsing createdAt:', createdAt, error);
-          return 'N/A';
-        }
-      },
+      flex: 0.8,
+      minWidth: 80,
+      maxWidth: 120,
+      renderCell: (params) => (
+        <Typography variant="body2" noWrap>
+          {new Date(params.value).toLocaleDateString()}
+        </Typography>
+      ),
     },
     {
       field: 'actions',
       type: 'actions',
       headerName: 'Actions',
-      flex: 1,
-      minWidth: 150,
+      flex: 1.2,
+      minWidth: 140,
+      maxWidth: 180,
       getActions: (params) => [
         <GridActionsCellItem
           icon={<ViewIcon />}
@@ -376,43 +408,51 @@ const CompanyManagementPage: React.FC = () => {
     }
   };
 
-  const handleBulkDeleteEmptyCompanies = async () => {
-    setBulkDeleteLoading(true);
+
+
+  const handleArchiveWithReason = () => {
+    if (!archiveReason.trim()) {
+      setError('Please enter a reason for archiving');
+      return;
+    }
+    setShowReasonDialog(false);
+    setDeleteSelectedDialogOpen(true);
+  };
+
+  const handleDeleteSelectedCompanies = async () => {
+    const selectedIds = Array.from(selectedCompanies.ids);
+    if (selectedIds.length === 0) {
+      setError('Please select companies to archive');
+      return;
+    }
+
+    setDeleteSelectedLoading(true);
     setError('');
     try {
-      // Find companies with no employees (including cancelled ones)
-      const emptyCompanies = companies.filter(company => 
-        (company.employeeCount === 0 || company.employeeCount === undefined) && 
-        company.status !== 'expired'
+      // Archive each selected company
+      const archivePromises = selectedIds.map(companyId =>
+        apiService.put(`/api/super-admin/companies/${companyId}/archive`, {
+          reason: archiveReason.trim()
+        })
       );
 
-      if (emptyCompanies.length === 0) {
-        setError('No companies found with zero employees');
-        return;
-      }
-
-      // Hard delete each empty company
-      const deletePromises = emptyCompanies.map(company =>
-        apiService.delete(`/api/super-admin/companies/${company._id}/hard`)
-      );
-
-      await Promise.all(deletePromises);
+      await Promise.all(archivePromises);
       
-      setSuccessMessage(`Successfully deleted ${emptyCompanies.length} companies with no employees`);
-      
-      // Refresh the company list
-      await fetchCompanies();
-      
-      setBulkDeleteDialogOpen(false);
+      setSuccessMessage(`Successfully archived ${selectedIds.length} companies`);
+      setSelectedCompanies({ type: 'include', ids: new Set() }); // Clear selection
+      setArchiveReason(''); // Clear reason
+      await fetchCompanies(); // Refresh the list
+      setDeleteSelectedDialogOpen(false);
     } catch (err: any) {
-      setError(`Failed to delete companies: ${err.response?.data?.error || err.message}`);
+      setError(`Failed to archive companies: ${err.response?.data?.error || err.message}`);
     } finally {
-      setBulkDeleteLoading(false);
+      setDeleteSelectedLoading(false);
     }
   };
 
   const handleCreateCompany = () => {
     setCreateDialogOpen(true);
+    setValidationErrors([]); // Clear any previous validation errors
   };
 
   const handleSubmitCreateCompany = async (companyData: any) => {
@@ -442,12 +482,39 @@ const CompanyManagementPage: React.FC = () => {
       await fetchCompanies(); // Refresh the list
       setCreateDialogOpen(false);
       setError(''); // Clear any previous errors
+      setSuccessMessage('Company created successfully!');
     } catch (err: any) {
       console.error('Error creating company:', err);
       console.error('Error response data:', err.response?.data);
       console.error('Error status:', err.response?.status);
       console.error('Error headers:', err.response?.headers);
-      setError(err.response?.data?.message || err.response?.data?.error || 'Failed to create company');
+      console.error('Full error response:', JSON.stringify(err.response?.data, null, 2));
+      
+      // Handle validation errors
+      if (err.response?.status === 400) {
+        const responseData = err.response.data;
+        console.error('Validation error details:', responseData);
+        
+        if (responseData.details && Array.isArray(responseData.details)) {
+          // Pass validation errors to the form component
+          const validationErrors = responseData.details;
+          console.error('Setting validation errors:', validationErrors);
+          setError('Please fix the validation errors below');
+          setValidationErrors(validationErrors);
+        } else if (responseData.errors && Array.isArray(responseData.errors)) {
+          // Alternative error format
+          console.error('Setting validation errors (errors format):', responseData.errors);
+          setError('Please fix the validation errors below');
+          setValidationErrors(responseData.errors);
+        } else {
+          // Generic error
+          setError(responseData.message || responseData.error || 'Failed to create company');
+          setValidationErrors([]);
+        }
+      } else {
+        setError(err.response?.data?.message || err.response?.data?.error || 'Failed to create company');
+        setValidationErrors([]);
+      }
     } finally {
       setCreatingCompany(false);
     }
@@ -501,37 +568,67 @@ const CompanyManagementPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: 2, 
+      height: '100vh',
+      maxWidth: '100%',
+      overflow: 'hidden',
+      p: { xs: 1, sm: 2 },
+      minWidth: 0
+    }}>
         {/* Header */}
-        <Paper sx={{ p: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 2.5 }, mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: { xs: 1, sm: 2 } }}>
+            <Box>
+              <Typography variant="h5" fontWeight="bold" sx={{ mb: 0.5 }}>
+                Company Management
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
+                Manage company accounts and subscriptions
+              </Typography>
+            </Box>
+            
+            <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, flexWrap: 'wrap', alignItems: 'center' }}>
               <Button
                 variant="outlined"
                 color="error"
                 size="small"
-                onClick={() => setBulkDeleteDialogOpen(true)}
+                disabled={selectedCompanies.ids.size === 0}
+                onClick={() => setShowReasonDialog(true)}
+                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
               >
-                Hard Delete Empty Companies
+                Archive ({selectedCompanies.ids.size})
               </Button>
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
                 size="small"
                 onClick={handleCreateCompany}
+                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
               >
-                Create Company
+                + Create Company
               </Button>
+              <TextField
+                variant="outlined"
+                placeholder="Search companies..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                size="small"
+                sx={{ 
+                  minWidth: { xs: 150, sm: 200 },
+                  maxWidth: { xs: 200, sm: 300 }
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <Box sx={{ mr: 1, color: 'text.secondary' }}>
+                      🔍
+                    </Box>
+                  ),
+                }}
+              />
             </Box>
-            
-            <TextField
-              variant="outlined"
-              placeholder="Search companies..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              size="small"
-              sx={{ minWidth: 250 }}
-            />
           </Box>
         </Paper>
 
@@ -549,10 +646,44 @@ const CompanyManagementPage: React.FC = () => {
           </Alert>
         )}
 
+        {/* Summary Card */}
+        <Paper sx={{ p: 1.5, mb: 2, backgroundColor: '#f8f9fa' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                Total Companies
+              </Typography>
+              <Typography variant="h5" fontWeight="bold" color="primary">
+                {companies.length}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <Chip 
+                label={`${companies.filter(c => c.status === 'active').length} active`}
+                color="success"
+                variant="outlined"
+                size="small"
+              />
+              <Chip 
+                label={`${companies.filter(c => c.status === 'trial').length} trial`}
+                color="warning"
+                variant="outlined"
+                size="small"
+              />
+              <Chip 
+                label={`${companies.filter(c => c.status === 'cancelled' || c.status === 'suspended').length} inactive`}
+                color="error"
+                variant="outlined"
+                size="small"
+              />
+            </Box>
+          </Box>
+        </Paper>
+
         {/* Data Grid */}
-        <Paper sx={{ flex: 1, minHeight: 0 }}>
+        <Paper sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
               <CircularProgress />
             </Box>
           ) : (
@@ -561,20 +692,94 @@ const CompanyManagementPage: React.FC = () => {
               columns={columns}
               initialState={{
                 pagination: {
-                  paginationModel: { page: 0, pageSize: 10 },
+                  paginationModel: { page: 0, pageSize: 15 },
                 },
               }}
-              pageSizeOptions={[10, 25, 50]}
+              pageSizeOptions={[10, 15, 25, 50]}
               checkboxSelection
               disableRowSelectionOnClick
               getRowId={(row) => row._id}
+              onRowSelectionModelChange={(newSelection) => {
+                setSelectedCompanies(newSelection as GridRowSelectionModel);
+              }}
+              rowSelectionModel={selectedCompanies}
+              disableColumnMenu={false}
+              disableColumnSelector={false}
+              isRowSelectable={(params) => true}
               slots={{
                 toolbar: GridToolbar,
               }}
               slotProps={{
                 toolbar: {
-                  showQuickFilter: true,
-                  quickFilterProps: { debounceMs: 500 },
+                  showQuickFilter: false, // We have our own search
+                },
+              }}
+              columnVisibilityModel={{
+                // You can set initial hidden columns here if needed
+              }}
+              onColumnVisibilityModelChange={(model) => {
+                // Handle column visibility changes if needed
+              }}
+              sx={{
+                flex: 1,
+                '& .MuiDataGrid-cell': {
+                  borderBottom: '1px solid #f0f0f0',
+                  padding: '8px 12px',
+                },
+                '& .MuiDataGrid-cellCheckbox': {
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '8px 12px',
+                },
+                '& .MuiDataGrid-columnHeaders': {
+                  backgroundColor: '#f8f9fa',
+                  borderBottom: '2px solid #e0e0e0',
+                  '& .MuiDataGrid-columnHeader': {
+                    padding: '12px 12px',
+                    '& .MuiDataGrid-columnHeaderTitleContainer': {
+                      display: 'flex',
+                      alignItems: 'center',
+                    },
+                  }
+                },
+                '& .MuiDataGrid-row:hover': {
+                  backgroundColor: '#f5f5f5',
+                },
+                '& .MuiDataGrid-virtualScroller': {
+                  backgroundColor: '#ffffff',
+                },
+                '& .MuiDataGrid-columnHeaderTitle': {
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                },
+                '& .MuiDataGrid-actionsCell': {
+                  display: 'flex',
+                  gap: '4px',
+                  justifyContent: 'center',
+                },
+                '& .MuiDataGrid-cell:focus': {
+                  outline: 'none',
+                },
+                '& .MuiDataGrid-cell:focus-within': {
+                  outline: 'none',
+                },
+
+                '& .MuiDataGrid-cellCheckbox, & .MuiDataGrid-columnHeaderCheckbox': {
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  '& .MuiCheckbox-root': {
+                    color: '#666',
+                    '&.Mui-checked': {
+                      color: '#1976d2',
+                    },
+                  },
+                },
+                '& .MuiDataGrid-checkboxInput': {
+                  '& .MuiSvgIcon-root': {
+                    fontSize: '1.25rem',
+                  },
                 },
               }}
             />
@@ -594,6 +799,7 @@ const CompanyManagementPage: React.FC = () => {
             onSubmit={handleSubmitCreateCompany}
             onCancel={() => setCreateDialogOpen(false)}
             loading={creatingCompany}
+            validationErrors={validationErrors}
           />
         </DialogContent>
       </Dialog>
@@ -1049,37 +1255,80 @@ const CompanyManagementPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Bulk Delete Empty Companies Dialog */}
+
+
+      {/* Delete Selected Companies Dialog */}
       <Dialog
-        open={bulkDeleteDialogOpen}
-        onClose={() => setBulkDeleteDialogOpen(false)}
+        open={deleteSelectedDialogOpen}
+        onClose={() => setDeleteSelectedDialogOpen(false)}
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Permanently Delete Companies with No Employees</DialogTitle>
+        <DialogTitle>Archive Selected Companies</DialogTitle>
         <DialogContent>
           <Typography variant="body1" sx={{ mb: 2 }}>
-            Are you sure you want to PERMANENTLY delete all companies that have zero employees?
+            Are you sure you want to archive the selected companies?
           </Typography>
           <Typography variant="body2" color="textSecondary">
-            This action will permanently remove companies from the database. 
-            This action cannot be undone. Expired companies will be excluded from this operation.
+            This action will archive the selected companies. All company data will be preserved 
+            and can be restored later if needed. Companies will be moved to the archive section.
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button 
-            onClick={() => setBulkDeleteDialogOpen(false)}
-            disabled={bulkDeleteLoading}
+            onClick={() => setDeleteSelectedDialogOpen(false)}
+            disabled={deleteSelectedLoading}
           >
             Cancel
           </Button>
           <Button 
-            onClick={handleBulkDeleteEmptyCompanies}
+            onClick={handleDeleteSelectedCompanies}
             variant="contained"
             color="error"
-            disabled={bulkDeleteLoading}
+            disabled={deleteSelectedLoading}
           >
-            {bulkDeleteLoading ? 'Deleting...' : 'Delete Empty Companies'}
+            {deleteSelectedLoading ? 'Archiving...' : 'Archive Selected Companies'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Archive Reason Dialog */}
+      <Dialog
+        open={showReasonDialog}
+        onClose={() => setShowReasonDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Enter Archive Reason</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            Please provide a reason for archiving the selected companies:
+          </Typography>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Archive Reason"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={archiveReason}
+            onChange={(e) => setArchiveReason(e.target.value)}
+            placeholder="e.g., Company closed, Merger, etc."
+            multiline
+            rows={3}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowReasonDialog(false)}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleArchiveWithReason}
+            variant="contained"
+            color="error"
+            disabled={!archiveReason.trim()}
+          >
+            Continue to Archive
           </Button>
         </DialogActions>
       </Dialog>

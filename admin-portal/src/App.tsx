@@ -4,10 +4,12 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './contexts/AuthContext';
 import { CacheProvider } from './contexts/CacheContext';
+import { SidebarProvider } from './contexts/SidebarContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import CompanyManagementPage from './pages/CompanyManagementPage';
+import ArchivedCompaniesPage from './pages/ArchivedCompaniesPage';
 import UserManagementPage from './pages/UserManagementPage';
 import SubscriptionPlanManagementPage from './pages/SubscriptionPlanManagementPage';
 import AnalyticsPage from './pages/AnalyticsPage';
@@ -15,6 +17,7 @@ import SettingsPage from './pages/SettingsPage';
 import MonitoringPage from './pages/MonitoringPage';
 import TestConnectionPage from './pages/TestConnectionPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
+import BillingPage from './pages/BillingPage';
 import SuperAdminRoute from './components/SuperAdminRoute';
 import AdminRoute from './components/AdminRoute';
 
@@ -37,7 +40,8 @@ function App() {
       <CssBaseline />
       <AuthProvider>
         <CacheProvider>
-          <Router>
+          <SidebarProvider>
+            <Router>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/test-connection" element={<TestConnectionPage />} />
@@ -63,6 +67,14 @@ function App() {
                 <SuperAdminRoute>
                   <Layout>
                     <CompanyManagementPage />
+                  </Layout>
+                </SuperAdminRoute>
+              } />
+              
+              <Route path="/companies/archived" element={
+                <SuperAdminRoute>
+                  <Layout>
+                    <ArchivedCompaniesPage />
                   </Layout>
                 </SuperAdminRoute>
               } />
@@ -99,6 +111,14 @@ function App() {
                 </SuperAdminRoute>
               } />
               
+              <Route path="/billing" element={
+                <SuperAdminRoute>
+                  <Layout>
+                    <BillingPage />
+                  </Layout>
+                </SuperAdminRoute>
+              } />
+              
               <Route path="/monitoring" element={
                 <SuperAdminRoute>
                   <Layout>
@@ -116,6 +136,7 @@ function App() {
               } />
             </Routes>
           </Router>
+          </SidebarProvider>
         </CacheProvider>
       </AuthProvider>
     </ThemeProvider>

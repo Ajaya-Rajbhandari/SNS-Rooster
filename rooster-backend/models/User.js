@@ -144,9 +144,14 @@ const userSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-// Hash password before saving
+// Hash password before saving (only if not already hashed)
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
+  
+  // Skip if password is already hashed (starts with $2b$)
+  if (this.password && this.password.startsWith('$2b$')) {
+    return next();
+  }
   
   try {
     const salt = await bcrypt.genSalt(10);

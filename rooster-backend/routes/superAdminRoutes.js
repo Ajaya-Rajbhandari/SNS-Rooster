@@ -24,6 +24,12 @@ router.get('/companies',
   SuperAdminController.getAllCompanies
 );
 
+// Get archived companies
+router.get('/companies/archived', 
+  requirePermission('manageCompanies'), 
+  SuperAdminController.getArchivedCompanies
+);
+
 // Create new company
 router.post('/companies', 
   requirePermission('manageCompanies'), 
@@ -48,6 +54,24 @@ router.put('/companies/:companyId/subscription-plan',
 router.delete('/companies/:companyId', 
   requirePermission('manageCompanies'), 
   SuperAdminController.deleteCompany
+);
+
+// Archive company (soft delete with data preservation)
+router.put('/companies/:companyId/archive', 
+  requirePermission('manageCompanies'), 
+  SuperAdminController.archiveCompany
+);
+
+// Restore archived company
+router.put('/companies/:companyId/restore', 
+  requirePermission('manageCompanies'), 
+  SuperAdminController.restoreCompany
+);
+
+// Hard delete archived company
+router.delete('/companies/:companyId/hard-delete', 
+  requirePermission('manageCompanies'), 
+  SuperAdminController.hardDeleteArchivedCompany
 );
 
 // Hard delete company (for development/testing)

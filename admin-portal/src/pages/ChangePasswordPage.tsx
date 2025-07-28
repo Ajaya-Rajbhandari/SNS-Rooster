@@ -72,7 +72,8 @@ const ChangePasswordPage: React.FC = () => {
     try {
       await apiService.post('/api/auth/change-password', {
         currentPassword,
-        newPassword
+        newPassword,
+        confirmPassword
       });
       
       setSuccess('Password changed successfully!');

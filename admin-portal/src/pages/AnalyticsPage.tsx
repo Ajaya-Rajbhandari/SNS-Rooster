@@ -48,6 +48,8 @@ import {
 } from 'recharts';
 import apiService from '../services/apiService';
 
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+
 interface AnalyticsData {
   overview: {
     totalCompanies: number;
@@ -104,12 +106,21 @@ const AnalyticsPage: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      const response: any = await apiService.get(`/api/super-admin/analytics?timeRange=${timeRange}`);
-      setData(response);
+      
+      // Fetch comprehensive analytics data
+      const [analyticsResponse, userActivityResponse, companyPerformanceResponse] = await Promise.all([
+        apiService.get(`/api/super-admin/analytics?timeRange=${timeRange}`),
+        apiService.get(`/api/super-admin/analytics/user-activity?timeRange=${timeRange}`),
+        apiService.get(`/api/super-admin/analytics/company-performance?timeRange=${timeRange}`)
+      ]);
+      
+      setData(analyticsResponse as AnalyticsData);
+      setUserActivityData(userActivityResponse as any);
+      setCompanyPerformanceData(companyPerformanceResponse as any);
       setLastUpdated(new Date());
     } catch (err: any) {
       console.error('Error fetching analytics data:', err);
-      setError('Failed to load analytics data');
+      setError('Failed to load analytics data. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -560,35 +571,80 @@ const AnalyticsPage: React.FC = () => {
                 <Typography variant="h6" gutterBottom>
                   Revenue & Subscription Trends
                 </Typography>
-                <ResponsiveContainer width="100%" height={400}>
-                  <LineChart data={data.revenueData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis yAxisId="left" />
-                    <YAxis yAxisId="right" orientation="right" />
-                    <RechartsTooltip formatter={(value: any, name: string) => [
-                      name === 'revenue' ? formatCurrency(value as number) : value,
-                      name === 'revenue' ? 'Revenue' : 'Subscriptions'
-                    ]} />
-                    <Legend />
-                    <Line
-                      yAxisId="left"
-                      type="monotone"
-                      dataKey="revenue"
-                      stroke="#8884d8"
-                      strokeWidth={3}
-                      name="Revenue"
-                    />
-                    <Line
-                      yAxisId="right"
-                      type="monotone"
-                      dataKey="subscriptions"
-                      stroke="#82ca9d"
-                      strokeWidth={3}
-                      name="Subscriptions"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, gap: 2, mb: 2 }}>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <LineChart data={data.revenueData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis yAxisId="left" />
+                      <YAxis yAxisId="right" orientation="right" />
+                      <RechartsTooltip formatter={(value: any, name: string) => [
+                        name === 'revenue' ? formatCurrency(value as number) : value,
+                        name === 'revenue' ? 'Revenue' : 'Subscriptions'
+                      ]} />
+                      <Legend />
+                      <Line
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="revenue"
+                        stroke="#8884d8"
+                        strokeWidth={3}
+                        name="Revenue"
+                      />
+                      <Line
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="subscriptions"
+                        stroke="#82ca9d"
+                        strokeWidth={3}
+                        name="Subscriptions"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                  
+                  {/* Revenue Summary Cards */}
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom>Revenue Summary</Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">Total Revenue:</Typography>
+                            <Typography variant="h6" color="primary">
+                              {formatCurrency(data.overview.totalRevenue)}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">Monthly Growth:</Typography>
+                            <Typography variant="h6" color="success.main">
+                              +{data.overview.monthlyGrowth}%
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom>Subscription Metrics</Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">Active Subscriptions:</Typography>
+                            <Typography variant="h6" color="primary">
+                              {data.revenueData?.[data.revenueData.length - 1]?.subscriptions || 0}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">Growth Rate:</Typography>
+                            <Typography variant="h6" color="success.main">
+                              +{data.overview.userGrowth}%
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Box>
+                </Box>
               </Box>
             )}
 
@@ -598,31 +654,80 @@ const AnalyticsPage: React.FC = () => {
                 <Typography variant="h6" gutterBottom>
                   Company Growth Trends
                 </Typography>
-                <ResponsiveContainer width="100%" height={400}>
-                  <AreaChart data={data.companyGrowth}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <RechartsTooltip />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="newCompanies"
-                      stackId="1"
-                      stroke="#8884d8"
-                      fill="#8884d8"
-                      name="New Companies"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="activeCompanies"
-                      stackId="1"
-                      stroke="#82ca9d"
-                      fill="#82ca9d"
-                      name="Active Companies"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, gap: 2, mb: 2 }}>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <AreaChart data={data.companyGrowth}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <RechartsTooltip />
+                      <Legend />
+                      <Area
+                        type="monotone"
+                        dataKey="newCompanies"
+                        stackId="1"
+                        stroke="#8884d8"
+                        fill="#8884d8"
+                        name="New Companies"
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="activeCompanies"
+                        stackId="1"
+                        stroke="#82ca9d"
+                        fill="#82ca9d"
+                        name="Active Companies"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                  
+                  {/* Company Growth Summary */}
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom>Growth Summary</Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">Total Companies:</Typography>
+                            <Typography variant="h6" color="primary">
+                              {data.overview.totalCompanies}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">Active Companies:</Typography>
+                            <Typography variant="h6" color="success.main">
+                              {data.overview.activeCompanies}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">Growth Rate:</Typography>
+                            <Typography variant="h6" color="success.main">
+                              +{data.overview.monthlyGrowth}%
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom>Top Companies</Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          {data.topCompanies?.slice(0, 3).map((company, index) => (
+                            <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {company.name}
+                              </Typography>
+                              <Typography variant="body2" color="primary">
+                                {company.users} users
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Box>
+                </Box>
               </Box>
             )}
 
@@ -632,17 +737,66 @@ const AnalyticsPage: React.FC = () => {
                 <Typography variant="h6" gutterBottom>
                   Daily User Activity
                 </Typography>
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={data.userActivity}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <RechartsTooltip />
-                    <Legend />
-                    <Bar dataKey="activeUsers" fill="#8884d8" name="Active Users" />
-                    <Bar dataKey="newUsers" fill="#82ca9d" name="New Users" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, gap: 2, mb: 2 }}>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={data.userActivity}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <RechartsTooltip />
+                      <Legend />
+                      <Bar dataKey="activeUsers" fill="#8884d8" name="Active Users" />
+                      <Bar dataKey="newUsers" fill="#82ca9d" name="New Users" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  
+                  {/* User Activity Summary */}
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom>User Summary</Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">Total Users:</Typography>
+                            <Typography variant="h6" color="primary">
+                              {data.overview.totalUsers}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">User Growth:</Typography>
+                            <Typography variant="h6" color="success.main">
+                              +{data.overview.userGrowth}%
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">Active Today:</Typography>
+                            <Typography variant="h6" color="success.main">
+                              {data.userActivity?.[data.userActivity.length - 1]?.activeUsers || 0}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom>Recent Activity</Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          {data.userActivity?.slice(-3).reverse().map((day, index) => (
+                            <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body2">
+                                {new Date(day.date).toLocaleDateString()}
+                              </Typography>
+                              <Typography variant="body2" color="primary">
+                                {day.activeUsers} active
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Box>
+                </Box>
               </Box>
             )}
 
@@ -652,37 +806,78 @@ const AnalyticsPage: React.FC = () => {
                 <Typography variant="h6" gutterBottom>
                   Subscription Plan Distribution
                 </Typography>
-                <Box sx={{ mb: 3 }}>
-                  <Button 
-                    variant="outlined" 
-                    onClick={() => fetchCompanyPerformanceData()}
-                    disabled={companyPerformanceLoading}
-                    startIcon={companyPerformanceLoading ? <CircularProgress size={16} /> : undefined}
-                  >
-                    {companyPerformanceLoading ? 'Loading...' : (companyPerformanceData ? 'Reload Subscription Data' : 'Load Subscription Data')}
-                  </Button>
-                </Box>
-                {companyPerformanceData && (
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, gap: 2, mb: 2 }}>
                   <ResponsiveContainer width="100%" height={400}>
                     <PieChart>
                       <Pie
-                        data={companyPerformanceData.performanceMetrics.subscriptionPlanDistribution}
+                        data={data.subscriptionDistribution}
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={(props: any) => `${props.payload?.name || 'Unknown'}: ${props.payload?.value || 0}`}
+                        label={(props: any) => `${props.payload?.plan || 'Unknown'}: ${props.payload?.companies || 0}`}
                         outerRadius={150}
                         fill="#8884d8"
-                        dataKey="value"
+                        dataKey="companies"
                       >
-                        {companyPerformanceData.performanceMetrics.subscriptionPlanDistribution.map((entry: any, index: number) => (
+                        {data.subscriptionDistribution?.map((entry: any, index: number) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
                       <RechartsTooltip formatter={(value: any, name: string) => [value, 'Companies']} />
                     </PieChart>
                   </ResponsiveContainer>
-                )}
+                  
+                  {/* Subscription Summary */}
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom>Plan Distribution</Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          {data.subscriptionDistribution?.map((plan, index) => (
+                            <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Box 
+                                  sx={{ 
+                                    width: 12, 
+                                    height: 12, 
+                                    borderRadius: '50%', 
+                                    backgroundColor: COLORS[index % COLORS.length] 
+                                  }} 
+                                />
+                                <Typography variant="body2">
+                                  {plan.plan}
+                                </Typography>
+                              </Box>
+                              <Typography variant="body2" color="primary">
+                                {plan.companies} ({plan.percentage}%)
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom>Summary</Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">Total Plans:</Typography>
+                            <Typography variant="h6" color="primary">
+                              {data.subscriptionDistribution?.length || 0}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">Total Companies:</Typography>
+                            <Typography variant="h6" color="primary">
+                              {data.subscriptionDistribution?.reduce((sum, plan) => sum + plan.companies, 0) || 0}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Box>
+                </Box>
               </Box>
             )}
 
@@ -692,20 +887,82 @@ const AnalyticsPage: React.FC = () => {
                 <Typography variant="h6" gutterBottom>
                   Top Performing Companies
                 </Typography>
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={data.topCompanies} layout="horizontal">
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" />
-                    <YAxis dataKey="name" type="category" width={150} />
-                    <RechartsTooltip formatter={(value: any, name: string) => [
-                      name === 'revenue' ? formatCurrency(value as number) : value,
-                      name === 'revenue' ? 'Revenue' : 'Users'
-                    ]} />
-                    <Legend />
-                    <Bar dataKey="users" fill="#8884d8" name="Users" />
-                    <Bar dataKey="revenue" fill="#82ca9d" name="Revenue" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, gap: 2, mb: 2 }}>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={data.topCompanies} layout="horizontal">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis dataKey="name" type="category" width={150} />
+                      <RechartsTooltip formatter={(value: any, name: string) => [
+                        name === 'revenue' ? formatCurrency(value as number) : value,
+                        name === 'revenue' ? 'Revenue' : 'Users'
+                      ]} />
+                      <Legend />
+                      <Bar dataKey="users" fill="#8884d8" name="Users" />
+                      <Bar dataKey="revenue" fill="#82ca9d" name="Revenue" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  
+                  {/* Top Companies Summary */}
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom>Company Rankings</Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          {data.topCompanies?.map((company, index) => (
+                            <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="body2" color="text.secondary">
+                                  #{index + 1}
+                                </Typography>
+                                <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {company.name}
+                                </Typography>
+                              </Box>
+                              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                <Typography variant="body2" color="primary">
+                                  {company.users} users
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {formatCurrency(company.revenue)}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          ))}
+                        </Box>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom>Performance Summary</Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">Total Users:</Typography>
+                            <Typography variant="h6" color="primary">
+                              {data.topCompanies?.reduce((sum, company) => sum + company.users, 0) || 0}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">Total Revenue:</Typography>
+                            <Typography variant="h6" color="primary">
+                              {formatCurrency(data.topCompanies?.reduce((sum, company) => sum + company.revenue, 0) || 0)}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2">Avg Revenue/User:</Typography>
+                            <Typography variant="h6" color="primary">
+                              {formatCurrency(
+                                (data.topCompanies?.reduce((sum, company) => sum + company.revenue, 0) || 0) / 
+                                (data.topCompanies?.reduce((sum, company) => sum + company.users, 0) || 1)
+                              )}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Box>
+                </Box>
               </Box>
             )}
 

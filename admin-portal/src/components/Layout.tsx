@@ -18,6 +18,7 @@ import {
   People as PeopleIcon,
   Analytics as AnalyticsIcon,
   Settings as SettingsIcon,
+  Payment as PaymentIcon,
   AccountCircle as AccountCircleIcon,
   Logout as LogoutIcon,
   Lock as LockIcon,
@@ -27,17 +28,17 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useSidebar } from '../contexts/SidebarContext';
 import NotificationCenter from './NotificationCenter';
 
-const drawerWidth = 280;
-const collapsedDrawerWidth = 70;
+// Removed unused variables - sidebarWidth is now calculated from context
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { sidebarCollapsed, setSidebarCollapsed, sidebarWidth } = useSidebar();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -79,14 +80,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Companies', icon: <BusinessIcon />, path: '/companies' },
+    { text: 'Archived Companies', icon: <BusinessIcon />, path: '/companies/archived' },
     { text: 'Subscription Plans', icon: <SubscriptionsIcon />, path: '/subscription-plans' },
     { text: 'Users', icon: <PeopleIcon />, path: '/users' },
     { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
+    { text: 'Billing', icon: <PaymentIcon />, path: '/billing' },
     { text: 'Monitoring', icon: <MonitorIcon />, path: '/monitoring' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   ];
-
-  const sidebarWidth = sidebarCollapsed ? 70 : 280;
 
   return (
     <div style={{ 
@@ -267,6 +268,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                       return 'Dashboard';
                     case '/companies':
                       return 'Company Management';
+                    case '/companies/archived':
+                      return 'Archived Companies';
                     case '/subscription-plans':
                       return 'Subscription Plan Management';
                     case '/users':

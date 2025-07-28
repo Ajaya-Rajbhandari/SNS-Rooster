@@ -42,6 +42,7 @@ const fcmRoutes = require('./routes/fcmRoutes');
 const eventRoutes = require('./routes/event-routes');
 const companyRoutes = require('./routes/companyRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
+const billingRoutes = require('./routes/billingRoutes');
 const trialRoutes = require('./routes/trialRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 
@@ -205,6 +206,7 @@ app.use('/api/analytics', cacheMiddleware(300), analyticsRoutes); // Cache analy
 app.use('/api/admin/settings', adminSettingsRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/super-admin', superAdminRoutes);
+app.use('/api/super-admin/billing', billingRoutes);
 app.use('/api/trial', trialRoutes);
 app.use('/api', fcmRoutes);
 app.use('/api/events', eventRoutes);
