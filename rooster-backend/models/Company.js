@@ -249,8 +249,23 @@ const companySchema = new mongoose.Schema({
   // Status & Metadata
   status: {
     type: String,
-    enum: ['active', 'suspended', 'trial', 'expired', 'cancelled'],
+    enum: ['active', 'suspended', 'trial', 'expired', 'cancelled', 'archived'],
     default: 'trial' // Reverted back to trial for proper trial system
+  },
+  archived: {
+    type: Boolean,
+    default: false
+  },
+  archivedAt: {
+    type: Date
+  },
+  archivedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  archiveReason: {
+    type: String,
+    trim: true
   },
   trialStartDate: { type: Date, default: Date.now },
   trialEndDate: { type: Date, default: function() {
@@ -273,6 +288,7 @@ const companySchema = new mongoose.Schema({
 // Indexes for efficient queries
 // Note: domain and subdomain already have unique indexes from schema definition
 companySchema.index({ status: 1 });
+companySchema.index({ archived: 1 });
 companySchema.index({ 'subscriptionPlan': 1 });
 companySchema.index({ createdAt: -1 });
 

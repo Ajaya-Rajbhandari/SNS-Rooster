@@ -42,13 +42,16 @@ interface CreateCompanyFormProps {
   onSubmit: (companyData: any) => Promise<void>;
   onCancel: () => void;
   loading?: boolean;
+  validationErrors?: any[];
 }
 
 const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
   onSubmit,
   onCancel,
-  loading = false
+  loading = false,
+  validationErrors = []
 }) => {
+
   const { isAuthenticated, token } = useAuth();
   const [formData, setFormData] = useState({
     // Company Details
@@ -222,6 +225,25 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
+  // Function to get field-specific validation error
+  const getFieldError = (fieldName: string) => {
+    const error = validationErrors.find((err: any) => {
+      // Check different possible field name properties
+      const fieldMatch = err.path === fieldName || 
+                        err.field === fieldName || 
+                        err.param === fieldName ||
+                        err.key === fieldName;
+      
+      return fieldMatch;
+    });
+    
+    if (error) {
+      return error.message || error.msg || error.error || 'Invalid value';
+    }
+    
+    return '';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -259,8 +281,8 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
           label="Company Name"
           value={formData.name}
           onChange={(e) => handleInputChange('name', e.target.value)}
-          error={!!errors.name}
-          helperText={errors.name}
+          error={!!errors.name || !!getFieldError('name')}
+          helperText={errors.name || getFieldError('name')}
           required
         />
         <TextField
@@ -268,8 +290,8 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
           label="Domain"
           value={formData.domain}
           onChange={(e) => handleInputChange('domain', e.target.value)}
-          error={!!errors.domain}
-          helperText={errors.domain}
+          error={!!errors.domain || !!getFieldError('domain')}
+          helperText={errors.domain || getFieldError('domain')}
           required
         />
         <TextField
@@ -277,8 +299,8 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
           label="Subdomain"
           value={formData.subdomain}
           onChange={(e) => handleInputChange('subdomain', e.target.value)}
-          error={!!errors.subdomain}
-          helperText={errors.subdomain}
+          error={!!errors.subdomain || !!getFieldError('subdomain')}
+          helperText={errors.subdomain || getFieldError('subdomain')}
           required
         />
         <TextField
@@ -286,6 +308,8 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
           label="Contact Phone"
           value={formData.contactPhone}
           onChange={(e) => handleInputChange('contactPhone', e.target.value)}
+          error={!!getFieldError('contactPhone')}
+          helperText={getFieldError('contactPhone')}
         />
       </Box>
 
@@ -299,6 +323,8 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
           label="Street Address"
           value={formData.address.street}
           onChange={(e) => handleAddressChange('street', e.target.value)}
+          error={!!getFieldError('address.street')}
+          helperText={getFieldError('address.street')}
         />
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
           <TextField
@@ -306,12 +332,16 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
             label="City"
             value={formData.address.city}
             onChange={(e) => handleAddressChange('city', e.target.value)}
+            error={!!getFieldError('address.city')}
+            helperText={getFieldError('address.city')}
           />
           <TextField
             sx={{ flex: '1 1 300px' }}
             label="State/Province"
             value={formData.address.state}
             onChange={(e) => handleAddressChange('state', e.target.value)}
+            error={!!getFieldError('address.state')}
+            helperText={getFieldError('address.state')}
           />
         </Box>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
@@ -320,12 +350,16 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
             label="Postal Code"
             value={formData.address.postalCode}
             onChange={(e) => handleAddressChange('postalCode', e.target.value)}
+            error={!!getFieldError('address.postalCode')}
+            helperText={getFieldError('address.postalCode')}
           />
           <TextField
             sx={{ flex: '1 1 300px' }}
             label="Country"
             value={formData.address.country}
             onChange={(e) => handleAddressChange('country', e.target.value)}
+            error={!!getFieldError('address.country')}
+            helperText={getFieldError('address.country')}
           />
         </Box>
       </Box>
@@ -343,8 +377,8 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
           type="email"
           value={formData.adminEmail}
           onChange={(e) => handleInputChange('adminEmail', e.target.value)}
-          error={!!errors.adminEmail}
-          helperText={errors.adminEmail}
+          error={!!errors.adminEmail || !!getFieldError('adminEmail')}
+          helperText={errors.adminEmail || getFieldError('adminEmail')}
           required
         />
         <TextField
@@ -353,8 +387,8 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
           type="password"
           value={formData.adminPassword}
           onChange={(e) => handleInputChange('adminPassword', e.target.value)}
-          error={!!errors.adminPassword}
-          helperText={errors.adminPassword}
+          error={!!errors.adminPassword || !!getFieldError('adminPassword')}
+          helperText={errors.adminPassword || getFieldError('adminPassword')}
           required
         />
         <TextField
@@ -362,8 +396,8 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
           label="Admin First Name"
           value={formData.adminFirstName}
           onChange={(e) => handleInputChange('adminFirstName', e.target.value)}
-          error={!!errors.adminFirstName}
-          helperText={errors.adminFirstName}
+          error={!!errors.adminFirstName || !!getFieldError('adminFirstName')}
+          helperText={errors.adminFirstName || getFieldError('adminFirstName')}
           required
         />
         <TextField
@@ -371,8 +405,8 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
           label="Admin Last Name"
           value={formData.adminLastName}
           onChange={(e) => handleInputChange('adminLastName', e.target.value)}
-          error={!!errors.adminLastName}
-          helperText={errors.adminLastName}
+          error={!!errors.adminLastName || !!getFieldError('adminLastName')}
+          helperText={errors.adminLastName || getFieldError('adminLastName')}
           required
         />
       </Box>

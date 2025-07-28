@@ -36,7 +36,6 @@ import {
 import apiService from '../services/apiService';
 // import { unlockUser } from '../api/superAdminUnlockUser';
 import UserForm from '../components/UserForm';
-import { testBackendConnection } from '../utils/testConnection';
 
 interface User {
   _id: string;
@@ -91,12 +90,6 @@ const UserManagementPage: React.FC = () => {
     password: '',
     userEmail: ''
   });
-  const [bulkTransferDialog, setBulkTransferDialog] = useState<{ open: boolean; fromCompany: string; toCompany: string }>({
-    open: false,
-    fromCompany: '',
-    toCompany: ''
-  });
-  const [bulkTransferLoading, setBulkTransferLoading] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -162,11 +155,8 @@ const UserManagementPage: React.FC = () => {
     
     setCompanyGroups(sortedGroups);
     
-    // Auto-expand companies with users
-    const companiesWithUsers = sortedGroups
-      .filter(group => group.users.length > 0)
-      .map(group => group.company._id);
-    setExpandedCompanies(companiesWithUsers);
+    // Keep companies collapsed by default
+    setExpandedCompanies([]);
   }, [users, companies]);
 
   useEffect(() => {
@@ -347,41 +337,7 @@ const UserManagementPage: React.FC = () => {
     setSuccessMessage('');
   };
 
-  const handleBulkTransfer = async (fromCompanyId: string, toCompanyId: string) => {
-    setBulkTransferLoading(true);
-    setError('');
-    try {
-      // Get all users from the source company
-      const sourceCompanyUsers = users.filter(user => 
-        user.companyId?._id === fromCompanyId && user.role !== 'super_admin'
-      );
 
-      if (sourceCompanyUsers.length === 0) {
-        setError('No users found in the source company');
-        return;
-      }
-
-      // Transfer each user to the target company
-      const transferPromises = sourceCompanyUsers.map(user =>
-        apiService.put(`/api/super-admin/users/${user._id}`, {
-          companyId: toCompanyId
-        })
-      );
-
-      await Promise.all(transferPromises);
-      
-      setSuccessMessage(`Successfully transferred ${sourceCompanyUsers.length} users from ${sourceCompanyUsers[0]?.companyId?.name || 'Default Company'} to SNS Tech Services`);
-      
-      // Refresh the user list
-      await fetchUsers();
-      
-      setBulkTransferDialog({ open: false, fromCompany: '', toCompany: '' });
-    } catch (err: any) {
-      setError(`Failed to transfer users: ${err.response?.data?.error || err.message}`);
-    } finally {
-      setBulkTransferLoading(false);
-    }
-  };
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -420,47 +376,6 @@ const UserManagementPage: React.FC = () => {
             onClick={() => { setSelectedUser(null); setOpenDialog(true); }}
           >
             Add User
-          </Button>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={async () => {
-              console.log('Testing backend connection...');
-              const result = await testBackendConnection();
-              console.log('Test result:', result);
-              if (result.success && result.data) {
-                alert(`✅ Test passed! Found ${result.data.usersCount} users`);
-              } else {
-                alert(`❌ Test failed: ${result.message}`);
-              }
-            }}
-          >
-            Test Connection
-          </Button>
-          <Button
-            variant="outlined"
-            color="secondary"
-            size="small"
-            onClick={() => {
-              const defaultCompany = companyGroups.find(group => 
-                group.company.name.toLowerCase().includes('default')
-              );
-              const snsCompany = companyGroups.find(group => 
-                group.company.name.toLowerCase().includes('sns tech')
-              );
-              
-              if (defaultCompany && snsCompany) {
-                setBulkTransferDialog({
-                  open: true,
-                  fromCompany: defaultCompany.company._id,
-                  toCompany: snsCompany.company._id
-                });
-              } else {
-                setError('Default Company or SNS Tech Services not found');
-              }
-            }}
-          >
-            Move Default Company Users to SNS Tech
           </Button>
         </Box>
       </Box>
@@ -686,40 +601,7 @@ const UserManagementPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Bulk Transfer Dialog */}
-      <Dialog
-        open={bulkTransferDialog.open}
-        onClose={() => setBulkTransferDialog({ ...bulkTransferDialog, open: false })}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Bulk Transfer Users</DialogTitle>
-        <DialogContent>
-          <Typography variant="body1" sx={{ mb: 2 }} component="div">
-            Are you sure you want to move all users from <strong>Default Company</strong> to <strong>SNS Tech Services</strong>?
-          </Typography>
-          <Typography variant="body2" color="textSecondary" component="div">
-            This action will transfer all users (admins and employees) from Default Company to SNS Tech Services. 
-            This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setBulkTransferDialog({ ...bulkTransferDialog, open: false })}
-            disabled={bulkTransferLoading}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={() => handleBulkTransfer(bulkTransferDialog.fromCompany, bulkTransferDialog.toCompany)}
-            variant="contained"
-            color="secondary"
-            disabled={bulkTransferLoading}
-          >
-            {bulkTransferLoading ? 'Transferring...' : 'Confirm Transfer'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+
     </Box>
   );
 };

@@ -976,8 +976,16 @@ exports.validateResetToken = async (req, res) => {
 
 exports.changePassword = async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const { currentPassword, newPassword, confirmPassword } = req.body;
     const userId = req.user.userId;
+
+    // DEBUG LOGGING
+    console.log('=== CHANGE PASSWORD DEBUG ===');
+    console.log('Request body:', { currentPassword: !!currentPassword, newPassword: !!newPassword, confirmPassword: !!confirmPassword });
+    console.log('New password length:', newPassword?.length);
+    console.log('New password:', newPassword);
+    console.log('Confirm password:', confirmPassword);
+    console.log('Passwords match:', newPassword === confirmPassword);
 
     // Validate input
     if (!currentPassword || !newPassword) {
@@ -1021,14 +1029,20 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // Hash new password
-    const saltRounds = 12;
+    // Hash new password (use 10 salt rounds to match existing)
+    const saltRounds = 10;
     const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
 
     // Update password
     user.password = hashedNewPassword;
     user.passwordChangedAt = new Date();
     await user.save();
+
+    // DEBUG: Test the saved password
+    console.log('Password saved successfully');
+    console.log('New hash:', hashedNewPassword);
+    const testResult = await bcrypt.compare(newPassword, hashedNewPassword);
+    console.log('Test saved password:', testResult);
 
     // Log password change for security
     console.log(`Password changed for user: ${user.email} (${user.role}) at ${new Date().toISOString()}`);
