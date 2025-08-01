@@ -8,15 +8,10 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sns_rooster/providers/auth_provider.dart';
-import 'package:sns_rooster/providers/company_settings_provider.dart';
 import 'package:sns_rooster/services/company_settings_service.dart';
 import 'package:sns_rooster/services/firebase_storage_service.dart';
-import 'package:sns_rooster/services/feature_service.dart';
 import 'package:sns_rooster/config/api_config.dart';
-import 'package:sns_rooster/utils/logger.dart';
 import 'package:sns_rooster/widgets/admin_side_navigation.dart';
-import 'package:sns_rooster/widgets/company_details_widget.dart';
-import 'package:sns_rooster/widgets/company_info_widget.dart';
 import 'package:sns_rooster/providers/feature_provider.dart';
 
 class EditCompanyFormScreen extends StatefulWidget {
@@ -295,7 +290,7 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
             // Show success message
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
+                const SnackBar(
                   content: Row(
                     children: [
                       Icon(Icons.check_circle, color: Colors.white),
@@ -329,13 +324,13 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
               SnackBar(
                 content: Row(
                   children: [
-                    Icon(Icons.error, color: Colors.white),
-                    SizedBox(width: 8),
+                    const Icon(Icons.error, color: Colors.white),
+                    const SizedBox(width: 8),
                     Expanded(child: Text(errorMessage)),
                   ],
                 ),
                 backgroundColor: Colors.red,
-                duration: Duration(seconds: 5),
+                duration: const Duration(seconds: 5),
                 action: SnackBarAction(
                   label: 'Dismiss',
                   textColor: Colors.white,
@@ -352,7 +347,7 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
       // Show success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Row(
               children: [
                 Icon(Icons.check_circle, color: Colors.white),
@@ -376,14 +371,14 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
           SnackBar(
             content: Row(
               children: [
-                Icon(Icons.error, color: Colors.white),
-                SizedBox(width: 8),
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 8),
                 Text(
                     'Failed to update company information: ${error.toString()}'),
               ],
             ),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 5),
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -594,10 +589,10 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
                         OutlinedButton(
                           onPressed:
                               _isSaving ? null : () => Navigator.pop(context),
-                          child: const Text('Cancel'),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
+                          child: const Text('Cancel'),
                         ),
                       ],
                     ),
@@ -741,7 +736,7 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
                 return Image.network(
                   fullLogoUrl,
                   fit: BoxFit.contain,
-                  headers: {
+                  headers: const {
                     'User-Agent': 'SNS-Rooster-Web-App',
                     'Accept': 'image/*',
                   },
@@ -757,7 +752,7 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
                     return Image.network(
                       alternativeUrl,
                       fit: BoxFit.contain,
-                      headers: {
+                      headers: const {
                         'User-Agent': 'SNS-Rooster-Web-App',
                         'Accept': 'image/*',
                       },
@@ -773,7 +768,7 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
                         return Image.network(
                           simplifiedUrl,
                           fit: BoxFit.contain,
-                          headers: {
+                          headers: const {
                             'User-Agent': 'SNS-Rooster-Web-App',
                             'Accept': 'image/*',
                           },
@@ -802,8 +797,8 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            CircularProgressIndicator(strokeWidth: 2),
-                            SizedBox(height: 8),
+                            const CircularProgressIndicator(strokeWidth: 2),
+                            const SizedBox(height: 8),
                             Text(
                               'Loading (Web)',
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -834,8 +829,8 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              CircularProgressIndicator(strokeWidth: 2),
-                              SizedBox(height: 8),
+                              const CircularProgressIndicator(strokeWidth: 2),
+                              const SizedBox(height: 8),
                               Text(
                                 'Loading (Mobile)',
                                 style: theme.textTheme.bodySmall?.copyWith(
@@ -881,7 +876,7 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
             return Image.network(
               fullLogoUrl,
               fit: BoxFit.contain,
-              headers: {
+              headers: const {
                 'User-Agent': 'SNS-Rooster-App',
                 'Accept': 'image/*',
               },
@@ -927,7 +922,7 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
                               : null,
                           strokeWidth: 2,
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
                           'Loading...',
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -1025,8 +1020,8 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
             if (featureProvider.isLoading) {
               return Card(
                 color: colorScheme.surfaceContainerHighest,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                child: const Padding(
+                  padding: EdgeInsets.all(16.0),
                   child: Row(
                     children: [
                       SizedBox(
@@ -1034,7 +1029,7 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Text('Loading subscription plan...'),
                     ],
                   ),
@@ -1301,7 +1296,7 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
           color: colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: colorScheme.outline.withOpacity(0.3),
+            color: colorScheme.outline.withValues(alpha: 0.3),
             width: 1,
           ),
         ),

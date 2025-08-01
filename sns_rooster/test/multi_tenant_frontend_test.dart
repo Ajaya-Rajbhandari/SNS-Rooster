@@ -1,8 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sns_rooster/models/company.dart';
 import 'package:sns_rooster/providers/company_provider.dart';
-import 'package:sns_rooster/services/company_service.dart';
-import 'package:sns_rooster/services/secure_storage_service.dart';
 
 void main() {
   group('Multi-Tenant Frontend Tests', () {

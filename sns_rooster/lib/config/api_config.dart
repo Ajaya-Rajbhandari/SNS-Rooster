@@ -46,8 +46,6 @@ class ApiConfig {
     }
 
     // If somehow in release mode but not production, use environment variable
-    Logger.warning(
-        'Release mode detected but not in production - using environment API_URL');
     return const String.fromEnvironment('API_URL',
         defaultValue: productionApiUrl);
   }
@@ -56,9 +54,9 @@ class ApiConfig {
   static String _getDevBaseUrl() {
     if (kIsWeb) {
       // Use environment variable for web
-      final url = const String.fromEnvironment('API_URL',
+      const url = String.fromEnvironment('API_URL',
           defaultValue: 'http://localhost:$devPort/api');
-      log('DEV_API: Web app using: $url');
+      print('DEV_API: Web app using: $url');
       return url;
     } else if (Platform.isAndroid) {
       // For Android devices, use environment variable or detect IP
@@ -74,21 +72,21 @@ class ApiConfig {
           log('DEV_API: Android emulator mode forced, using: $androidIP');
         } else {
           // For physical devices, use your computer's IP address
-          androidIP = '192.168.1.80'; // Your computer's IP address (current)
-          log('DEV_API: Android physical device mode, using: $androidIP');
+          androidIP = '192.168.1.119'; // Your computer's IP address (current)
+          print('DEV_API: Android physical device mode, using: $androidIP');
         }
       }
 
       final url = 'http://$androidIP:$devPort/api';
-      log('DEV_API: Android using: $url');
+      print('DEV_API: Android using: $url');
       return url;
     } else if (Platform.isIOS) {
       const url = 'http://localhost:$devPort/api';
-      log('DEV_API: iOS using: $url');
+      print('DEV_API: iOS using: $url');
       return url;
     } else {
       const url = 'http://localhost:$devPort/api';
-      log('DEV_API: Desktop using: $url');
+      print('DEV_API: Desktop using: $url');
       return url;
     }
   }

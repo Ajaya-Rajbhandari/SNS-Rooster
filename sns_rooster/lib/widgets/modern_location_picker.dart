@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:map_launcher/map_launcher.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:lottie/lottie.dart' hide Marker;
-import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -419,7 +416,7 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
+              color: Colors.black.withValues(alpha: 0.15),
               blurRadius: 30,
               offset: const Offset(0, 15),
             ),
@@ -458,7 +455,7 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -477,7 +474,7 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.blue.withOpacity(0.3),
+                  color: Colors.blue.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -514,7 +511,7 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.1),
+                color: Colors.grey.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.close, size: 20),
@@ -537,7 +534,7 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
               border: Border.all(color: Colors.grey.shade200),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
@@ -589,7 +586,7 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -656,7 +653,7 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
           leading: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
+              color: Colors.blue.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(Icons.location_on, color: Colors.blue, size: 20),
@@ -685,7 +682,7 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -726,7 +723,7 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
                               border: Border.all(color: Colors.white, width: 3),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
+                                  color: Colors.black.withValues(alpha: 0.3),
                                   blurRadius: 8,
                                   offset: const Offset(0, 4),
                                 ),
@@ -746,7 +743,7 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
                         CircleMarker(
                           point: _selectedLocation!,
                           radius: _radius,
-                          color: Colors.blue.withOpacity(0.2),
+                          color: Colors.blue.withValues(alpha: 0.2),
                           borderColor: Colors.blue,
                           borderStrokeWidth: 2,
                         ),
@@ -792,7 +789,7 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -803,7 +800,7 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
+                            color: Colors.blue.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(Icons.info_outline,
@@ -863,7 +860,7 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -932,9 +929,10 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
                           child: SliderTheme(
                             data: SliderTheme.of(context).copyWith(
                               activeTrackColor: Colors.blue,
-                              inactiveTrackColor: Colors.blue.withOpacity(0.2),
+                              inactiveTrackColor:
+                                  Colors.blue.withValues(alpha: 0.2),
                               thumbColor: Colors.blue,
-                              overlayColor: Colors.blue.withOpacity(0.1),
+                              overlayColor: Colors.blue.withValues(alpha: 0.1),
                               trackHeight: 6,
                               thumbShape: const RoundSliderThumbShape(
                                 enabledThumbRadius: 10,
@@ -971,7 +969,7 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.blue.withOpacity(0.3),
+                                color: Colors.blue.withValues(alpha: 0.3),
                                 blurRadius: 8,
                                 offset: const Offset(0, 4),
                               ),
@@ -1078,7 +1076,7 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
-                side: BorderSide(color: Colors.blue.withOpacity(0.5)),
+                side: BorderSide(color: Colors.blue.withValues(alpha: 0.5)),
               ),
             ),
           ),
@@ -1094,7 +1092,7 @@ class _ModernLocationPickerState extends State<ModernLocationPicker>
                   borderRadius: BorderRadius.circular(16),
                 ),
                 elevation: 2,
-                shadowColor: Colors.blue.withOpacity(0.3),
+                shadowColor: Colors.blue.withValues(alpha: 0.3),
               ),
               child: const Text(
                 'Confirm Location',

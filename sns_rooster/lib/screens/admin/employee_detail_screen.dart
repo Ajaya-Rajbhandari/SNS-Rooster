@@ -314,8 +314,8 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen>
                             horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: _fullProfile!['isActive'] == true
-                              ? Colors.green.withOpacity(0.1)
-                              : Colors.red.withOpacity(0.1),
+                              ? Colors.green.withValues(alpha: 0.1)
+                              : Colors.red.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: _fullProfile!['isActive'] == true
@@ -720,7 +720,7 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.15),
+                    color: statusColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -1083,8 +1083,8 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen>
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              dayColors['primary']!.withOpacity(0.1),
-              dayColors['primary']!.withOpacity(0.05),
+              dayColors['primary']!.withValues(alpha: 0.1),
+              dayColors['primary']!.withValues(alpha: 0.05),
             ],
           ),
         ),
@@ -1128,7 +1128,7 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
+                      color: statusColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: statusColor, width: 1),
                     ),
@@ -1183,7 +1183,7 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen>
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: dayColors['primary']!.withOpacity(0.1),
+                    color: dayColors['primary']!.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -1234,7 +1234,7 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.brown.withOpacity(0.1),
+                      color: Colors.brown.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Row(
@@ -1262,7 +1262,7 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.brown.withOpacity(0.2),
+                      color: Colors.brown.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Row(
@@ -1304,7 +1304,7 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen>
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -1345,42 +1345,42 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen>
       case 1: // Monday
         return {
           'primary': const Color(0xFF1976D2),
-          'border': const Color(0xFF1976D2).withOpacity(0.3),
+          'border': const Color(0xFF1976D2).withValues(alpha: 0.3),
         };
       case 2: // Tuesday
         return {
           'primary': const Color(0xFF388E3C),
-          'border': const Color(0xFF388E3C).withOpacity(0.3),
+          'border': const Color(0xFF388E3C).withValues(alpha: 0.3),
         };
       case 3: // Wednesday
         return {
           'primary': const Color(0xFFE64A19),
-          'border': const Color(0xFFE64A19).withOpacity(0.3),
+          'border': const Color(0xFFE64A19).withValues(alpha: 0.3),
         };
       case 4: // Thursday
         return {
           'primary': const Color(0xFF7B1FA2),
-          'border': const Color(0xFF7B1FA2).withOpacity(0.3),
+          'border': const Color(0xFF7B1FA2).withValues(alpha: 0.3),
         };
       case 5: // Friday
         return {
           'primary': const Color(0xFFF57C00),
-          'border': const Color(0xFFF57C00).withOpacity(0.3),
+          'border': const Color(0xFFF57C00).withValues(alpha: 0.3),
         };
       case 6: // Saturday
         return {
           'primary': const Color(0xFF5D4037),
-          'border': const Color(0xFF5D4037).withOpacity(0.3),
+          'border': const Color(0xFF5D4037).withValues(alpha: 0.3),
         };
       case 7: // Sunday
         return {
           'primary': const Color(0xFFD32F2F),
-          'border': const Color(0xFFD32F2F).withOpacity(0.3),
+          'border': const Color(0xFFD32F2F).withValues(alpha: 0.3),
         };
       default:
         return {
           'primary': Colors.grey,
-          'border': Colors.grey.withOpacity(0.3),
+          'border': Colors.grey.withValues(alpha: 0.3),
         };
     }
   }
@@ -1434,7 +1434,7 @@ class _EmployeeDetailScreenState extends State<EmployeeDetailScreen>
           controller: _tabController,
           labelColor: Theme.of(context).colorScheme.onPrimary,
           unselectedLabelColor:
-              Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
+              Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7),
           indicatorColor: Theme.of(context).colorScheme.onPrimary,
           tabs: const [
             Tab(icon: Icon(Icons.person), text: 'Profile'),

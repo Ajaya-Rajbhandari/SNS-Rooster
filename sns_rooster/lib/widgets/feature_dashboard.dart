@@ -179,30 +179,30 @@ class FeatureDashboard extends StatelessWidget {
 
   Widget _buildUsageSection(
       BuildContext context, FeatureProvider featureProvider) {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Usage & Limits',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 8),
-        const UsageIndicator(
+        SizedBox(height: 8),
+        UsageIndicator(
           limitKey: 'maxEmployees',
           label: 'Employees',
           icon: Icons.people,
         ),
-        const SizedBox(height: 8),
-        const UsageIndicator(
+        SizedBox(height: 8),
+        UsageIndicator(
           limitKey: 'maxStorageGB',
           label: 'Storage',
           icon: Icons.storage,
         ),
-        const SizedBox(height: 8),
-        const UsageIndicator(
+        SizedBox(height: 8),
+        UsageIndicator(
           limitKey: 'maxApiCallsPerDay',
           label: 'API Calls',
           icon: Icons.api,
@@ -213,60 +213,60 @@ class FeatureDashboard extends StatelessWidget {
 
   Widget _buildFeatureSection(
       BuildContext context, FeatureProvider featureProvider) {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Available Features',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 8),
-        const FeatureStatus(
+        SizedBox(height: 8),
+        FeatureStatus(
           feature: 'attendance',
           label: 'Attendance Tracking',
           icon: Icons.access_time,
         ),
-        const SizedBox(height: 8),
-        const FeatureStatus(
+        SizedBox(height: 8),
+        FeatureStatus(
           feature: 'payroll',
           label: 'Payroll Management',
           icon: Icons.payment,
         ),
-        const SizedBox(height: 8),
-        const FeatureStatus(
+        SizedBox(height: 8),
+        FeatureStatus(
           feature: 'leaveManagement',
           label: 'Leave Management',
           icon: Icons.event_note,
         ),
-        const SizedBox(height: 8),
-        const FeatureStatus(
+        SizedBox(height: 8),
+        FeatureStatus(
           feature: 'analytics',
           label: 'Analytics & Reports',
           icon: Icons.analytics,
         ),
-        const SizedBox(height: 8),
-        const FeatureStatus(
+        SizedBox(height: 8),
+        FeatureStatus(
           feature: 'documentManagement',
           label: 'Document Management',
           icon: Icons.folder,
         ),
-        const SizedBox(height: 8),
-        const FeatureStatus(
+        SizedBox(height: 8),
+        FeatureStatus(
           feature: 'customBranding',
           label: 'Custom Branding',
           icon: Icons.palette,
         ),
-        const SizedBox(height: 8),
-        const FeatureStatus(
+        SizedBox(height: 8),
+        FeatureStatus(
           feature: 'apiAccess',
           label: 'API Access',
           icon: Icons.code,
         ),
-        const SizedBox(height: 8),
-        const FeatureStatus(
+        SizedBox(height: 8),
+        FeatureStatus(
           feature: 'advancedReporting',
           label: 'Advanced Reporting',
           icon: Icons.assessment,

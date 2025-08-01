@@ -20,6 +20,7 @@ import '../screens/admin/analytics_reports_screen.dart';
 import '../screens/admin/admin_profile_screen.dart';
 import '../screens/admin/admin_attendance_screen.dart';
 import '../screens/admin/event_management_screen.dart';
+import '../screens/admin/performance_reviews_screen.dart';
 import '../screens/admin/timesheet_approval_screen.dart';
 import '../widgets/user_avatar.dart';
 import 'package:sns_rooster/main.dart'; // Re-added import for navigatorKey
@@ -79,7 +80,7 @@ class AdminSideNavigation extends StatelessWidget {
                       Text(
                         user?['email'] ?? 'admin@company.com',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
+                          color: Colors.white.withValues(alpha: 0.8),
                           fontSize: 14,
                         ),
                       ),
@@ -103,14 +104,16 @@ class AdminSideNavigation extends StatelessWidget {
                   screen: const AdminDashboardScreen(),
                   colorScheme: colorScheme,
                 ),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.people,
-                  title: 'Employee Management',
-                  route: '/employee_management',
-                  screen: const EmployeeManagementScreen(),
-                  colorScheme: colorScheme,
-                ),
+                // Only show Employee Management if the feature is enabled
+                if (featureProvider.hasEmployeeManagement)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.people,
+                    title: 'Employee Management',
+                    route: '/employee_management',
+                    screen: const EmployeeManagementScreen(),
+                    colorScheme: colorScheme,
+                  ),
                 _buildDrawerItem(
                   context,
                   icon: Icons.beach_access,
@@ -119,14 +122,16 @@ class AdminSideNavigation extends StatelessWidget {
                   screen: const LeaveManagementScreen(),
                   colorScheme: colorScheme,
                 ),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.payments,
-                  title: 'Payroll Management',
-                  route: '/payroll_management',
-                  screen: const PayrollManagementScreen(),
-                  colorScheme: colorScheme,
-                ),
+                // Only show Payroll Management if the feature is enabled
+                if (featureProvider.hasPayroll)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.payments,
+                    title: 'Payroll Management',
+                    route: '/payroll_management',
+                    screen: const PayrollManagementScreen(),
+                    colorScheme: colorScheme,
+                  ),
                 _buildDrawerItem(
                   context,
                   icon: Icons.access_time,
@@ -140,22 +145,26 @@ class AdminSideNavigation extends StatelessWidget {
 
                 // 📊 MEDIUM FREQUENCY - Weekly/Monthly Use
                 _SidebarSectionHeader('Monitoring & Reports'),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.calendar_today,
-                  title: 'Attendance Management',
-                  route: '/attendance_management',
-                  screen: const AttendanceManagementScreen(),
-                  colorScheme: colorScheme,
-                ),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.notifications,
-                  title: 'Notifications & Alerts',
-                  route: '/notification_alert',
-                  screen: const NotificationAlertScreen(),
-                  colorScheme: colorScheme,
-                ),
+                // Only show Attendance Management if the feature is enabled
+                if (featureProvider.hasAttendanceManagement)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.calendar_today,
+                    title: 'Attendance Management',
+                    route: '/attendance_management',
+                    screen: const AttendanceManagementScreen(),
+                    colorScheme: colorScheme,
+                  ),
+                // Only show Notifications & Alerts if the feature is enabled
+                if (featureProvider.hasNotifications)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.notifications,
+                    title: 'Notifications & Alerts',
+                    route: '/notification_alert',
+                    screen: const NotificationAlertScreen(),
+                    colorScheme: colorScheme,
+                  ),
                 // Only show Analytics & Reports if the feature is enabled
                 if (featureProvider.hasAnalytics)
                   _buildDrawerItem(
@@ -166,83 +175,111 @@ class AdminSideNavigation extends StatelessWidget {
                     screen: const AdminAnalyticsScreen(),
                     colorScheme: colorScheme,
                   ),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.event,
-                  title: 'Event Management',
-                  route: '/event_management',
-                  screen: const EventManagementScreen(),
-                  colorScheme: colorScheme,
-                ),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.approval,
-                  title: 'Timesheet Approvals',
-                  route: '/timesheet_approval',
-                  screen: const TimesheetApprovalScreen(),
-                  colorScheme: colorScheme,
-                ),
+                // Only show Event Management if the feature is enabled
+                if (featureProvider.hasEvents)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.event,
+                    title: 'Event Management',
+                    route: '/event_management',
+                    screen: const EventManagementScreen(),
+                    colorScheme: colorScheme,
+                  ),
+                // Only show Performance Reviews if the feature is enabled
+                if (featureProvider.hasPerformanceReviews)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.assessment,
+                    title: 'Performance Reviews',
+                    route: '/performance_reviews',
+                    screen: const PerformanceReviewsScreen(),
+                    colorScheme: colorScheme,
+                  ),
+                // Only show Timesheet Approvals if the feature is enabled
+                if (featureProvider.hasTimesheetApprovals)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.approval,
+                    title: 'Timesheet Approvals',
+                    route: '/timesheet_approval',
+                    screen: const TimesheetApprovalScreen(),
+                    colorScheme: colorScheme,
+                  ),
 
                 const SizedBox(height: 8),
 
                 // ⚙️ LOW FREQUENCY - Monthly/As Needed
                 _SidebarSectionHeader('Configuration'),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.coffee,
-                  title: 'Break Management',
-                  route: '/break_management',
-                  screen: const BreakManagementScreen(),
-                  colorScheme: colorScheme,
-                ),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.category,
-                  title: 'Break Types',
-                  route: '/break_types',
-                  screen: const BreakTypesScreen(),
-                  colorScheme: colorScheme,
-                ),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.person_add,
-                  title: 'User Management',
-                  route: '/user_management',
-                  screen: const UserManagementScreen(),
-                  colorScheme: colorScheme,
-                ),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.settings,
-                  title: 'Settings',
-                  route: '/admin_settings',
-                  screen: const SettingsScreen(),
-                  colorScheme: colorScheme,
-                ),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.business,
-                  title: 'Company Settings',
-                  route: '/admin/company_settings',
-                  screen: const CompanySettingsScreen(),
-                  colorScheme: colorScheme,
-                ),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.featured_play_list,
-                  title: 'Feature Management',
-                  route: '/admin/feature_management',
-                  screen: const FeatureManagementScreen(),
-                  colorScheme: colorScheme,
-                ),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.assessment,
-                  title: 'Advanced Reporting',
-                  route: '/advanced-reporting',
-                  screen: const AdvancedReportingScreen(),
-                  colorScheme: colorScheme,
-                ),
+                // Only show Break Management if the feature is enabled
+                if (featureProvider.hasBreakManagement)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.coffee,
+                    title: 'Break Management',
+                    route: '/break_management',
+                    screen: const BreakManagementScreen(),
+                    colorScheme: colorScheme,
+                  ),
+                // Only show Break Types if the feature is enabled
+                if (featureProvider.hasBreakTypes)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.category,
+                    title: 'Break Types',
+                    route: '/break_types',
+                    screen: const BreakTypesScreen(),
+                    colorScheme: colorScheme,
+                  ),
+                // Only show User Management if the feature is enabled
+                if (featureProvider.hasUserManagement)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.person_add,
+                    title: 'User Management',
+                    route: '/user_management',
+                    screen: const UserManagementScreen(),
+                    colorScheme: colorScheme,
+                  ),
+                // Only show Settings if the feature is enabled
+                if (featureProvider.hasSettings)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.settings,
+                    title: 'Settings',
+                    route: '/admin_settings',
+                    screen: const SettingsScreen(),
+                    colorScheme: colorScheme,
+                  ),
+                // Only show Company Settings if the feature is enabled
+                if (featureProvider.hasCompanySettings)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.business,
+                    title: 'Company Settings',
+                    route: '/admin/company_settings',
+                    screen: const CompanySettingsScreen(),
+                    colorScheme: colorScheme,
+                  ),
+                // Only show Feature Management if the feature is enabled
+                if (featureProvider.hasFeatureManagement)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.featured_play_list,
+                    title: 'Feature Management',
+                    route: '/admin/feature_management',
+                    screen: const FeatureManagementScreen(),
+                    colorScheme: colorScheme,
+                  ),
+                // Only show Advanced Reporting if the feature is enabled
+                if (featureProvider.hasAdvancedReporting)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.assessment,
+                    title: 'Advanced Reporting',
+                    route: '/advanced-reporting',
+                    screen: const AdvancedReportingScreen(),
+                    colorScheme: colorScheme,
+                  ),
 
                 // 🏢 ENTERPRISE FEATURES
                 if (featureProvider.hasMultiLocation)
@@ -289,14 +326,16 @@ class AdminSideNavigation extends StatelessWidget {
 
                 // 🆘 SUPPORT
                 _SidebarSectionHeader('Support'),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.help_outline,
-                  title: 'Help & Support',
-                  route: '/help_support',
-                  screen: const HelpSupportScreen(),
-                  colorScheme: colorScheme,
-                ),
+                // Only show Help & Support if the feature is enabled
+                if (featureProvider.hasHelpSupport)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.help_outline,
+                    title: 'Help & Support',
+                    route: '/help_support',
+                    screen: const HelpSupportScreen(),
+                    colorScheme: colorScheme,
+                  ),
               ],
             ),
           ),
@@ -346,7 +385,7 @@ class AdminSideNavigation extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: isSelected
           ? BoxDecoration(
-              color: colorScheme.primary.withOpacity(0.08),
+              color: colorScheme.primary.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
               border: Border(
                 left: BorderSide(

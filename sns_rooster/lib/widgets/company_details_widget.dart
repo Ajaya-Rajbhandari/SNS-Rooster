@@ -4,7 +4,6 @@ import 'package:sns_rooster/providers/company_settings_provider.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/services/company_settings_service.dart';
 import 'package:sns_rooster/services/firebase_storage_service.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:typed_data';
 
 class CompanyDetailsWidget extends StatefulWidget {

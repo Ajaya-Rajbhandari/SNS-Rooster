@@ -1,7 +1,6 @@
 ﻿import 'dart:async';
 import 'package:sns_rooster/utils/logger.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/leave_request.dart';
 import '../services/api_service.dart';
 import '../config/api_config.dart';
@@ -19,7 +18,6 @@ class LeaveProvider with ChangeNotifier {
   Future<void> _initializeApiService() async {
     try {
       log('DEBUG: Initializing _apiService');
-      final prefs = await SharedPreferences.getInstance();
       _apiService = ApiService(
         baseUrl: ApiConfig.baseUrl,
       );
@@ -47,7 +45,7 @@ class LeaveProvider with ChangeNotifier {
         'role': role
       };
       final response = await _apiService.get(
-          '/leave/leave-requests?${Uri(queryParameters: queryParams).query}');
+          '/leave/simple/leave-requests?${Uri(queryParameters: queryParams).query}');
       if (response.success) {
         _leaveRequests = (response.data as List)
             .map((json) => LeaveRequest.fromJson(json))
@@ -67,7 +65,7 @@ class LeaveProvider with ChangeNotifier {
 
   Future<void> approveLeaveRequest(String id) async {
     try {
-      final response = await _apiService.put('/leave/$id/approve');
+      final response = await _apiService.put('/leave/simple/$id/approve');
       if (response.success) {
         _leaveRequests = _leaveRequests.map((request) {
           if (request.id == id) {
@@ -100,7 +98,7 @@ class LeaveProvider with ChangeNotifier {
 
   Future<void> rejectLeaveRequest(String id) async {
     try {
-      final response = await _apiService.put('/leave/$id/reject');
+      final response = await _apiService.put('/leave/simple/$id/reject');
       if (response.success) {
         _leaveRequests = _leaveRequests.map((request) {
           if (request.id == id) {

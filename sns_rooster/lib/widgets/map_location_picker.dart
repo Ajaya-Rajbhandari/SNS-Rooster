@@ -124,7 +124,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
             circleId: const CircleId('geofence'),
             center: LatLng(_selectedLatitude!, _selectedLongitude!),
             radius: _radius,
-            fillColor: Colors.blue.withOpacity(0.2),
+            fillColor: Colors.blue.withValues(alpha: 0.2),
             strokeColor: Colors.blue,
             strokeWidth: 2,
           ),
@@ -270,11 +270,11 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  const Row(
                     children: [
-                      const Icon(Icons.location_on, color: Colors.blue),
-                      const SizedBox(width: 8),
-                      const Text(
+                      Icon(Icons.location_on, color: Colors.blue),
+                      SizedBox(width: 8),
+                      Text(
                         'Selected Location:',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),

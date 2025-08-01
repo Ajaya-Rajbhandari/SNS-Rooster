@@ -33,7 +33,11 @@ try {
 exports.saveFCMToken = async (req, res) => {
   try {
     const { fcmToken, userId } = req.body;
-    const requestingUserId = req.user.id;
+    const requestingUserId = req.user.userId; // Fixed: use userId instead of id
+
+    console.log('FCM: DEBUG - Request body userId:', userId);
+    console.log('FCM: DEBUG - JWT token userId:', requestingUserId);
+    console.log('FCM: DEBUG - Full req.user:', req.user);
 
     // Validate input
     if (!fcmToken) {
@@ -43,6 +47,7 @@ exports.saveFCMToken = async (req, res) => {
 
     // Ensure user can only save their own token
     if (userId && userId !== requestingUserId) {
+      console.log('FCM: DEBUG - User ID mismatch. Requested:', userId, 'JWT:', requestingUserId);
       return res.status(403).json({ message: 'Unauthorized to save token for another user' });
     }
 
@@ -85,10 +90,10 @@ exports.saveFCMToken = async (req, res) => {
 // Get FCM token for a user
 exports.getFCMToken = async (req, res) => {
   try {
-    const userId = req.params.userId || req.user.id;
+    const userId = req.params.userId || req.user.userId; // Fixed: use userId instead of id
 
     // Ensure user can only get their own token
-    if (req.params.userId && req.params.userId !== req.user.id) {
+    if (req.params.userId && req.params.userId !== req.user.userId) { // Fixed: use userId instead of id
       return res.status(403).json({ message: 'Unauthorized to access another user\'s token' });
     }
 
@@ -108,10 +113,10 @@ exports.getFCMToken = async (req, res) => {
 // Delete FCM token for a user
 exports.deleteFCMToken = async (req, res) => {
   try {
-    const userId = req.params.userId || req.user.id;
+    const userId = req.params.userId || req.user.userId; // Fixed: use userId instead of id
 
     // Ensure user can only delete their own token
-    if (req.params.userId && req.params.userId !== req.user.id) {
+    if (req.params.userId && req.params.userId !== req.user.userId) { // Fixed: use userId instead of id
       return res.status(403).json({ message: 'Unauthorized to delete another user\'s token' });
     }
 

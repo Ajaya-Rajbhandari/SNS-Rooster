@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../providers/feature_provider.dart';
 
 /// Widget that automatically initializes features when the app starts
 class FeatureInitializer extends StatefulWidget {

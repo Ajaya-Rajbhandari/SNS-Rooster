@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/services.dart';
 
 class RealMapPicker extends StatefulWidget {
   final double? initialLatitude;
@@ -28,7 +27,6 @@ class _RealMapPickerState extends State<RealMapPicker> {
   final _lngController = TextEditingController();
   final _addressController = TextEditingController();
   double _radius = 100.0;
-  String _address = '';
   bool _isLoadingAddress = false;
   bool _isLoadingLocation = false;
   bool _isMapExpanded = false;
@@ -166,18 +164,15 @@ class _RealMapPickerState extends State<RealMapPicker> {
             '${place.street ?? ''}, ${place.locality ?? ''}, ${place.administrativeArea ?? ''} ${place.postalCode ?? ''}'
                 .trim();
         setState(() {
-          _address = address;
           _addressController.text = address;
         });
       } else {
         setState(() {
-          _address = 'Address not available';
           _addressController.text = '';
         });
       }
     } catch (e) {
       setState(() {
-        _address = 'Address lookup failed';
         _addressController.text = '';
       });
     } finally {
@@ -247,7 +242,7 @@ class _RealMapPickerState extends State<RealMapPicker> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -266,7 +261,7 @@ class _RealMapPickerState extends State<RealMapPicker> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: Colors.grey.withValues(alpha: 0.1),
                     blurRadius: 5,
                     offset: const Offset(0, 2),
                   ),
@@ -277,7 +272,7 @@ class _RealMapPickerState extends State<RealMapPicker> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
+                      color: Colors.blue.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.location_on,
@@ -299,7 +294,7 @@ class _RealMapPickerState extends State<RealMapPicker> {
                     icon: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: Colors.grey.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.close, size: 20),
@@ -342,7 +337,8 @@ class _RealMapPickerState extends State<RealMapPicker> {
                                       borderRadius: BorderRadius.circular(8),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.1),
+                                          color: Colors.black
+                                              .withValues(alpha: 0.1),
                                           blurRadius: 4,
                                           offset: const Offset(0, 2),
                                         ),
@@ -368,7 +364,8 @@ class _RealMapPickerState extends State<RealMapPicker> {
                                       borderRadius: BorderRadius.circular(8),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.1),
+                                          color: Colors.black
+                                              .withValues(alpha: 0.1),
                                           blurRadius: 4,
                                           offset: const Offset(0, 2),
                                         ),
@@ -408,7 +405,8 @@ class _RealMapPickerState extends State<RealMapPicker> {
                                       borderRadius: BorderRadius.circular(50),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.3),
+                                          color: Colors.black
+                                              .withValues(alpha: 0.3),
                                           blurRadius: 8,
                                           offset: const Offset(0, 4),
                                         ),
@@ -425,11 +423,13 @@ class _RealMapPickerState extends State<RealMapPicker> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.9),
+                                      color:
+                                          Colors.white.withValues(alpha: 0.9),
                                       borderRadius: BorderRadius.circular(20),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.1),
+                                          color: Colors.black
+                                              .withValues(alpha: 0.1),
                                           blurRadius: 5,
                                         ),
                                       ],
@@ -458,10 +458,10 @@ class _RealMapPickerState extends State<RealMapPicker> {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: Colors.blue.withOpacity(0.6),
+                                      color: Colors.blue.withValues(alpha: 0.6),
                                       width: 2,
                                     ),
-                                    color: Colors.blue.withOpacity(0.1),
+                                    color: Colors.blue.withValues(alpha: 0.1),
                                   ),
                                 ),
                               ),
@@ -498,7 +498,8 @@ class _RealMapPickerState extends State<RealMapPicker> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 16, vertical: 8),
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.7),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.7),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: const Text(
@@ -600,7 +601,7 @@ class _RealMapPickerState extends State<RealMapPicker> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
+                            color: Colors.blue.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -618,9 +619,9 @@ class _RealMapPickerState extends State<RealMapPicker> {
                     SliderTheme(
                       data: SliderTheme.of(context).copyWith(
                         activeTrackColor: Colors.blue,
-                        inactiveTrackColor: Colors.blue.withOpacity(0.2),
+                        inactiveTrackColor: Colors.blue.withValues(alpha: 0.2),
                         thumbColor: Colors.blue,
-                        overlayColor: Colors.blue.withOpacity(0.1),
+                        overlayColor: Colors.blue.withValues(alpha: 0.1),
                         trackHeight: 4,
                         thumbShape:
                             const RoundSliderThumbShape(enabledThumbRadius: 8),
@@ -665,7 +666,7 @@ class _RealMapPickerState extends State<RealMapPicker> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               side: BorderSide(
-                                  color: Colors.blue.withOpacity(0.5)),
+                                  color: Colors.blue.withValues(alpha: 0.5)),
                             ),
                           ),
                         ),
@@ -809,10 +810,6 @@ class RealMapPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.blue.withOpacity(0.1)
-      ..strokeWidth = 1;
-
     // Draw base map pattern
     _drawMapTiles(canvas, size);
 
@@ -828,7 +825,7 @@ class RealMapPainter extends CustomPainter {
 
   void _drawMapTiles(Canvas canvas, Size size) {
     // Simulate map tiles with different colors
-    final tileSize = 50.0;
+    const tileSize = 50.0;
     final colors = [
       Colors.green.shade100,
       Colors.green.shade200,
@@ -899,7 +896,7 @@ class RealMapPainter extends CustomPainter {
 
   void _drawGrid(Canvas canvas, Size size) {
     final gridPaint = Paint()
-      ..color = Colors.blue.withOpacity(0.05)
+      ..color = Colors.blue.withValues(alpha: 0.05)
       ..strokeWidth = 0.5;
 
     // Draw coordinate grid

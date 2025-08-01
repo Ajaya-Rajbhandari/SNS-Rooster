@@ -308,7 +308,7 @@ class _SimpleLocationPickerState extends State<SimpleLocationPicker> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4), // Smaller padding
                         decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.8),
+                          color: Colors.blue.withValues(alpha: 0.8),
                           borderRadius:
                               BorderRadius.circular(12), // Smaller radius
                         ),
@@ -340,7 +340,7 @@ class _SimpleLocationPickerState extends State<SimpleLocationPicker> {
                       prefixIcon: Icon(Icons.location_on),
                     ),
                     keyboardType:
-                        TextInputType.numberWithOptions(decimal: true),
+                        const TextInputType.numberWithOptions(decimal: true),
                     onChanged: (_) => _onCoordinatesChanged(),
                   ),
                 ),
@@ -354,7 +354,7 @@ class _SimpleLocationPickerState extends State<SimpleLocationPicker> {
                       prefixIcon: Icon(Icons.location_on),
                     ),
                     keyboardType:
-                        TextInputType.numberWithOptions(decimal: true),
+                        const TextInputType.numberWithOptions(decimal: true),
                     onChanged: (_) => _onCoordinatesChanged(),
                   ),
                 ),

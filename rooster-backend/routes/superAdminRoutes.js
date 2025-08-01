@@ -3,6 +3,7 @@ const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const { requireSuperAdmin, requirePermission } = require('../middleware/superAdmin');
 const SuperAdminController = require('../controllers/super-admin-controller');
+const superAdminLeavePolicyController = require('../controllers/super-admin-leave-policy-controller');
 
 // Security middleware
 const {
@@ -194,6 +195,44 @@ router.get('/settings',
 router.put('/settings', 
   requirePermission('systemSettings'), 
   SuperAdminController.updateSettings
+);
+
+// ===== LEAVE POLICY MANAGEMENT =====
+
+// Get all leave policies across all companies
+router.get('/leave-policies', 
+  requirePermission('manageCompanies'), 
+  superAdminLeavePolicyController.getAllLeavePolicies
+);
+
+// Get leave policies for a specific company
+router.get('/companies/:companyId/leave-policies', 
+  requirePermission('manageCompanies'), 
+  superAdminLeavePolicyController.getCompanyLeavePolicies
+);
+
+// Create leave policy for a specific company
+router.post('/companies/:companyId/leave-policies', 
+  requirePermission('manageCompanies'), 
+  superAdminLeavePolicyController.createCompanyLeavePolicy
+);
+
+// Update leave policy for a specific company
+router.put('/companies/:companyId/leave-policies/:policyId', 
+  requirePermission('manageCompanies'), 
+  superAdminLeavePolicyController.updateCompanyLeavePolicy
+);
+
+// Delete leave policy for a specific company
+router.delete('/companies/:companyId/leave-policies/:policyId', 
+  requirePermission('manageCompanies'), 
+  superAdminLeavePolicyController.deleteCompanyLeavePolicy
+);
+
+// Get leave policy statistics
+router.get('/leave-policies/statistics', 
+  requirePermission('viewAnalytics'), 
+  superAdminLeavePolicyController.getLeavePolicyStatistics
 );
 
 module.exports = router; 

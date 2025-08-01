@@ -6,6 +6,7 @@ import 'package:sns_rooster/widgets/app_drawer.dart';
 import '../../providers/attendance_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../widgets/admin_side_navigation.dart';
+import '../../widgets/modern_card_widget.dart';
 
 class TimesheetScreen extends StatefulWidget {
   const TimesheetScreen({Key? key}) : super(key: key);
@@ -592,8 +593,10 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                           horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: dailyHours > 8
-                            ? Colors.orange.withOpacity(0.2)
-                            : Theme.of(context).primaryColor.withOpacity(0.1),
+                            ? Colors.orange.withValues(alpha: 0.2)
+                            : Theme.of(context)
+                                .primaryColor
+                                .withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
@@ -636,23 +639,29 @@ class _TimesheetScreenState extends State<TimesheetScreen>
         body: Center(child: Text('Not logged in. Please log in.')),
       );
     }
-    final userId = user['_id']?.toString() ?? user['id']?.toString();
     final isAdmin = user['role'] == 'admin';
     if (isAdmin) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Timesheet')),
+        appBar: AppBar(
+          title: const Text('Timesheet'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          elevation: 0,
+        ),
         body: const Center(child: Text('Access denied')),
         drawer: const AdminSideNavigation(currentRoute: '/timesheet'),
       );
     }
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final dateFormat = DateFormat('MMM dd, yyyy');
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Timesheet'),
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
         elevation: 0,
-        backgroundColor: theme.primaryColor,
       ),
       drawer: const AppDrawer(),
       body: FadeTransition(
@@ -663,113 +672,103 @@ class _TimesheetScreenState extends State<TimesheetScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Enhanced Date Range Picker Card
-              Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  side: BorderSide(
-                    color: theme.primaryColor.withOpacity(0.2),
-                    width: 2,
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.calendar_month,
-                              color: theme.primaryColor, size: 32),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Date Range',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+              ModernCard(
+                accentColor: colorScheme.primary,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_month,
+                            color: colorScheme.primary, size: 32),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Date Range',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
                                 ),
-                                Text(
-                                  '${dateFormat.format(_selectedDateRange.start)} – ${dateFormat.format(_selectedDateRange.end)}',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.primaryColor,
-                                  ),
+                              ),
+                              Text(
+                                '${dateFormat.format(_selectedDateRange.start)} – ${dateFormat.format(_selectedDateRange.end)}',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.primary,
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          TextButton.icon(
-                            onPressed: () => _selectDateRange(context),
-                            icon: const Icon(Icons.date_range),
-                            label: const Text('Change'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: theme.primaryColor,
-                              textStyle:
-                                  const TextStyle(fontWeight: FontWeight.bold),
-                            ),
+                        ),
+                        TextButton.icon(
+                          onPressed: () => _selectDateRange(context),
+                          icon: const Icon(Icons.date_range),
+                          label: const Text('Change'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: colorScheme.primary,
+                            textStyle:
+                                const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Select a date range to view your timesheet entries.',
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          OutlinedButton(
+                            onPressed: () {
+                              setState(() {
+                                _selectedDateRange = DateTimeRange(
+                                  start: _firstDayOfMonth,
+                                  end: _lastDayOfMonth,
+                                );
+                              });
+                              _saveQuickActionState();
+                            },
+                            child: const Text('This Month'),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton(
+                            onPressed: () {
+                              setState(() {
+                                _selectedDateRange = _thisWeekRange;
+                              });
+                              _saveQuickActionState();
+                            },
+                            child: const Text('This Week'),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton(
+                            onPressed: () {
+                              setState(() {
+                                _selectedDateRange = DateTimeRange(
+                                  start: DateTime(2020),
+                                  end: DateTime.now(),
+                                );
+                              });
+                              _saveQuickActionState();
+                            },
+                            child: const Text('All Time'),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Select a date range to view your timesheet entries.',
-                        style: TextStyle(
-                          color: Colors.grey[500],
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            OutlinedButton(
-                              onPressed: () {
-                                setState(() {
-                                  _selectedDateRange = DateTimeRange(
-                                    start: _firstDayOfMonth,
-                                    end: _lastDayOfMonth,
-                                  );
-                                });
-                                _saveQuickActionState();
-                              },
-                              child: const Text('This Month'),
-                            ),
-                            const SizedBox(width: 8),
-                            OutlinedButton(
-                              onPressed: () {
-                                setState(() {
-                                  _selectedDateRange = _thisWeekRange;
-                                });
-                                _saveQuickActionState();
-                              },
-                              child: const Text('This Week'),
-                            ),
-                            const SizedBox(width: 8),
-                            OutlinedButton(
-                              onPressed: () {
-                                setState(() {
-                                  _selectedDateRange = DateTimeRange(
-                                    start: DateTime(2020),
-                                    end: DateTime.now(),
-                                  );
-                                });
-                                _saveQuickActionState();
-                              },
-                              child: const Text('All Time'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
@@ -827,7 +826,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: theme.primaryColor,
+                                  color: colorScheme.primary,
                                 ),
                               ),
                             ],
@@ -867,10 +866,12 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                           _saveQuickActionState();
                         },
                         backgroundColor: Colors.grey[100],
-                        selectedColor: theme.primaryColor.withOpacity(0.2),
-                        checkmarkColor: theme.primaryColor,
+                        selectedColor:
+                            colorScheme.primary.withValues(alpha: 0.2),
+                        checkmarkColor: colorScheme.primary,
                         labelStyle: TextStyle(
-                          color: isSelected ? theme.primaryColor : Colors.black,
+                          color:
+                              isSelected ? colorScheme.primary : Colors.black,
                           fontWeight:
                               isSelected ? FontWeight.bold : FontWeight.normal,
                         ),
@@ -964,7 +965,7 @@ class _TimesheetScreenState extends State<TimesheetScreen>
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: theme.primaryColor.withOpacity(0.1),
+                              color: theme.primaryColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Icon(
@@ -1558,7 +1559,7 @@ class TimesheetRow extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: theme.primaryColor.withOpacity(0.1),
+                        color: theme.primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
@@ -1582,9 +1583,10 @@ class TimesheetRow extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: statusColor.withOpacity(0.3)),
+                    border:
+                        Border.all(color: statusColor.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1612,9 +1614,10 @@ class TimesheetRow extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.05),
+                      color: Colors.blue.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                      border:
+                          Border.all(color: Colors.blue.withValues(alpha: 0.2)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1652,9 +1655,10 @@ class TimesheetRow extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.05),
+                      color: Colors.red.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.withOpacity(0.2)),
+                      border:
+                          Border.all(color: Colors.red.withValues(alpha: 0.2)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1698,9 +1702,10 @@ class TimesheetRow extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.05),
+                      color: Colors.orange.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                      border: Border.all(
+                          color: Colors.orange.withValues(alpha: 0.2)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1738,9 +1743,10 @@ class TimesheetRow extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.05),
+                      color: Colors.green.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.green.withOpacity(0.2)),
+                      border: Border.all(
+                          color: Colors.green.withValues(alpha: 0.2)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

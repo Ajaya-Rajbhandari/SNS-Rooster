@@ -17,7 +17,7 @@ class LeaveBalanceTile extends StatelessWidget {
     return Column(
       children: [
         CircleAvatar(
-          backgroundColor: color.withOpacity(0.15),
+          backgroundColor: color.withValues(alpha: 0.15),
           child: Text('$days',
               style: TextStyle(color: color, fontWeight: FontWeight.bold)),
         ),

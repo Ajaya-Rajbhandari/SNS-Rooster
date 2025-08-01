@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import '../../providers/auth_provider.dart';
 import '../../config/api_config.dart';
 import '../../widgets/admin_side_navigation.dart';
@@ -261,341 +259,480 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
   }
 
+  Widget _buildStatCard(BuildContext context, String title, String value,
+      IconData icon, Color color) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 30),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserCard(
+      BuildContext context, Map<String, dynamic> user, String? currentUserId) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  child: Text(
+                    (user['firstName'] != null && user['firstName'].isNotEmpty)
+                        ? user['firstName'][0].toUpperCase()
+                        : '?',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        (user['firstName'] ?? '') +
+                            (user['lastName'] != null &&
+                                    user['lastName'].isNotEmpty
+                                ? ' ' + user['lastName']
+                                : ''),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(user['email'] ?? ''),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Switch(
+                  value: user['isActive'] ?? false,
+                  onChanged: (value) => _toggleUserStatus(
+                    user['_id'],
+                    user['isActive'],
+                  ),
+                  activeColor: Colors.green,
+                  inactiveThumbColor: Colors.red,
+                ),
+                const SizedBox(width: 12),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: user['_id'] == currentUserId
+                      ? () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Action Not Allowed'),
+                              content: const Text(
+                                  'You cannot delete your own admin account.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: const Text('OK'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      : () => _deleteUser(user['_id']),
+                  tooltip: 'Delete User',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.people_outline,
+              size: 60, color: colorScheme.onSurfaceVariant),
+          const SizedBox(height: 16),
+          Text(
+            'No users found.',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Add new users to get started.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final currentUserId =
         Provider.of<AuthProvider>(context, listen: false).user?['_id'];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('User Management'),
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        elevation: 0,
         actions: [
-          // Toggle button to show/hide inactive users
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _showInactive ? 'All' : 'Active',
-                style: TextStyle(
-                  color: theme.colorScheme.onPrimary,
-                  fontSize: 12,
-                ),
-              ),
-              Switch(
-                value: _showInactive,
-                onChanged: (value) {
-                  setState(() {
-                    _showInactive = value;
-                  });
-                  _loadUsers(); // Reload users with new filter
-                },
-                activeColor: theme.colorScheme.onPrimary,
-                activeTrackColor: theme.colorScheme.onPrimary.withOpacity(0.3),
-                inactiveThumbColor: theme.colorScheme.onPrimary,
-                inactiveTrackColor:
-                    theme.colorScheme.onPrimary.withOpacity(0.3),
-              ),
-            ],
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => _loadUsers(),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
         ],
       ),
       drawer: const AdminSideNavigation(currentRoute: '/user_management'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : (_users.isNotEmpty)
-              ? SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                TextFormField(
-                                  controller: _emailController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Email',
-                                  ),
-                                  keyboardType: TextInputType.emailAddress,
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please enter an email';
-                                    }
-                                    if (!value.contains('@')) {
-                                      return 'Please enter a valid email';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                TextFormField(
-                                  controller: _passwordController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Password',
-                                  ),
-                                  obscureText: true,
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please enter a password';
-                                    }
-                                    if (value.length < 6) {
-                                      return 'Password must be at least 6 characters';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                TextFormField(
-                                  controller: _firstNameController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'First Name',
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please enter a first name';
-                                    }
-                                    return null;
-                                  },
-                                  onChanged: (value) {
-                                    // _generateEmployeeId();
-                                  },
-                                ),
-                                TextFormField(
-                                  controller: _lastNameController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Last Name',
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please enter a last name';
-                                    }
-                                    return null;
-                                  },
-                                  onChanged: (value) {
-                                    // _generateEmployeeId();
-                                  },
-                                ),
-                                DropdownButtonFormField<String>(
-                                  decoration: const InputDecoration(
-                                    labelText: 'Role',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  value: _selectedRole,
-                                  items: _roles.map((String role) {
-                                    return DropdownMenuItem<String>(
-                                      value: role,
-                                      child: Text(role[0].toUpperCase() +
-                                          role.substring(1)),
-                                    );
-                                  }).toList(),
-                                  onChanged: (String? newValue) {
-                                    setState(() {
-                                      _selectedRole = newValue;
-                                    });
-                                  },
-                                  validator: (value) => value == null
-                                      ? 'Please select a role'
-                                      : null,
-                                ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: ElevatedButton(
-                                        onPressed:
-                                            _isLoading ? null : _createUser,
-                                        child: const Text('Create User'),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: OutlinedButton(
-                                        onPressed: _isLoading
-                                            ? null
-                                            : _resetFormFields,
-                                        child: const Text('Clear Form'),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Quick Stats Section
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            context,
+                            'Total Users',
+                            '${_users.length}',
+                            Icons.people,
+                            colorScheme.primary,
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'User List',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildStatCard(
+                            context,
+                            'Active',
+                            '${_users.where((user) => user['isActive'] != false).length}',
+                            Icons.check_circle,
+                            Colors.green,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildStatCard(
+                            context,
+                            'Admins',
+                            '${_users.where((user) => user['role'] == 'admin').length}',
+                            Icons.admin_panel_settings,
+                            Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Modern Filter Section
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.filter_list,
+                                color: colorScheme.primary, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Filters',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.primary,
+                              ),
                             ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.refresh),
-                            tooltip: 'Reload User List',
-                            onPressed: _isLoading ? null : () => _loadUsers(),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Status Toggle
+                        Row(
+                          children: [
+                            FilterChip(
+                              label: Text(
+                                  _showInactive ? 'All Users' : 'Active Only'),
+                              selected: true,
+                              onSelected: (value) {
+                                setState(() {
+                                  _showInactive = value;
+                                });
+                                _loadUsers();
+                              },
+                              backgroundColor: colorScheme.primaryContainer,
+                              selectedColor: colorScheme.primaryContainer,
+                              labelStyle: TextStyle(
+                                color: colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Add User Section
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.person_add,
+                                color: colorScheme.primary, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Add New User',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Form(
+                          key: _formKey,
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'User List',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _firstNameController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'First Name',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return 'Please enter a first name';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _lastNameController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Last Name',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return 'Please enter a last name';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _emailController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Email',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      keyboardType: TextInputType.emailAddress,
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return 'Please enter an email';
+                                        }
+                                        if (!value.contains('@')) {
+                                          return 'Please enter a valid email';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: DropdownButtonFormField<String>(
+                                      value: _selectedRole,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Role',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      items: _roles.map((role) {
+                                        return DropdownMenuItem(
+                                          value: role,
+                                          child: Text(role.toUpperCase()),
+                                        );
+                                      }).toList(),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _selectedRole = value;
+                                        });
+                                      },
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return 'Please select a role';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                controller: _passwordController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Password',
+                                  border: OutlineInputBorder(),
                                 ),
+                                obscureText: true,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter a password';
+                                  }
+                                  if (value.length < 6) {
+                                    return 'Password must be at least 6 characters';
+                                  }
+                                  return null;
+                                },
                               ),
                               const SizedBox(height: 16),
-                              if (_users.isEmpty)
-                                const Center(
-                                  child: Text(
-                                    'No users found.',
-                                    style: TextStyle(color: Colors.grey),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: _createUser,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: colorScheme.primary,
+                                    foregroundColor: colorScheme.onPrimary,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                   ),
-                                )
-                              else
-                                ListView.separated(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: _users.length,
-                                  separatorBuilder: (context, index) =>
-                                      const Divider(height: 1),
-                                  itemBuilder: (context, index) {
-                                    final user = _users[index];
-                                    return ListTile(
-                                      leading: CircleAvatar(
-                                        child: Text(
-                                          (user['firstName'] != null &&
-                                                  user['firstName'].isNotEmpty)
-                                              ? user['firstName'][0]
-                                                  .toUpperCase()
-                                              : '?',
-                                        ),
-                                      ),
-                                      title: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              (user['firstName'] ?? '') +
-                                                  (user['lastName'] != null &&
-                                                          user['lastName']
-                                                              .isNotEmpty
-                                                      ? ' ' + user['lastName']
-                                                      : ''),
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.w500),
-                                            ),
-                                          ),
-                                          // Show inactive badge if user is inactive
-                                          if (user['isActive'] == false)
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color:
-                                                    Colors.red.withOpacity(0.1),
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                                border: Border.all(
-                                                    color: Colors.red
-                                                        .withOpacity(0.3)),
-                                              ),
-                                              child: const Text(
-                                                'Inactive',
-                                                style: TextStyle(
-                                                  color: Colors.red,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                      subtitle: Text(user['email'] ?? ''),
-                                      trailing: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Switch(
-                                            value: user['isActive'] ?? false,
-                                            onChanged: (value) =>
-                                                _toggleUserStatus(
-                                              user['_id'],
-                                              user['isActive'],
-                                            ),
-                                            activeColor: Colors.green,
-                                            inactiveThumbColor: Colors.red,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          IconButton(
-                                            icon: const Icon(Icons.delete,
-                                                color: Colors.red),
-                                            onPressed: user['_id'] ==
-                                                    currentUserId
-                                                ? () {
-                                                    showDialog(
-                                                      context: context,
-                                                      builder: (context) =>
-                                                          AlertDialog(
-                                                        title: const Text(
-                                                            'Action Not Allowed'),
-                                                        content: const Text(
-                                                            'You cannot delete your own admin account.'),
-                                                        actions: [
-                                                          TextButton(
-                                                            onPressed: () =>
-                                                                Navigator.of(
-                                                                        context)
-                                                                    .pop(),
-                                                            child: const Text(
-                                                                'OK'),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    );
-                                                  }
-                                                : () =>
-                                                    _deleteUser(user['_id']),
-                                            tooltip: 'Delete User',
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
+                                  child: const Text('Create User'),
                                 ),
+                              ),
                             ],
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                )
-              : (_error != null)
-                  ? Center(
-                      child: Text(_error!,
-                          style: const TextStyle(color: Colors.red)),
-                    )
-                  : const Center(
-                      child: Text('No users found.',
-                          style: TextStyle(color: Colors.grey)),
+                      ],
                     ),
+                  ),
+
+                  // User List Section
+                  if (_users.isNotEmpty) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: Row(
+                        children: [
+                          Icon(Icons.list,
+                              color: colorScheme.primary, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'User List',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ..._users
+                        .map((user) =>
+                            _buildUserCard(context, user, currentUserId))
+                        .toList(),
+                  ] else ...[
+                    _buildEmptyState(context),
+                  ],
+                ],
+              ),
+            ),
     );
   }
 }

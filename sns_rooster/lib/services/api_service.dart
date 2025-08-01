@@ -134,7 +134,7 @@ class ApiService {
           response.body.trim().startsWith('<!DOCTYPE html>') ||
           response.body.trim().startsWith('<html>')) {
         Logger.error(
-            'Server returned HTML instead of JSON: ${response.body.length > 200 ? response.body.substring(0, 200) + '...' : response.body}');
+            'Server returned HTML instead of JSON: ${response.body.length > 200 ? '${response.body.substring(0, 200)}...' : response.body}');
         return ApiResponse(
           success: false,
           message: 'Server error. Please check if the backend is running.',
@@ -177,7 +177,7 @@ class ApiService {
     } catch (e, stack) {
       Logger.error('Response parsing failed: $e', stack);
       Logger.error(
-          'Response body: ${response.body.length > 200 ? response.body.substring(0, 200) + '...' : response.body}');
+          'Response body: ${response.body.length > 200 ? '${response.body.substring(0, 200)}...' : response.body}');
       return ApiResponse(
         success: false,
         message: 'Unexpected server response. Please try again later.',

@@ -337,7 +337,8 @@ class ProfileProvider with ChangeNotifier {
       final response = await request.send();
       if (response.statusCode == 200) {
         final responseBody = await response.stream.bytesToString();
-        final data = json.decode(responseBody);
+        json.decode(
+            responseBody); // Parse response but don't store unused variable
         await _fetchProfileInBackground();
         return true;
       } else {
@@ -378,16 +379,52 @@ class ProfileProvider with ChangeNotifier {
 
   // Clear profile data when logging out
   Future<void> clearProfile() async {
+    log('ProfileProvider: Clearing profile data');
     _profile = null;
     _error = null;
     _isInitialized = false;
+    _lastUpdated = null;
+    _avatarSignedUrl = null;
+
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_profileKey);
+      log('ProfileProvider: Cleared profile from SharedPreferences');
     } catch (e) {
-      // log('Error clearing profile: \$e');
+      log('ProfileProvider: Error clearing profile from SharedPreferences: $e');
     }
+
     if (_disposed) return;
     notifyListeners();
+  }
+
+  // Force refresh profile data (useful when switching users)
+  Future<void> forceRefreshProfile() async {
+    log('ProfileProvider: Force refreshing profile');
+
+    // Clear current profile data
+    _profile = null;
+    _error = null;
+    _isInitialized = false;
+    _lastUpdated = null;
+    _avatarSignedUrl = null;
+
+    // Clear from SharedPreferences
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_profileKey);
+      log('ProfileProvider: Cleared cached profile data');
+    } catch (e) {
+      log('ProfileProvider: Error clearing cached profile: $e');
+    }
+
+    // Notify listeners immediately
+    if (_disposed) return;
+    notifyListeners();
+
+    // Fetch fresh profile data
+    if (_authProvider.isAuthenticated && _authProvider.token != null) {
+      await _fetchProfileInBackground();
+    }
   }
 }

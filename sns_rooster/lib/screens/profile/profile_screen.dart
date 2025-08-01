@@ -15,6 +15,8 @@ import 'package:flutter/services.dart';
 import 'package:sns_rooster/services/global_notification_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:sns_rooster/services/fcm_service.dart';
 
 void showDocumentDialog(BuildContext context, String? url) {
   if (url == null || url.isEmpty) return;
@@ -361,7 +363,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final isAdmin = user['role'] == 'admin';
     if (isAdmin) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Profile')),
+        appBar: AppBar(
+          title: const Text('Profile'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          elevation: 0,
+        ),
         body: const Center(child: Text('Access denied')), // Or redirect
         drawer: const AdminSideNavigation(currentRoute: '/profile'),
       );
@@ -388,38 +395,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           avatarUrl = '/uploads/avatars/default-avatar.png';
         }
         print('Avatar URL used in profile_screen: $avatarUrl');
-        ImageProvider? backgroundImage;
-        if (avatarUrl.startsWith('http')) {
-          backgroundImage = NetworkImage(avatarUrl);
-        } else if (avatarUrl.startsWith('avatars/')) {
-          // GCS public URL
-          backgroundImage = NetworkImage(
-              'https://storage.googleapis.com/sns-rooster-8cca5.firebasestorage.app/$avatarUrl');
-        } else {
-          // fallback for local uploads or other cases
-          String imageBaseUrl = ApiConfig.baseUrl;
-          if (imageBaseUrl.endsWith('/api')) {
-            imageBaseUrl =
-                imageBaseUrl.substring(0, imageBaseUrl.length - '/api'.length);
-          }
-          String fullUrl = (imageBaseUrl.endsWith('/') ||
-                  avatarUrl.startsWith('/'))
-              ? "$imageBaseUrl${avatarUrl.startsWith('/') ? avatarUrl.substring(1) : avatarUrl}"
-              : "$imageBaseUrl/$avatarUrl";
-          fullUrl = fullUrl.replaceFirst('//', '/').replaceFirst(':/', '://');
-          if (avatarUrl.startsWith('/uploads') && imageBaseUrl.endsWith('/')) {
-            fullUrl =
-                "${imageBaseUrl.substring(0, imageBaseUrl.length - 1)}$avatarUrl";
-          } else if (!avatarUrl.startsWith('/') &&
-              !imageBaseUrl.endsWith('/')) {
-            fullUrl = "$imageBaseUrl/$avatarUrl";
-          } else {
-            fullUrl = "$imageBaseUrl$avatarUrl"
-                .replaceAll(RegExp(r'(?<!:)/{2,}'), '/');
-          }
-          backgroundImage = NetworkImage(fullUrl);
-          log('Constructed Avatar URL for Profile: $fullUrl');
-        }
         return Scaffold(
           appBar: AppBar(
             title: const Text('Profile'),
@@ -444,7 +419,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     UserAvatar(
                                       avatarUrl: avatarUrl,
                                       radius: 48,
-                                      userId: user?['_id'],
+                                      userId: user['_id'],
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
@@ -497,7 +472,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
+                                  color: Colors.black.withValues(alpha: 0.05),
                                   blurRadius: 10,
                                   spreadRadius: 0,
                                 ),
@@ -577,6 +552,110 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ],
                             ),
                           ),
+                          if (kDebugMode) ...[
+                            const SizedBox(height: 16),
+                            Card(
+                              elevation: 4,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.bug_report,
+                                            color: Colors.orange),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Debug Tools',
+                                          style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                    const Divider(),
+                                    ListTile(
+                                      leading: const Icon(Icons.token,
+                                          color: Colors.green),
+                                      title: const Text(
+                                          'Test FCM Token Generation'),
+                                      subtitle: const Text(
+                                          'Manually test FCM token generation'),
+                                      trailing: const Icon(Icons.refresh),
+                                      onTap: () async {
+                                        try {
+                                          final fcmService = FCMService();
+                                          await fcmService
+                                              .testFCMTokenGeneration();
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                    'FCM token test completed. Check logs for details.'),
+                                                backgroundColor: Colors.green,
+                                              ),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                content: Text('Error: $e'),
+                                                backgroundColor: Colors.red,
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
+                                    ),
+                                    ListTile(
+                                      leading: const Icon(Icons.cloud_upload,
+                                          color: Colors.blue),
+                                      title: const Text(
+                                          'Save FCM Token to Database'),
+                                      subtitle: const Text(
+                                          'Manually trigger FCM token saving'),
+                                      trailing: const Icon(Icons.send),
+                                      onTap: () async {
+                                        try {
+                                          final authProvider =
+                                              Provider.of<AuthProvider>(context,
+                                                  listen: false);
+                                          await authProvider
+                                              .saveFCMTokenManually();
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                    'FCM token save attempted. Check logs for details.'),
+                                                backgroundColor: Colors.blue,
+                                              ),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                content: Text('Error: $e'),
+                                                backgroundColor: Colors.red,
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 24),
                           Card(
                             elevation: 2,
@@ -655,7 +734,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
+                                  color: Colors.black.withValues(alpha: 0.05),
                                   blurRadius: 10,
                                   spreadRadius: 0,
                                 ),
@@ -725,7 +804,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             .asMap()
                                             .entries
                                             .map((entry) {
-                                          final idx = entry.key;
                                           final document = entry.value;
                                           final String? docPath =
                                               document['path']?.toString();
@@ -776,8 +854,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                       horizontal: 8,
                                                       vertical: 2),
                                                   decoration: BoxDecoration(
-                                                    color: statusColor
-                                                        .withOpacity(0.15),
+                                                    color:
+                                                        statusColor.withValues(
+                                                            alpha: 0.15),
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                             8),
@@ -865,7 +944,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     if (_isLoading)
                       Positioned.fill(
                         child: Container(
-                          color: Colors.black.withOpacity(0.3),
+                          color: Colors.black.withValues(alpha: 0.3),
                           child:
                               const Center(child: CircularProgressIndicator()),
                         ),

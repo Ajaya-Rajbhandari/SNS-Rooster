@@ -29,20 +29,6 @@ class CompanyProvider with ChangeNotifier {
 
   CompanyProvider() {
     // Disable automatic initialization to prevent errors with non-existent endpoints
-    // _initializeCompany();
-  }
-
-  /// Initialize company data
-  Future<void> _initializeCompany() async {
-    try {
-      // Try to load from storage first
-      await loadStoredCompany();
-
-      // Then try to fetch fresh data from server
-      await fetchCurrentCompany();
-    } catch (e) {
-      Logger.error('Error initializing company: $e');
-    }
   }
 
   /// Load company data from local storage

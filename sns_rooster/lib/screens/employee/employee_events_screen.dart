@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../config/api_config.dart';
 import '../../widgets/app_drawer.dart';
-import '../../widgets/user_avatar.dart';
 import '../../widgets/admin_side_navigation.dart';
 
 class EmployeeEventsScreen extends StatefulWidget {
@@ -192,6 +191,9 @@ class _EmployeeEventsScreenState extends State<EmployeeEventsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Events'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -335,7 +337,7 @@ class _EventCard extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
+                      color: Colors.green.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -420,7 +422,7 @@ class _EventCard extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.grey.withOpacity(0.3),
+                      color: Colors.grey.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(

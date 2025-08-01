@@ -328,7 +328,7 @@ const CreateCompanyForm: React.FC<CreateCompanyFormProps> = ({
         />
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
           <TextField
-            sx={{ flex: '1 1 300px' }}
+          sx={{ flex: '1 1 300px' }}
             label="City"
             value={formData.address.city}
             onChange={(e) => handleAddressChange('city', e.target.value)}

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'fallback_map_widget.dart';
 import 'dart:math' show pi, cos;
 
 class EmployeeLocationMapWidget extends StatefulWidget {
@@ -23,8 +22,8 @@ class EmployeeLocationMapWidget extends StatefulWidget {
 
 class _EmployeeLocationMapWidgetState extends State<EmployeeLocationMapWidget> {
   GoogleMapController? _mapController;
-  Set<Marker> _markers = {};
-  Set<Circle> _circles = {};
+  final Set<Marker> _markers = {};
+  final Set<Circle> _circles = {};
   LatLng? _centerLocation;
 
   @override
@@ -70,7 +69,7 @@ class _EmployeeLocationMapWidgetState extends State<EmployeeLocationMapWidget> {
           circleId: const CircleId('geofence'),
           center: _centerLocation!,
           radius: geofenceRadius,
-          fillColor: Colors.blue.withOpacity(0.2),
+          fillColor: Colors.blue.withValues(alpha: 0.2),
           strokeColor: Colors.blue,
           strokeWidth: 2,
         ),
@@ -187,7 +186,7 @@ class _EmployeeLocationMapWidgetState extends State<EmployeeLocationMapWidget> {
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -273,7 +272,7 @@ class _EmployeeLocationMapWidgetState extends State<EmployeeLocationMapWidget> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.blue.shade600.withOpacity(0.3),
+                          color: Colors.blue.shade600.withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -294,7 +293,7 @@ class _EmployeeLocationMapWidgetState extends State<EmployeeLocationMapWidget> {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -326,7 +325,7 @@ class _EmployeeLocationMapWidgetState extends State<EmployeeLocationMapWidget> {
                     color: Colors.blue.shade400,
                     width: 2,
                   ),
-                  color: Colors.blue.shade400.withOpacity(0.1),
+                  color: Colors.blue.shade400.withValues(alpha: 0.1),
                 ),
               ),
             ),
@@ -338,11 +337,11 @@ class _EmployeeLocationMapWidgetState extends State<EmployeeLocationMapWidget> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
+                color: Colors.white.withValues(alpha: 0.95),
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -451,7 +450,7 @@ class MapGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.blue.shade200.withOpacity(0.3)
+      ..color = Colors.blue.shade200.withValues(alpha: 0.3)
       ..strokeWidth = 1;
 
     // Draw grid lines

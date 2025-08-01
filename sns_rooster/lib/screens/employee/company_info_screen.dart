@@ -17,7 +17,6 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
   Map<String, dynamic>? _usageInfo;
   Map<String, dynamic>? _subscriptionInfo;
   List<Map<String, dynamic>>? _companyUpdates;
-  String? _error;
 
   @override
   void initState() {
@@ -36,7 +35,6 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
 
     setState(() {
       _isLoading = true;
-      _error = null;
     });
 
     try {
@@ -64,7 +62,6 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
       if (!mounted) return;
 
       setState(() {
-        _error = e.toString();
         _isLoading = false;
       });
 
@@ -78,24 +75,22 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Company Information',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
-        ),
-        backgroundColor: Colors.white,
+        title: const Text('Company Information'),
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.black87),
+            icon: const Icon(Icons.refresh),
             onPressed: _loadCompanyInfo,
           ),
         ],
@@ -477,7 +472,8 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Row(
                   children: [
-                    Icon(Icons.check_circle, color: Colors.green, size: 16),
+                    const Icon(Icons.check_circle,
+                        color: Colors.green, size: 16),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -532,7 +528,7 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: color, size: 20),
@@ -571,7 +567,7 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: color, size: 20),
@@ -747,7 +743,7 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: color, size: 20),

@@ -268,7 +268,7 @@ class _BreakTypesScreenState extends State<BreakTypesScreen> {
                                               breakType['description'] ?? '',
                                               style: TextStyle(
                                                 color: colorScheme.onSurface
-                                                    .withOpacity(0.7),
+                                                    .withValues(alpha: 0.7),
                                                 fontSize: 14,
                                               ),
                                             ),

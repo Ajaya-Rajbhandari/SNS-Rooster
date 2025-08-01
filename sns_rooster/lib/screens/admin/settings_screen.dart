@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../widgets/admin_side_navigation.dart';
 import '../../providers/admin_settings_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../utils/logger.dart';
+import '../../services/fcm_service.dart';
+import 'package:flutter/foundation.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -177,6 +181,98 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 24),
+            // Debug Section (only in debug mode)
+            if (kDebugMode) ...[
+              Text(
+                'Debug Tools',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: Colors.orange,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ListTile(
+                        leading:
+                            const Icon(Icons.bug_report, color: Colors.orange),
+                        title: const Text('Save FCM Token to Database'),
+                        subtitle:
+                            const Text('Manually trigger FCM token saving'),
+                        trailing: const Icon(Icons.send),
+                        onTap: () async {
+                          try {
+                            final authProvider = Provider.of<AuthProvider>(
+                                context,
+                                listen: false);
+                            await authProvider.saveFCMTokenManually();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                      'FCM token save attempted. Check logs for details.'),
+                                  backgroundColor: Colors.blue,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            Logger.error('Error saving FCM token: $e');
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.token, color: Colors.green),
+                        title: const Text('Test FCM Token Generation'),
+                        subtitle:
+                            const Text('Manually test FCM token generation'),
+                        trailing: const Icon(Icons.refresh),
+                        onTap: () async {
+                          try {
+                            // Import FCMService
+                            final fcmService = FCMService();
+                            await fcmService.testFCMTokenGeneration();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                      'FCM token test completed. Check logs for details.'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            Logger.error('Error testing FCM token: $e');
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

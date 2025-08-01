@@ -50,104 +50,112 @@ class AppDrawer extends StatelessWidget {
     final isAdmin = user?['role'] == 'admin';
 
     return Drawer(
-      child: Consumer<ProfileProvider>(
-        builder: (context, profileProvider, child) {
-          final profile = profileProvider.profile;
-          final avatarPath = profile?['avatar'] ?? profile?['profilePicture'];
-          var avatarUrl = avatarPath ?? '/uploads/avatars/default-avatar.png';
-          log('APP_DRAWER: avatarUrl = $avatarUrl');
+      child: SizedBox(
+        width: 280, // Stronger width constraint for compact drawer
+        child: Consumer<ProfileProvider>(
+          builder: (context, profileProvider, child) {
+            final profile = profileProvider.profile;
+            final avatarPath = profile?['avatar'] ?? profile?['profilePicture'];
+            var avatarUrl = avatarPath ?? '/uploads/avatars/default-avatar.png';
+            log('APP_DRAWER: avatarUrl = $avatarUrl');
 
-          return ListView(
-            padding: EdgeInsets.zero,
-            children: <Widget>[
-              DrawerHeader(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary, // Use theme primary color
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    UserAvatar(
-                      avatarUrl: avatarUrl,
-                      radius: 36,
-                      userId: user?['_id'],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      user != null &&
-                              user['firstName'] != null &&
-                              user['lastName'] != null
-                          ? '${user['firstName']} ${user['lastName']}'
-                          : 'Guest',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+            return ListView(
+              padding: EdgeInsets.zero,
+              children: <Widget>[
+                DrawerHeader(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary, // Use theme primary color
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      UserAvatar(
+                        avatarUrl: avatarUrl,
+                        radius: 36,
+                        userId: user?['_id'],
                       ),
-                    ),
-                    Text(
-                      user?['role'] ?? '',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: Colors.white70,
+                      const SizedBox(height: 8),
+                      Text(
+                        user != null &&
+                                user['firstName'] != null &&
+                                user['lastName'] != null
+                            ? '${user['firstName']} ${user['lastName']}'
+                            : 'Guest',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                  ],
+                      Text(
+                        user?['role'] ?? '',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              _buildNavTile(context,
-                  icon: Icons.dashboard,
-                  label: 'Dashboard',
-                  route: '/',
-                  isAdmin: isAdmin),
-              _buildNavTile(context,
-                  icon: Icons.access_time,
-                  label: 'Timesheet',
-                  route: '/timesheet'),
-              _buildNavTile(context,
-                  icon: Icons.calendar_today,
-                  label: 'Leave',
-                  route: '/leave_request'),
-              _buildNavTile(context,
-                  icon: Icons.check_circle_outline,
-                  label: 'Attendance',
-                  route: '/attendance'),
-              _buildNavTile(context,
-                  icon: Icons.monetization_on,
-                  label: 'Payroll',
-                  route: '/payroll'),
-              // Only show Analytics & Reports if the feature is enabled
-              if (featureProvider.hasAnalytics)
                 _buildNavTile(context,
-                    icon: Icons.analytics,
-                    label: 'Analytics & Reports',
-                    route: '/analytics'),
-              _buildNavTile(context,
-                  icon: Icons.event, label: 'Events', route: '/events'),
-              _buildNavTile(context,
-                  icon: Icons.person_outline,
-                  label: 'Profile',
-                  route: '/profile'),
-              _buildNavTile(context,
-                  icon: Icons.notifications,
-                  label: 'Notifications',
-                  route: '/notification'),
-              const Divider(),
-              ListTile(
-                leading: Icon(Icons.logout, color: theme.colorScheme.onSurface),
-                title: Text(
-                  'Logout',
-                  style: theme.textTheme.bodyLarge,
+                    icon: Icons.dashboard,
+                    label: 'Dashboard',
+                    route: '/',
+                    isAdmin: isAdmin),
+                _buildNavTile(context,
+                    icon: Icons.access_time,
+                    label: 'Timesheet',
+                    route: '/timesheet'),
+                _buildNavTile(context,
+                    icon: Icons.calendar_today,
+                    label: 'Leave',
+                    route: '/leave_request'),
+                _buildNavTile(context,
+                    icon: Icons.check_circle_outline,
+                    label: 'Attendance',
+                    route: '/attendance'),
+                // Only show Payroll if the feature is enabled
+                if (featureProvider.hasPayroll)
+                  _buildNavTile(context,
+                      icon: Icons.monetization_on,
+                      label: 'Payroll',
+                      route: '/payroll'),
+                // Only show Analytics & Reports if the feature is enabled
+                if (featureProvider.hasAnalytics)
+                  _buildNavTile(context,
+                      icon: Icons.analytics,
+                      label: 'Analytics & Reports',
+                      route: '/analytics'),
+                // Only show Events if the feature is enabled
+                if (featureProvider.hasEvents)
+                  _buildNavTile(context,
+                      icon: Icons.event, label: 'Events', route: '/events'),
+                _buildNavTile(context,
+                    icon: Icons.person_outline,
+                    label: 'Profile',
+                    route: '/profile'),
+                _buildNavTile(context,
+                    icon: Icons.notifications,
+                    label: 'Notifications',
+                    route: '/notification'),
+                const Divider(),
+                ListTile(
+                  leading:
+                      Icon(Icons.logout, color: theme.colorScheme.onSurface),
+                  title: Text(
+                    'Logout',
+                    style: theme.textTheme.bodyLarge,
+                  ),
+                  onTap: () {
+                    authProvider.logout();
+                    Navigator.of(context)
+                        .pushNamedAndRemoveUntil('/login', (route) => false);
+                  },
                 ),
-                onTap: () {
-                  authProvider.logout();
-                  Navigator.of(context)
-                      .pushNamedAndRemoveUntil('/login', (route) => false);
-                },
-              ),
-              const Divider(),
-            ],
-          );
-        },
+                const Divider(),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

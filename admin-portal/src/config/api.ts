@@ -13,6 +13,8 @@ const API_CONFIG = {
     // Super admin endpoints
     SUBSCRIPTION_PLANS: '/api/super-admin/subscription-plans',
     COMPANIES: '/api/companies',
+    LEAVE_POLICIES: '/api/super-admin/leave-policies',
+    COMPANY_LEAVE_POLICIES: '/api/super-admin/companies',
     
     // Admin endpoints
     ADMIN_ATTENDANCE: '/api/admin/attendance',

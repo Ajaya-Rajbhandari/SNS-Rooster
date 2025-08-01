@@ -16,6 +16,7 @@ const LeaveSchema = new mongoose.Schema({
   startDate: { type: Date, required: true },
   endDate: { type: Date, required: true },
   reason: { type: String },
+  isHalfDay: { type: Boolean, default: false }, // Add half-day support
   status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
   appliedAt: { type: Date, default: Date.now },
   // Track who approved/rejected the leave

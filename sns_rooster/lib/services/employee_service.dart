@@ -5,8 +5,10 @@ class EmployeeService {
 
   EmployeeService(this.apiService);
 
-  Future<List<Map<String, dynamic>>> getEmployees({bool showInactive = false}) async {
-    final endpoint = showInactive ? '/employees?showInactive=true' : '/employees';
+  Future<List<Map<String, dynamic>>> getEmployees(
+      {bool showInactive = false}) async {
+    final endpoint =
+        showInactive ? '/employees?showInactive=true' : '/employees';
     final response = await apiService.get(endpoint);
     if (response.success && response.data is List) {
       return List<Map<String, dynamic>>.from(response.data);
@@ -15,7 +17,19 @@ class EmployeeService {
     }
   }
 
-  Future<Map<String, dynamic>> addEmployee(Map<String, dynamic> employee) async {
+  Future<bool> isEmailAlreadyUsed(String email) async {
+    final response = await apiService
+        .get('/employees/check-email?email=${Uri.encodeComponent(email)}');
+    if (response.success) {
+      return response.data['exists'] ?? false;
+    } else {
+      // If API fails, assume email might be used to be safe
+      return true;
+    }
+  }
+
+  Future<Map<String, dynamic>> addEmployee(
+      Map<String, dynamic> employee) async {
     final response = await apiService.post('/employees', employee);
     if (response.success && response.data is Map<String, dynamic>) {
       return response.data;
@@ -24,7 +38,8 @@ class EmployeeService {
     }
   }
 
-  Future<Map<String, dynamic>> updateEmployee(String id, Map<String, dynamic> updates) async {
+  Future<Map<String, dynamic>> updateEmployee(
+      String id, Map<String, dynamic> updates) async {
     final response = await apiService.put('/employees/$id', updates);
     if (response.success && response.data is Map<String, dynamic>) {
       return response.data;
@@ -43,7 +58,8 @@ class EmployeeService {
   Future<void> deleteEmployeeFromDatabase(String userId) async {
     final response = await apiService.delete('/auth/users/$userId');
     if (!response.success && response.message != 'Request completed') {
-      throw Exception('Failed to delete employee from database: \\${response.message}');
+      throw Exception(
+          'Failed to delete employee from database: \\${response.message}');
     }
   }
 

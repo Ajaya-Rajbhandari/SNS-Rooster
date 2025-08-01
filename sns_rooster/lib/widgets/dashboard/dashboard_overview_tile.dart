@@ -431,7 +431,7 @@ class DashboardOverviewTile extends StatelessWidget {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.12),
+                      color: color.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(icon, size: 24, color: color),
@@ -458,7 +458,8 @@ class DashboardOverviewTile extends StatelessWidget {
                     child: Text(
                       label,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         fontWeight: FontWeight.w500,
                         fontSize: 12, // Reduced font size
                       ),

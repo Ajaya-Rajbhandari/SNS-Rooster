@@ -72,6 +72,7 @@ import 'package:sns_rooster/config/debug_config.dart';
 import 'package:sns_rooster/screens/admin/edit_company_form_screen.dart';
 import 'package:sns_rooster/screens/admin/location_management_screen.dart';
 import 'package:sns_rooster/screens/admin/expense_management_screen.dart';
+import 'utils/global_navigator.dart';
 
 Future<void> requestAndroidNotificationPermission() async {
   if (defaultTargetPlatform == TargetPlatform.android) {
@@ -157,7 +158,7 @@ void main() async {
   runApp(const MyApp());
 }
 
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+final GlobalKey<NavigatorState> navigatorKey = GlobalNavigator.navigatorKey;
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -179,7 +180,6 @@ class MyApp extends StatelessWidget {
           final profileProvider = ProfileProvider(authProvider);
           final companyProvider = CompanyProvider();
           final companySettingsProvider = CompanySettingsProvider(authProvider);
-          final superAdminProvider = SuperAdminProvider(authProvider);
           final featureProvider = FeatureProvider(authProvider);
 
           // Set up the providers
@@ -330,11 +330,9 @@ class MyApp extends StatelessWidget {
                   onTertiary: Colors.white,
                   error: Color(0xFFD32F2F), // Vibrant red
                   onError: Colors.white,
-                  background: Colors.white,
-                  onBackground: Color(0xFF212121),
                   surface: Colors.white,
                   onSurface: Color(0xFF212121),
-                  surfaceVariant: Color(0xFFF5F5F5),
+                  surfaceContainerHighest: Color(0xFFF5F5F5),
                   onSurfaceVariant: Color(0xFF424242),
                   outline: Color(0xFFBDBDBD),
                   outlineVariant: Color(0xFFE0E0E0),
@@ -360,11 +358,9 @@ class MyApp extends StatelessWidget {
                   onTertiary: Color(0xFF002F6C),
                   error: Color(0xFFEF5350), // Bright red for dark theme
                   onError: Color(0xFFB71C1C),
-                  background: Color(0xFF121212),
-                  onBackground: Colors.white,
                   surface: Color(0xFF121212),
                   onSurface: Colors.white,
-                  surfaceVariant: Color(0xFF1E1E1E),
+                  surfaceContainerHighest: Color(0xFF1E1E1E),
                   onSurfaceVariant: Color(0xFFE0E0E0),
                   outline: Color(0xFF424242),
                   outlineVariant: Color(0xFF2E2E2E),

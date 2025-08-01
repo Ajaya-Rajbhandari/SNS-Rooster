@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import cachedApiService from '../services/cachedApiService';
 import { useAuth } from './AuthContext';
 
@@ -28,9 +28,9 @@ export const CacheProvider: React.FC<CacheProviderProps> = ({ children }) => {
   const [stats, setStats] = useState<any>({});
   const { isAuthenticated } = useAuth();
 
-  const refreshStats = () => {
+  const refreshStats = useCallback(() => {
     setStats(cachedApiService.getCacheStats());
-  };
+  }, []);
 
   const clearAllCaches = () => {
     cachedApiService.clearAllCaches();
@@ -42,13 +42,13 @@ export const CacheProvider: React.FC<CacheProviderProps> = ({ children }) => {
     refreshStats();
   };
 
-  const preloadData = async () => {
+  const preloadData = useCallback(async () => {
     // Only preload data if user is authenticated
     if (isAuthenticated) {
       await cachedApiService.preloadData();
       refreshStats();
     }
-  };
+  }, [isAuthenticated, refreshStats]);
 
   // Refresh stats periodically
   useEffect(() => {
@@ -57,14 +57,14 @@ export const CacheProvider: React.FC<CacheProviderProps> = ({ children }) => {
     const interval = setInterval(refreshStats, 30000); // Every 30 seconds
     
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshStats]);
 
   // Preload important data only when authenticated
   useEffect(() => {
     if (isAuthenticated) {
       preloadData();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, preloadData]);
 
   const value: CacheContextType = {
     stats,

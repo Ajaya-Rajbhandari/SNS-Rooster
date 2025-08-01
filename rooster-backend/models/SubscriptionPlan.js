@@ -69,6 +69,18 @@ const subscriptionPlanSchema = new mongoose.Schema({
       type: Boolean,
       default: false
     },
+    dataExport: {
+      type: Boolean,
+      default: false
+    },
+    profile: {
+      type: Boolean,
+      default: true
+    },
+    companyInfo: {
+      type: Boolean,
+      default: true
+    },
     prioritySupport: {
       type: Boolean,
       default: false
@@ -100,6 +112,102 @@ const subscriptionPlanSchema = new mongoose.Schema({
       default: false
     },
     trainingManagement: {
+      type: Boolean,
+      default: false
+    },
+    // Core HR Features
+    payroll: {
+      type: Boolean,
+      default: false
+    },
+    documentManagement: {
+      type: Boolean,
+      default: false
+    },
+    attendance: {
+      type: Boolean,
+      default: true
+    },
+    leaveManagement: {
+      type: Boolean,
+      default: true
+    },
+    timesheet: {
+      type: Boolean,
+      default: true
+    },
+    notifications: {
+      type: Boolean,
+      default: true
+    },
+    timeTracking: {
+      type: Boolean,
+      default: true
+    },
+    // Employee Features
+    events: {
+      type: Boolean,
+      default: false
+    },
+    // Admin Features
+    employeeManagement: {
+      type: Boolean,
+      default: true
+    },
+    timesheetApprovals: {
+      type: Boolean,
+      default: true
+    },
+    attendanceManagement: {
+      type: Boolean,
+      default: true
+    },
+    breakManagement: {
+      type: Boolean,
+      default: true
+    },
+    breakTypes: {
+      type: Boolean,
+      default: true
+    },
+    userManagement: {
+      type: Boolean,
+      default: true
+    },
+    settings: {
+      type: Boolean,
+      default: true
+    },
+    companySettings: {
+      type: Boolean,
+      default: true
+    },
+    featureManagement: {
+      type: Boolean,
+      default: false
+    },
+    helpSupport: {
+      type: Boolean,
+      default: true
+    },
+    // Location Management Features
+    locationManagement: {
+      type: Boolean,
+      default: false
+    },
+    locationSettings: {
+      type: Boolean,
+      default: false
+    },
+    locationNotifications: {
+      type: Boolean,
+      default: false
+    },
+    locationGeofencing: {
+      type: Boolean,
+      default: false
+    },
+    locationCapacity: {
       type: Boolean,
       default: false
     }

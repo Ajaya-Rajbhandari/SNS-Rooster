@@ -10,15 +10,10 @@ import {
   Tabs,
   Tab,
   Button,
-  TextField,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -28,36 +23,28 @@ import {
   Chip,
   IconButton,
   Tooltip,
-
-  Divider,
   List,
   ListItem,
   ListItemText,
   ListItemAvatar,
-  Avatar,
-  Badge
+  Avatar
 } from '@mui/material';
 import {
   Payment as PaymentIcon,
   Receipt as ReceiptIcon,
   CreditCard as CreditCardIcon,
-  AccountBalance as AccountBalanceIcon,
   TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
   Download as DownloadIcon,
   Email as EmailIcon,
   Refresh as RefreshIcon,
   Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
   Visibility as VisibilityIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
   Error as ErrorIcon,
   Info as InfoIcon,
   AttachMoney as MoneyIcon,
-  Business as BusinessIcon,
-  People as PeopleIcon
+  Business as BusinessIcon
 } from '@mui/icons-material';
 import apiService from '../services/apiService';
 
@@ -125,8 +112,6 @@ const BillingPage: React.FC = () => {
   });
 
   // Dialog states
-  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
@@ -233,15 +218,6 @@ const BillingPage: React.FC = () => {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleGenerateInvoice = async (companyId: string) => {
-    try {
-      await apiService.post('/api/super-admin/billing/invoices/generate', { companyId });
-      fetchBillingData();
-    } catch (error) {
-      console.error('Error generating invoice:', error);
     }
   };
 
@@ -437,7 +413,6 @@ const BillingPage: React.FC = () => {
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
-                onClick={() => setPaymentDialogOpen(true)}
               >
                 Add Payment
               </Button>
@@ -492,7 +467,6 @@ const BillingPage: React.FC = () => {
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
-                onClick={() => setInvoiceDialogOpen(true)}
               >
                 Generate Invoice
               </Button>

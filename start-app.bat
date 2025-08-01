@@ -32,7 +32,7 @@ goto invalid
 :backend
 echo.
 echo Starting Backend Server...
-echo Backend will be available at: http://192.168.1.80:5000
+echo Backend will be available at: http://192.168.1.119:5000
 echo.
 cd rooster-backend
 node app.js

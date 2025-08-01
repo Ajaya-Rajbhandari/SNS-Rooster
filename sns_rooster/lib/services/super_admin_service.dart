@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../providers/auth_provider.dart';
-import '../utils/logger.dart';
 
 class SuperAdminService {
   final AuthProvider _authProvider;

@@ -59,13 +59,14 @@ router.get('/features/public/:companyId', async (req, res) => {
     const subscriptionPlan = company.subscriptionPlan;
     const planFeatures = subscriptionPlan?.features || {};
     
-    // Default features for companies without plans
+        // Default features for companies without plans
     const defaultFeatures = {
+      // Core HR Features
       attendance: true,
-      payroll: true,
+      payroll: false,  // Basic plan: no payroll
       leaveManagement: true,
       analytics: false,
-      documentManagement: true,
+      documentManagement: false,  // Basic plan: no document management
       notifications: true,
       customBranding: false,
       apiAccess: false,
@@ -76,12 +77,29 @@ router.get('/features/public/:companyId', async (req, res) => {
       performanceReviews: false,
       trainingManagement: false,
       locationBasedAttendance: false,
+      // Employee Features
+      events: false,  // Basic plan: no events
+      // Admin Features
+      employeeManagement: true,
+      timesheetApprovals: true,
+      attendanceManagement: true,
+      breakManagement: true,
+      breakTypes: true,
+      userManagement: true,
+      settings: true,
+      companySettings: true,
+      featureManagement: false,  // Basic plan: no feature management
+      helpSupport: true,
       // Location management features
       locationManagement: false,
       locationSettings: false,
       locationNotifications: false,
       locationGeofencing: false,
       locationCapacity: false,
+      // New features
+      dataExport: false,      // Basic plan: no data export
+      profile: true,          // Basic plan: has profile
+      companyInfo: true,      // Basic plan: has company info
     };
 
     // Default limits for companies without plans
@@ -96,27 +114,44 @@ router.get('/features/public/:companyId', async (req, res) => {
     const response = {
       features: {
         // Feature flags (boolean values only) - use plan features or defaults
-        attendance: defaultFeatures.attendance,
-        payroll: defaultFeatures.payroll,
-        leaveManagement: defaultFeatures.leaveManagement,
-        analytics: planFeatures.analytics || defaultFeatures.analytics,
-        documentManagement: defaultFeatures.documentManagement,
-        notifications: defaultFeatures.notifications,
-        customBranding: planFeatures.customBranding || defaultFeatures.customBranding,
-        apiAccess: planFeatures.apiAccess || defaultFeatures.apiAccess,
-        multiLocation: planFeatures.multiLocationSupport || defaultFeatures.multiLocation,
-        advancedReporting: planFeatures.advancedReporting || defaultFeatures.advancedReporting,
-        timeTracking: defaultFeatures.timeTracking,
-        expenseManagement: planFeatures.expenseManagement || defaultFeatures.expenseManagement,
-        performanceReviews: planFeatures.performanceReviews || defaultFeatures.performanceReviews,
-        trainingManagement: planFeatures.trainingManagement || defaultFeatures.trainingManagement,
-        locationBasedAttendance: planFeatures.locationBasedAttendance || defaultFeatures.locationBasedAttendance,
-        // Location management features - enabled for Professional and Enterprise plans
-        locationManagement: planFeatures.locationManagement !== undefined ? planFeatures.locationManagement : (subscriptionPlan?.name?.toLowerCase() !== 'basic'),
-        locationSettings: planFeatures.locationSettings !== undefined ? planFeatures.locationSettings : (subscriptionPlan?.name?.toLowerCase() !== 'basic'),
-        locationNotifications: planFeatures.locationNotifications !== undefined ? planFeatures.locationNotifications : (subscriptionPlan?.name?.toLowerCase() !== 'basic'),
-        locationGeofencing: planFeatures.locationGeofencing !== undefined ? planFeatures.locationGeofencing : (subscriptionPlan?.name?.toLowerCase() !== 'basic'),
-        locationCapacity: planFeatures.locationCapacity !== undefined ? planFeatures.locationCapacity : (subscriptionPlan?.name?.toLowerCase() !== 'basic'),
+        attendance: planFeatures.attendance !== undefined ? planFeatures.attendance : defaultFeatures.attendance,
+        payroll: planFeatures.payroll !== undefined ? planFeatures.payroll : defaultFeatures.payroll,
+        leaveManagement: planFeatures.leaveManagement !== undefined ? planFeatures.leaveManagement : defaultFeatures.leaveManagement,
+        analytics: planFeatures.analytics !== undefined ? planFeatures.analytics : defaultFeatures.analytics,
+        documentManagement: planFeatures.documentManagement !== undefined ? planFeatures.documentManagement : defaultFeatures.documentManagement,
+        notifications: planFeatures.notifications !== undefined ? planFeatures.notifications : defaultFeatures.notifications,
+        customBranding: planFeatures.customBranding !== undefined ? planFeatures.customBranding : defaultFeatures.customBranding,
+        apiAccess: planFeatures.apiAccess !== undefined ? planFeatures.apiAccess : defaultFeatures.apiAccess,
+        multiLocation: planFeatures.multiLocationSupport !== undefined ? planFeatures.multiLocationSupport : defaultFeatures.multiLocation,
+        advancedReporting: planFeatures.advancedReporting !== undefined ? planFeatures.advancedReporting : defaultFeatures.advancedReporting,
+        timeTracking: planFeatures.timeTracking !== undefined ? planFeatures.timeTracking : defaultFeatures.timeTracking,
+        expenseManagement: planFeatures.expenseManagement !== undefined ? planFeatures.expenseManagement : defaultFeatures.expenseManagement,
+        performanceReviews: planFeatures.performanceReviews !== undefined ? planFeatures.performanceReviews : defaultFeatures.performanceReviews,
+        trainingManagement: planFeatures.trainingManagement !== undefined ? planFeatures.trainingManagement : defaultFeatures.trainingManagement,
+        locationBasedAttendance: planFeatures.locationBasedAttendance !== undefined ? planFeatures.locationBasedAttendance : defaultFeatures.locationBasedAttendance,
+        // Employee Features
+        events: planFeatures.events !== undefined ? planFeatures.events : defaultFeatures.events,
+        // Admin Features
+        employeeManagement: planFeatures.employeeManagement !== undefined ? planFeatures.employeeManagement : defaultFeatures.employeeManagement,
+        timesheetApprovals: planFeatures.timesheetApprovals !== undefined ? planFeatures.timesheetApprovals : defaultFeatures.timesheetApprovals,
+        attendanceManagement: planFeatures.attendanceManagement !== undefined ? planFeatures.attendanceManagement : defaultFeatures.attendanceManagement,
+        breakManagement: planFeatures.breakManagement !== undefined ? planFeatures.breakManagement : defaultFeatures.breakManagement,
+        breakTypes: planFeatures.breakTypes !== undefined ? planFeatures.breakTypes : defaultFeatures.breakTypes,
+        userManagement: planFeatures.userManagement !== undefined ? planFeatures.userManagement : defaultFeatures.userManagement,
+        settings: planFeatures.settings !== undefined ? planFeatures.settings : defaultFeatures.settings,
+        companySettings: planFeatures.companySettings !== undefined ? planFeatures.companySettings : defaultFeatures.companySettings,
+        featureManagement: planFeatures.featureManagement !== undefined ? planFeatures.featureManagement : defaultFeatures.featureManagement,
+        helpSupport: planFeatures.helpSupport !== undefined ? planFeatures.helpSupport : defaultFeatures.helpSupport,
+        // Location management features
+        locationManagement: planFeatures.locationManagement !== undefined ? planFeatures.locationManagement : defaultFeatures.locationManagement,
+        locationSettings: planFeatures.locationSettings !== undefined ? planFeatures.locationSettings : defaultFeatures.locationSettings,
+        locationNotifications: planFeatures.locationNotifications !== undefined ? planFeatures.locationNotifications : defaultFeatures.locationNotifications,
+        locationGeofencing: planFeatures.locationGeofencing !== undefined ? planFeatures.locationGeofencing : defaultFeatures.locationGeofencing,
+        locationCapacity: planFeatures.locationCapacity !== undefined ? planFeatures.locationCapacity : defaultFeatures.locationCapacity,
+        // New features
+        dataExport: planFeatures.dataExport !== undefined ? planFeatures.dataExport : defaultFeatures.dataExport,
+        profile: planFeatures.profile !== undefined ? planFeatures.profile : defaultFeatures.profile,
+        companyInfo: planFeatures.companyInfo !== undefined ? planFeatures.companyInfo : defaultFeatures.companyInfo,
       },
       limits: {
         maxEmployees: planFeatures.maxEmployees || defaultLimits.maxEmployees,
@@ -174,13 +209,14 @@ router.get('/features', authenticateToken, validateCompanyContext, async (req, r
     const subscriptionPlan = company.subscriptionPlan;
     const planFeatures = subscriptionPlan?.features || {};
     
-    // Default features for companies without plans
+        // Default features for companies without plans
     const defaultFeatures = {
+      // Core HR Features
       attendance: true,
-      payroll: true,
+      payroll: false,  // Basic plan: no payroll
       leaveManagement: true,
       analytics: false,
-      documentManagement: true,
+      documentManagement: false,  // Basic plan: no document management
       notifications: true,
       customBranding: false,
       apiAccess: false,
@@ -191,12 +227,29 @@ router.get('/features', authenticateToken, validateCompanyContext, async (req, r
       performanceReviews: false,
       trainingManagement: false,
       locationBasedAttendance: false,
+      // Employee Features
+      events: false,  // Basic plan: no events
+      // Admin Features
+      employeeManagement: true,
+      timesheetApprovals: true,
+      attendanceManagement: true,
+      breakManagement: true,
+      breakTypes: true,
+      userManagement: true,
+      settings: true,
+      companySettings: true,
+      featureManagement: false,  // Basic plan: no feature management
+      helpSupport: true,
       // Location management features
       locationManagement: false,
       locationSettings: false,
       locationNotifications: false,
       locationGeofencing: false,
       locationCapacity: false,
+      // New features
+      dataExport: false,      // Basic plan: no data export
+      profile: true,          // Basic plan: has profile
+      companyInfo: true,      // Basic plan: has company info
     };
 
     // Default limits for companies without plans
@@ -211,12 +264,12 @@ router.get('/features', authenticateToken, validateCompanyContext, async (req, r
     const response = {
       features: {
         // Feature flags (boolean values only) - use plan features or defaults
-        attendance: defaultFeatures.attendance,
-        payroll: defaultFeatures.payroll,
-        leaveManagement: defaultFeatures.leaveManagement,
-        analytics: planFeatures.analytics || defaultFeatures.analytics,
-        documentManagement: defaultFeatures.documentManagement,
-        notifications: defaultFeatures.notifications,
+        attendance: planFeatures.attendance !== undefined ? planFeatures.attendance : defaultFeatures.attendance,
+        payroll: planFeatures.payroll !== undefined ? planFeatures.payroll : defaultFeatures.payroll,
+        leaveManagement: planFeatures.leaveManagement !== undefined ? planFeatures.leaveManagement : defaultFeatures.leaveManagement,
+        analytics: planFeatures.analytics !== undefined ? planFeatures.analytics : defaultFeatures.analytics,
+        documentManagement: planFeatures.documentManagement !== undefined ? planFeatures.documentManagement : defaultFeatures.documentManagement,
+        notifications: planFeatures.notifications !== undefined ? planFeatures.notifications : defaultFeatures.notifications,
         customBranding: planFeatures.customBranding || defaultFeatures.customBranding,
         apiAccess: planFeatures.apiAccess || defaultFeatures.apiAccess,
         multiLocation: planFeatures.multiLocationSupport || defaultFeatures.multiLocation,
@@ -226,12 +279,32 @@ router.get('/features', authenticateToken, validateCompanyContext, async (req, r
         performanceReviews: planFeatures.performanceReviews || defaultFeatures.performanceReviews,
         trainingManagement: planFeatures.trainingManagement || defaultFeatures.trainingManagement,
         locationBasedAttendance: planFeatures.locationBasedAttendance || defaultFeatures.locationBasedAttendance,
+        // Employee Features
+        events: planFeatures.events !== undefined ? planFeatures.events : defaultFeatures.events,
+        
+        // Admin Features
+        employeeManagement: planFeatures.employeeManagement !== undefined ? planFeatures.employeeManagement : defaultFeatures.employeeManagement,
+        timesheetApprovals: planFeatures.timesheetApprovals !== undefined ? planFeatures.timesheetApprovals : defaultFeatures.timesheetApprovals,
+        attendanceManagement: planFeatures.attendanceManagement !== undefined ? planFeatures.attendanceManagement : defaultFeatures.attendanceManagement,
+        breakManagement: planFeatures.breakManagement !== undefined ? planFeatures.breakManagement : defaultFeatures.breakManagement,
+        breakTypes: planFeatures.breakTypes !== undefined ? planFeatures.breakTypes : defaultFeatures.breakTypes,
+        userManagement: planFeatures.userManagement !== undefined ? planFeatures.userManagement : defaultFeatures.userManagement,
+        settings: planFeatures.settings !== undefined ? planFeatures.settings : defaultFeatures.settings,
+        companySettings: planFeatures.companySettings !== undefined ? planFeatures.companySettings : defaultFeatures.companySettings,
+        featureManagement: planFeatures.featureManagement !== undefined ? planFeatures.featureManagement : defaultFeatures.featureManagement,
+        helpSupport: planFeatures.helpSupport !== undefined ? planFeatures.helpSupport : defaultFeatures.helpSupport,
+        
         // Location management features - enabled for Professional and Enterprise plans
         locationManagement: planFeatures.locationManagement !== undefined ? planFeatures.locationManagement : (subscriptionPlan?.name?.toLowerCase() !== 'basic'),
         locationSettings: planFeatures.locationSettings !== undefined ? planFeatures.locationSettings : (subscriptionPlan?.name?.toLowerCase() !== 'basic'),
         locationNotifications: planFeatures.locationNotifications !== undefined ? planFeatures.locationNotifications : (subscriptionPlan?.name?.toLowerCase() !== 'basic'),
         locationGeofencing: planFeatures.locationGeofencing !== undefined ? planFeatures.locationGeofencing : (subscriptionPlan?.name?.toLowerCase() !== 'basic'),
         locationCapacity: planFeatures.locationCapacity !== undefined ? planFeatures.locationCapacity : (subscriptionPlan?.name?.toLowerCase() !== 'basic'),
+        
+        // New features added
+        dataExport: planFeatures.dataExport !== undefined ? planFeatures.dataExport : defaultFeatures.dataExport,
+        profile: planFeatures.profile !== undefined ? planFeatures.profile : defaultFeatures.profile,
+        companyInfo: planFeatures.companyInfo !== undefined ? planFeatures.companyInfo : defaultFeatures.companyInfo,
       },
       limits: {
         maxEmployees: planFeatures.maxEmployees || defaultLimits.maxEmployees,
@@ -321,10 +394,10 @@ router.post('/', authenticateToken, authorizeRoles('admin'), async (req, res) =>
       subscriptionPlan,
       features: {
         attendance: true,
-        payroll: true,
+        payroll: false,  // Basic plan: no payroll
         leaveManagement: true,
         analytics: subscriptionPlan !== 'basic',
-        documentManagement: true,
+        documentManagement: false,  // Basic plan: no document management
         notifications: true,
         customBranding: subscriptionPlan !== 'basic',
         apiAccess: subscriptionPlan === 'enterprise',
@@ -546,4 +619,4 @@ router.delete('/:companyId', authenticateToken, authorizeRoles('admin'), validat
   }
 });
 
-module.exports = router; 
+module.exports = router;

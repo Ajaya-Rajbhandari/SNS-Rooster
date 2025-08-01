@@ -12,20 +12,16 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sns_rooster/utils/logger.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shimmer/shimmer.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:sns_rooster/widgets/company_style_location_picker.dart';
 import 'package:sns_rooster/widgets/employee_assignment_dialog.dart';
 import 'package:sns_rooster/services/location_settings_service.dart';
 import 'package:sns_rooster/utils/test_location_settings_connection.dart';
 import 'package:sns_rooster/utils/test_subscription_features.dart';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 
 class LocationManagementScreen extends StatefulWidget {
@@ -67,16 +63,12 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
   double? _selectedLongitude;
   double _geofenceRadius = 100.0;
   bool _isLoadingLocation = false;
-  bool _isLoadingAddress = false;
-  bool _isCreatingLocation = false;
   bool _isSearching = false;
   bool _showSearchResults = false;
   List<Placemark> _searchResults = [];
   bool _useCustomCoordinates = false;
   bool _showCreateForm = false;
-  bool _showMap = false;
   bool _showMapPreview = false;
-  final MapController _mapController = MapController();
   final LocationSettingsService _locationSettingsService =
       LocationSettingsService();
 
@@ -373,8 +365,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
         Logger.error('Location $action failed: ${response.message}');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content:
-                  Text(response.message ?? 'Failed to ${action} location')),
+              content: Text(response.message ?? 'Failed to $action location')),
         );
       }
     } catch (e) {
@@ -513,7 +504,8 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                                         Border.all(color: Colors.grey.shade200),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.1),
+                                        color:
+                                            Colors.black.withValues(alpha: 0.1),
                                         blurRadius: 10,
                                         offset: const Offset(0, 4),
                                       ),
@@ -571,7 +563,8 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                                                         const EdgeInsets.all(8),
                                                     decoration: BoxDecoration(
                                                       color: Colors.blue
-                                                          .withOpacity(0.1),
+                                                          .withValues(
+                                                              alpha: 0.1),
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                               8),
@@ -1179,16 +1172,21 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
         // Auto-fill address fields if they're empty
-        if (_streetController.text.isEmpty)
+        if (_streetController.text.isEmpty) {
           _streetController.text = place.street ?? '';
-        if (_cityController.text.isEmpty)
+        }
+        if (_cityController.text.isEmpty) {
           _cityController.text = place.locality ?? '';
-        if (_stateController.text.isEmpty)
+        }
+        if (_stateController.text.isEmpty) {
           _stateController.text = place.administrativeArea ?? '';
-        if (_postalCodeController.text.isEmpty)
+        }
+        if (_postalCodeController.text.isEmpty) {
           _postalCodeController.text = place.postalCode ?? '';
-        if (_countryController.text.isEmpty)
+        }
+        if (_countryController.text.isEmpty) {
           _countryController.text = place.country ?? '';
+        }
       }
     } catch (e) {
       // Handle error silently
@@ -1209,7 +1207,8 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.1) : Colors.grey.shade50,
+          color:
+              isSelected ? color.withValues(alpha: 0.1) : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? color : Colors.grey.shade200,
@@ -1217,7 +1216,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -1357,7 +1356,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.blue.withOpacity(0.3),
+                      color: Colors.blue.withValues(alpha: 0.3),
                       blurRadius: 10,
                       offset: const Offset(0, 5),
                     ),
@@ -1371,7 +1370,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
@@ -1398,7 +1397,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                                 'Create and manage locations for attendance tracking',
                                 style: TextStyle(
                                   fontSize: 16,
-                                  color: Colors.white.withOpacity(0.9),
+                                  color: Colors.white.withValues(alpha: 0.9),
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -1409,7 +1408,8 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.white.withOpacity(0.8),
+                                      color:
+                                          Colors.white.withValues(alpha: 0.8),
                                     ),
                                   );
                                 },
@@ -1426,7 +1426,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                           icon: Icons.location_on,
                           title: 'Total Locations',
                           value: '${_locations.length}',
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           iconColor: Colors.white,
                           textColor: Colors.white,
                         ),
@@ -1436,7 +1436,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                           title: 'Active Locations',
                           value:
                               '${_locations.where((l) => l['status'] == 'active').length}',
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           iconColor: Colors.white,
                           textColor: Colors.white,
                         ),
@@ -1446,7 +1446,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                           title: 'Total Capacity',
                           value:
                               '${_locations.fold<int>(0, (sum, l) => sum + ((l['settings']?['capacity'] ?? 0) as int))}',
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           iconColor: Colors.white,
                           textColor: Colors.white,
                         ),
@@ -1456,7 +1456,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                           title: 'Active Users',
                           value:
                               '${_locations.fold<int>(0, (sum, l) => sum + ((l['activeUsers'] ?? 0) as int))}',
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           iconColor: Colors.white,
                           textColor: Colors.white,
                         ),
@@ -1479,7 +1479,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                         border: Border.all(color: Colors.grey.shade300),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -1533,7 +1533,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               elevation: 2,
-                              shadowColor: Colors.blue.withOpacity(0.3),
+                              shadowColor: Colors.blue.withValues(alpha: 0.3),
                             ),
                           ),
                         ),
@@ -1636,7 +1636,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -1701,7 +1701,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
+              color: Colors.blue.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -1756,10 +1756,10 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.1),
+              color: Colors.orange.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
+            child: const Icon(
               Icons.lock,
               size: 80,
               color: Colors.orange,
@@ -2077,7 +2077,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
         await _sendLocationAssignmentNotification(employeeId, locationId);
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Employee assigned to location successfully'),
             backgroundColor: Colors.green,
           ),
@@ -2116,7 +2116,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: Colors.grey.withValues(alpha: 0.1),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -2135,7 +2135,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.blue.withOpacity(0.3),
+                          color: Colors.blue.withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
@@ -2177,7 +2177,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                     icon: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: Colors.grey.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.close, size: 20),
@@ -2197,7 +2197,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -2268,7 +2268,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                               border: Border.all(color: Colors.grey.shade200),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
+                                  color: Colors.black.withValues(alpha: 0.1),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -2324,7 +2324,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                                               padding: const EdgeInsets.all(8),
                                               decoration: BoxDecoration(
                                                 color: Colors.blue
-                                                    .withOpacity(0.1),
+                                                    .withValues(alpha: 0.1),
                                                 borderRadius:
                                                     BorderRadius.circular(8),
                                               ),
@@ -2568,7 +2568,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -2613,7 +2613,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -2724,7 +2724,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -2779,7 +2779,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -2879,7 +2879,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -2914,7 +2914,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         elevation: 2,
-                        shadowColor: Colors.blue.withOpacity(0.3),
+                        shadowColor: Colors.blue.withValues(alpha: 0.3),
                       ),
                       child: _isCreating
                           ? const SizedBox(
@@ -3572,11 +3572,11 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
       builder: (context) => Consumer<FeatureProvider>(
         builder: (context, featureProvider, child) {
           return AlertDialog(
-            title: Row(
+            title: const Row(
               children: [
                 Icon(Icons.lock, color: Colors.orange),
-                const SizedBox(width: 8),
-                const Text('Feature Locked'),
+                SizedBox(width: 8),
+                Text('Feature Locked'),
               ],
             ),
             content: Column(
@@ -3600,20 +3600,19 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.blue.shade200),
                   ),
-                  child: Column(
+                  child: const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Available Plans:',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
-                          '• Professional: Location management features'),
-                      const Text('• Enterprise: All features included'),
+                      SizedBox(height: 8),
+                      Text('• Professional: Location management features'),
+                      Text('• Enterprise: All features included'),
                     ],
                   ),
                 ),
@@ -3693,7 +3692,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
 
                     // Send notification to company admins
                     await _sendLocationSettingsNotification('Geofence Radius',
-                        'Updated default radius to ${radius} meters');
+                        'Updated default radius to $radius meters');
 
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -3851,7 +3850,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
 
                 // Send notification to company admins
                 await _sendLocationSettingsNotification('Capacity',
-                    'Updated default capacity to ${capacity} employees');
+                    'Updated default capacity to $capacity employees');
 
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -3951,8 +3950,9 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                   // Send notification to company admins
                   final enabledFeatures = <String>[];
                   if (locationUpdates) enabledFeatures.add('Location Updates');
-                  if (employeeAssignments)
+                  if (employeeAssignments) {
                     enabledFeatures.add('Employee Assignments');
+                  }
                   if (capacityAlerts) enabledFeatures.add('Capacity Alerts');
 
                   await _sendLocationSettingsNotification(

@@ -12,5 +12,5 @@ console.log('');
 require('./server.js');
 
 console.log('✅ Server started successfully!');
-console.log('🌐 Access the API at: http://192.168.1.80:5000');
-console.log('📊 Health check: http://192.168.1.80:5000/health'); 
+console.log('🌐 Access the API at: http://192.168.1.119:5000');
+console.log('📊 Health check: http://192.168.1.119:5000/health'); 

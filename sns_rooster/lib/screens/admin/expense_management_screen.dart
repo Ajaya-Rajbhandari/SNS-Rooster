@@ -546,16 +546,16 @@ class _ExpenseManagementScreenState extends State<ExpenseManagementScreen> {
                             labelText: 'Status',
                             border: OutlineInputBorder(),
                           ),
-                          items: [
-                            const DropdownMenuItem(
+                          items: const [
+                            DropdownMenuItem(
                                 value: 'all', child: Text('All Status')),
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                                 value: 'pending', child: Text('Pending')),
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                                 value: 'approved', child: Text('Approved')),
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                                 value: 'rejected', child: Text('Rejected')),
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                                 value: 'paid', child: Text('Paid')),
                           ],
                           onChanged: (value) {
@@ -574,32 +574,32 @@ class _ExpenseManagementScreenState extends State<ExpenseManagementScreen> {
                             labelText: 'Category',
                             border: OutlineInputBorder(),
                           ),
-                          items: [
-                            const DropdownMenuItem(
+                          items: const [
+                            DropdownMenuItem(
                                 value: 'all', child: Text('All Categories')),
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                                 value: 'travel', child: Text('Travel')),
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                                 value: 'meals', child: Text('Meals')),
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                                 value: 'office_supplies',
                                 child: Text('Office Supplies')),
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                                 value: 'equipment', child: Text('Equipment')),
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                                 value: 'software', child: Text('Software')),
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                                 value: 'training', child: Text('Training')),
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                                 value: 'entertainment',
                                 child: Text('Entertainment')),
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                                 value: 'transportation',
                                 child: Text('Transportation')),
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                                 value: 'accommodation',
                                 child: Text('Accommodation')),
-                            const DropdownMenuItem(
+                            DropdownMenuItem(
                                 value: 'other', child: Text('Other')),
                           ],
                           onChanged: (value) {

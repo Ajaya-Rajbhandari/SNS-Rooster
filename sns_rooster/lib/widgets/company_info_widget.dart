@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/feature_provider.dart';
-import '../config/api_config.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 
 class CompanyInfoWidget extends StatefulWidget {
   final String companyId;
@@ -34,9 +31,9 @@ class _CompanyInfoWidgetState extends State<CompanyInfoWidget> {
     return Consumer<FeatureProvider>(
       builder: (context, featureProvider, _) {
         if (featureProvider.isLoading) {
-          return Card(
-            margin: const EdgeInsets.all(8.0),
-            child: const Padding(
+          return const Card(
+            margin: EdgeInsets.all(8.0),
+            child: Padding(
               padding: EdgeInsets.all(16.0),
               child: Center(
                 child: CircularProgressIndicator(),
@@ -282,9 +279,9 @@ class _CompanyInfoWidgetState extends State<CompanyInfoWidget> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.3)),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
           ),
           child: Text(
             value,
