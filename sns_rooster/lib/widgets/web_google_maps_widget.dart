@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'fallback_map_widget.dart';
-import 'employee_location_map_widget.dart';
 
 class WebGoogleMapsWidget extends StatefulWidget {
   final List<Map<String, dynamic>> locations;
@@ -24,7 +23,6 @@ class WebGoogleMapsWidget extends StatefulWidget {
 
 class _WebGoogleMapsWidgetState extends State<WebGoogleMapsWidget> {
   bool _isLoading = true;
-  bool _isWebMapAvailable = false;
 
   @override
   void initState() {
@@ -38,8 +36,6 @@ class _WebGoogleMapsWidgetState extends State<WebGoogleMapsWidget> {
 
     if (mounted) {
       setState(() {
-        _isWebMapAvailable =
-            false; // Force fallback for now since API key has issues
         _isLoading = false;
       });
     }
@@ -134,7 +130,7 @@ class _WebGoogleMapsWidgetState extends State<WebGoogleMapsWidget> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.blue.shade600.withOpacity(0.3),
+                          color: Colors.blue.shade600.withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -155,7 +151,7 @@ class _WebGoogleMapsWidgetState extends State<WebGoogleMapsWidget> {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -186,7 +182,7 @@ class _WebGoogleMapsWidgetState extends State<WebGoogleMapsWidget> {
                   color: Colors.blue.shade400,
                   width: 2,
                 ),
-                color: Colors.blue.shade400.withOpacity(0.1),
+                color: Colors.blue.shade400.withValues(alpha: 0.1),
               ),
             ),
           ),
@@ -198,11 +194,11 @@ class _WebGoogleMapsWidgetState extends State<WebGoogleMapsWidget> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
+                color: Colors.white.withValues(alpha: 0.95),
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -427,7 +423,7 @@ class MapGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.blue.shade200.withOpacity(0.3)
+      ..color = Colors.blue.shade200.withValues(alpha: 0.3)
       ..strokeWidth = 1;
 
     // Draw grid lines

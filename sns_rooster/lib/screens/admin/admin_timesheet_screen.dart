@@ -7,7 +7,6 @@ import '../../providers/employee_provider.dart';
 import 'edit_attendance_dialog.dart';
 import 'package:flutter/scheduler.dart';
 import '../../models/employee.dart';
-import '../../widgets/role_filter_chip.dart';
 
 class AdminTimesheetScreen extends StatefulWidget {
   const AdminTimesheetScreen({Key? key}) : super(key: key);
@@ -124,20 +123,6 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
     );
   }
 
-  Future<void> _pickDateRange() async {
-    final picked = await _showCustomDateRangePicker(context, _dateRange);
-    if (picked != null) {
-      setState(() => _dateRange = picked);
-      Provider.of<AdminAttendanceProvider>(context, listen: false)
-          .fetchAttendanceLegacy(
-        start: DateFormat('yyyy-MM-dd').format(picked.start),
-        end: DateFormat('yyyy-MM-dd').format(picked.end),
-        userId: _selectedEmployeeId,
-        role: _selectedRole == 'employee' ? 'employee' : 'all',
-      );
-    }
-  }
-
   void _onEmployeeChanged(String? employeeId) {
     setState(() => _selectedEmployeeId = employeeId);
     Provider.of<AdminAttendanceProvider>(context, listen: false)
@@ -190,99 +175,6 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
       default:
         return Colors.grey;
     }
-  }
-
-  String _formatBreaks(List<dynamic>? breaks) {
-    if (breaks == null || breaks.isEmpty) return '0h 0m';
-    int totalMs = 0;
-    for (final b in breaks) {
-      if (b['start'] != null && b['end'] != null) {
-        final start = DateTime.tryParse(b['start'].toString());
-        final end = DateTime.tryParse(b['end'].toString());
-        if (start != null && end != null) {
-          totalMs += end.difference(start).inMilliseconds;
-        }
-      }
-    }
-    if (totalMs < 0) totalMs = 0;
-    final d = Duration(milliseconds: totalMs);
-    final h = d.inHours;
-    final m = d.inMinutes % 60;
-    return '${h}h ${m}m';
-  }
-
-  void _showBreakDetailsDialog(BuildContext context, List<dynamic>? breaks) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        if (breaks == null || breaks.isEmpty) {
-          return AlertDialog(
-            title: const Text('Break Details'),
-            content: const Text('No breaks recorded.'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'))
-            ],
-          );
-        }
-        return AlertDialog(
-          title: const Text('Break Details'),
-          content: SizedBox(
-            width: 300,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: breaks.length,
-              itemBuilder: (context, idx) {
-                final b = breaks[idx];
-                final start = b['start'] != null
-                    ? DateTime.tryParse(b['start'].toString())
-                    : null;
-                final end = b['end'] != null
-                    ? DateTime.tryParse(b['end'].toString())
-                    : null;
-                final type =
-                    (b['type'] is Map && b['type']['displayName'] != null)
-                        ? b['type']['displayName']
-                        : b['type']?.toString() ?? '-';
-                final reason = b['reason']?.toString() ?? '';
-                String duration = '-';
-                if (start != null && end != null) {
-                  final d = end.difference(start);
-                  duration = '${d.inHours}h ${d.inMinutes % 60}m';
-                }
-                return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 4),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Break ${idx + 1}',
-                            style:
-                                const TextStyle(fontWeight: FontWeight.bold)),
-                        Text('Type: $type'),
-                        Text(
-                            'Start: ${start != null ? DateFormat('HH:mm').format(start.toLocal()) : '-'}'),
-                        Text(
-                            'End: ${end != null ? DateFormat('HH:mm').format(end.toLocal()) : '-'}'),
-                        Text('Duration: $duration'),
-                        if (reason.isNotEmpty) Text('Reason: $reason'),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'))
-          ],
-        );
-      },
-    );
   }
 
   void _handleEditAttendance(
@@ -378,6 +270,9 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Timesheet'),
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -386,302 +281,299 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
         ],
       ),
       drawer: const AdminSideNavigation(currentRoute: '/timesheet'),
-      body: Column(
-        children: [
-          // Filter Section
-          Container(
-            padding: const EdgeInsets.all(16.0),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Date Range Filter
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton.icon(
-                        icon: const Icon(Icons.calendar_today),
-                        label: Text(
-                          '${DateFormat('MMM dd').format(_dateRange!.start)} - ${DateFormat('MMM dd').format(_dateRange!.end)}',
-                        ),
-                        onPressed: _selectDateRange,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: _clearFilters,
-                      tooltip: 'Clear Filters',
-                    ),
-                  ],
-                ),
+      body: Consumer<AdminAttendanceProvider>(
+        builder: (context, provider, child) {
+          if (provider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-                const SizedBox(height: 8),
+          final filtered = _filteredRecords(provider.attendanceRecords);
 
-                // Quick Date Filters
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _QuickFilterBtn(
-                        label: 'Today',
-                        selected: _dateRange != null &&
-                            _dateRange!.start == _todayRange.start &&
-                            _dateRange!.end == _todayRange.end,
-                        onTap: () => _setQuickRange(_todayRange),
-                      ),
-                      const SizedBox(width: 8),
-                      _QuickFilterBtn(
-                        label: 'Yesterday',
-                        selected: _dateRange != null &&
-                            _dateRange!.start == _yesterdayRange.start &&
-                            _dateRange!.end == _yesterdayRange.end,
-                        onTap: () => _setQuickRange(_yesterdayRange),
-                      ),
-                      const SizedBox(width: 8),
-                      _QuickFilterBtn(
-                        label: 'This Week',
-                        selected: _dateRange != null &&
-                            _dateRange!.start == _thisWeekRange.start &&
-                            _dateRange!.end == _thisWeekRange.end,
-                        onTap: () => _setQuickRange(_thisWeekRange),
-                      ),
-                      const SizedBox(width: 8),
-                      _QuickFilterBtn(
-                        label: 'This Month',
-                        selected: _dateRange != null &&
-                            _dateRange!.start == _thisMonthRange.start &&
-                            _dateRange!.end == _thisMonthRange.end,
-                        onTap: () => _setQuickRange(_thisMonthRange),
-                      ),
-                    ],
+          // Calculate stats
+          final totalRecords = filtered.length;
+          final presentCount = filtered
+              .where((rec) =>
+                  (rec['status']?.toString().toLowerCase() ?? 'present') ==
+                  'present')
+              .length;
+          final onBreakCount = filtered
+              .where((rec) =>
+                  (rec['status']?.toString().toLowerCase() ?? '') == 'on break')
+              .length;
+
+          return Column(
+            children: [
+              // Quick Stats Section
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.05),
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey.shade200),
                   ),
                 ),
-
-                const SizedBox(height: 12),
-
-                // Employee Filter
-                Row(
+                child: Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedEmployeeId,
-                        decoration: const InputDecoration(
-                          labelText: 'Filter by Employee',
-                          border: OutlineInputBorder(),
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: _buildStatCard(
+                        'Total Records',
+                        totalRecords.toString(),
+                        Colors.blue,
+                        Icons.assessment,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildStatCard(
+                        'Present',
+                        presentCount.toString(),
+                        Colors.green,
+                        Icons.check_circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildStatCard(
+                        'On Break',
+                        onBreakCount.toString(),
+                        Colors.orange,
+                        Icons.pause_circle,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Filter Section - Responsive Design
+              Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isSmallScreen = constraints.maxWidth < 400;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.filter_list,
+                                size: 18, color: Colors.grey[700]),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Filters',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[800],
+                              ),
+                            ),
+                          ],
                         ),
-                        items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text('All Employees'),
-                          ),
-                          ..._employeeList.map((emp) => DropdownMenuItem(
-                                value: emp.userId,
-                                child: Text('${emp.firstName} ${emp.lastName}'),
-                              )),
-                        ],
-                        onChanged: _onEmployeeChanged,
-                      ),
-                    ),
-                  ],
-                ),
+                        const SizedBox(height: 12),
 
-                const SizedBox(height: 12),
-
-                // Role Filter
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Filter by Role:',
-                      style: TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    const SizedBox(height: 8),
-                    RoleFilterChip(
-                      selectedRole: _selectedRole,
-                      onRoleChanged: _onRoleChanged,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // --- Table Section ---
-          Expanded(
-            child: Consumer<AdminAttendanceProvider>(
-              builder: (context, provider, child) {
-                try {
-                  if (provider.isLoading) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (provider.error != null) {
-                    debugPrint(
-                        'AdminTimesheetScreen: Provider error: ${provider.error}');
-                    return Center(child: Text('Error: ${provider.error}'));
-                  }
-                  final filtered = _filteredRecords(provider.attendanceRecords);
-                  debugPrint(
-                      'AdminTimesheetScreen: Filtered records count: ${filtered.length}');
-                  if (filtered.isEmpty) {
-                    debugPrint(
-                        'AdminTimesheetScreen: Provider state: isLoading=${provider.isLoading}, error=${provider.error}, attendanceRecords=${provider.attendanceRecords.length}');
-                    return const Center(
-                        child: Text('No attendance records found.',
-                            style:
-                                TextStyle(fontSize: 16, color: Colors.grey)));
-                  }
-                  // Responsive: Use ListView on mobile, DataTable on wide screens
-                  final isWide = MediaQuery.of(context).size.width > 700;
-                  if (!isWide) {
-                    // Mobile: Card list
-                    return ListView.separated(
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final rec = filtered[index];
-                        final user = rec is Map<String, dynamic>
-                            ? rec['user']
-                            : (rec as dynamic).user;
-                        final name = user != null &&
-                                user['firstName'] != null &&
-                                user['lastName'] != null
-                            ? '${user['firstName']} ${user['lastName']}'
-                            : user != null && user['email'] != null
-                                ? user['email']
-                                : '(Deleted)';
-                        return Card(
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          child: ListTile(
-                            title: Text(name,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold)),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                    'Date: ${_formatDate(rec['date']?.toString())}'),
-                                Text(
-                                    'Check In: ${_formatTime(rec['checkInTime']?.toString())}'),
-                                Text(
-                                    'Check Out: ${_formatTime(rec['checkOutTime']?.toString())}'),
-                                Text(
-                                    'Total Hours: ${_formatTotalHours(rec['checkInTime']?.toString(), rec['checkOutTime']?.toString(), rec['totalBreakDuration'])}'),
-                                Text('Status: ${rec['status'] ?? 'present'}'),
-                              ],
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.edit),
-                              onPressed: () =>
-                                  _handleEditAttendance(context, rec),
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  }
-                  // Desktop/tablet: DataTable
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      headingRowColor: WidgetStateProperty.all(
-                          colorScheme.surfaceContainerHighest.withOpacity(0.5)),
-                      columns: const [
-                        DataColumn(
-                            label: Text('Employee',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('Date',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('Check In',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('Check Out',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('Total Hours',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('Status',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('Actions',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                      ],
-                      rows: List<DataRow>.generate(
-                        filtered.length,
-                        (index) {
-                          final rec = filtered[index];
-                          final user = rec is Map<String, dynamic>
-                              ? rec['user']
-                              : (rec as dynamic).user;
-                          final name = user != null &&
-                                  user['firstName'] != null &&
-                                  user['lastName'] != null
-                              ? '${user['firstName']} ${user['lastName']}'
-                              : user != null && user['email'] != null
-                                  ? user['email']
-                                  : '(Deleted)';
-                          return DataRow(
-                            color: WidgetStateProperty.resolveWith<Color?>(
-                                (Set<WidgetState> states) {
-                              return index % 2 == 0
-                                  ? colorScheme.surface
-                                  : colorScheme.surfaceContainerHighest
-                                      .withOpacity(0.2);
-                            }),
-                            cells: [
-                              DataCell(Text(name,
-                                  style: const TextStyle(fontSize: 15))),
-                              DataCell(Text(
-                                  _formatDate(rec['date']?.toString()),
-                                  style: const TextStyle(fontSize: 15))),
-                              DataCell(Text(
-                                  _formatTime(rec['checkInTime']?.toString()),
-                                  style: const TextStyle(fontSize: 15))),
-                              DataCell(Text(
-                                  _formatTime(rec['checkOutTime']?.toString()),
-                                  style: const TextStyle(fontSize: 15))),
-                              DataCell(Text(
-                                  _formatTotalHours(
-                                      rec['checkInTime']?.toString(),
-                                      rec['checkOutTime']?.toString(),
-                                      rec['totalBreakDuration']),
-                                  style: const TextStyle(fontSize: 15))),
-                              DataCell(Text(
-                                  rec['status']?.toString() ?? 'present',
-                                  style: TextStyle(
-                                      fontSize: 15,
-                                      color: _statusColor(
-                                          rec['status']?.toString())))),
-                              DataCell(IconButton(
-                                icon: const Icon(Icons.edit),
-                                onPressed: () =>
-                                    _handleEditAttendance(context, rec),
-                              )),
+                        // Responsive date range and employee filter
+                        if (isSmallScreen) ...[
+                          // Stack vertically on small screens
+                          Column(
+                            children: [
+                              _buildDateRangePicker(),
+                              const SizedBox(height: 8),
+                              _buildEmployeeDropdown(),
                             ],
-                          );
-                        },
-                      ),
-                    ),
-                  );
-                } catch (e, st) {
-                  debugPrint(
-                      'AdminTimesheetScreen: Exception in build: ${e.toString()}\n${st.toString()}');
-                  return const Center(
-                      child: Text(
-                          'An unexpected error occurred. Please try again.'));
-                }
-              },
-            ),
-          ),
-        ],
+                          ),
+                        ] else ...[
+                          // Side by side on larger screens
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: _buildDateRangePicker(),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 1,
+                                child: _buildEmployeeDropdown(),
+                              ),
+                            ],
+                          ),
+                        ],
+
+                        const SizedBox(height: 10),
+
+                        // Quick date buttons - Responsive
+                        if (isSmallScreen) ...[
+                          // Stack in columns on small screens
+                          Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                      child: _buildCompactQuickDateButton(
+                                          'Today',
+                                          () => _setQuickRange(_todayRange),
+                                          _dateRange != null &&
+                                              _dateRange!.start ==
+                                                  _todayRange.start &&
+                                              _dateRange!.end ==
+                                                  _todayRange.end)),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                      child: _buildCompactQuickDateButton(
+                                          'Yesterday',
+                                          () => _setQuickRange(_yesterdayRange),
+                                          _dateRange != null &&
+                                              _dateRange!.start ==
+                                                  _yesterdayRange.start &&
+                                              _dateRange!.end ==
+                                                  _yesterdayRange.end)),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Expanded(
+                                      child: _buildCompactQuickDateButton(
+                                          'This Week',
+                                          () => _setQuickRange(_thisWeekRange),
+                                          _dateRange != null &&
+                                              _dateRange!.start ==
+                                                  _thisWeekRange.start &&
+                                              _dateRange!.end ==
+                                                  _thisWeekRange.end)),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                      child: _buildCompactQuickDateButton(
+                                          'This Month',
+                                          () => _setQuickRange(_thisMonthRange),
+                                          _dateRange != null &&
+                                              _dateRange!.start ==
+                                                  _thisMonthRange.start &&
+                                              _dateRange!.end ==
+                                                  _thisMonthRange.end)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ] else ...[
+                          // All in one row on larger screens
+                          Row(
+                            children: [
+                              Expanded(
+                                  child: _buildCompactQuickDateButton(
+                                      'Today',
+                                      () => _setQuickRange(_todayRange),
+                                      _dateRange != null &&
+                                          _dateRange!.start ==
+                                              _todayRange.start &&
+                                          _dateRange!.end == _todayRange.end)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                  child: _buildCompactQuickDateButton(
+                                      'Yesterday',
+                                      () => _setQuickRange(_yesterdayRange),
+                                      _dateRange != null &&
+                                          _dateRange!.start ==
+                                              _yesterdayRange.start &&
+                                          _dateRange!.end ==
+                                              _yesterdayRange.end)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                  child: _buildCompactQuickDateButton(
+                                      'This Week',
+                                      () => _setQuickRange(_thisWeekRange),
+                                      _dateRange != null &&
+                                          _dateRange!.start ==
+                                              _thisWeekRange.start &&
+                                          _dateRange!.end ==
+                                              _thisWeekRange.end)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                  child: _buildCompactQuickDateButton(
+                                      'This Month',
+                                      () => _setQuickRange(_thisMonthRange),
+                                      _dateRange != null &&
+                                          _dateRange!.start ==
+                                              _thisMonthRange.start &&
+                                          _dateRange!.end ==
+                                              _thisMonthRange.end)),
+                            ],
+                          ),
+                        ],
+
+                        const SizedBox(height: 10),
+
+                        // Role filter buttons - Responsive
+                        if (isSmallScreen) ...[
+                          // Stack in columns on small screens
+                          Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                      child: _buildCompactRoleButton(
+                                          'All Users', null)),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                      child: _buildCompactRoleButton(
+                                          'Employees', 'employee')),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Expanded(
+                                      child: _buildCompactRoleButton(
+                                          'Admins', 'admin')),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ] else ...[
+                          // All in one row on larger screens
+                          Row(
+                            children: [
+                              Expanded(
+                                  child: _buildCompactRoleButton(
+                                      'All Users', null)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                  child: _buildCompactRoleButton(
+                                      'Employees', 'employee')),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                  child: _buildCompactRoleButton(
+                                      'Admins', 'admin')),
+                            ],
+                          ),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+              ),
+
+              // Content Section
+              Expanded(
+                child: filtered.isEmpty
+                    ? _buildEmptyState()
+                    : _buildAttendanceList(filtered),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -719,6 +611,470 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
       _dateRange = _todayRange;
     });
     _fetchAttendanceData();
+  }
+
+  Widget _buildStatCard(
+      String title, String count, Color color, IconData icon) {
+    return Card(
+      elevation: 4,
+      shadowColor: color.withValues(alpha: 0.3),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              count,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.assessment_outlined, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            'No attendance records found',
+            style: TextStyle(
+              fontSize: 18,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttendanceList(List<Map<String, dynamic>> filtered) {
+    final isWide = MediaQuery.of(context).size.width > 700;
+
+    if (!isWide) {
+      // Mobile: Card list
+      return ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: filtered.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final rec = filtered[index];
+          final user =
+              rec is Map<String, dynamic> ? rec['user'] : (rec as dynamic).user;
+          final name = user != null &&
+                  user['firstName'] != null &&
+                  user['lastName'] != null
+              ? '${user['firstName']} ${user['lastName']}'
+              : user != null && user['email'] != null
+                  ? user['email']
+                  : '(Deleted)';
+
+          return _buildAttendanceCard(rec, name);
+        },
+      );
+    }
+
+    // Desktop/tablet: DataTable
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        headingRowColor: WidgetStateProperty.all(Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.5)),
+        columns: const [
+          DataColumn(
+              label: Text('Employee',
+                  style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(
+              label:
+                  Text('Date', style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(
+              label: Text('Check In',
+                  style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(
+              label: Text('Check Out',
+                  style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(
+              label: Text('Total Hours',
+                  style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(
+              label: Text('Status',
+                  style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(
+              label: Text('Actions',
+                  style: TextStyle(fontWeight: FontWeight.bold))),
+        ],
+        rows: List<DataRow>.generate(
+          filtered.length,
+          (index) {
+            final rec = filtered[index];
+            final user = rec is Map<String, dynamic>
+                ? rec['user']
+                : (rec as dynamic).user;
+            final name = user != null &&
+                    user['firstName'] != null &&
+                    user['lastName'] != null
+                ? '${user['firstName']} ${user['lastName']}'
+                : user != null && user['email'] != null
+                    ? user['email']
+                    : '(Deleted)';
+            return DataRow(
+              color: WidgetStateProperty.resolveWith<Color?>(
+                  (Set<WidgetState> states) {
+                return index % 2 == 0
+                    ? Theme.of(context).colorScheme.surface
+                    : Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.2);
+              }),
+              cells: [
+                DataCell(Text(name, style: const TextStyle(fontSize: 15))),
+                DataCell(Text(_formatDate(rec['date']?.toString()),
+                    style: const TextStyle(fontSize: 15))),
+                DataCell(Text(_formatTime(rec['checkInTime']?.toString()),
+                    style: const TextStyle(fontSize: 15))),
+                DataCell(Text(_formatTime(rec['checkOutTime']?.toString()),
+                    style: const TextStyle(fontSize: 15))),
+                DataCell(Text(
+                    _formatTotalHours(
+                        rec['checkInTime']?.toString(),
+                        rec['checkOutTime']?.toString(),
+                        rec['totalBreakDuration']),
+                    style: const TextStyle(fontSize: 15))),
+                DataCell(Text(rec['status']?.toString() ?? 'present',
+                    style: TextStyle(
+                        fontSize: 15,
+                        color: _statusColor(rec['status']?.toString())))),
+                DataCell(IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () => _handleEditAttendance(context, rec),
+                )),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttendanceCard(Map<String, dynamic> rec, String name) {
+    return Card(
+      elevation: 3,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade100),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: Colors.blue.shade100,
+                        child: Icon(
+                          Icons.person,
+                          color: Colors.blue.shade700,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              _formatDate(rec['date']?.toString()),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _buildStatusChip(rec['status']?.toString() ?? 'present'),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Attendance details with icons
+            Row(
+              children: [
+                Icon(Icons.login, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 8),
+                Text(
+                  'Check In: ${_formatTime(rec['checkInTime']?.toString())}',
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(width: 16),
+                Icon(Icons.logout, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 8),
+                Text(
+                  'Check Out: ${_formatTime(rec['checkOutTime']?.toString())}',
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            Row(
+              children: [
+                Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 8),
+                Text(
+                  'Total Hours: ${_formatTotalHours(rec['checkInTime']?.toString(), rec['checkOutTime']?.toString(), rec['totalBreakDuration'])}',
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+
+            // Action button
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _handleEditAttendance(context, rec),
+                  icon: const Icon(Icons.edit, size: 18),
+                  label: const Text('Edit'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                    side: const BorderSide(color: Colors.blue),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateRangePicker() {
+    return GestureDetector(
+      onTap: _selectDateRange,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                _dateRange != null && _dateRange!.start != _dateRange!.end
+                    ? '${DateFormat('MMM dd').format(_dateRange!.start)} - ${DateFormat('MMM dd').format(_dateRange!.end)}'
+                    : 'Date Range',
+                style: TextStyle(
+                  fontSize: 13,
+                  color:
+                      _dateRange != null && _dateRange!.start != _dateRange!.end
+                          ? Colors.black
+                          : Colors.grey[600],
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (_dateRange != null && _dateRange!.start != _dateRange!.end)
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _dateRange = null;
+                  });
+                  _fetchAttendanceData();
+                },
+                child: Icon(Icons.clear, size: 14, color: Colors.grey[600]),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmployeeDropdown() {
+    return SizedBox(
+      height: 36,
+      child: DropdownButtonFormField<String>(
+        value: _selectedEmployeeId,
+        decoration: InputDecoration(
+          labelText: 'Employee',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          isDense: true,
+          labelStyle: const TextStyle(fontSize: 12),
+        ),
+        items: [
+          const DropdownMenuItem(
+            value: null,
+            child: Text('All', style: TextStyle(fontSize: 12)),
+          ),
+          ..._employeeList.map((emp) => DropdownMenuItem(
+                value: emp.userId,
+                child: Text('${emp.firstName} ${emp.lastName}',
+                    style: const TextStyle(fontSize: 12),
+                    overflow: TextOverflow.ellipsis),
+              )),
+        ],
+        onChanged: _onEmployeeChanged,
+        menuMaxHeight: 150,
+        icon: const Icon(Icons.arrow_drop_down, size: 16),
+      ),
+    );
+  }
+
+  Widget _buildCompactQuickDateButton(
+      String label, VoidCallback onTap, bool isSelected) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.shade50 : Colors.grey.shade50,
+          border: Border.all(
+            color: isSelected ? Colors.blue.shade300 : Colors.grey.shade300,
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            color: isSelected ? Colors.blue.shade700 : Colors.grey.shade700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactRoleButton(String label, String? role) {
+    final isSelected = _selectedRole == role;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedRole = role;
+        });
+        _fetchAttendanceData();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.shade600 : Colors.grey.shade50,
+          border: Border.all(
+            color: isSelected ? Colors.blue.shade600 : Colors.grey.shade300,
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (isSelected) ...[
+              const Icon(Icons.check, size: 12, color: Colors.white),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                color: isSelected ? Colors.white : Colors.grey.shade700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String status) {
+    Color color;
+    switch (status.toLowerCase()) {
+      case 'present':
+        color = Colors.green;
+        break;
+      case 'on break':
+        color = Colors.orange;
+        break;
+      case 'clocked in':
+        color = Colors.blue;
+        break;
+      case 'absent':
+        color = Colors.red;
+        break;
+      default:
+        color = Colors.grey;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
+      ),
+    );
   }
 }
 
@@ -890,7 +1246,7 @@ class _QuickFilterBtn extends StatelessWidget {
     return OutlinedButton(
       style: OutlinedButton.styleFrom(
         backgroundColor: selected
-            ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
             : null,
         side: BorderSide(
             color: selected

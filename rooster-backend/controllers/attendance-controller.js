@@ -290,8 +290,34 @@ exports.checkIn = async (req, res) => {
     const userLat = req.body.latitude;
     const userLng = req.body.longitude;
 
+    // Check if location data is provided
     if (!userLat || !userLng) {
-      return res.status(400).json({ message: "Latitude and Longitude are required for location validation." });
+      console.log('DEBUG: checkIn - No location data provided, checking if location validation can be bypassed');
+      
+      // Check if user is an admin (has admin role)
+      const User = require('../models/User');
+      const user = await User.findById(userId);
+      
+      if (user && user.role === 'admin') {
+        console.log('DEBUG: checkIn - Admin user detected, allowing check-in without location validation');
+        
+        const attendance = new Attendance({
+          user: userId,
+          companyId: req.companyId,
+          date: today,
+          checkInTime: new Date(),
+          locationValidation: {
+            isValid: true,
+            message: 'Admin check-in - location validation bypassed'
+          }
+        });
+
+        await attendance.save();
+        console.log("DEBUG: checkIn - Admin attendance created:", attendance);
+        return res.status(201).json({ message: "Check-in successful", attendance });
+      } else {
+        return res.status(400).json({ message: "Latitude and Longitude are required for location validation." });
+      }
     }
 
     const locationValidationResult = await checkLocationValidation(userId, userLat, userLng, req.companyId);
@@ -582,7 +608,7 @@ exports.endBreak = async (req, res) => {
 
 exports.getAttendanceStatus = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.params.userId || req.user.userId;
     
     // Use UTC for date comparison to avoid timezone issues
     const now = new Date();
@@ -598,6 +624,8 @@ exports.getAttendanceStatus = async (req, res) => {
       "to",
       tomorrow
     );
+    console.log("DEBUG: getAttendanceStatus - Company ID:", req.companyId);
+    console.log("DEBUG: getAttendanceStatus - User ID from req.user:", req.user.userId);
 
     const attendance = await Attendance.findOne({
       user: userId,

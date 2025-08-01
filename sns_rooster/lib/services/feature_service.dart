@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../providers/auth_provider.dart';
 import '../config/api_config.dart';
 import '../utils/logger.dart';
@@ -67,10 +65,10 @@ class FeatureService {
       return {
         'features': {
           'attendance': true,
-          'payroll': true,
+          'payroll': false, // Basic plan: no payroll
           'leaveManagement': true,
-          'analytics': false,
-          'documentManagement': true,
+          'analytics': false, // Basic plan: no analytics
+          'documentManagement': false, // Basic plan: no document management
           'notifications': true,
           'customBranding': false,
           'apiAccess': false,
@@ -104,10 +102,10 @@ class FeatureService {
       return {
         'features': {
           'attendance': true,
-          'payroll': true,
+          'payroll': false, // Basic plan: no payroll
           'leaveManagement': true,
-          'analytics': false,
-          'documentManagement': true,
+          'analytics': false, // Basic plan: no analytics
+          'documentManagement': false, // Basic plan: no document management
           'notifications': true,
           'customBranding': false,
           'apiAccess': false,

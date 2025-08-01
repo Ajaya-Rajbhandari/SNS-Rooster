@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../services/global_notification_service.dart';
 import '../../providers/auth_provider.dart' as local_auth;
 import 'package:http/http.dart' as http;
 import 'dart:convert' as convert;
@@ -43,8 +42,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       _isLoading = true;
     });
 
-    final notificationService =
-        Provider.of<GlobalNotificationService>(context, listen: false);
     final authProvider =
         Provider.of<local_auth.AuthProvider>(context, listen: false);
 
@@ -188,7 +185,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           title: const Text('Forgot Password'),
           backgroundColor: theme.colorScheme.primary,
-          foregroundColor: Colors.white,
+          foregroundColor: theme.colorScheme.onPrimary,
         ),
         body: Center(
           child: SingleChildScrollView(

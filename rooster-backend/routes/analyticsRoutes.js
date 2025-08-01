@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
-const { validateCompanyContext, validateUserCompanyAccess } = require('../middleware/companyContext');
+const { validateCompanyContext, validateUserCompanyAccess, requireFeature } = require('../middleware/companyContext');
 const analyticsController = require('../controllers/analytics-controller');
 
 // Employee Analytics endpoints
@@ -24,21 +24,27 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
-router.get('/summary', authenticateToken, validateCompanyContext, validateUserCompanyAccess, adminOnly, analyticsController.getSummary);
+// New leave approval status endpoint for admin analytics
+router.get('/admin/leave-approval-status', authenticateToken, validateCompanyContext, validateUserCompanyAccess, adminOnly, requireFeature('analytics'), analyticsController.getLeaveApprovalStatus);
+
+// New leave export endpoint
+router.get('/admin/leave-export', authenticateToken, validateCompanyContext, validateUserCompanyAccess, adminOnly, requireFeature('analytics'), analyticsController.exportLeaveData);
+
+router.get('/summary', authenticateToken, validateCompanyContext, validateUserCompanyAccess, adminOnly, requireFeature('analytics'), analyticsController.getSummary);
 
 // Admin leave types breakdown (after adminOnly defined)
-router.get('/admin/leave-types-breakdown', authenticateToken, validateCompanyContext, validateUserCompanyAccess, adminOnly, analyticsController.getLeaveTypesBreakdownAdmin);
-router.get('/admin/monthly-hours-trend', authenticateToken, validateCompanyContext, validateUserCompanyAccess, adminOnly, analyticsController.getMonthlyHoursTrendAdmin);
+router.get('/admin/leave-types-breakdown', authenticateToken, validateCompanyContext, validateUserCompanyAccess, adminOnly, requireFeature('analytics'), analyticsController.getLeaveTypesBreakdownAdmin);
+router.get('/admin/monthly-hours-trend', authenticateToken, validateCompanyContext, validateUserCompanyAccess, adminOnly, requireFeature('analytics'), analyticsController.getMonthlyHoursTrendAdmin);
 
 // Payroll analytics
-router.get('/admin/payroll-trend', authenticateToken, validateCompanyContext, validateUserCompanyAccess, adminOnly, analyticsController.getPayrollTrendAdmin);
-router.get('/admin/payroll-deductions-breakdown', authenticateToken, validateCompanyContext, validateUserCompanyAccess, adminOnly, analyticsController.getPayrollDeductionsBreakdownAdmin);
+router.get('/admin/payroll-trend', authenticateToken, validateCompanyContext, validateUserCompanyAccess, adminOnly, requireFeature('analytics'), analyticsController.getPayrollTrendAdmin);
+router.get('/admin/payroll-deductions-breakdown', authenticateToken, validateCompanyContext, validateUserCompanyAccess, adminOnly, requireFeature('analytics'), analyticsController.getPayrollDeductionsBreakdownAdmin);
 
 // Report generation
-router.get('/admin/generate-report', authenticateToken, validateCompanyContext, validateUserCompanyAccess, adminOnly, analyticsController.generateReport);
+router.get('/admin/generate-report', authenticateToken, validateCompanyContext, validateUserCompanyAccess, adminOnly, requireFeature('analytics'), analyticsController.generateReport);
 
 // Add endpoint for all active employees and admins (for Total Employees modal)
-router.get('/admin/active-users', authenticateToken, validateCompanyContext, validateUserCompanyAccess, analyticsController.getActiveUsersList);
+router.get('/admin/active-users', authenticateToken, validateCompanyContext, validateUserCompanyAccess, requireFeature('analytics'), analyticsController.getActiveUsersList);
 
 // Advanced Reporting endpoints
 router.get('/advanced-report', authenticateToken, validateCompanyContext, validateUserCompanyAccess, async (req, res) => {

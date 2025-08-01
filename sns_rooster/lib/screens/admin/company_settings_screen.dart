@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/widgets/admin_side_navigation.dart';
 import 'package:sns_rooster/widgets/company_details_widget.dart';
-import 'package:sns_rooster/widgets/company_info_widget.dart';
 import 'package:sns_rooster/widgets/company_usage_widget.dart';
+import 'package:sns_rooster/widgets/modern_card_widget.dart';
 import 'edit_company_form_screen.dart';
 import 'package:sns_rooster/providers/company_settings_provider.dart';
 
@@ -65,7 +65,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen>
                     controller: _tabController,
                     labelColor: colorScheme.primary,
                     unselectedLabelColor:
-                        colorScheme.onSurface.withOpacity(0.7),
+                        colorScheme.onSurface.withValues(alpha: 0.7),
                     indicatorColor: colorScheme.primary,
                     tabs: const [
                       Tab(text: 'Company Info'),
@@ -110,7 +110,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen>
           Text(
             'Manage your company details, contact information, and branding.',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurface.withOpacity(0.7),
+              color: colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 24),
@@ -172,7 +172,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen>
           Text(
             'View your current plan, usage statistics, and available features.',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurface.withOpacity(0.7),
+              color: colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 24),
@@ -209,79 +209,40 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen>
           const SizedBox(height: 24),
 
           // Billing Information Card
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.payment,
-                        color: colorScheme.primary,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Billing Information',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Manage your billing details, payment methods, and subscription settings.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurface.withOpacity(0.7),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          // TODO: Navigate to billing settings
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Billing settings coming soon...'),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.payment),
-                        label: const Text('Billing Settings'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: colorScheme.onPrimary,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          // TODO: Navigate to plan upgrade/downgrade
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Plan management coming soon...'),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.upgrade),
-                        label: const Text('Change Plan'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+          SettingsCard(
+            icon: Icons.payment,
+            title: 'Billing Information',
+            description:
+                'Manage your billing details, payment methods, and subscription settings.',
+            actionText: 'Billing Settings',
+            onAction: () {
+              // TODO: Navigate to billing settings
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Billing settings coming soon...'),
+                ),
+              );
+            },
+            accentColor: colorScheme.primary,
+          ),
+
+          const SizedBox(height: 16),
+
+          SettingsCard(
+            icon: Icons.upgrade,
+            title: 'Plan Management',
+            description:
+                'Upgrade, downgrade, or change your subscription plan.',
+            actionText: 'Change Plan',
+            onAction: () {
+              // TODO: Navigate to plan upgrade/downgrade
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Plan management coming soon...'),
+                ),
+              );
+            },
+            accentColor: colorScheme.secondary,
           ),
         ],
       ),
@@ -305,15 +266,13 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen>
           Text(
             'Configure company settings, preferences, and system options.',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurface.withOpacity(0.7),
+              color: colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 24),
 
           // Settings Cards
-          _buildSettingsCard(
-            theme,
-            colorScheme,
+          SettingsCard(
             icon: Icons.work,
             title: 'Work Settings',
             description:
@@ -326,13 +285,12 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen>
                 ),
               );
             },
+            accentColor: colorScheme.primary,
           ),
 
           const SizedBox(height: 16),
 
-          _buildSettingsCard(
-            theme,
-            colorScheme,
+          SettingsCard(
             icon: Icons.notifications,
             title: 'Notification Settings',
             description:
@@ -345,13 +303,12 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen>
                 ),
               );
             },
+            accentColor: colorScheme.secondary,
           ),
 
           const SizedBox(height: 16),
 
-          _buildSettingsCard(
-            theme,
-            colorScheme,
+          SettingsCard(
             icon: Icons.security,
             title: 'Security Settings',
             description:
@@ -364,13 +321,12 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen>
                 ),
               );
             },
+            accentColor: colorScheme.tertiary,
           ),
 
           const SizedBox(height: 16),
 
-          _buildSettingsCard(
-            theme,
-            colorScheme,
+          SettingsCard(
             icon: Icons.integration_instructions,
             title: 'Integrations',
             description:
@@ -383,67 +339,9 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen>
                 ),
               );
             },
+            accentColor: colorScheme.error,
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSettingsCard(
-    ThemeData theme,
-    ColorScheme colorScheme, {
-    required IconData icon,
-    required String title,
-    required String description,
-    required String actionText,
-    required VoidCallback onAction,
-  }) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: colorScheme.primary,
-              size: 32,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurface.withOpacity(0.7),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            ElevatedButton(
-              onPressed: onAction,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-                foregroundColor: colorScheme.onPrimary,
-              ),
-              child: Text(actionText),
-            ),
-          ],
-        ),
       ),
     );
   }

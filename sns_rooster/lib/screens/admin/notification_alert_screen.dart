@@ -189,7 +189,8 @@ class _NotificationAlertScreenState extends State<NotificationAlertScreen> {
                         },
                         child: Card(
                           color: isUnread
-                              ? theme.colorScheme.primary.withOpacity(0.08)
+                              ? theme.colorScheme.primary
+                                  .withValues(alpha: 0.08)
                               : theme.colorScheme.surface,
                           elevation: isUnread ? 4 : 2,
                           child: ListTile(
@@ -222,7 +223,7 @@ class _NotificationAlertScreenState extends State<NotificationAlertScreen> {
                                       : '',
                                   style: theme.textTheme.bodySmall?.copyWith(
                                       color: theme.colorScheme.onSurface
-                                          .withOpacity(0.6)),
+                                          .withValues(alpha: 0.6)),
                                 ),
                               ],
                             ),

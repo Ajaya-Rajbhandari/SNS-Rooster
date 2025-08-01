@@ -311,7 +311,7 @@ class _SimpleMapPickerState extends State<SimpleMapPicker> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -338,7 +338,7 @@ class _SimpleMapPickerState extends State<SimpleMapPicker> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -492,7 +492,7 @@ class _SimpleMapPickerState extends State<SimpleMapPicker> {
                                                     const EdgeInsets.all(8),
                                                 decoration: BoxDecoration(
                                                   color: Colors.blue
-                                                      .withOpacity(0.1),
+                                                      .withValues(alpha: 0.1),
                                                   borderRadius:
                                                       BorderRadius.circular(8),
                                                 ),
@@ -615,7 +615,7 @@ class _SimpleMapPickerState extends State<SimpleMapPicker> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('25m'),
+                              const Text('25m'),
                               Text(
                                 '${_radius.round()}m',
                                 style: const TextStyle(
@@ -623,7 +623,7 @@ class _SimpleMapPickerState extends State<SimpleMapPicker> {
                                   color: Colors.blue,
                                 ),
                               ),
-                              Text('1000m'),
+                              const Text('1000m'),
                             ],
                           ),
                         ],

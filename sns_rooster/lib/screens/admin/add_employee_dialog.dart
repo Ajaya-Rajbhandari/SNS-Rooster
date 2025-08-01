@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:sns_rooster/services/employee_service.dart';
 import 'package:sns_rooster/models/user_model.dart';
 import 'package:sns_rooster/services/user_service.dart';
-import 'package:sns_rooster/services/api_service.dart';
-import 'package:sns_rooster/config/api_config.dart';
-import 'package:sns_rooster/utils/logger.dart';
 
 class AddEmployeeDialog extends StatefulWidget {
   final EmployeeService employeeService;
@@ -27,7 +24,6 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
 
   bool _isLoading = false;
   String? _error;
-  bool _dialogResult = false;
 
   List<Map<String, dynamic>> _employees = [];
 
@@ -69,17 +65,11 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
   String? _selectedPosition;
   String? _selectedDepartment;
 
-  // Location selection variables
-  List<Map<String, dynamic>> _locations = [];
-  String? _selectedLocationId;
-  bool _isLoadingLocations = false;
-
   @override
   void initState() {
     super.initState();
     _fetchUsers();
     _fetchEmployees();
-    _fetchLocations(); // Add location fetching
   }
 
   @override
@@ -101,18 +91,33 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
         await _fetchEmployees();
       }
       final employeeUserIds = _employees.map((e) => e['userId']).toSet();
+
       // Filter: role == 'employee', not already employee, not admin/test in email
-      final filtered = users.where((user) {
+      final filtered = <UserModel>[];
+      for (final user in users) {
         final email = user.email.toLowerCase();
         final username = user.email.split('@').first.toLowerCase();
         final isEmployeeRole = user.role == 'employee';
-        final notAlreadyEmployee = !employeeUserIds.contains(user.id);
+        final notAlreadyEmployeeByUserId = !employeeUserIds.contains(user.id);
         final notAdminOrTest = !email.contains('admin') &&
             !email.contains('test') &&
             !username.contains('admin') &&
             !username.contains('test');
-        return isEmployeeRole && notAlreadyEmployee && notAdminOrTest;
-      }).toList();
+
+        if (isEmployeeRole && notAlreadyEmployeeByUserId && notAdminOrTest) {
+          // Check if email is already used globally
+          try {
+            final emailUsed =
+                await widget.employeeService.isEmailAlreadyUsed(email);
+            if (!emailUsed) {
+              filtered.add(user);
+            }
+          } catch (e) {
+            // If check fails, exclude user to be safe
+            print('Failed to check email $email: $e');
+          }
+        }
+      }
       setState(() {
         _users = filtered;
         _isLoadingUsers = false;
@@ -139,39 +144,6 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
       // Optionally show a warning, but don't block the dialog
       setState(() {
         _employees = [];
-      });
-    }
-  }
-
-  Future<void> _fetchLocations() async {
-    setState(() {
-      _isLoadingLocations = true;
-    });
-
-    try {
-      final apiService = ApiService(baseUrl: ApiConfig.baseUrl);
-      final response = await apiService.get('/locations');
-
-      if (response.success) {
-        setState(() {
-          _locations =
-              List<Map<String, dynamic>>.from(response.data['locations'] ?? []);
-          _isLoadingLocations = false;
-        });
-        Logger.info(
-            'Successfully loaded ${_locations.length} locations for employee assignment');
-      } else {
-        Logger.error('Failed to load locations: ${response.message}');
-        setState(() {
-          _locations = [];
-          _isLoadingLocations = false;
-        });
-      }
-    } catch (e) {
-      Logger.error('Error loading locations: $e');
-      setState(() {
-        _locations = [];
-        _isLoadingLocations = false;
       });
     }
   }
@@ -203,11 +175,31 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
     }
 
     // Extra validation: check if this user is already an employee
-    final alreadyEmployee =
+    final alreadyEmployeeByUserId =
         _employees.any((emp) => emp['userId'] == _selectedUser!.id);
-    if (alreadyEmployee) {
+
+    // Check if email is already used globally
+    bool emailAlreadyUsed = false;
+    try {
+      emailAlreadyUsed =
+          await widget.employeeService.isEmailAlreadyUsed(_selectedUser!.email);
+    } catch (e) {
       setState(() {
-        _error = 'This user is already assigned as an employee.';
+        _error = 'Failed to verify email availability. Please try again.';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    if (alreadyEmployeeByUserId || emailAlreadyUsed) {
+      setState(() {
+        if (alreadyEmployeeByUserId) {
+          _error = 'This user is already assigned as an employee.';
+        } else {
+          _error =
+              'An employee with email "${_selectedUser!.email}" already exists.';
+        }
+        _isLoading = false;
       });
       return;
     }
@@ -229,28 +221,25 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
         'employeeType': _selectedEmployeeType,
         'employeeSubType': _selectedEmployeeSubType,
         'hourlyRate': double.tryParse(_hourlyRateController.text) ?? 0,
-        'locationId': _selectedLocationId, // Add location assignment
       };
 
       await widget.employeeService.addEmployee(newEmployeeData);
 
       if (!mounted) return;
-      _dialogResult = true;
+
+      // Success - close dialog
+      setState(() {
+        _isLoading = false;
+      });
+      Navigator.of(context).pop(true);
     } on Exception catch (e) {
       if (!mounted) return;
+
+      // Error - show error message and keep dialog open
       setState(() {
         _error = 'An error occurred: ${e.toString()}';
+        _isLoading = false;
       });
-      _dialogResult = false;
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop(_dialogResult);
-        }
-      }
     }
   }
 
@@ -437,52 +426,6 @@ class _AddEmployeeDialogState extends State<AddEmployeeDialog> {
                         validator: (value) =>
                             value == null ? 'Please select a department' : null,
                       ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Location Dropdown
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Select Location',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      _isLoadingLocations
-                          ? const Center(child: CircularProgressIndicator())
-                          : _locations.isEmpty
-                              ? const Center(
-                                  child: Text('No locations available'))
-                              : DropdownButtonFormField<String>(
-                                  decoration: const InputDecoration(
-                                    hintText: 'Select location (optional)',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  value: _selectedLocationId,
-                                  items: [
-                                    const DropdownMenuItem<String>(
-                                      value: null,
-                                      child: Text('No location assigned'),
-                                    ),
-                                    ..._locations.map((location) {
-                                      return DropdownMenuItem<String>(
-                                        value: location['_id'] as String,
-                                        child: Text(location['name'] as String),
-                                      );
-                                    }).toList(),
-                                  ],
-                                  onChanged: (String? newValue) {
-                                    setState(() {
-                                      _selectedLocationId = newValue;
-                                    });
-                                  },
-                                ),
                     ],
                   ),
                 ),

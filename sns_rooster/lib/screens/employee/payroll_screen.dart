@@ -137,6 +137,9 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Payroll'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        elevation: 0,
         leading: Builder(
           builder: (BuildContext context) {
             return IconButton(
@@ -448,13 +451,7 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
                                 ),
                                 Chip(
                                   label: Text(
-                                      'Net Pay: ' +
-                                          (slip['netPay'] != null
-                                              ? (slip['netPay'] is num
-                                                  ? slip['netPay']
-                                                      .toStringAsFixed(2)
-                                                  : slip['netPay'].toString())
-                                              : '-'),
+                                      'Net Pay: ${slip['netPay'] != null ? (slip['netPay'] is num ? slip['netPay'].toStringAsFixed(2) : slip['netPay'].toString()) : '-'}',
                                       style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold)),
@@ -472,13 +469,7 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
                                     color: Colors.green[700], size: 22),
                                 const SizedBox(width: 6),
                                 Text(
-                                    'Gross: ' +
-                                        (slip['grossPay'] != null
-                                            ? (slip['grossPay'] is num
-                                                ? slip['grossPay']
-                                                    .toStringAsFixed(2)
-                                                : slip['grossPay'].toString())
-                                            : '-'),
+                                    'Gross: ${slip['grossPay'] != null ? (slip['grossPay'] is num ? slip['grossPay'].toStringAsFixed(2) : slip['grossPay'].toString()) : '-'}',
                                     style:
                                         Theme.of(context).textTheme.bodyMedium),
                                 const SizedBox(width: 16),
@@ -486,13 +477,7 @@ class _PayrollScreenState extends State<PayrollScreen> with RouteAware {
                                     color: Colors.red[700], size: 22),
                                 const SizedBox(width: 6),
                                 Text(
-                                    'Deductions: -' +
-                                        (slip['deductions'] != null
-                                            ? (slip['deductions'] is num
-                                                ? slip['deductions']
-                                                    .toStringAsFixed(2)
-                                                : slip['deductions'].toString())
-                                            : '-'),
+                                    'Deductions: -${slip['deductions'] != null ? (slip['deductions'] is num ? slip['deductions'].toStringAsFixed(2) : slip['deductions'].toString()) : '-'}',
                                     style:
                                         Theme.of(context).textTheme.bodyMedium),
                               ],

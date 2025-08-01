@@ -67,7 +67,6 @@ class _BreakTimeWarningWidgetState extends State<BreakTimeWarningWidget> {
               final breakTypeInfo = await _getBreakTypeInfo(breakTypeId);
               if (breakTypeInfo != null) {
                 final maxDuration = breakTypeInfo['maxDuration'] as int? ?? 60;
-                final warningThreshold = (maxDuration * 0.8).round();
                 final remainingMinutes = maxDuration - currentDuration;
                 final isExceeded = currentDuration >= maxDuration;
 
@@ -129,9 +128,6 @@ class _BreakTimeWarningWidgetState extends State<BreakTimeWarningWidget> {
   Widget build(BuildContext context) {
     if (!_isOnBreak) return const SizedBox.shrink();
 
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     // Determine warning level and colors
     Color backgroundColor;
     Color textColor;
@@ -168,7 +164,7 @@ class _BreakTimeWarningWidgetState extends State<BreakTimeWarningWidget> {
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(8.0),
-        border: Border.all(color: textColor.withOpacity(0.3)),
+        border: Border.all(color: textColor.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -199,7 +195,7 @@ class _BreakTimeWarningWidgetState extends State<BreakTimeWarningWidget> {
                     padding: const EdgeInsets.only(top: 4.0),
                     child: LinearProgressIndicator(
                       value: _currentDuration! / _maxDuration!,
-                      backgroundColor: textColor.withOpacity(0.2),
+                      backgroundColor: textColor.withValues(alpha: 0.2),
                       valueColor: AlwaysStoppedAnimation<Color>(textColor),
                     ),
                   ),

@@ -4,6 +4,69 @@ const { authenticateToken } = require('../middleware/auth');
 const { validateCompanyContext, validateUserCompanyAccess } = require('../middleware/companyContext');
 const notificationController = require('../controllers/notification-controller');
 
+// Simple notification endpoints (for testing)
+router.get('/simple', authenticateToken, async (req, res) => {
+  try {
+    console.log('DEBUG: Simple notifications endpoint hit');
+    console.log('DEBUG: Request user:', req.user);
+    
+    // Get company ID from user or headers
+    const companyId = req.user?.companyId || req.headers['x-company-id'];
+    
+    console.log('DEBUG: Company ID:', companyId);
+    
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Company ID required. Please provide x-company-id header or ensure user has companyId'
+      });
+    }
+
+    // Add company ID to request
+    req.companyId = companyId;
+    req.company = { _id: companyId };
+    
+    console.log('DEBUG: Calling getNotifications with companyId:', req.companyId);
+    const result = await notificationController.getNotifications(req, res);
+  } catch (error) {
+    console.error('DEBUG: Error in simple notifications endpoint:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching notifications',
+      error: error.message
+    });
+  }
+});
+
+router.get('/simple/unread-count', authenticateToken, async (req, res) => {
+  try {
+    console.log('DEBUG: Simple unread count endpoint hit');
+    
+    // Get company ID from user or headers
+    const companyId = req.user?.companyId || req.headers['x-company-id'];
+    
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Company ID required. Please provide x-company-id header or ensure user has companyId'
+      });
+    }
+
+    // Add company ID to request
+    req.companyId = companyId;
+    req.company = { _id: companyId };
+    
+    const result = await notificationController.getUnreadCount(req, res);
+  } catch (error) {
+    console.error('DEBUG: Error in simple unread count endpoint:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching unread count',
+      error: error.message
+    });
+  }
+});
+
 // Create a notification (admin/system)
 router.post('/', authenticateToken, notificationController.createNotification);
 

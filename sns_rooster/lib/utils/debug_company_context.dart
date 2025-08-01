@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../services/secure_storage_service.dart';
 import '../services/api_service.dart';
 import '../config/api_config.dart';
-import '../providers/auth_provider.dart';
 
 class DebugCompanyContext {
   static Future<void> debugCompanyContext() async {

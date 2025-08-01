@@ -9,8 +9,6 @@ import 'package:http/io_client.dart';
 class FirebaseStorageService {
   static final FirebaseStorage _storage = FirebaseStorage.instance;
   static const String _companyLogosPath = 'company';
-  static const String _avatarsPath = 'avatars';
-  static const String _documentsPath = 'documents';
 
   /// Initialize Firebase Auth for anonymous access
   static Future<void> _initializeAuth() async {

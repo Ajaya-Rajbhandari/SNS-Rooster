@@ -152,31 +152,41 @@ class CompanyInfoService {
 
         // Convert features object to list of feature names
         final featureList = <String>[];
-        if (features['attendance'] == true)
+        if (features['attendance'] == true) {
           featureList.add('Attendance Tracking');
+        }
         if (features['payroll'] == true) featureList.add('Payroll Management');
-        if (features['leaveManagement'] == true)
+        if (features['leaveManagement'] == true) {
           featureList.add('Leave Management');
+        }
         if (features['analytics'] == true) featureList.add('Analytics');
-        if (features['documentManagement'] == true)
+        if (features['documentManagement'] == true) {
           featureList.add('Document Management');
+        }
         if (features['notifications'] == true) featureList.add('Notifications');
-        if (features['customBranding'] == true)
+        if (features['customBranding'] == true) {
           featureList.add('Custom Branding');
+        }
         if (features['apiAccess'] == true) featureList.add('API Access');
-        if (features['multiLocation'] == true)
+        if (features['multiLocation'] == true) {
           featureList.add('Multi-Location');
-        if (features['advancedReporting'] == true)
+        }
+        if (features['advancedReporting'] == true) {
           featureList.add('Advanced Reporting');
+        }
         if (features['timeTracking'] == true) featureList.add('Time Tracking');
-        if (features['expenseManagement'] == true)
+        if (features['expenseManagement'] == true) {
           featureList.add('Expense Management');
-        if (features['performanceReviews'] == true)
+        }
+        if (features['performanceReviews'] == true) {
           featureList.add('Performance Reviews');
-        if (features['trainingManagement'] == true)
+        }
+        if (features['trainingManagement'] == true) {
           featureList.add('Training Management');
-        if (features['locationBasedAttendance'] == true)
+        }
+        if (features['locationBasedAttendance'] == true) {
           featureList.add('Location-Based Attendance');
+        }
 
         return {
           'plan': subscriptionPlan['name'] ?? 'Enterprise',
@@ -187,74 +197,41 @@ class CompanyInfoService {
       } else if (response.statusCode == 403) {
         // Return default subscription data for 403 errors
         return {
-          'plan': 'Enterprise',
+          'plan': 'Basic',
           'status': 'ACTIVE',
-          'support': 'Priority',
+          'support': 'Standard',
           'features': [
             'Attendance Tracking',
-            'Payroll Management',
             'Leave Management',
-            'Analytics',
-            'Document Management',
             'Notifications',
-            'Custom Branding',
-            'API Access',
-            'Multi-Location',
-            'Advanced Reporting',
             'Time Tracking',
-            'Expense Management',
-            'Performance Reviews',
-            'Training Management',
-            'Location-Based Attendance',
           ],
         };
       } else {
         // Return default subscription data if endpoint not available
         return {
-          'plan': 'Enterprise',
+          'plan': 'Basic',
           'status': 'ACTIVE',
-          'support': 'Priority',
+          'support': 'Standard',
           'features': [
             'Attendance Tracking',
-            'Payroll Management',
             'Leave Management',
-            'Analytics',
-            'Document Management',
             'Notifications',
-            'Custom Branding',
-            'API Access',
-            'Multi-Location',
-            'Advanced Reporting',
             'Time Tracking',
-            'Expense Management',
-            'Performance Reviews',
-            'Training Management',
-            'Location-Based Attendance',
           ],
         };
       }
     } catch (e) {
       // Return default subscription data on error
       return {
-        'plan': 'Enterprise',
+        'plan': 'Basic',
         'status': 'ACTIVE',
-        'support': 'Priority',
+        'support': 'Standard',
         'features': [
           'Attendance Tracking',
-          'Payroll Management',
           'Leave Management',
-          'Analytics',
-          'Document Management',
           'Notifications',
-          'Custom Branding',
-          'API Access',
-          'Multi-Location',
-          'Advanced Reporting',
           'Time Tracking',
-          'Expense Management',
-          'Performance Reviews',
-          'Training Management',
-          'Location-Based Attendance',
         ],
       };
     }

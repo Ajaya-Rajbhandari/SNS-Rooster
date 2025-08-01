@@ -42,4 +42,11 @@ class NotificationProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<void> refreshUnreadCount() async {
+    try {
+      _unreadCount = await notificationService.getUnreadCount();
+      notifyListeners();
+    } catch (_) {}
+  }
 }

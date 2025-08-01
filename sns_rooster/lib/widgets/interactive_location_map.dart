@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
-import 'dart:ui' as ui;
 import 'dart:async';
 
 class GridPainter extends CustomPainter {
@@ -88,9 +86,7 @@ class _InteractiveLocationMapState extends State<InteractiveLocationMap> {
       }
 
       // If still no center location, use default
-      if (_centerLocation == null) {
-        _centerLocation = const LatLng(-33.8688, 151.2093); // Sydney
-      }
+      _centerLocation ??= const LatLng(-33.8688, 151.2093);
     } catch (e) {
       // Use default location if everything fails
       _centerLocation = const LatLng(-33.8688, 151.2093);
@@ -157,7 +153,7 @@ class _InteractiveLocationMapState extends State<InteractiveLocationMap> {
                   border: Border.all(color: Colors.white, width: 2),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: const Offset(0, 3),
                     ),
@@ -300,7 +296,7 @@ class _InteractiveLocationMapState extends State<InteractiveLocationMap> {
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -328,7 +324,7 @@ class _InteractiveLocationMapState extends State<InteractiveLocationMap> {
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -367,7 +363,7 @@ class _InteractiveLocationMapState extends State<InteractiveLocationMap> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),

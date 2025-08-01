@@ -597,12 +597,48 @@ exports.getSummary = async (req, res) => {
       avgCheckIn = new Date(avgMs);
     }
 
+    // Calculate leave-specific metrics
+    let totalLeaveDays = 0;
+    let leaveApprovalRate = 0;
+
+    try {
+      // Get leave records for the date range
+      const leaves = await Leave.find({
+        startDate: { $lte: end },
+        endDate: { $gte: start },
+        companyId: req.companyId
+      }).lean();
+
+      // Calculate total leave days
+      leaves.forEach(leave => {
+        const startDate = new Date(leave.startDate);
+        const endDate = new Date(leave.endDate);
+        const duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+        totalLeaveDays += duration;
+      });
+
+      // Calculate leave approval rate
+      const totalLeaves = leaves.length;
+      const approvedLeaves = leaves.filter(leave => 
+        leave.status && leave.status.toLowerCase() === 'approved'
+      ).length;
+      leaveApprovalRate = totalLeaves > 0 ? +((approvedLeaves / totalLeaves) * 100).toFixed(1) : 0;
+
+    } catch (leaveError) {
+      console.error('Error calculating leave metrics:', leaveError);
+      // Use default values if leave calculation fails
+      totalLeaveDays = 0;
+      leaveApprovalRate = 0;
+    }
+
     res.json({
       summary: {
         totalHours,
         overtimeHours,
         absenceRate,
         avgCheckIn: avgCheckIn ? avgCheckIn.toISOString() : null,
+        totalLeaveDays,
+        leaveApprovalRate,
       },
     });
   } catch (err) {
@@ -1101,3 +1137,200 @@ async function generatePDFContent(doc, data) {
   // Footer
   doc.fontSize(10).text(`Report generated on ${new Date().toDateString()}`, { align: 'center' });
 } 
+
+// GET /analytics/admin/leave-approval-status
+exports.getLeaveApprovalStatus = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    // Build date filter
+    let dateFilter = {};
+    if (startDate && endDate) {
+      dateFilter = {
+        appliedAt: {
+          $gte: new Date(startDate),
+          $lte: new Date(endDate)
+        }
+      };
+    }
+
+    // Get leave approval status statistics
+    const leaveStats = await Leave.aggregate([
+      {
+        $match: {
+          companyId: req.companyId,
+          ...dateFilter
+        }
+      },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Convert to the format expected by frontend
+    const result = {};
+    leaveStats.forEach(stat => {
+      result[stat._id] = stat.count;
+    });
+
+    // Ensure all statuses are present (even if 0)
+    if (!result['Approved']) result['Approved'] = 0;
+    if (!result['Pending']) result['Pending'] = 0;
+    if (!result['Rejected']) result['Rejected'] = 0;
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching leave approval status:', error);
+    res.status(500).json({ 
+      message: 'Error fetching leave approval status',
+      error: error.message 
+    });
+  }
+};
+
+// GET /analytics/admin/leave-export
+exports.exportLeaveData = async (req, res) => {
+  try {
+    const { format = 'csv', startDate, endDate, status, leaveType, department } = req.query;
+    
+    // Build filters
+    const filters = {
+      companyId: req.companyId
+    };
+
+    if (startDate && endDate) {
+      filters.appliedAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    if (status && status !== 'all') {
+      filters.status = status;
+    }
+
+    if (leaveType && leaveType !== 'all') {
+      filters.leaveType = leaveType;
+    }
+
+    // Get leave data with employee/user information
+    let leaves = await Leave.find(filters)
+      .populate('employee', 'firstName lastName department')
+      .populate('user', 'firstName lastName')
+      .sort({ appliedAt: -1 });
+
+    // Apply department filter if specified
+    if (department && department !== 'all') {
+      leaves = leaves.filter(leave => {
+        if (leave.employee) {
+          return leave.employee.department === department;
+        }
+        return department === 'Administration'; // Admin leaves
+      });
+    }
+
+    // Transform data for export
+    const exportData = leaves.map(leave => {
+      const employeeName = leave.employee 
+        ? `${leave.employee.firstName || ''} ${leave.employee.lastName || ''}`.trim()
+        : leave.user 
+          ? `${leave.user.firstName || ''} ${leave.user.lastName || ''}`.trim()
+          : 'Unknown';
+      
+      const department = leave.employee?.department || 'Administration';
+      const role = leave.employee ? 'Employee' : 'Admin';
+      
+      const startDate = new Date(leave.startDate);
+      const endDate = new Date(leave.endDate);
+      const duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
+      return {
+        'Employee Name': employeeName,
+        'Department': department,
+        'Role': role,
+        'Leave Type': leave.leaveType,
+        'Start Date': startDate.toLocaleDateString(),
+        'End Date': endDate.toLocaleDateString(),
+        'Duration (Days)': duration,
+        'Half Day': leave.isHalfDay ? 'Yes' : 'No',
+        'Reason': leave.reason || '',
+        'Status': leave.status,
+        'Applied Date': new Date(leave.appliedAt).toLocaleDateString(),
+        'Approved Date': leave.approvedAt ? new Date(leave.approvedAt).toLocaleDateString() : '',
+        'Approved By': leave.approvedBy || ''
+      };
+    });
+
+    // Generate filename
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `leave_export_${timestamp}`;
+
+    // Export based on format
+    switch (format.toLowerCase()) {
+      case 'csv':
+        // Create CSV content directly without writing to file
+        const csvHeader = Object.keys(exportData[0] || {}).join(',');
+        const csvRows = exportData.map(row => 
+          Object.values(row).map(value => 
+            typeof value === 'string' && value.includes(',') ? `"${value}"` : value
+          ).join(',')
+        );
+        const csvContent = [csvHeader, ...csvRows].join('\n');
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.csv"`);
+        res.send(csvContent);
+        break;
+
+      case 'excel':
+        const ExcelJS = require('exceljs');
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Leave Data');
+
+        // Add headers
+        if (exportData.length > 0) {
+          worksheet.columns = Object.keys(exportData[0]).map(key => ({
+            header: key,
+            key: key,
+            width: 15
+          }));
+        }
+
+        // Add data
+        worksheet.addRows(exportData);
+
+        // Style headers
+        worksheet.getRow(1).font = { bold: true };
+        worksheet.getRow(1).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE0E0E0' }
+        };
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
+        
+        await workbook.xlsx.write(res);
+        break;
+
+      case 'json':
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}.json"`);
+        res.json(exportData);
+        break;
+
+      default:
+        res.status(400).json({ error: 'Unsupported format. Use csv, excel, or json.' });
+    }
+
+  } catch (error) {
+    console.error('Error exporting leave data:', error);
+    res.status(500).json({ 
+      message: 'Error exporting leave data',
+      error: error.message 
+    });
+  }
+}; 

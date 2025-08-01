@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:map_launcher/map_launcher.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class LocationListItem extends StatelessWidget {
   final Map<String, dynamic> location;
@@ -22,7 +20,6 @@ class LocationListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final coordinates = location['coordinates'] ?? {};
     final address = location['address'] ?? {};
     final settings = location['settings'] ?? {};
     final contactInfo = location['contactInfo'] ?? {};
@@ -45,8 +42,8 @@ class LocationListItem extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: isSelected
-                ? Colors.blue.withOpacity(0.1)
-                : Colors.black.withOpacity(0.05),
+                ? Colors.blue.withValues(alpha: 0.1)
+                : Colors.black.withValues(alpha: 0.05),
             blurRadius: isSelected ? 15 : 10,
             offset: const Offset(0, 4),
           ),
@@ -92,7 +89,7 @@ class LocationListItem extends StatelessWidget {
                                 color: (location['status'] == 'active'
                                         ? Colors.green
                                         : Colors.grey)
-                                    .withOpacity(0.3),
+                                    .withValues(alpha: 0.3),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),
@@ -144,7 +141,7 @@ class LocationListItem extends StatelessWidget {
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.blue.withOpacity(0.3),
+                                color: Colors.blue.withValues(alpha: 0.3),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -367,9 +364,9 @@ class LocationListItem extends StatelessWidget {
     return Container(
       height: 44,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Material(
         color: Colors.transparent,
@@ -409,16 +406,16 @@ class LocationListItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: iconColor.withOpacity(0.1),
+        color: iconColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: iconColor.withOpacity(0.2)),
+        border: Border.all(color: iconColor.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.2),
+              color: iconColor.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(

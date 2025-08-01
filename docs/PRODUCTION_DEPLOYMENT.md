@@ -38,18 +38,27 @@ LOG_LEVEL=error
 
 ## Deployment Steps
 
-### Step 1: Clean Up Debug Logs
-Before deploying to production, clean up debug logs:
 
+### Step 1: Clean Up Debug and TODO Code
+Before deploying to production, ensure all debug code and TODOs are addressed:
+
+#### Backend (Node.js/Express)
+- Remove or comment out all `console.log` and debug statements from the codebase, especially in `rooster-backend/app.js` and related files.
+- Remove any development-only logging.
+- Keep only essential error and warning logs.
+
+#### Frontend (Flutter)
+- Review all TODOs in build files (e.g., `android/app/build.gradle.kts`).
+- Specify a unique Application ID and add a proper signing config for release builds.
+- Ensure no debug or placeholder code remains in production builds.
+
+#### Automation
 ```bash
 cd rooster-backend
 npm run cleanup-logs
 ```
 
-This will:
-- Comment out debug console.log statements
-- Remove development-only logging
-- Keep essential error and warning logs
+This script will help comment out debug console.log statements in the backend.
 
 ### Step 2: Install Dependencies
 ```bash

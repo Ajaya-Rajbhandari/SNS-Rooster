@@ -77,7 +77,7 @@ class _WebMapPickerState extends State<WebMapPicker> {
       
       const overlay = document.createElement('div');
       overlay.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 1000;';
-      overlay.innerHTML = \`
+      overlay.innerHTML = `
         <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
           <h3 style="margin: 0 0 10px 0;">Interactive Map</h3>
           <p style="margin: 0 0 15px 0; color: #666;">Click anywhere on the map to select a location</p>
@@ -86,15 +86,15 @@ class _WebMapPickerState extends State<WebMapPicker> {
             <button onclick="window.flutter_inappwebview.callHandler('locationSelected', $lat, $lng)" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Confirm</button>
           </div>
         </div>
-      \`;
+      `;
       
       const coordinates = document.createElement('div');
       coordinates.style.cssText = 'position: absolute; bottom: 20px; left: 20px; background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 4px; font-family: monospace;';
-      coordinates.textContent = \`Lat: \${$lat.toFixed(6)} | Lng: \${$lng.toFixed(6)}\`;
+      coordinates.textContent = `Lat: \${$lat.toFixed(6)} | Lng: \${$lng.toFixed(6)}`;
       
       const radius = document.createElement('div');
       radius.style.cssText = 'position: absolute; bottom: 20px; right: 20px; background: rgba(0,123,255,0.8); color: white; padding: 10px; border-radius: 4px;';
-      radius.textContent = \`Radius: \${$_radius}m\`;
+      radius.textContent = `Radius: \${$_radius}m`;
       
       mapDiv.appendChild(overlay);
       mapDiv.appendChild(coordinates);
@@ -111,7 +111,7 @@ class _WebMapPickerState extends State<WebMapPicker> {
           const lat = $lat + (y - rect.height/2) * 0.001;
           const lng = $lng + (x - rect.width/2) * 0.001;
           
-          coordinates.textContent = \`Lat: \${lat.toFixed(6)} | Lng: \${lng.toFixed(6)}\`;
+          coordinates.textContent = `Lat: \${lat.toFixed(6)} | Lng: \${lng.toFixed(6)}`;
           window.flutter_inappwebview.callHandler('locationSelected', lat, lng);
         }
       });
@@ -120,7 +120,7 @@ class _WebMapPickerState extends State<WebMapPicker> {
       document.body.appendChild(container);
       
       function selectLocation(lat, lng) {
-        coordinates.textContent = \`Lat: \${lat.toFixed(6)} | Lng: \${lng.toFixed(6)}\`;
+        coordinates.textContent = `Lat: \${lat.toFixed(6)} | Lng: \${lng.toFixed(6)}`;
         window.flutter_inappwebview.callHandler('locationSelected', lat, lng);
       }
     ''';

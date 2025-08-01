@@ -21,15 +21,10 @@ import {
   Subscriptions as SubscriptionsIcon,
   TrendingUp as TrendingUpIcon,
   Notifications as NotificationsIcon,
-  CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon,
   ArrowForward as ArrowForwardIcon
 } from '@mui/icons-material';
-import Layout from '../components/Layout';
 import StatCard from '../components/dashboard/StatCard';
 import cachedApiService from '../services/cachedApiService';
-import { useCache } from '../contexts/CacheContext';
-import CacheStatsWidget from '../components/CacheStatsWidget';
 
 interface DashboardStats {
   totalCompanies: number;
@@ -62,7 +57,6 @@ const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { stats: cacheStats } = useCache();
 
   useEffect(() => {
     fetchDashboardData();

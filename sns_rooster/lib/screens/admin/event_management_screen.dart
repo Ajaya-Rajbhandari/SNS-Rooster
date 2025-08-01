@@ -102,7 +102,6 @@ class _EventManagementScreenState extends State<EventManagementScreen> {
 
   Widget _buildEventCard(Map<String, dynamic> event) {
     final startDate = DateTime.parse(event['startDate']);
-    final endDate = DateTime.parse(event['endDate']);
     final organizer = event['organizer'] as Map<String, dynamic>?;
     final organizerName = organizer != null
         ? '${organizer['firstName'] ?? ''} ${organizer['lastName'] ?? ''}'
@@ -195,9 +194,9 @@ class _EventManagementScreenState extends State<EventManagementScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         text,

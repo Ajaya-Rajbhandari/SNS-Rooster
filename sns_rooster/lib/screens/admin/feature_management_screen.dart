@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart'; // Add this import
+// Add this import
 import '../../providers/feature_provider.dart';
-import '../../widgets/feature_lock_widget.dart';
 import '../../widgets/admin_side_navigation.dart'; // Make sure this is here
-import '../../config/api_config.dart'; // Add this import
+// Add this import
 
 class FeatureManagementScreen extends StatefulWidget {
   const FeatureManagementScreen({Key? key}) : super(key: key);
@@ -678,7 +677,7 @@ class _FeatureManagementScreenState extends State<FeatureManagementScreen>
                             padding: const EdgeInsets.only(bottom: 4),
                             child: Row(
                               children: [
-                                Icon(Icons.check,
+                                const Icon(Icons.check,
                                     color: Colors.green, size: 16),
                                 const SizedBox(width: 8),
                                 Expanded(child: Text(feature)),

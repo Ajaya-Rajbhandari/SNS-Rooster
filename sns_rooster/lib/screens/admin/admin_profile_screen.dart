@@ -324,7 +324,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
           end: Alignment.bottomRight,
           colors: [
             theme.colorScheme.primary,
-            theme.colorScheme.primary.withOpacity(0.8),
+            theme.colorScheme.primary.withValues(alpha: 0.8),
           ],
         ),
         borderRadius: const BorderRadius.only(
@@ -407,7 +407,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -569,7 +569,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                         onPressed: null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor:
-                              theme.colorScheme.primary.withOpacity(0.5),
+                              theme.colorScheme.primary.withValues(alpha: 0.5),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),

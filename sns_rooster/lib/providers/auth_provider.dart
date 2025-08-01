@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import '../providers/profile_provider.dart';
 import '../config/api_config.dart';
@@ -17,10 +16,7 @@ import '../providers/company_provider.dart';
 import '../services/fcm_service.dart';
 import '../providers/company_settings_provider.dart';
 import '../providers/feature_provider.dart';
-import '../models/user_model.dart';
-import '../services/cached_api_service.dart';
 import '../services/cache_service.dart';
-import '../models/employee.dart';
 
 class AuthProvider with ChangeNotifier {
   String? _token;
@@ -125,28 +121,21 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> checkAuthStatus() async {
     log('AUTH_CHECK: Starting authentication status check...');
-    log('AUTH_CHECK: Current state - isAuthenticated: $isAuthenticated, token exists: ${_token != null}, user exists: ${_user != null}');
-
-    if (_token == null) {
-      log('AUTH_CHECK: No token found, clearing user and returning.');
-      _user = null;
-      notifyListeners();
-      return;
-    }
-
-    if (isTokenExpired()) {
-      log('AUTH_CHECK: Token is expired, logging out.');
-      await logout();
-      return;
-    }
 
     try {
+      // Check if we have a stored token
+      if (_authToken == null) {
+        log('AUTH_CHECK: No stored token found');
+        await logout();
+        return;
+      }
+
       log('AUTH_CHECK: Verifying token with server...');
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/auth/me'),
+        Uri.parse('${ApiConfig.baseUrl}/auth/verify'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_token',
+          'Authorization': 'Bearer $_authToken',
         },
       );
 
@@ -160,6 +149,12 @@ class AuthProvider with ChangeNotifier {
 
         // Send FCM token to backend after successful auth verification
         await _saveFCMTokenToBackend();
+
+        // Also try to save token to database via FCM service
+        if (_authToken != null && _user != null) {
+          Logger.info('AUTH: User authenticated, attempting to save FCM token');
+          await FCMService().saveTokenToDatabase(_authToken!, _user!['_id']);
+        }
 
         notifyListeners();
       } else {
@@ -219,6 +214,8 @@ class AuthProvider with ChangeNotifier {
 
   Future<bool> login(String email, String password, {String? companyId}) async {
     log('LOGIN_DEBUG: Starting login for email: $email, companyId: $companyId');
+    log('LOGIN_DEBUG: Previous user data - Token: ${_token != null}, User: ${_user?['firstName']} ${_user?['lastName']}');
+
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -254,7 +251,7 @@ class AuthProvider with ChangeNotifier {
         _token = _authToken; // Assign to _token for consistency
         log('LOGIN_DEBUG: Token received: _authToken');
         _user = data['user'];
-        log('LOGIN_DEBUG: User data received: _user');
+        log('LOGIN_DEBUG: User data received: ${_user?['firstName']} ${_user?['lastName']}');
         log('LOGIN_DEBUG: Backend token field: ${data['token']}');
         log('LOGIN_DEBUG: Token received from backend response: _authToken');
 
@@ -274,10 +271,16 @@ class AuthProvider with ChangeNotifier {
           password: password,
           rememberMe: _rememberMe,
         );
+
+        // Force refresh all providers to prevent data mixing between users
+        await _forceRefreshAllProviders();
+
+        // Clear image cache to prevent showing previous user's avatars
+        await _clearImageCache();
         // --- Ensure profile is refreshed after login ---
         if (_profileProvider != null) {
-          log('LOGIN_DEBUG: Refreshing profile after login');
-          await _profileProvider?.fetchProfile();
+          log('LOGIN_DEBUG: Force refreshing profile after login');
+          await _profileProvider?.forceRefreshProfile();
           int tries = 0;
           while (((_profileProvider?.profile == null ||
                   _profileProvider?.isLoading == true)) &&
@@ -451,6 +454,37 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// Force refresh all providers when a new user logs in
+  Future<void> _forceRefreshAllProviders() async {
+    log('DEBUG: Force refreshing all providers for new user');
+
+    if (_profileProvider != null) {
+      log('DEBUG: Force refreshing profile');
+      await _profileProvider?.forceRefreshProfile();
+    }
+
+    if (_attendanceProvider != null) {
+      log('DEBUG: Clearing attendance data for new user');
+      _attendanceProvider!.clearAttendance();
+    }
+
+    if (_companyProvider != null) {
+      log('DEBUG: Refreshing company data for new user');
+      await _companyProvider?.clearCompany();
+      // Company data will be loaded when needed
+    }
+
+    if (_featureProvider != null) {
+      log('DEBUG: Refreshing features for new user');
+      _featureProvider!.clearFeatures();
+    }
+
+    if (_companySettingsProvider != null) {
+      log('DEBUG: Refreshing company settings for new user');
+      _companySettingsProvider!.clearSettings();
+    }
+  }
+
   FeatureProvider? get featureProvider => _featureProvider;
 
   Future<void> logout() async {
@@ -609,7 +643,14 @@ class AuthProvider with ChangeNotifier {
 
       // Save FCM token to backend if user is authenticated
       if (_authToken != null && _user != null) {
+        Logger.info('AUTH: User authenticated, attempting to save FCM token');
         await _saveFCMTokenToBackend();
+        // Also try to save token to database via FCM service
+        Logger.info('AUTH: Calling FCM service to save token to database');
+        await FCMService().saveTokenToDatabase(_authToken!, _user!['_id']);
+      } else {
+        Logger.warning(
+            'AUTH: Cannot save FCM token - authToken: ${_authToken != null}, user: ${_user != null}');
       }
     } catch (e) {
       log('SAVE_AUTH_DEBUG: Error saving to SecureStorage: $e');
@@ -851,12 +892,19 @@ class AuthProvider with ChangeNotifier {
   // Save FCM token to backend
   Future<void> _saveFCMTokenToBackend() async {
     try {
+      Logger.info('FCM: Attempting to save token to backend');
+      Logger.info('FCM: Auth token available: ${_authToken != null}');
+      Logger.info('FCM: User available: ${_user != null}');
+
       final fcmToken = FCMService().fcmToken;
+      Logger.info('FCM: FCM token available: ${fcmToken != null}');
+
       if (fcmToken == null) {
-        print('FCM: ❌ No token available');
+        Logger.warning('FCM: ❌ No token available');
         return;
       }
 
+      Logger.info('FCM: Sending token to backend API');
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/fcm-token'),
         headers: {
@@ -869,17 +917,21 @@ class AuthProvider with ChangeNotifier {
         }),
       );
 
+      Logger.info('FCM: Backend response status: ${response.statusCode}');
+      Logger.info('FCM: Backend response body: ${response.body}');
+
       if (response.statusCode == 200) {
-        print('FCM: ✅ Token saved to backend');
+        Logger.info('FCM: ✅ Token saved to backend');
         // Subscribe to role-based topics
         if (_user?['role'] != null) {
+          Logger.info('FCM: Subscribing to role topics for: ${_user!['role']}');
           await FCMService().subscribeToRoleTopics(_user!['role']);
         }
       } else {
-        print('FCM: ❌ Save failed (${response.statusCode})');
+        Logger.error('FCM: ❌ Save failed (${response.statusCode})');
       }
     } catch (e) {
-      print('FCM: ❌ Save error: $e');
+      Logger.error('FCM: ❌ Save error: $e');
     }
   }
 
@@ -893,6 +945,27 @@ class AuthProvider with ChangeNotifier {
       log('CLEAR_CACHE: Image cache cleared successfully');
     } catch (e) {
       log('CLEAR_CACHE: Error clearing image cache: $e');
+    }
+  }
+
+  // Method to manually save FCM token to database
+  Future<void> saveFCMTokenManually() async {
+    try {
+      Logger.info('AUTH: Manual FCM token save requested');
+      Logger.info('AUTH: Auth token available: ${_authToken != null}');
+      Logger.info('AUTH: User available: ${_user != null}');
+
+      if (_authToken != null && _user != null) {
+        Logger.info('AUTH: Saving FCM token manually');
+        await _saveFCMTokenToBackend();
+        await FCMService().saveTokenToDatabase(_authToken!, _user!['_id']);
+        Logger.info('AUTH: Manual FCM token save completed');
+      } else {
+        Logger.warning(
+            'AUTH: Cannot save FCM token manually - missing auth data');
+      }
+    } catch (e) {
+      Logger.error('AUTH: Error in manual FCM token save: $e');
     }
   }
 

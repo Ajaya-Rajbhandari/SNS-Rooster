@@ -4,8 +4,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 import '../utils/logger.dart';
+import '../config/api_config.dart';
 import 'dart:typed_data';
+import '../utils/global_navigator.dart';
+import '../providers/notification_provider.dart';
+import 'package:provider/provider.dart';
 
 class FCMService {
   static final FCMService _instance = FCMService._internal();
@@ -41,7 +46,7 @@ class FCMService {
   String? get fcmToken => _fcmToken;
 
   // Initialize FCM service
-  Future<void> initialize() async {
+  Future<void> initialize({String? authToken, String? userId}) async {
     if (_isInitialized) return;
 
     try {
@@ -62,10 +67,46 @@ class FCMService {
         }
       }
 
-      // Get FCM token
-      _fcmToken = await _firebaseMessaging.getToken();
-      if (_fcmToken != null) {
-        print('FCM: ✅ Token generated');
+      // Get FCM token with detailed error handling
+      try {
+        Logger.info('FCM: 🔄 Attempting to get FCM token...');
+        _fcmToken = await _firebaseMessaging.getToken();
+
+        if (_fcmToken != null) {
+          Logger.info(
+              'FCM: ✅ Token generated successfully: ${_fcmToken!.substring(0, 20)}...');
+
+          // Save token to preferences
+          await _saveTokenToPrefs(_fcmToken!);
+
+          // Save token to database if auth credentials are available
+          if (authToken != null && userId != null) {
+            await _saveTokenToDatabase(_fcmToken!, authToken, userId);
+          } else {
+            Logger.info(
+                'FCM: Auth credentials not available, will save to database later');
+          }
+        } else {
+          Logger.error(
+              'FCM: ❌ Token is null - this indicates a Firebase configuration issue');
+          Logger.error('FCM: Please check:');
+          Logger.error('FCM: 1. google-services.json is properly configured');
+          Logger.error('FCM: 2. Firebase project has FCM enabled');
+          Logger.error('FCM: 3. Google Play Services is up to date');
+          Logger.error('FCM: 4. Device has internet connection');
+        }
+      } catch (e) {
+        Logger.error('FCM: ❌ Error getting FCM token: $e');
+        Logger.error(
+            'FCM: This is likely a Firebase configuration or network issue');
+
+        // Try to get more specific error information
+        if (e.toString().contains('FIS_AUTH_ERROR')) {
+          Logger.error('FCM: FIS_AUTH_ERROR detected - this usually means:');
+          Logger.error('FCM: 1. Firebase project configuration issue');
+          Logger.error('FCM: 2. Google Play Services authentication problem');
+          Logger.error('FCM: 3. Network connectivity issues');
+        }
       }
 
       // Listen for token refresh
@@ -73,6 +114,7 @@ class FCMService {
         _fcmToken = newToken;
         Logger.info('FCM Token refreshed: $newToken');
         _saveTokenToPrefs(newToken);
+        // Note: We'll need to save to database when auth is available
       });
 
       // Initialize local notifications
@@ -96,9 +138,9 @@ class FCMService {
       }
 
       _isInitialized = true;
-      print('FCM: ✅ Service initialized');
+      Logger.info('FCM: ✅ Service initialized');
     } catch (e) {
-      print('FCM: ❌ Initialization failed: $e');
+      Logger.error('FCM: ❌ Initialization failed: $e');
     }
   }
 
@@ -134,6 +176,16 @@ class FCMService {
 
     // Show local notification
     _showLocalNotification(message);
+
+    // refresh unread count badge
+    try {
+      final context = GlobalNavigator.navigatorKey.currentContext;
+      if (context != null) {
+        final provider =
+            Provider.of<NotificationProvider>(context, listen: false);
+        provider.refreshUnreadCount();
+      }
+    } catch (_) {}
   }
 
   // Handle notification taps
@@ -142,6 +194,16 @@ class FCMService {
 
     // Handle navigation based on notification data
     _handleNotificationNavigation(message.data);
+
+    // mark unread count refreshed
+    try {
+      final context = GlobalNavigator.navigatorKey.currentContext;
+      if (context != null) {
+        final provider =
+            Provider.of<NotificationProvider>(context, listen: false);
+        provider.refreshUnreadCount();
+      }
+    } catch (_) {}
   }
 
   // Handle local notification taps
@@ -191,25 +253,65 @@ class FCMService {
 
   // Handle notification navigation
   void _handleNotificationNavigation(Map<String, dynamic> data) {
-    // You can implement navigation logic here based on notification data
-    // For example, navigate to specific screens based on notification type
-    Logger.info('FCM: Handling navigation for data: $data');
-
-    // Example navigation logic:
-    // if (data['type'] == 'attendance') {
-    //   // Navigate to attendance screen
-    // } else if (data['type'] == 'leave') {
-    //   // Navigate to leave screen
-    // }
+    final nav = GlobalNavigator.navigatorKey.currentState;
+    switch (data['screen']) {
+      case 'leave_management':
+        nav?.pushNamed('/admin/leave_management');
+        break;
+      case 'leave_detail':
+        // Currently no dedicated detail screen; navigate to leave_request list.
+        nav?.pushNamed('/leave_request');
+        break;
+      default:
+        nav?.pushNamed('/notification');
+    }
   }
 
   // Save FCM token to preferences
   Future<void> _saveTokenToPrefs(String token) async {
     try {
+      Logger.info(
+          'FCM: Saving token to preferences: ${token.substring(0, 20)}...');
       SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString('fcm_token', token);
+      Logger.info('FCM: Token saved successfully');
     } catch (e) {
       Logger.error('FCM: Failed to save token to preferences: $e');
+    }
+  }
+
+  // Save FCM token to database
+  Future<void> _saveTokenToDatabase(
+      String token, String? authToken, String? userId) async {
+    try {
+      if (authToken == null || userId == null) {
+        Logger.warning(
+            'FCM: Cannot save token to database - missing auth token or user ID');
+        return;
+      }
+
+      Logger.info('FCM: Saving token to database for user: $userId');
+
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/fcm-token'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $authToken',
+        },
+        body: json.encode({
+          'fcmToken': token,
+          'userId': userId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        Logger.info('FCM: Token saved to database successfully');
+      } else {
+        Logger.error(
+            'FCM: Failed to save token to database. Status: ${response.statusCode}, Response: ${response.body}');
+      }
+    } catch (e) {
+      Logger.error('FCM: Error saving token to database: $e');
     }
   }
 
@@ -227,8 +329,9 @@ class FCMService {
   // Subscribe to topics
   Future<void> subscribeToTopic(String topic) async {
     try {
+      Logger.info('FCM: Attempting to subscribe to topic: $topic');
       await _firebaseMessaging.subscribeToTopic(topic);
-      Logger.info('FCM: Subscribed to topic: $topic');
+      Logger.info('FCM: Successfully subscribed to topic: $topic');
     } catch (e) {
       Logger.error('FCM: Failed to subscribe to topic $topic: $e');
     }
@@ -254,6 +357,42 @@ class FCMService {
       await subscribeToTopic('admins');
     } else if (userRole == 'employee') {
       await subscribeToTopic('employees');
+    }
+  }
+
+  // Method to save token to database when auth becomes available
+  Future<void> saveTokenToDatabase(String authToken, String userId) async {
+    if (_fcmToken != null) {
+      await _saveTokenToDatabase(_fcmToken!, authToken, userId);
+    } else {
+      Logger.warning('FCM: No FCM token available to save to database');
+    }
+  }
+
+  // Manual FCM token test method for debugging
+  Future<void> testFCMTokenGeneration() async {
+    try {
+      Logger.info('FCM: 🔧 Manual FCM token test started...');
+
+      // Check if Firebase is initialized
+      Logger.info('FCM: Checking Firebase initialization...');
+
+      // Try to get token directly
+      Logger.info('FCM: Attempting to get FCM token...');
+      final token = await _firebaseMessaging.getToken();
+
+      if (token != null) {
+        Logger.info(
+            'FCM: ✅ Manual test successful! Token: ${token.substring(0, 20)}...');
+        _fcmToken = token;
+        await _saveTokenToPrefs(token);
+      } else {
+        Logger.error('FCM: ❌ Manual test failed - token is null');
+      }
+    } catch (e) {
+      Logger.error('FCM: ❌ Manual test failed with error: $e');
+      Logger.error('FCM: Error type: ${e.runtimeType}');
+      Logger.error('FCM: Error details: $e');
     }
   }
 }

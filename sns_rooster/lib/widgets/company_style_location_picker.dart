@@ -29,7 +29,6 @@ class _CompanyStyleLocationPickerState
   final _radiusController = TextEditingController();
 
   double _radius = 100.0;
-  String _searchQuery = '';
   bool _isLoadingLocation = false;
   bool _isSearching = false;
   bool _showSearchResults = false;
@@ -339,7 +338,7 @@ class _CompanyStyleLocationPickerState
                       border: Border.all(color: Colors.grey[300]!),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -390,7 +389,7 @@ class _CompanyStyleLocationPickerState
                                   return ListTile(
                                     leading: CircleAvatar(
                                       backgroundColor: Colors.blue[50],
-                                      child: Icon(
+                                      child: const Icon(
                                         Icons.location_on,
                                         color: Colors.blue,
                                         size: 20,
@@ -428,7 +427,7 @@ class _CompanyStyleLocationPickerState
             child: ListTile(
               leading: CircleAvatar(
                 backgroundColor: Colors.blue[50],
-                child: Icon(
+                child: const Icon(
                   Icons.my_location,
                   color: Colors.blue,
                 ),

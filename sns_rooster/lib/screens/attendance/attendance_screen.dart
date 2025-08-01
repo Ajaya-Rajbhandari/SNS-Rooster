@@ -1,15 +1,9 @@
-import 'dart:io';
-import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
-import 'package:sns_rooster/providers/feature_provider.dart';
 import 'package:sns_rooster/widgets/app_drawer.dart';
 import 'package:sns_rooster/widgets/admin_side_navigation.dart';
-import 'attendance_detail_widgets.dart';
-import '../../services/global_notification_service.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -19,9 +13,9 @@ class AttendanceScreen extends StatefulWidget {
 }
 
 class _AttendanceScreenState extends State<AttendanceScreen> {
-  String filterStatus = 'All';
   DateTime? _startDate;
   DateTime? _endDate;
+  String filterStatus = 'All';
 
   @override
   void initState() {
@@ -33,26 +27,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final attendanceProvider =
         Provider.of<AttendanceProvider>(context, listen: false);
-
     if (authProvider.user != null) {
       await attendanceProvider.fetchUserAttendance(authProvider.user!['_id']);
-
-      // Debug: Print the attendance records to see what we're getting
-      print(
-          'DEBUG: Attendance records fetched: ${attendanceProvider.attendanceRecords.length}');
-      if (attendanceProvider.attendanceRecords.isNotEmpty) {
-        print(
-            'DEBUG: First attendance record: ${attendanceProvider.attendanceRecords.first}');
-      }
     }
   }
 
-  // Helper method to calculate attendance status from backend data
   String _calculateStatus(Map<String, dynamic> attendance) {
     if (attendance['checkOutTime'] != null) {
       return 'completed';
     } else if (attendance['checkInTime'] != null) {
-      // Check if currently on break
       final breaks = attendance['breaks'] as List<dynamic>?;
       if (breaks != null && breaks.isNotEmpty) {
         final lastBreak = breaks.last;
@@ -65,7 +48,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return 'not_clocked_in';
   }
 
-  // Helper method to format date from backend
   String _formatDate(dynamic dateField) {
     if (dateField == null) return 'N/A';
     try {
@@ -76,89 +58,46 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
-  // Helper method to format time from backend
   String _formatTime(dynamic timeField) {
     if (timeField == null) return 'N/A';
-
-    print(
-        'DEBUG: _formatTime called with: $timeField (type: ${timeField.runtimeType})');
-
-    // If it's already a formatted string (from backend), return as is
     if (timeField is String &&
         timeField.contains(':') &&
         !timeField.contains('T')) {
-      print('DEBUG: Returning formatted string: $timeField');
       return timeField;
     }
-
-    // If it's a DateTime object or ISO string, parse and format
     try {
       final time = DateTime.parse(timeField.toString());
-      // Convert to local time
       final localTime = time.toLocal();
-      final formatted =
-          '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
-      print('DEBUG: Parsed and formatted time: $formatted');
-      return formatted;
+      return '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
     } catch (e) {
-      print('DEBUG: Error parsing time: $e');
       return 'N/A';
     }
   }
 
-  Future<void> exportToCSV() async {
-    try {
-      final attendanceProvider =
-          Provider.of<AttendanceProvider>(context, listen: false);
-      final directory = await getApplicationDocumentsDirectory();
-      final path = '${directory.path}/attendance_data.csv';
-
-      final csvData = [
-        ['Date', 'Status', 'Check In', 'Check Out', 'Total Break Duration'],
-        ...attendanceProvider.attendanceRecords.map((item) => [
-              _formatDate(item['date']),
-              _calculateStatus(item),
-              _formatTime(item['checkInTime']),
-              _formatTime(item['checkOutTime']),
-              '${((item['totalBreakDuration'] ?? 0) / 60000).toStringAsFixed(1)} min',
-            ]),
-      ];
-
-      final csvString = const ListToCsvConverter().convert(csvData);
-      final file = File(path);
-      await file.writeAsString(csvString);
-
-      final notificationService =
-          Provider.of<GlobalNotificationService>(context, listen: false);
-      notificationService.showSuccess('Attendance data exported to $path');
-    } catch (e) {
-      final notificationService =
-          Provider.of<GlobalNotificationService>(context, listen: false);
-      notificationService.showError('Failed to export data: $e');
-    }
-  }
-
-  Widget _buildInteractiveSummaryCard(
-      String title, int count, Color color, String filter) {
-    final isSelected = filterStatus == filter;
+  Widget _buildSummaryCard(
+      String title, int count, Color color, String statusKey, IconData icon) {
+    final isSelected = filterStatus == statusKey;
     return GestureDetector(
       onTap: () {
         setState(() {
-          filterStatus = filter;
+          filterStatus = statusKey;
         });
       },
-      child: Container(
-        width: 100,
-        height: 130,
-        margin: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 110,
+        height: 110,
+        margin: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 8.0),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.9) : color.withOpacity(0.7),
-          borderRadius: BorderRadius.circular(12.0),
-          boxShadow: const [
+          color: isSelected
+              ? color.withValues(alpha: 0.9)
+              : color.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(16.0),
+          boxShadow: [
             BoxShadow(
-              color: Colors.black26,
-              blurRadius: 4.0,
-              offset: Offset(2, 2),
+              color: color.withValues(alpha: 0.18),
+              blurRadius: 8.0,
+              offset: const Offset(2, 4),
             ),
           ],
           border:
@@ -167,72 +106,52 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              filter == 'completed'
-                  ? Icons.check_circle
-                  : filter == 'not_clocked_in'
-                      ? Icons.cancel
-                      : filter == 'on_break'
-                          ? Icons.coffee
-                          : Icons.access_time,
-              color: Colors.white,
-              size: 32,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              title,
-              style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              count.toString(),
-              style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white),
-            ),
+            Icon(icon, color: Colors.white, size: 32),
+            const SizedBox(height: 8),
+            Text(title,
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text('$count',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSummarySection() {
-    final attendanceProvider = Provider.of<AttendanceProvider>(context);
-    final attendanceRecords = attendanceProvider.attendanceRecords;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _buildInteractiveSummaryCard(
-              'Total', attendanceRecords.length, Colors.blue, 'All'),
-          _buildInteractiveSummaryCard(
-              'Completed',
-              attendanceRecords
-                  .where((item) => _calculateStatus(item) == 'completed')
-                  .length,
-              Colors.green,
-              'completed'),
-          _buildInteractiveSummaryCard(
-              'Not Clocked In',
-              attendanceRecords
-                  .where((item) => _calculateStatus(item) == 'not_clocked_in')
-                  .length,
-              Colors.red,
-              'not_clocked_in'),
-          _buildInteractiveSummaryCard(
-              'On Break',
-              attendanceRecords
-                  .where((item) => _calculateStatus(item) == 'on_break')
-                  .length,
-              Colors.orange,
-              'on_break'),
-        ],
+  Widget _buildStatusBadge(String status) {
+    Color color;
+    String label;
+    switch (status) {
+      case 'completed':
+        color = Colors.green;
+        label = 'Completed';
+        break;
+      case 'on_break':
+        color = Colors.orange;
+        label = 'On Break';
+        break;
+      case 'clocked_in':
+        color = Colors.blue;
+        label = 'Clocked In';
+        break;
+      default:
+        color = Colors.red;
+        label = 'Not Clocked In';
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
       ),
+      child: Text(label,
+          style: const TextStyle(
+              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
     );
   }
 
@@ -241,7 +160,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final user = authProvider.user;
     if (user == null) {
-      // Not logged in, show fallback or redirect
       return const Scaffold(
         body: Center(child: Text('Not logged in. Please log in.')),
       );
@@ -249,7 +167,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final isAdmin = user['role'] == 'admin';
     if (isAdmin) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Attendance')),
+        appBar: AppBar(
+          title: const Text('Attendance'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          elevation: 0,
+        ),
         body: const Center(child: Text('Access denied')),
         drawer: const AdminSideNavigation(currentRoute: '/attendance'),
       );
@@ -257,217 +180,181 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final attendanceProvider = Provider.of<AttendanceProvider>(context);
     final attendanceRecords = attendanceProvider.attendanceRecords;
 
-    // Step 1: Date range filter
-    List<dynamic> dateFilteredRecords = attendanceRecords;
-    if (_startDate != null && _endDate != null) {
-      dateFilteredRecords = attendanceRecords.where((item) {
-        if (item['date'] == null) return false;
-        final DateTime itemDate;
-        try {
-          itemDate = DateTime.parse(item['date'].toString());
-        } catch (_) {
-          return false;
-        }
-        // Normalize dates to ignore time components for comparison
-        final onlyDate = DateTime(itemDate.year, itemDate.month, itemDate.day);
-        final startOnly =
-            DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
-        final endOnly =
-            DateTime(_endDate!.year, _endDate!.month, _endDate!.day);
-        return (onlyDate.isAtSameMomentAs(startOnly) ||
-                onlyDate.isAfter(startOnly)) &&
-            (onlyDate.isAtSameMomentAs(endOnly) || onlyDate.isBefore(endOnly));
-      }).toList();
+    // Filtered data
+    List<dynamic> filteredData = attendanceRecords;
+    if (filterStatus != 'All') {
+      filteredData = attendanceRecords
+          .where((item) => _calculateStatus(item) == filterStatus)
+          .toList();
     }
 
-    // Step 2: Status filter
-    final filteredData = filterStatus == 'All'
-        ? dateFilteredRecords
-        : dateFilteredRecords
-            .where((item) => _calculateStatus(item) == filterStatus)
-            .toList();
+    // Stats
+    final total = attendanceRecords.length;
+    final completed = attendanceRecords
+        .where((item) => _calculateStatus(item) == 'completed')
+        .length;
+    final onBreak = attendanceRecords
+        .where((item) => _calculateStatus(item) == 'on_break')
+        .length;
+    final notClockedIn = attendanceRecords
+        .where((item) => _calculateStatus(item) == 'not_clocked_in')
+        .length;
+    final clockedIn = attendanceRecords
+        .where((item) => _calculateStatus(item) == 'clocked_in')
+        .length;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Attendance'),
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        elevation: 0,
       ),
       drawer: const AppDrawer(),
-      body: Column(
-        children: [
-          // Location validation status indicator
-          Consumer<FeatureProvider>(
-            builder: (context, featureProvider, child) {
-              final hasLocationFeature =
-                  featureProvider.hasLocationBasedAttendance;
-              return Container(
-                margin: const EdgeInsets.all(16.0),
-                padding: const EdgeInsets.all(12.0),
-                decoration: BoxDecoration(
-                  color: hasLocationFeature
-                      ? Colors.green.shade50
-                      : Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(8.0),
-                  border: Border.all(
-                    color: hasLocationFeature
-                        ? Colors.green.shade200
-                        : Colors.orange.shade200,
-                    width: 1.0,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      hasLocationFeature
-                          ? Icons.location_on
-                          : Icons.location_off,
-                      color: hasLocationFeature ? Colors.green : Colors.orange,
-                      size: 20.0,
-                    ),
-                    const SizedBox(width: 8.0),
-                    Expanded(
-                      child: Text(
-                        hasLocationFeature
-                            ? 'Location validation is enabled. You must be at your assigned location to check in/out.'
-                            : 'Location validation is not available in your current plan. You can check in/out from anywhere.',
-                        style: TextStyle(
-                          color: hasLocationFeature
-                              ? Colors.green.shade700
-                              : Colors.orange.shade700,
-                          fontSize: 12.0,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          // First row: Date Range Picker
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.date_range),
-                    label: Text(_startDate != null && _endDate != null
-                        ? '${_formatDate(_startDate)} - ${_formatDate(_endDate)}'
-                        : 'Select Date Range'),
-                    onPressed: () async {
-                      final picked = await showDateRangePicker(
-                        context: context,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2100),
-                        initialDateRange: _startDate != null && _endDate != null
-                            ? DateTimeRange(start: _startDate!, end: _endDate!)
-                            : null,
-                      );
-                      if (picked != null) {
-                        setState(() {
-                          _startDate = picked.start;
-                          _endDate = picked.end;
-                        });
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Second row: Employee Dropdown, Export
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-            child: Row(
-              children: [
-                // Export Dropdown Button (full-width)
-                Expanded(
-                  child: PopupMenuButton<String>(
-                    onSelected: (value) async {
-                      if (value == 'Export CSV') {
-                        await exportToCSV();
-                      } else if (value == 'Export PDF') {
-                        final notificationService =
-                            Provider.of<GlobalNotificationService>(context,
-                                listen: false);
-                        notificationService
-                            .showInfo('PDF export is not yet implemented.');
-                      } else if (value == 'Refresh') {
-                        await fetchAttendanceData();
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                          value: 'Export CSV', child: Text('Export to CSV')),
-                      const PopupMenuItem(
-                          value: 'Export PDF', child: Text('Export to PDF')),
-                      const PopupMenuItem(
-                          value: 'Refresh', child: Text('Refresh List')),
-                    ],
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.download),
-                        label: const Text('Export'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed:
-                            () {}, // Non-null so button appears enabled; PopupMenuButton handles tap
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: _buildSummarySection(),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.view_list),
-                label: const Text('View Timesheet'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.pushNamed(context, '/timesheet');
-                },
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Summary Cards
+            SizedBox(
+              height: 130,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                children: [
+                  _buildSummaryCard(
+                      'Total', total, Colors.blue, 'All', Icons.all_inclusive),
+                  _buildSummaryCard('Completed', completed, Colors.green,
+                      'completed', Icons.check_circle),
+                  _buildSummaryCard('On Break', onBreak, Colors.orange,
+                      'on_break', Icons.coffee),
+                  _buildSummaryCard('Clocked In', clockedIn, Colors.blue,
+                      'clocked_in', Icons.access_time),
+                  _buildSummaryCard('Not Clocked In', notClockedIn, Colors.red,
+                      'not_clocked_in', Icons.cancel),
+                ],
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: filteredData.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No attendance records available.',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
+            // Date Range Picker
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.date_range),
+                      label: Text(_startDate != null && _endDate != null
+                          ? '${_formatDate(_startDate)} - ${_formatDate(_endDate)}'
+                          : 'Select Date Range'),
+                      onPressed: () async {
+                        final picked = await showDateRangePicker(
+                          context: context,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2100),
+                          initialDateRange:
+                              _startDate != null && _endDate != null
+                                  ? DateTimeRange(
+                                      start: _startDate!, end: _endDate!)
+                                  : null,
+                        );
+                        if (picked != null) {
+                          setState(() {
+                            _startDate = picked.start;
+                            _endDate = picked.end;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Export Button
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.download),
+                      label: const Text('Export'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('Exported as CSV (simulated).')),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // View Timesheet Button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.view_list),
+                  label: const Text('View Timesheet'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/timesheet');
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            filteredData.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.access_time,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'No attendance records available.',
+                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Your attendance records will appear here.',
+                            style: TextStyle(fontSize: 14, color: Colors.grey),
+                          ),
+                        ],
+                      ),
                     ),
                   )
                 : ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(16.0),
                     itemCount: filteredData.length,
                     separatorBuilder: (context, index) => const Divider(),
                     itemBuilder: (context, index) {
                       final item = filteredData[index];
-                      print('DEBUG: Processing attendance item: $item');
                       final status = _calculateStatus(item);
                       final date = _formatDate(item['date']);
                       final checkIn = _formatTime(item['checkInTime']);
@@ -475,7 +362,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       final breakDurationMin =
                           ((item['totalBreakDuration'] ?? 0) / 60000)
                               .toStringAsFixed(1);
-                      // Calculate total hours worked
                       String totalHoursWorked = '';
                       if (item['checkInTime'] != null &&
                           item['checkOutTime'] != null) {
@@ -490,226 +376,90 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                             ((workMs % (1000 * 60 * 60)) / (1000 * 60)).round();
                         totalHoursWorked = '${workH}h ${workM}m';
                       }
-                      // Prepare break details
-                      final breaks = (item['breaks'] as List<dynamic>? ?? []);
                       return Card(
                         margin: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: ExpansionTile(
-                          leading: Icon(
-                            status == 'completed'
-                                ? Icons.check_circle_outline
-                                : status == 'not_clocked_in'
-                                    ? Icons.cancel_outlined
-                                    : status == 'on_break'
-                                        ? Icons.coffee
-                                        : Icons.access_time,
-                            color: status == 'completed'
-                                ? Colors.green
-                                : status == 'not_clocked_in'
-                                    ? Colors.red
-                                    : status == 'on_break'
-                                        ? Colors.orange
-                                        : Colors.blue,
-                          ),
-                          title: Text('Date: $date'),
-                          subtitle: Column(
+                        elevation: 3,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 children: [
-                                  const Text('Status: '),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: status == 'completed'
-                                          ? Colors.green
-                                          : status == 'not_clocked_in'
-                                              ? Colors.red
-                                              : status == 'on_break'
-                                                  ? Colors.orange
-                                                  : Colors.blue,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      status.replaceAll('_', ' ').toUpperCase(),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                                  Icon(
+                                    status == 'completed'
+                                        ? Icons.check_circle_outline
+                                        : status == 'not_clocked_in'
+                                            ? Icons.cancel_outlined
+                                            : status == 'on_break'
+                                                ? Icons.coffee
+                                                : Icons.access_time,
+                                    color: status == 'completed'
+                                        ? Colors.green
+                                        : status == 'not_clocked_in'
+                                            ? Colors.red
+                                            : status == 'on_break'
+                                                ? Colors.orange
+                                                : Colors.blue,
+                                    size: 28,
                                   ),
+                                  const SizedBox(width: 8),
+                                  Text('Date: $date',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                  const Spacer(),
+                                  _buildStatusBadge(status),
                                 ],
                               ),
-                              Text('Check In: $checkIn'),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Icon(Icons.login,
+                                      size: 18, color: Colors.blueGrey),
+                                  const SizedBox(width: 4),
+                                  Text('Check In: $checkIn'),
+                                  if (checkOut != 'N/A') ...[
+                                    const SizedBox(width: 16),
+                                    const Icon(Icons.logout,
+                                        size: 18, color: Colors.blueGrey),
+                                    const SizedBox(width: 4),
+                                    Text('Check Out: $checkOut'),
+                                  ],
+                                ],
+                              ),
                               if (breakDurationMin != '0.0')
-                                Text('Break Duration: $breakDurationMin min'),
-                            ],
-                          ),
-                          children: [
-                            if (item['checkOutTime'] != null)
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                    left: 16.0, bottom: 4.0, right: 16.0),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text('Check Out: $checkOut'),
-                                ),
-                              ),
-                            if (totalHoursWorked.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                    left: 16.0, bottom: 4.0, right: 16.0),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                      'Total Hours Worked: $totalHoursWorked'),
-                                ),
-                              ),
-                            if (breaks.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                    left: 16.0, bottom: 8.0, right: 16.0),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4.0),
+                                  child: Row(
                                     children: [
-                                      const Text('Breaks:',
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.bold)),
-                                      ...breaks.map((b) {
-                                        final breakType = b['type'] is Map
-                                            ? (b['type']['displayName'] ??
-                                                'Break')
-                                            : 'Break';
-                                        final start = _formatTime(b['start']);
-                                        final end = b['end'] != null
-                                            ? _formatTime(b['end'])
-                                            : 'Ongoing';
-                                        final durationMin =
-                                            b['duration'] != null
-                                                ? (b['duration'] / 60000)
-                                                    .toStringAsFixed(1)
-                                                : '';
-                                        final isLive = b['end'] == null;
-                                        return Padding(
-                                          padding: const EdgeInsets.only(
-                                              top: 2.0, bottom: 2.0),
-                                          child: Row(
-                                            children: [
-                                              Text(
-                                                '- $breakType: $start - $end (${durationMin.isNotEmpty ? '$durationMin min' : 'In progress'})',
-                                              ),
-                                              if (isLive)
-                                                const Padding(
-                                                  padding: EdgeInsets.only(
-                                                      left: 8.0),
-                                                  child: Row(
-                                                    children: [
-                                                      Icon(
-                                                        Icons.circle,
-                                                        color: Colors.red,
-                                                        size: 10,
-                                                      ),
-                                                      SizedBox(width: 4),
-                                                      Text(
-                                                        'LIVE',
-                                                        style: TextStyle(
-                                                          color: Colors.red,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          fontSize: 12,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        );
-                                      }).toList(),
+                                      const Icon(Icons.timer,
+                                          size: 18, color: Colors.orange),
+                                      const SizedBox(width: 4),
+                                      Text('Break: $breakDurationMin min'),
                                     ],
                                   ),
                                 ),
-                              ),
-                          ],
+                              if (totalHoursWorked.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4.0),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.access_time,
+                                          size: 18, color: Colors.green),
+                                      const SizedBox(width: 4),
+                                      Text('Worked: $totalHoursWorked'),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       );
                     },
                   ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class AttendanceDetailScreen extends StatelessWidget {
-  final String date;
-
-  const AttendanceDetailScreen({super.key, required this.date});
-
-  @override
-  Widget build(BuildContext context) {
-    // Mock data for demonstration
-    const checkInTime = '9:00 AM';
-    const checkOutTime = '5:00 PM';
-    const totalHoursWorked = '8 hours';
-    const breakDetails = '1 hour';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Attendance Details - $date'),
-        backgroundColor: Theme.of(context).primaryColor,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Card(
-              elevation: 4.0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.0),
-              ),
-              child: const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AttendanceDetailCard(
-                      icon: Icons.access_time,
-                      iconColor: Colors.blue,
-                      label: 'Check-In Time',
-                      value: checkInTime,
-                    ),
-                    SizedBox(height: 16),
-                    AttendanceDetailCard(
-                      icon: Icons.exit_to_app,
-                      iconColor: Colors.red,
-                      label: 'Check-Out Time',
-                      value: checkOutTime,
-                    ),
-                    SizedBox(height: 16),
-                    AttendanceDetailCard(
-                      icon: Icons.timer,
-                      iconColor: Colors.green,
-                      label: 'Total Hours Worked',
-                      value: totalHoursWorked,
-                    ),
-                    SizedBox(height: 16),
-                    AttendanceDetailCard(
-                      icon: Icons.coffee,
-                      iconColor: Colors.orange,
-                      label: 'Break Details',
-                      value: breakDetails,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            const SizedBox(height: 16),
           ],
         ),
       ),

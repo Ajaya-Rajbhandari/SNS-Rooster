@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/services/api_service.dart';
 import 'package:sns_rooster/config/api_config.dart';
 
@@ -267,7 +265,7 @@ class _EmployeeAssignmentDialogState extends State<EmployeeAssignmentDialog>
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Icon(
@@ -294,7 +292,7 @@ class _EmployeeAssignmentDialogState extends State<EmployeeAssignmentDialog>
                           widget.location['name'] ?? 'Unknown Location',
                           style:
                               Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    color: Colors.white.withOpacity(0.9),
+                                    color: Colors.white.withValues(alpha: 0.9),
                                     fontWeight: FontWeight.w500,
                                   ),
                         ),
@@ -305,7 +303,7 @@ class _EmployeeAssignmentDialogState extends State<EmployeeAssignmentDialog>
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close, color: Colors.white),
                     style: IconButton.styleFrom(
-                      backgroundColor: Colors.white.withOpacity(0.2),
+                      backgroundColor: Colors.white.withValues(alpha: 0.2),
                     ),
                   ),
                 ],
@@ -340,7 +338,7 @@ class _EmployeeAssignmentDialogState extends State<EmployeeAssignmentDialog>
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
@@ -354,18 +352,18 @@ class _EmployeeAssignmentDialogState extends State<EmployeeAssignmentDialog>
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.check_circle_rounded, size: 18),
+                          const Icon(Icons.check_circle_rounded, size: 18),
                           const SizedBox(width: 8),
                           Text('Assigned (${_assignedEmployees.length})'),
                         ],
                       ),
                     ),
-                    Tab(
+                    const Tab(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.person_add_rounded, size: 18),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Text('Assign New'),
                         ],
                       ),
@@ -448,7 +446,7 @@ class _EmployeeAssignmentDialogState extends State<EmployeeAssignmentDialog>
             border: Border.all(color: Colors.green.shade200),
             boxShadow: [
               BoxShadow(
-                color: Colors.green.withOpacity(0.1),
+                color: Colors.green.withValues(alpha: 0.1),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -628,7 +626,7 @@ class _EmployeeAssignmentDialogState extends State<EmployeeAssignmentDialog>
             border: Border.all(color: Colors.blue.shade200),
             boxShadow: [
               BoxShadow(
-                color: Colors.blue.withOpacity(0.1),
+                color: Colors.blue.withValues(alpha: 0.1),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -737,14 +735,14 @@ class _EmployeeAssignmentDialogState extends State<EmployeeAssignmentDialog>
                 ),
                 elevation: 2,
               ),
-              child: Row(
+              child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.person_add_rounded, size: 20),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Text(
                     'Assign Employee',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),

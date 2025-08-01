@@ -34,6 +34,7 @@ const adminAttendanceRoutes = require('./routes/adminAttendanceRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const payrollRoutes = require('./routes/payrollRoutes');
 const leaveRoutes = require('./routes/leaveRoutes');
+const leavePolicyRoutes = require('./routes/leavePolicyRoutes');
 const dataExportRoutes = require('./routes/dataExportRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
@@ -45,6 +46,7 @@ const superAdminRoutes = require('./routes/superAdminRoutes');
 const billingRoutes = require('./routes/billingRoutes');
 const trialRoutes = require('./routes/trialRoutes');
 const healthRoutes = require('./routes/healthRoutes');
+const performanceReviewRoutes = require('./routes/performanceReviewRoutes');
 
 // Enterprise Features Routes
 const locationRoutes = require('./routes/locationRoutes');
@@ -200,6 +202,7 @@ app.use('/api/admin', adminAttendanceRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/leave', leaveRoutes);
+app.use('/api/leave-policies', leavePolicyRoutes);
 app.use('/api/export', dataExportRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/analytics', cacheMiddleware(300), analyticsRoutes); // Cache analytics for 5 minutes
@@ -210,6 +213,7 @@ app.use('/api/super-admin/billing', billingRoutes);
 app.use('/api/trial', trialRoutes);
 app.use('/api', fcmRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/performance-reviews', performanceReviewRoutes);
 
 // Enterprise Features Routes
 app.use('/api/locations', locationRoutes);

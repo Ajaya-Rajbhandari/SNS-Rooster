@@ -16,7 +16,6 @@ import 'package:sns_rooster/screens/admin/attendance_management_screen.dart';
 import 'package:sns_rooster/screens/admin/break_management_screen.dart';
 import 'package:sns_rooster/screens/admin/event_management_screen.dart';
 import 'package:sns_rooster/widgets/admin_side_navigation.dart';
-import 'package:sns_rooster/widgets/user_avatar.dart';
 import '../../services/employee_service.dart';
 import '../../services/api_service.dart';
 import 'package:intl/intl.dart';
@@ -242,27 +241,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ],
       ),
       drawer: const AdminSideNavigation(currentRoute: '/admin_dashboard'),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth >= 1200) {
-            // Desktop: Centered, constrained width
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1100),
-                child: _buildMainContent(theme, colorScheme, userName, now),
-              ),
-            );
-          } else {
-            // Mobile/tablet: Full width
-            return _buildMainContent(theme, colorScheme, userName, now);
-          }
+      body: Consumer<FeatureProvider>(
+        builder: (context, featureProvider, child) {
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth >= 1200) {
+                // Desktop: Centered, constrained width
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1100),
+                    child: _buildMainContent(
+                        theme, colorScheme, userName, now, featureProvider),
+                  ),
+                );
+              } else {
+                // Mobile/tablet: Full width
+                return _buildMainContent(
+                    theme, colorScheme, userName, now, featureProvider);
+              }
+            },
+          );
         },
       ),
     );
   }
 
-  Widget _buildMainContent(
-      ThemeData theme, ColorScheme colorScheme, String userName, DateTime now) {
+  Widget _buildMainContent(ThemeData theme, ColorScheme colorScheme,
+      String userName, DateTime now, FeatureProvider featureProvider) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -288,175 +293,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 const SizedBox(height: 8),
                 Text(
                   DateFormat('EEEE, MMMM d, y').format(now),
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(color: colorScheme.onSurface.withOpacity(0.7)),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.7)),
                 ),
                 const SizedBox(height: 24),
-                // Feature Status Debug Section (only in debug mode)
-                if (kDebugMode) ...[
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('Feature Status (Debug)',
-                                  style: theme.textTheme.titleLarge),
-                              Consumer<FeatureProvider>(
-                                builder: (context, featureProvider, child) {
-                                  final planName =
-                                      featureProvider.subscriptionPlanName;
-                                  Color planColor;
-                                  String displayText;
-
-                                  if (featureProvider.isLoading) {
-                                    planColor = Colors.orange;
-                                    displayText = 'Loading...';
-                                  } else if (planName == 'No Plan') {
-                                    planColor = Colors.red;
-                                    displayText = 'No Plan';
-                                  } else {
-                                    planColor = Colors.blue;
-                                    displayText = planName;
-                                  }
-
-                                  return Text(
-                                    'Plan: $displayText',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: planColor,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          // Debug info section
-                          FutureBuilder<String?>(
-                            future: SecureStorageService.getCompanyId(),
-                            builder: (context, snapshot) {
-                              return Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Debug Info:',
-                                      style:
-                                          theme.textTheme.bodySmall?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Company ID: ${snapshot.data ?? 'Not found'}',
-                                      style: theme.textTheme.bodySmall,
-                                    ),
-                                    Consumer<AuthProvider>(
-                                      builder: (context, authProvider, child) {
-                                        return Text(
-                                          'User Company ID: ${authProvider.user?['companyId'] ?? 'Not found'}',
-                                          style: theme.textTheme.bodySmall,
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          Consumer<FeatureProvider>(
-                            builder: (context, featureProvider, child) {
-                              final features = [
-                                {
-                                  'key': 'multiLocation',
-                                  'name': 'Location Management'
-                                },
-                                {
-                                  'key': 'expenseManagement',
-                                  'name': 'Expense Management'
-                                },
-                                {'key': 'analytics', 'name': 'Analytics'},
-                                {
-                                  'key': 'advancedReporting',
-                                  'name': 'Advanced Reporting'
-                                },
-                                {
-                                  'key': 'customBranding',
-                                  'name': 'Custom Branding'
-                                },
-                                {'key': 'apiAccess', 'name': 'API Access'},
-                              ];
-
-                              return Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: features.map((feature) {
-                                  final isEnabled =
-                                      featureProvider.isFeatureEnabled(
-                                          feature['key'] as String);
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: isEnabled
-                                          ? Colors.green.shade100
-                                          : Colors.red.shade100,
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: isEnabled
-                                            ? Colors.green
-                                            : Colors.red,
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          isEnabled
-                                              ? Icons.check_circle
-                                              : Icons.cancel,
-                                          size: 16,
-                                          color: isEnabled
-                                              ? Colors.green
-                                              : Colors.red,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          feature['name'] as String,
-                                          style: theme.textTheme.bodySmall
-                                              ?.copyWith(
-                                            color: isEnabled
-                                                ? Colors.green.shade800
-                                                : Colors.red.shade800,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
                 // Modern Stat Card Row
                 _buildStatCardRow(),
                 const SizedBox(height: 24),
@@ -475,60 +315,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         const SizedBox(height: 16),
                         SizedBox(
                             height: 200, child: _buildAttendancePieChart()),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                // Upcoming Events (placeholder)
-                Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('Upcoming Events',
-                                style: theme.textTheme.titleLarge),
-                            TextButton(
-                                onPressed: () {},
-                                child: const Text('View All')),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _buildUpcomingEventsSection(),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                // Recent Activities (placeholder)
-                Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('Recent Activities',
-                                style: theme.textTheme.titleLarge),
-                            TextButton(
-                                onPressed: () {},
-                                child: const Text('View All')),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _buildRecentActivitiesSection(),
                       ],
                     ),
                   ),
@@ -553,7 +339,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                // TODO: Implement Upcoming Events and Recent Activities with real data
               ],
             ),
             const SizedBox(height: 24),
@@ -707,14 +492,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
-          Text(
-            'Payroll Insights',
-            style: theme.textTheme.titleLarge,
-          ),
-          const SizedBox(height: 16),
-          // --- Payroll Insights Section ---
-          const _PayrollInsightsSection(),
+          // Only show Payroll Insights if the feature is enabled
+          if (featureProvider.hasPayroll) ...[
+            const SizedBox(height: 24),
+            Text(
+              'Payroll Insights',
+              style: theme.textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            // --- Payroll Insights Section ---
+            const _PayrollInsightsSection(),
+          ],
           const SizedBox(height: 24),
           // Placeholder sections removed (Help & Support, Security & Compliance, Integration)
         ],
@@ -735,75 +523,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildUserCard(BuildContext context,
-      {required Map<String, dynamic> user, required bool isAdmin}) {
-    final name = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
-    final email = user['email'] ?? 'No email';
-
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(12.0),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: isAdmin
-                ? [Colors.purple.withOpacity(0.7), Colors.purple]
-                : [Colors.blue.withOpacity(0.7), Colors.blue],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isAdmin ? Icons.admin_panel_settings : Icons.person,
-              size: 24,
-              color: Colors.white,
-            ),
-            const SizedBox(height: 6),
-            Flexible(
-              child: Text(
-                name.isEmpty ? 'Unknown' : name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  fontSize: 11,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Flexible(
-              child: Text(
-                email,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 9,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildActionCard(BuildContext context,
       {required IconData icon,
       required String title,
       required VoidCallback onTap}) {
-    final theme = Theme.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Card(
@@ -815,7 +538,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           padding: const EdgeInsets.all(12.0),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.blue.withOpacity(0.7), Colors.blue],
+              colors: [Colors.blue.withValues(alpha: 0.7), Colors.blue],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -859,7 +582,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         padding: const EdgeInsets.all(10), // Reduced from 16
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [color.withOpacity(0.7), color],
+            colors: [color.withValues(alpha: 0.7), color],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -1441,231 +1164,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildAvatar(String? avatarUrl) {
-    // Use the UserAvatar widget which has comprehensive URL handling
-    // This has proper error handling and support for Firebase Storage URLs
-
-    if (avatarUrl == null || avatarUrl.trim().isEmpty) {
-      return const UserAvatar(avatarUrl: null, radius: 20);
-    }
-    final trimmedUrl = avatarUrl.trim();
-    // If remote URL, use directly
-    if (trimmedUrl.startsWith('http://') ||
-        trimmedUrl.startsWith('https://') ||
-        trimmedUrl.contains('://')) {
-      return UserAvatar(avatarUrl: trimmedUrl, radius: 20);
-    }
-    // Otherwise, treat as local file
-    return UserAvatar(avatarUrl: '/uploads/avatars/$trimmedUrl', radius: 20);
-  }
-
-  Widget _buildUpcomingEventsSection() {
-    final events = _dashboardData['upcomingEvents'] as List<dynamic>? ?? [];
-
-    if (events.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(20.0),
-          child: Text(
-            'No upcoming events.',
-            style: TextStyle(color: Colors.grey),
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      children: events.map<Widget>((event) {
-        final eventData = event as Map<String, dynamic>;
-        final startDate = DateTime.parse(eventData['startDate']);
-        final endDate = DateTime.parse(eventData['endDate']);
-        final organizer = eventData['organizer'] as Map<String, dynamic>?;
-        final organizerName = organizer != null
-            ? '${organizer['firstName'] ?? ''} ${organizer['lastName'] ?? ''}'
-                .trim()
-            : 'Unknown';
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: _getEventIcon(eventData['type']),
-            title: Text(
-              eventData['title'] ?? 'Untitled Event',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(eventData['description'] ?? 'No description'),
-                const SizedBox(height: 4),
-                Text(
-                  '${DateFormat('MMM d, y').format(startDate)} at ${DateFormat('h:mm a').format(startDate)}',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-                if (eventData['location'] != null)
-                  Text(
-                    '📍 ${eventData['location']}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                Text(
-                  'Organized by: $organizerName',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-            trailing: _getPriorityChip(eventData['priority']),
-            onTap: () {
-              // TODO: Navigate to event details
-            },
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildRecentActivitiesSection() {
-    final activities =
-        _dashboardData['recentActivities'] as List<dynamic>? ?? [];
-
-    if (activities.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(20.0),
-          child: Text(
-            'No recent activities.',
-            style: TextStyle(color: Colors.grey),
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      children: activities.map<Widget>((activity) {
-        final activityData = activity as Map<String, dynamic>;
-        final createdAt = DateTime.parse(activityData['createdAt']);
-        final user = activityData['user'] as Map<String, dynamic>?;
-        final userName = user != null
-            ? '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim()
-            : 'Unknown User';
-
-        return ListTile(
-          leading: _getActivityIcon(activityData['type']),
-          title: Text(
-            activityData['title'] ?? 'Activity',
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(activityData['description'] ?? 'No description'),
-              const SizedBox(height: 2),
-              Text(
-                'by $userName • ${DateFormat('MMM d, h:mm a').format(createdAt)}',
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-            ],
-          ),
-          dense: true,
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _getEventIcon(String? eventType) {
-    switch (eventType) {
-      case 'meeting':
-        return const Icon(Icons.meeting_room, color: Colors.blue);
-      case 'training':
-        return const Icon(Icons.school, color: Colors.green);
-      case 'holiday':
-        return const Icon(Icons.beach_access, color: Colors.orange);
-      case 'announcement':
-        return const Icon(Icons.announcement, color: Colors.red);
-      case 'deadline':
-        return const Icon(Icons.schedule, color: Colors.purple);
-      case 'celebration':
-        return const Icon(Icons.celebration, color: Colors.pink);
-      case 'maintenance':
-        return const Icon(Icons.build, color: Colors.grey);
-      default:
-        return const Icon(Icons.event, color: Colors.blue);
-    }
-  }
-
-  Widget _getActivityIcon(String? activityType) {
-    switch (activityType) {
-      case 'login':
-      case 'logout':
-        return const Icon(Icons.login, color: Colors.blue, size: 20);
-      case 'clock_in':
-      case 'clock_out':
-        return const Icon(Icons.access_time, color: Colors.green, size: 20);
-      case 'break_start':
-      case 'break_end':
-        return const Icon(Icons.free_breakfast, color: Colors.orange, size: 20);
-      case 'leave_request':
-      case 'leave_approved':
-      case 'leave_rejected':
-        return const Icon(Icons.beach_access, color: Colors.purple, size: 20);
-      case 'event_created':
-      case 'event_updated':
-      case 'event_deleted':
-        return const Icon(Icons.event, color: Colors.red, size: 20);
-      case 'profile_update':
-        return const Icon(Icons.person, color: Colors.blue, size: 20);
-      case 'password_change':
-        return const Icon(Icons.lock, color: Colors.grey, size: 20);
-      case 'notification_sent':
-        return const Icon(Icons.notifications, color: Colors.orange, size: 20);
-      default:
-        return const Icon(Icons.info, color: Colors.grey, size: 20);
-    }
-  }
-
-  Widget _getPriorityChip(String? priority) {
-    Color color;
-    String text;
-
-    switch (priority) {
-      case 'urgent':
-        color = Colors.red;
-        text = 'Urgent';
-        break;
-      case 'high':
-        color = Colors.orange;
-        text = 'High';
-        break;
-      case 'medium':
-        color = Colors.blue;
-        text = 'Medium';
-        break;
-      case 'low':
-        color = Colors.green;
-        text = 'Low';
-        break;
-      default:
-        color = Colors.grey;
-        text = 'Medium';
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
     );
   }
 }

@@ -4,6 +4,47 @@ const Notification = require('../models/Notification');
 const { sendNotificationToUser, sendNotificationToTopic } = require('../services/notificationService');
 const FCMToken = require('../models/FCMToken');
 
+// Helper function to check if user is currently clocked in
+async function isUserClockedIn(userId, companyId) {
+  try {
+    const Attendance = require('../models/Attendance');
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+
+    const attendance = await Attendance.findOne({
+      user: userId,
+      companyId: companyId,
+      date: { $gte: today, $lt: tomorrow },
+    });
+
+    if (!attendance) {
+      return false;
+    }
+
+    // User is clocked in if they have checkInTime but no checkOutTime
+    // and they're not currently on a break
+    if (attendance.checkInTime && !attendance.checkOutTime) {
+      const lastBreak = attendance.breaks.length > 0 
+        ? attendance.breaks[attendance.breaks.length - 1] 
+        : null;
+      
+      // If they're on a break, they're still considered "clocked in"
+      if (lastBreak && !lastBreak.end) {
+        return true; // On break but still clocked in
+      }
+      
+      return true; // Clocked in and not on break
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Error checking clock-in status:', error);
+    return false;
+  }
+}
+
 // Apply for leave
 exports.applyLeave = async (req, res) => {
   try {
@@ -15,10 +56,47 @@ exports.applyLeave = async (req, res) => {
     if (!leaveType || !startDate || !endDate) {
       return res.status(400).json({ message: 'Leave type, start date, and end date are required.' });
     }
+
+    // ===== Validate half-day leave request =====
+    if (req.body.isHalfDay) {
+      const isClockedIn = await isUserClockedIn(userId, req.companyId);
+      if (!isClockedIn) {
+        return res.status(400).json({ 
+          message: 'You must be clocked in to request a half-day leave. Please clock in first and then apply for half-day leave.' 
+        });
+      }
+    }
+
+    // ===== Validate against company leave policy =====
+    const LeavePolicy = require('../models/LeavePolicy');
+    const { validateLeaveAgainstPolicy } = require('../utils/leave-policy-validator');
+
+    const policy = await LeavePolicy.findOne({ companyId: req.companyId, isActive: true, isDefault: true });
+    const policyError = validateLeaveAgainstPolicy(policy, new Date(startDate), new Date(endDate), req.body.isHalfDay);
+    if (policyError) {
+      return res.status(400).json({ message: policyError });
+    }
     
     // Prevent overlapping leave requests
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    // Parse dates and set to start/end of day to avoid timezone issues
+    // Extract just the date part (YYYY-MM-DD) to avoid timezone conversion
+    const startDateStr = startDate.split('T')[0]; // Get just the date part
+    const endDateStr = endDate.split('T')[0]; // Get just the date part
+    
+    const start = new Date(startDateStr + 'T00:00:00');
+    const end = new Date(endDateStr + 'T23:59:59');
+    
+    console.log('DEBUG: Checking for overlapping leaves');
+    console.log('DEBUG: New request - Start:', start.toISOString(), 'End:', end.toISOString());
+    console.log('DEBUG: Original dates - Start:', startDate, 'End:', endDate);
+    console.log('DEBUG: Date conversion details:');
+    console.log('  Raw startDate:', startDate, 'Type:', typeof startDate);
+    console.log('  Raw endDate:', endDate, 'Type:', typeof endDate);
+    console.log('  Extracted startDateStr:', startDateStr);
+    console.log('  Extracted endDateStr:', endDateStr);
+    console.log('  Parsed start:', start, 'Local:', start.toLocaleDateString());
+    console.log('  Parsed end:', end, 'Local:', end.toLocaleDateString());
+    console.log('DEBUG: User ID:', userId, 'Role:', userRole, 'Company ID:', req.companyId);
     
     let overlappingLeave;
     if (userRole === 'admin') {
@@ -37,18 +115,59 @@ exports.applyLeave = async (req, res) => {
       if (!employee) {
         return res.status(400).json({ message: 'Employee record not found.' });
       }
+      console.log('DEBUG: Employee found:', employee._id);
+      
+      // First, let's see all existing leaves for this employee
+      const allLeaves = await Leave.find({
+        employee: employee._id,
+        companyId: req.companyId
+      }).sort({ startDate: 1 });
+      
+      console.log('DEBUG: All existing leaves for employee:', allLeaves.map(l => ({
+        id: l._id,
+        startDate: l.startDate,
+        endDate: l.endDate,
+        status: l.status,
+        leaveType: l.leaveType
+      })));
+      
+      // Use a more precise overlap detection that handles time components
       overlappingLeave = await Leave.findOne({
         employee: employee._id,
         companyId: req.companyId,
         status: { $in: ['Pending', 'Approved'] },
-        $or: [
-          { startDate: { $lte: end }, endDate: { $gte: start } }
+        $and: [
+          { startDate: { $lt: end } },  // Existing start is before new end
+          { endDate: { $gt: start } }   // Existing end is after new start
         ]
       });
     }
     
     if (overlappingLeave) {
+      console.log('DEBUG: Overlapping leave found:', {
+        id: overlappingLeave._id,
+        startDate: overlappingLeave.startDate,
+        endDate: overlappingLeave.endDate,
+        status: overlappingLeave.status
+      });
+      
+      // Debug the actual comparison
+      console.log('DEBUG: Date comparison details:');
+      console.log('  New request start:', start.toISOString());
+      console.log('  New request end:', end.toISOString());
+      console.log('  Existing start:', overlappingLeave.startDate.toISOString());
+      console.log('  Existing end:', overlappingLeave.endDate.toISOString());
+      console.log('  Is existing start < new end?', overlappingLeave.startDate < end);
+      console.log('  Is existing end > new start?', overlappingLeave.endDate > start);
+    } else {
+      console.log('DEBUG: No overlapping leaves found');
+    }
+    
+    if (overlappingLeave) {
+      console.log('DEBUG: REJECTING - Overlapping leave detected');
       return res.status(400).json({ message: 'You already have a leave request that overlaps with these dates.' });
+    } else {
+      console.log('DEBUG: ACCEPTING - No overlapping leaves found');
     }
     
     // Create leave request
@@ -58,9 +177,10 @@ exports.applyLeave = async (req, res) => {
         user: userId,
         companyId: req.companyId,
         leaveType,
-        startDate,
-        endDate,
-        reason
+        startDate: new Date(startDateStr + 'T00:00:00'),
+        endDate: new Date(endDateStr + 'T23:59:59'),
+        reason,
+        isHalfDay: req.body.isHalfDay || false
       });
     } else {
       const employee = await Employee.findOne({ userId: userId, companyId: req.companyId });
@@ -71,16 +191,35 @@ exports.applyLeave = async (req, res) => {
         employee: employee._id,
         companyId: req.companyId,
         leaveType,
-        startDate,
-        endDate,
-        reason
+        startDate: new Date(startDateStr + 'T00:00:00'),
+        endDate: new Date(endDateStr + 'T23:59:59'),
+        reason,
+        isHalfDay: req.body.isHalfDay || false
       });
     }
     
+    console.log('DEBUG: Saving leave request...');
+    console.log('DEBUG: Leave object before save:', {
+      startDate: leave.startDate,
+      endDate: leave.endDate,
+      leaveType: leave.leaveType,
+      reason: leave.reason
+    });
     await leave.save();
+    console.log('DEBUG: Leave request saved successfully:', leave._id);
+    console.log('DEBUG: Leave object after save:', {
+      startDate: leave.startDate,
+      endDate: leave.endDate,
+      leaveType: leave.leaveType,
+      reason: leave.reason
+    });
     
     // Notify all admins (except the requesting admin)
     const User = require('../models/User');
+    console.log('DEBUG: Looking for admin users in company:', req.companyId);
+    console.log('DEBUG: Current user ID:', userId);
+    console.log('DEBUG: Current user role:', userRole);
+    
     const adminUsers = await User.find({ 
       role: 'admin', 
       isActive: true,
@@ -88,42 +227,72 @@ exports.applyLeave = async (req, res) => {
       _id: { $ne: userId } // Exclude the requesting admin
     });
     
+    console.log('DEBUG: Found admin users:', adminUsers.length);
+    console.log('DEBUG: Admin users:', adminUsers.map(u => ({ id: u._id, name: `${u.firstName} ${u.lastName}`, email: u.email })));
+    
     let requesterName = '';
-    if (userRole === 'admin') {
-      const requestingUser = await User.findOne({ _id: userId, companyId: req.companyId });
-      requesterName = `${requestingUser?.firstName || ''} ${requestingUser?.lastName || ''}`.trim();
-    } else {
-      const employee = await Employee.findOne({ userId: userId, companyId: req.companyId });
-      requesterName = `${employee?.firstName || ''} ${employee?.lastName || ''}`.trim();
+    try {
+      if (userRole === 'admin') {
+        const requestingUser = await User.findOne({ _id: userId, companyId: req.companyId });
+        requesterName = `${requestingUser?.firstName || ''} ${requestingUser?.lastName || ''}`.trim();
+      } else {
+        const employee = await Employee.findOne({ userId: userId, companyId: req.companyId });
+        requesterName = `${employee?.firstName || ''} ${employee?.lastName || ''}`.trim();
+      }
+      console.log('DEBUG: Requester name:', requesterName);
+    } catch (nameError) {
+      console.error('DEBUG: Error getting requester name:', nameError);
+      requesterName = 'Employee';
     }
     
-    for (const admin of adminUsers) {
-      const adminNotification = new Notification({
-        user: admin._id,
-        title: 'New Leave Request Submitted',
-        message: `${requesterName} (${userRole}) has submitted a leave request from ${start.toDateString()} to ${end.toDateString()}.`,
-        type: 'leave',
-        link: '/admin/leave_management',
-        isRead: false,
-        companyId: req.companyId,
-      });
-      await adminNotification.save();
+    console.log('DEBUG: Creating notifications for admins...');
+    try {
+      for (const admin of adminUsers) {
+        console.log('DEBUG: Creating notification for admin:', admin._id);
+        const adminNotification = new Notification({
+          user: admin._id,
+          company: req.companyId, // Use 'company' instead of 'companyId'
+          title: 'New Leave Request Submitted',
+          message: `${requesterName} (${userRole}) has submitted a leave request from ${start.toDateString()} to ${end.toDateString()}.`,
+          type: 'leave',
+          link: '/admin/leave_management',
+          isRead: false,
+        });
+        await adminNotification.save();
+        console.log('DEBUG: Notification saved for admin:', admin._id);
+      }
+    } catch (notificationError) {
+      console.error('DEBUG: Error creating notifications:', notificationError);
+      // Don't fail the entire request if notifications fail
     }
     
     // FCM: Notify all admins via topic
     try {
-      await sendNotificationToTopic(
-        'admins',
-        'New Leave Request Submitted',
-        `${requesterName} (${userRole}) has submitted a leave request from ${start.toDateString()} to ${end.toDateString()}.`,
-        { type: 'leave', leaveId: leave._id.toString(), companyId: req.companyId }
-      );
+      console.log('DEBUG: Sending FCM notification...');
+      
+      // Check if Firebase is available
+      const admin = require('firebase-admin');
+      if (!admin.apps.length) {
+        console.log('DEBUG: FCM - Firebase not initialized, skipping push notification');
+      } else {
+        console.log('DEBUG: FCM - Firebase is initialized, proceeding with notification');
+        await sendNotificationToTopic(
+          'admins',
+          'New Leave Request Submitted',
+          `${requesterName} (${userRole}) has submitted a leave request from ${start.toDateString()} to ${end.toDateString()}.`,
+          { type: 'leave', screen: 'leave_management', leaveId: leave._id.toString(), companyId: req.companyId }
+        );
+        console.log('DEBUG: FCM notification sent successfully');
+      }
     } catch (fcmError) {
       console.log('FCM notification failed, but database notification was created:', fcmError.message);
     }
     
+    console.log('DEBUG: Sending success response...');
     res.status(201).json({ message: 'Leave application submitted successfully.', leave });
   } catch (error) {
+    console.error('DEBUG: Error in applyLeave:', error);
+    console.error('DEBUG: Error stack:', error.stack);
     res.status(500).json({ message: 'Error applying for leave.', error: error.message });
   }
 };
@@ -143,6 +312,7 @@ exports.getLeaveHistory = async (req, res) => {
       startDate: leave.startDate,
       endDate: leave.endDate,
       reason: leave.reason,
+      isHalfDay: leave.isHalfDay, // Add isHalfDay field
       status: leave.status,
       appliedAt: leave.appliedAt,
     }));
@@ -155,7 +325,7 @@ exports.getLeaveHistory = async (req, res) => {
 // Get all leave requests for admin
 exports.getAllLeaveRequests = async (req, res) => {
   try {
-    const { includeAdmins = 'true' } = req.query;
+    const { includeAdmins = 'true', role = 'all' } = req.query;
     
     // Get all leaves with both employee and user population, sorted by latest appliedAt first
     let leaves = await Leave.find({ companyId: req.companyId })
@@ -163,10 +333,15 @@ exports.getAllLeaveRequests = async (req, res) => {
       .populate('employee')
       .populate('user', 'firstName lastName email role');
     
-    // If filtering for employees only, exclude admin leaves
-    if (includeAdmins === 'false') {
+    // Apply role filtering
+    if (role === 'employee' || includeAdmins === 'false') {
+      // Show only employee leaves
       leaves = leaves.filter(leave => leave.employee && !leave.user);
+    } else if (role === 'admin') {
+      // Show only admin leaves
+      leaves = leaves.filter(leave => leave.user && !leave.employee);
     }
+    // If role === 'all' or includeAdmins === 'true', show both (no filtering)
     
     const result = leaves.map(leave => {
       let employeeName = '';
@@ -196,6 +371,7 @@ exports.getAllLeaveRequests = async (req, res) => {
         startDate: leave.startDate,
         endDate: leave.endDate,
         reason: leave.reason,
+        isHalfDay: leave.isHalfDay, // Add isHalfDay field
         status: leave.status,
         appliedAt: leave.appliedAt,
         approvedBy: leave.approvedBy,
@@ -258,6 +434,9 @@ exports.approveLeaveRequest = async (req, res) => {
     
     // Notify the leave requester
     if (recipientUserId) {
+      console.log('FCM: DEBUG - Approving leave for user:', recipientUserId);
+      console.log('FCM: DEBUG - Recipient name:', recipientName);
+      
       const notification = new Notification({
         user: recipientUserId,
         title: 'Leave Request Approved',
@@ -265,20 +444,43 @@ exports.approveLeaveRequest = async (req, res) => {
         type: 'info',
         link: '/leave_request',
         isRead: false,
-        companyId: req.companyId,
+        company: req.companyId,
       });
       await notification.save();
+      console.log('FCM: DEBUG - Database notification saved successfully');
       
       // FCM: Notify the user
+      console.log('FCM: DEBUG - Looking for FCM token for user:', recipientUserId);
       const tokenDoc = await FCMToken.findOne({ userId: recipientUserId });
+      console.log('FCM: DEBUG - FCM token found:', !!tokenDoc);
+      console.log('FCM: DEBUG - Token document:', tokenDoc ? { userId: tokenDoc.userId, hasToken: !!tokenDoc.fcmToken } : 'null');
+      
       if (tokenDoc && tokenDoc.fcmToken) {
-        await sendNotificationToUser(
-          tokenDoc.fcmToken,
-          'Leave Request Approved',
-          `Your leave request from ${leave.startDate.toDateString()} to ${leave.endDate.toDateString()} has been approved.`,
-          { type: 'leave', leaveId: leave._id.toString(), status: 'Approved' }
-        );
+        console.log('FCM: DEBUG - Sending approval notification to user:', recipientUserId);
+        console.log('FCM: DEBUG - FCM token (first 20 chars):', tokenDoc.fcmToken.substring(0, 20) + '...');
+        
+        try {
+          await sendNotificationToUser(
+            tokenDoc.fcmToken,
+            'Leave Request Approved',
+            `Your leave request from ${leave.startDate.toDateString()} to ${leave.endDate.toDateString()} has been approved.`,
+            { type: 'leave', screen: 'leave_detail', leaveId: leave._id.toString(), status: 'Approved' }
+          );
+          console.log('FCM: DEBUG - Approval notification sent successfully');
+        } catch (error) {
+          console.error('FCM: DEBUG - Error sending approval notification:', error);
+        }
+      } else {
+        console.log('FCM: DEBUG - No FCM token found for user:', recipientUserId);
+        console.log('FCM: DEBUG - Available FCM tokens in database:');
+        const allTokens = await FCMToken.find({});
+        console.log('FCM: DEBUG - Total FCM tokens:', allTokens.length);
+        allTokens.forEach(token => {
+          console.log('FCM: DEBUG - Token for user:', token.userId, 'has token:', !!token.fcmToken);
+        });
       }
+    } else {
+      console.log('FCM: DEBUG - No recipient user ID found for leave approval');
     }
     
     res.json({
@@ -315,26 +517,66 @@ exports.rejectLeaveRequest = async (req, res) => {
     if (!leave) {
       return res.status(404).json({ message: 'Leave request not found.' });
     }
+    
+    // Get employee's user ID for notification
+    let recipientUserId;
+    let recipientName = '';
+    
+    if (leave.employee) {
+      const employee = await Employee.findById(leave.employee);
+      recipientUserId = employee?.userId;
+      recipientName = `${employee?.firstName || ''} ${employee?.lastName || ''}`.trim();
+    }
+    
     // Notify the employee
-    const employeeNotification = new Notification({
-      user: leave.employee?._id,
-      title: 'Leave Request Rejected',
-      message: `Your leave request from ${leave.startDate.toDateString()} to ${leave.endDate.toDateString()} has been rejected.`,
-      type: 'alert',
-      link: '/leave_request',
-      isRead: false,
-      companyId: req.companyId,
-    });
-    await employeeNotification.save();
-    // FCM: Notify the employee
-    const tokenDoc = await FCMToken.findOne({ userId: leave.employee?._id });
-    if (tokenDoc && tokenDoc.fcmToken) {
-      await sendNotificationToUser(
-        tokenDoc.fcmToken,
-        'Leave Request Rejected',
-        `Your leave request from ${leave.startDate.toDateString()} to ${leave.endDate.toDateString()} has been rejected.`,
-        { type: 'leave', leaveId: leave._id.toString(), status: 'Rejected' }
-      );
+    if (recipientUserId) {
+      console.log('FCM: DEBUG - Rejecting leave for user:', recipientUserId);
+      console.log('FCM: DEBUG - Recipient name:', recipientName);
+      
+      const employeeNotification = new Notification({
+        user: recipientUserId,
+        title: 'Leave Request Rejected',
+        message: `Your leave request from ${leave.startDate.toDateString()} to ${leave.endDate.toDateString()} has been rejected.`,
+        type: 'alert',
+        link: '/leave_request',
+        isRead: false,
+        company: req.companyId,
+      });
+      await employeeNotification.save();
+      console.log('FCM: DEBUG - Database notification saved successfully');
+      
+      // FCM: Notify the employee
+      console.log('FCM: DEBUG - Looking for FCM token for user:', recipientUserId);
+      const tokenDoc = await FCMToken.findOne({ userId: recipientUserId });
+      console.log('FCM: DEBUG - FCM token found:', !!tokenDoc);
+      console.log('FCM: DEBUG - Token document:', tokenDoc ? { userId: tokenDoc.userId, hasToken: !!tokenDoc.fcmToken } : 'null');
+      
+      if (tokenDoc && tokenDoc.fcmToken) {
+        console.log('FCM: DEBUG - Sending rejection notification to user:', recipientUserId);
+        console.log('FCM: DEBUG - FCM token (first 20 chars):', tokenDoc.fcmToken.substring(0, 20) + '...');
+        
+        try {
+          await sendNotificationToUser(
+            tokenDoc.fcmToken,
+            'Leave Request Rejected',
+            `Your leave request from ${leave.startDate.toDateString()} to ${leave.endDate.toDateString()} has been rejected.`,
+            { type: 'leave', screen: 'leave_detail', leaveId: leave._id.toString(), status: 'Rejected' }
+          );
+          console.log('FCM: DEBUG - Rejection notification sent successfully');
+        } catch (error) {
+          console.error('FCM: DEBUG - Error sending rejection notification:', error);
+        }
+      } else {
+        console.log('FCM: DEBUG - No FCM token found for user:', recipientUserId);
+        console.log('FCM: DEBUG - Available FCM tokens in database:');
+        const allTokens = await FCMToken.find({});
+        console.log('FCM: DEBUG - Total FCM tokens:', allTokens.length);
+        allTokens.forEach(token => {
+          console.log('FCM: DEBUG - Token for user:', token.userId, 'has token:', !!token.fcmToken);
+        });
+      }
+    } else {
+      console.log('FCM: DEBUG - No recipient user ID found for leave rejection');
     }
     res.json({
       message: 'Leave request rejected.',
@@ -536,7 +778,7 @@ exports.bulkUpdateLeaveRequests = async (req, res) => {
           type: action === 'approve' ? 'info' : 'alert',
           link: '/leave_request',
           isRead: false,
-          companyId: req.companyId,
+          company: req.companyId,
         });
         await notification.save();
       }
@@ -713,19 +955,32 @@ exports.cancelLeaveRequest = async (req, res) => {
       return res.status(400).json({ message: 'Only pending leave requests can be cancelled.' });
     }
 
-    // Check if leave starts within 24 hours
-    const now = new Date();
-    const leaveStart = new Date(leave.startDate);
-    const hoursUntilLeave = (leaveStart - now) / (1000 * 60 * 60);
-    
-    if (hoursUntilLeave < 24) {
-      return res.status(400).json({ message: 'Leave requests cannot be cancelled within 24 hours of start date.' });
+    // Check policy if cancellation allowed
+    const LeavePolicy = require('../models/LeavePolicy');
+    const policy = await LeavePolicy.findOne({ companyId: req.companyId, isActive: true, isDefault: true });
+    if (policy && policy.rules && policy.rules.allowCancellation === false) {
+      return res.status(403).json({ message: 'Cancellation of leave requests is disabled by company policy.' });
     }
+
+    // TESTING: 24-hour restriction disabled
+    // // Check if leave starts within 24 hours
+    // const now = new Date();
+    // const leaveStart = new Date(leave.startDate);
+    // const hoursUntilLeave = (leaveStart - now) / (1000 * 60 * 60);
+    
+    // if (hoursUntilLeave < 24) {
+    //   return res.status(400).json({ message: 'Leave requests cannot be cancelled within 24 hours of start date.' });
+    // }
 
     await Leave.findByIdAndDelete(id);
 
     // Notify admins about cancellation
     const User = require('../models/User');
+    
+    // Get the user details for the notification
+    const currentUser = await User.findById(userId);
+    const userName = currentUser ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() : 'Unknown User';
+    
     const adminUsers = await User.find({ 
       role: 'admin', 
       isActive: true,
@@ -736,11 +991,11 @@ exports.cancelLeaveRequest = async (req, res) => {
       const notification = new Notification({
         user: admin._id,
         title: 'Leave Request Cancelled',
-        message: `A leave request has been cancelled by ${req.user.firstName} ${req.user.lastName}.`,
+        message: `A leave request has been cancelled by ${userName}.`,
         type: 'info',
         link: '/admin/leave_management',
         isRead: false,
-        companyId: req.companyId,
+        company: req.companyId,
       });
       await notification.save();
     }

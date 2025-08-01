@@ -1,0 +1,63 @@
+services:
+  ts-admin-portal:
+    build:
+      context: ./admin-portal
+      dockerfile: ../admin-portalDockerfile
+    image: ts-admin-portal:latest
+    container_name: ts-admin-portal
+    restart: unless-stopped
+    init: true
+    # The admin portal is a React app served by 'serve' on port 3000
+    ports:
+      - "3000:3000"
+    # env_file: ./admin-portal/.env  # Uncomment if .env file exists
+    networks:
+      - rooster-net
+    depends_on:
+      - js-rooster-backend
+    # The admin portal expects the backend to be available on port 5000
+
+  js-rooster-backend:
+    build:
+      context: ./rooster-backend
+      dockerfile: ../rooster-backendDockerfile
+    image: js-rooster-backend:latest
+    container_name: js-rooster-backend
+    restart: unless-stopped
+    init: true
+    ports:
+      - "5000:5000"
+    env_file: ./rooster-backend/.env
+    networks:
+      - rooster-net
+    depends_on:
+      - mongo
+    # The backend expects MongoDB to be available
+
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rooster-net
+    # MongoDB is required by the backend for data persistence
+
+networks:
+  rooster-net:
+    driver: bridge
+
+volumes:
+  mongo-data:
+    # Persistent storage for MongoDB

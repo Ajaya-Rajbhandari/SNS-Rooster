@@ -94,7 +94,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     checkToken();
-  }, []); // Only run once on mount
+  }, [token, validateToken]); // Include dependencies
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {

@@ -81,6 +81,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Analytics & Reports'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        elevation: 0,
         leading: Builder(
           builder: (BuildContext context) {
             return IconButton(
@@ -434,7 +437,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                       belowBarData: BarAreaData(
                                         show: true,
                                         color: theme.colorScheme.primary
-                                            .withOpacity(0.15),
+                                            .withValues(alpha: 0.15),
                                       ),
                                       showingIndicators: List.generate(
                                           filteredWorkHours.length, (i) => i),
@@ -600,7 +603,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   children: [
                                     CircleAvatar(
                                       backgroundColor:
-                                          Colors.red.withOpacity(0.1),
+                                          Colors.red.withValues(alpha: 0.1),
                                       child: const Icon(Icons.access_time,
                                           color: Colors.red),
                                     ),
@@ -661,7 +664,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   children: [
                                     CircleAvatar(
                                       backgroundColor:
-                                          Colors.blue.withOpacity(0.1),
+                                          Colors.blue.withValues(alpha: 0.1),
                                       child: const Icon(Icons.logout,
                                           color: Colors.blue),
                                     ),
@@ -745,7 +748,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         child: Text(
                           'More charts and insights will appear here.',
                           style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
                           ),
                         ),
                       ),
@@ -804,7 +808,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircleAvatar(
-              backgroundColor: color.withOpacity(0.15),
+              backgroundColor: color.withValues(alpha: 0.15),
               radius: 22,
               child: Icon(icon, color: color, size: 28),
             ),
@@ -815,7 +819,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             const SizedBox(height: 4),
             Text(label,
                 style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7))),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
           ],
         ),
       ),

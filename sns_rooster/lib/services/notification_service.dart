@@ -9,10 +9,11 @@ class NotificationService {
 
   Future<List<Map<String, dynamic>>> fetchNotifications() async {
     final response = await http.get(
-      Uri.parse('${ApiConfig.baseUrl}/notifications'),
+      Uri.parse('${ApiConfig.baseUrl}/notifications/simple'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ${authProvider.token}',
+        'x-company-id': authProvider.user?['companyId'] ?? '',
       },
     );
     if (response.statusCode == 200) {
@@ -25,10 +26,11 @@ class NotificationService {
 
   Future<int> getUnreadCount() async {
     final response = await http.get(
-      Uri.parse('${ApiConfig.baseUrl}/notifications/unread-count'),
+      Uri.parse('${ApiConfig.baseUrl}/notifications/simple/unread-count'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ${authProvider.token}',
+        'x-company-id': authProvider.user?['companyId'] ?? '',
       },
     );
     if (response.statusCode == 200) {

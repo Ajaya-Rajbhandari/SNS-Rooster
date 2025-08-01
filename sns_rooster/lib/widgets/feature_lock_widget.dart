@@ -51,7 +51,7 @@ class FeatureLockWidget extends StatelessWidget {
                       // Overlay with blur effect
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.3),
+                          color: Colors.black.withValues(alpha: 0.3),
                           backgroundBlendMode: BlendMode.darken,
                         ),
                       ),
@@ -231,7 +231,6 @@ class FeatureComparisonWidget extends StatelessWidget {
     return Consumer<FeatureProvider>(
       builder: (context, featureProvider, _) {
         final isFeatureEnabled = featureProvider.isFeatureEnabled(featureName);
-        final currentPlan = featureProvider.subscriptionPlanName;
 
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),

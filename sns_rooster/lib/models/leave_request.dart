@@ -25,6 +25,7 @@ class LeaveRequest {
   final DateTime endDate;
   final int duration;
   final String reason;
+  final bool isHalfDay;
   final LeaveRequestStatus status;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -41,6 +42,7 @@ class LeaveRequest {
     required this.endDate,
     required this.duration,
     required this.reason,
+    required this.isHalfDay,
     required this.status,
     required this.createdAt,
     this.updatedAt,
@@ -70,6 +72,7 @@ class LeaveRequest {
       endDate: endDate,
       duration: duration,
       reason: json['reason'] ?? '',
+      isHalfDay: json['isHalfDay'] ?? false,
       status: LeaveRequestStatus.values.firstWhere(
         (e) => e
             .toString()
@@ -93,6 +96,7 @@ class LeaveRequest {
       'endDate': endDate.toIso8601String(),
       'duration': duration,
       'reason': reason,
+      'isHalfDay': isHalfDay,
       'status': status.toString().split('.').last,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
@@ -111,6 +115,7 @@ class LeaveRequest {
     DateTime? endDate,
     int? duration,
     String? reason,
+    bool? isHalfDay,
     LeaveRequestStatus? status,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -127,6 +132,7 @@ class LeaveRequest {
       endDate: endDate ?? this.endDate,
       duration: duration ?? this.duration,
       reason: reason ?? this.reason,
+      isHalfDay: isHalfDay ?? this.isHalfDay,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

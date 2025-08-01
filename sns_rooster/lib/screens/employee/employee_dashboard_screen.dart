@@ -27,7 +27,6 @@ import '../../widgets/admin_side_navigation.dart';
 import '../../widgets/notification_bell.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/global_notification_service.dart';
-import 'employee_events_screen.dart';
 import 'company_info_screen.dart';
 import 'package:sns_rooster/utils/debug_company_context.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -475,7 +474,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
                             color: Theme.of(context)
                                 .colorScheme
                                 .onSurface
-                                .withOpacity(0.6),
+                                .withValues(alpha: 0.6),
                           ),
                         ),
                     ],
@@ -622,7 +621,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.orange.shade200.withOpacity(0.3),
+                color: Colors.orange.shade200.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.orange.shade300),
               ),
@@ -704,15 +703,9 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     }
   }
 
-  // Add network connectivity check
-  /// Indicates whether the device is currently connected to a network.
-  /// This is updated by [_checkNetworkConnectivity] and reflected in the app bar icon.
-  bool _isConnected = true; // Assume connected by default
-
   @override
   void initState() {
     super.initState();
-    _checkNetworkConnectivity();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final userId = authProvider.user?['_id'];
@@ -752,15 +745,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       }
       // Fetch upcoming events
       _fetchUpcomingEvents();
-    });
-  }
-
-  /// Checks the current network connectivity status using connectivity_plus.
-  /// Updates [_isConnected] and triggers a UI update.
-  void _checkNetworkConnectivity() async {
-    var connectivityResult = await (Connectivity()).checkConnectivity();
-    setState(() {
-      _isConnected = connectivityResult != ConnectivityResult.none;
     });
   }
 
@@ -837,9 +821,12 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Employee Dashboard'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications, color: Colors.black87),
+            icon: const Icon(Icons.notifications),
             onPressed: () {
               Navigator.push(
                 context,
@@ -852,7 +839,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
           // Debug button for development
           if (kDebugMode)
             IconButton(
-              icon: const Icon(Icons.bug_report, color: Colors.orange),
+              icon: const Icon(Icons.bug_report),
               onPressed: () => DebugCompanyContext.showDebugDialog(context),
             ),
         ],
@@ -1021,7 +1008,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 2),
               ),
@@ -1112,7 +1099,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
               border: Border.all(color: Colors.orange.shade200),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.orange.withOpacity(0.1),
+                  color: Colors.orange.withValues(alpha: 0.1),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1172,7 +1159,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
             border: Border.all(color: Colors.blue.shade200),
             boxShadow: [
               BoxShadow(
-                color: Colors.blue.withOpacity(0.1),
+                color: Colors.blue.withValues(alpha: 0.1),
                 blurRadius: 15,
                 offset: const Offset(0, 6),
               ),
@@ -1199,7 +1186,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
                         borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.blue.withOpacity(0.3),
+                            color: Colors.blue.withValues(alpha: 0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -1332,7 +1319,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
                     const SizedBox(height: 16),
 
                     // Location Map
-                    Container(
+                    SizedBox(
                       width: double.infinity,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1342,7 +1329,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
                               Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue.shade600.withOpacity(0.1),
+                                  color: Colors.blue.shade600
+                                      .withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Icon(
@@ -1410,7 +1398,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
         Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.1),
+            color: iconColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
@@ -1450,9 +1438,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
   }
 
   String _buildAddressString(Map<String, dynamic> address) {
-    if (address == null) return 'No address available';
-
-    // Try to use full address first if available
     if (address['fullAddress']?.isNotEmpty == true) {
       return address['fullAddress'];
     }
@@ -1515,7 +1500,7 @@ class _DashboardHeader extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.shade100.withOpacity(0.3),
+            color: Colors.blue.shade100.withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -1655,10 +1640,10 @@ class StatusCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
+                        color: Colors.green.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
-                        border:
-                            Border.all(color: Colors.green.withOpacity(0.3)),
+                        border: Border.all(
+                            color: Colors.green.withValues(alpha: 0.3)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1835,10 +1820,10 @@ class StatusCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.orange.withOpacity(0.1),
+                            color: Colors.orange.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                                color: Colors.orange.withOpacity(0.3)),
+                                color: Colors.orange.withValues(alpha: 0.3)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1979,10 +1964,10 @@ class StatusCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
+                              color: Colors.blue.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                  color: Colors.blue.withOpacity(0.3)),
+                                  color: Colors.blue.withValues(alpha: 0.3)),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2071,7 +2056,7 @@ class StatusCard extends StatelessWidget {
                                             .bodySmall
                                             ?.copyWith(
                                                 fontWeight: FontWeight.w500)),
-                                    Text('${_formatDuration(breakDuration)}',
+                                    Text(_formatDuration(breakDuration),
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall),
@@ -2088,10 +2073,10 @@ class StatusCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.grey.withOpacity(0.1),
+                            color: Colors.grey.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border:
-                                Border.all(color: Colors.grey.withOpacity(0.3)),
+                            border: Border.all(
+                                color: Colors.grey.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             children: [
@@ -2119,10 +2104,10 @@ class StatusCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.1),
+                          color: Colors.grey.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
-                          border:
-                              Border.all(color: Colors.grey.withOpacity(0.3)),
+                          border: Border.all(
+                              color: Colors.grey.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           children: [
@@ -2508,7 +2493,7 @@ class _QuickActionsState extends State<_QuickActions> {
     bool isFullWidth = false,
   }) {
     final isDisabled = onPressed == null;
-    final cardColor = isDisabled ? color.withOpacity(0.5) : color;
+    final cardColor = isDisabled ? color.withValues(alpha: 0.5) : color;
 
     return Semantics(
       label: label,
@@ -2526,7 +2511,7 @@ class _QuickActionsState extends State<_QuickActions> {
             height: isFullWidth ? 80 : null,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [cardColor, cardColor.withOpacity(0.8)],
+                colors: [cardColor, cardColor.withValues(alpha: 0.8)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),

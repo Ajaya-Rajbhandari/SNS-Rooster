@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/profile_provider.dart'; // Added import for ProfileProvider
 import '../../services/secure_storage_service.dart';
 import '../../services/company_service.dart';
 import '../../models/company.dart';
@@ -155,15 +156,24 @@ class _LoginScreenState extends State<LoginScreen> {
         }
 
         if (authProvider.user?['role'] == 'super_admin') {
+          final profileProvider =
+              Provider.of<ProfileProvider>(context, listen: false);
+          await profileProvider.forceRefreshProfile();
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
                 builder: (_) => const SuperAdminDashboardScreen()),
           );
         } else if (authProvider.user?['role'] == 'admin') {
+          final profileProvider =
+              Provider.of<ProfileProvider>(context, listen: false);
+          await profileProvider.forceRefreshProfile();
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
           );
         } else {
+          final profileProvider =
+              Provider.of<ProfileProvider>(context, listen: false);
+          await profileProvider.forceRefreshProfile();
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const EmployeeDashboardScreen()),
           );
@@ -199,7 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
             end: Alignment.bottomCenter,
             colors: [
               theme.colorScheme.primary,
-              theme.colorScheme.primary.withOpacity(0.8),
+              theme.colorScheme.primary.withValues(alpha: 0.8),
             ],
           ),
         ),
@@ -422,10 +432,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Row(
+                        child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
@@ -433,7 +443,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: Colors.white,
                               size: 16,
                             ),
-                            const SizedBox(width: 6),
+                            SizedBox(width: 6),
                             Text(
                               'Credentials loaded from saved data',
                               style: TextStyle(

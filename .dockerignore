@@ -1,0 +1,117 @@
+# Node.js/TypeScript/JavaScript
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# Build outputs
+dist/
+build/
+out/
+coverage/
+
+# Test files and directories
+test/
+tests/
+*.test.js
+*.test.ts
+*.test.tsx
+*.spec.js
+*.spec.ts
+*.spec.tsx
+
+# IDE/editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime*
+*.code-workspace
+
+# Version control
+.git/
+.gitignore
+.svn/
+.hg/
+
+# Environment and secrets
+.env
+.env.*
+*.env
+*.env.*
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Local/temporary files and folders
+tmp/
+temp/
+*.tmp
+.local/
+local/
+.cache/
+
+# Firebase/Flutter/Platform-specific
+.fvm/
+.fvmrc
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+.firebase/
+.firebaserc
+
+# Flutter/Dart build artifacts
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+
+# Android/iOS/macOS/Linux/Windows build artifacts
+android/.gradle/
+android/app/build/
+android/build/
+ios/Flutter/ephemeral/
+ios/Pods/
+ios/build/
+macos/Flutter/ephemeral/
+macos/build/
+linux/build/
+linux/flutter/ephemeral/
+windows/build/
+windows/flutter/ephemeral/
+
+# Documentation and markdown
+README*
+*.md
+docs/
+
+# Project-specific
+.qodo/
+.trae/
+logs/
+exports/
+uploads/
+
+# Miscellaneous
+*.old
+*.stamp
+*.ps1
+*.DS_Store
+Thumbs.db
+.DS_Store
+
+# Exclude Docker files from ignore
+!Dockerfile
+!docker-compose*
+
+# Exclude package.json and package-lock.json (needed for npm install)
+!package.json
+!package-lock.json
+
+# Exclude public assets (for web apps)
+!public/

@@ -208,53 +208,28 @@ exports.getEmployeeByUserId = async (req, res) => {
 exports.getLeaveBalance = async (req, res) => {
   try {
     const employeeId = req.params.id;
+    console.log('DEBUG: getLeaveBalance called for employeeId:', employeeId);
+    console.log('DEBUG: Request companyId:', req.companyId);
+    
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(employeeId)) {
       return res.status(400).json({ message: 'Invalid employee ID.' });
     }
-    const empId = new mongoose.Types.ObjectId(employeeId);
-    console.log('Querying leave balance for employeeId:', empId);
 
-    // Define your leave types and their annual entitlements
-    const leaveTypes = {
-      annual: 12,
-      sick: 10,
-      casual: 5,
-      maternity: 90,
-      paternity: 10,
-      unpaid: 0
+    // Use the new leave policy controller to calculate balance
+    const leavePolicyController = require('./leave-policy-controller');
+    
+    // Create a mock request object for the policy controller
+    const mockReq = {
+      ...req,
+      params: { employeeId },
+      query: req.query
     };
 
-    // Fetch all approved leaves for this employee (case-insensitive status)
-    const Leave = require('../models/Leave');
-    const leaves = await Leave.find({
-      employee: empId,
-      status: { $regex: /^approved$/i }
-    });
-
-    console.log('Approved leaves for balance:', leaves);
-
-    // Calculate used days for each type (robust matching)
-    const used = { annual: 0, sick: 0, casual: 0, maternity: 0, paternity: 0, unpaid: 0 };
-    leaves.forEach(leave => {
-      const type = (leave.leaveType || '').toLowerCase().replace(/\s/g, '');
-      const days = Math.max(1, Math.ceil((new Date(leave.endDate) - new Date(leave.startDate)) / (1000 * 60 * 60 * 24)) + 1);
-      if (type.includes('annual')) used.annual += days;
-      else if (type.includes('sick')) used.sick += days;
-      else if (type.includes('casual')) used.casual += days;
-      else if (type.includes('maternity')) used.maternity += days;
-      else if (type.includes('paternity')) used.paternity += days;
-      else if (type.includes('unpaid')) used.unpaid += days;
-    });
-
-    res.json({
-      annual: { total: leaveTypes.annual, used: used.annual },
-      sick: { total: leaveTypes.sick, used: used.sick },
-      casual: { total: leaveTypes.casual, used: used.casual },
-      maternity: { total: leaveTypes.maternity, used: used.maternity },
-      paternity: { total: leaveTypes.paternity, used: used.paternity },
-      unpaid: { total: leaveTypes.unpaid, used: used.unpaid }
-    });
+    console.log('DEBUG: Calling leavePolicyController.calculateLeaveBalance');
+    // Call the policy controller's calculateLeaveBalance method
+    await leavePolicyController.calculateLeaveBalance(mockReq, res);
+    
   } catch (e) {
     console.error('Error in getLeaveBalance:', e);
     res.status(500).json({ message: 'Error fetching leave balance.' });

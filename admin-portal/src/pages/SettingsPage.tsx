@@ -7,10 +7,6 @@ import {
   TextField,
   Alert,
   CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   FormControl,
   InputLabel,
   Select,
@@ -18,39 +14,19 @@ import {
   Switch,
   FormControlLabel,
   Divider,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Chip,
-  IconButton,
-  Tooltip
+  Chip
 } from '@mui/material';
 import {
   Save as SaveIcon,
   Refresh as RefreshIcon,
-  Settings as SettingsIcon,
   Security as SecurityIcon,
   Notifications as NotificationsIcon,
-  Storage as StorageIcon,
-  Speed as SpeedIcon,
   Business as BusinessIcon,
-  CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
-  Error as ErrorIcon,
-  Info as InfoIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Add as AddIcon,
   Backup as BackupIcon,
   AttachMoney
 } from '@mui/icons-material';
 import apiService from '../services/apiService';
-import cachedApiService from '../services/cachedApiService';
 
 interface SystemSettings {
   platform: {
@@ -104,7 +80,6 @@ const SettingsPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [activeTab, setActiveTab] = useState(0);
   const [hasChanges, setHasChanges] = useState(false);
 
   const fetchSettings = async () => {

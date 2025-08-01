@@ -157,6 +157,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        elevation: 0,
         leading: Builder(
           builder: (BuildContext context) {
             return IconButton(
@@ -241,8 +244,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
             },
           ),
         ],
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: Colors.white,
       ),
       drawer: const AppDrawer(),
       body: Padding(
@@ -365,13 +366,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                 color: notification['isRead'] == true
                                     ? theme.colorScheme.surface
                                     : theme.colorScheme.secondary
-                                        .withOpacity(0.05),
+                                        .withValues(alpha: 0.05),
                                 elevation:
                                     notification['isRead'] == true ? 2 : 4,
                                 child: ListTile(
                                   leading: CircleAvatar(
                                     backgroundColor: theme.colorScheme.primary
-                                        .withOpacity(0.1),
+                                        .withValues(alpha: 0.1),
                                     child: const Icon(Icons.notifications),
                                   ),
                                   title: Text(
@@ -393,7 +394,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                         style: theme.textTheme.bodyMedium
                                             ?.copyWith(
                                           color: theme.colorScheme.onSurface
-                                              .withOpacity(0.8),
+                                              .withValues(alpha: 0.8),
                                         ),
                                       ),
                                       const SizedBox(height: 4),
@@ -410,7 +411,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                           style: theme.textTheme.bodySmall
                                               ?.copyWith(
                                             color: theme.colorScheme.onSurface
-                                                .withOpacity(0.6),
+                                                .withValues(alpha: 0.6),
                                           ),
                                         ),
                                       ),

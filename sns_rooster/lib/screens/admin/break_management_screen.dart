@@ -288,7 +288,7 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
                                         color: Theme.of(context)
                                             .colorScheme
                                             .onSurface
-                                            .withOpacity(0.6),
+                                            .withValues(alpha: 0.6),
                                       ),
                                     ),
                                   if (breakType['dailyLimit'] != null)
@@ -299,7 +299,7 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
                                         color: Theme.of(context)
                                             .colorScheme
                                             .onSurface
-                                            .withOpacity(0.6),
+                                            .withValues(alpha: 0.6),
                                       ),
                                     ),
                                 ],
@@ -788,7 +788,7 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
                                                 employee['email'] ?? 'No email',
                                                 style: TextStyle(
                                                   color: colorScheme.onSurface
-                                                      .withOpacity(0.7),
+                                                      .withValues(alpha: 0.7),
                                                   fontSize: 14,
                                                 ),
                                               ),
@@ -832,7 +832,7 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
                                             'Total Breaks Today: $totalBreaks',
                                             style: TextStyle(
                                               color: colorScheme.onSurface
-                                                  .withOpacity(0.8),
+                                                  .withValues(alpha: 0.8),
                                             ),
                                           ),
                                         ),
@@ -840,7 +840,7 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
                                           'Break Time: ${(totalBreakDuration / (1000 * 60)).round()} min',
                                           style: TextStyle(
                                             color: colorScheme.onSurface
-                                                .withOpacity(0.8),
+                                                .withValues(alpha: 0.8),
                                           ),
                                         ),
                                       ],
@@ -897,7 +897,7 @@ class _BreakManagementScreenState extends State<BreakManagementScreen> {
                                             'Employee must check in first',
                                             style: TextStyle(
                                               color: colorScheme.onSurface
-                                                  .withOpacity(0.5),
+                                                  .withValues(alpha: 0.5),
                                               fontStyle: FontStyle.italic,
                                             ),
                                           ),

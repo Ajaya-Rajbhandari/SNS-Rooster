@@ -37,7 +37,8 @@ class LeaveRequestProvider with ChangeNotifier {
     notifyListeners();
     try {
       final api = ApiService(baseUrl: ApiConfig.baseUrl);
-      final response = await api.get('/leave/history?employeeId=$employeeId');
+      final response =
+          await api.get('/leave/simple/history?employeeId=$employeeId');
       if (response.success && response.data != null) {
         _leaveRequests.clear();
         for (final item in response.data) {
@@ -57,15 +58,45 @@ class LeaveRequestProvider with ChangeNotifier {
   // --- Get User Leave Balances ---
   Future<void> fetchLeaveBalances(String employeeId) async {
     log('Fetching leave balance for employeeId: $employeeId');
+    print('DEBUG: fetchLeaveBalances called with employeeId: $employeeId');
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
       final api = ApiService(baseUrl: ApiConfig.baseUrl);
-      final response = await api.get('/employees/$employeeId/leave-balance');
+      final response =
+          await api.get('/employees/simple/$employeeId/leave-balance');
+      print('DEBUG: Leave balance response: ${response.data}');
+      print('DEBUG: Response success: ${response.success}');
+      print('DEBUG: Response data type: ${response.data.runtimeType}');
       if (response.success && response.data != null) {
         _leaveBalances.clear();
-        _leaveBalances.addAll(response.data);
+
+        // Handle the new policy-driven balance format
+        if (response.data['balance'] != null) {
+          // Convert the balance format to the expected format
+          final balance = response.data['balance'] as Map<String, dynamic>;
+          final convertedBalances = <String, Map<String, dynamic>>{};
+
+          balance.forEach((key, value) {
+            // Convert keys like 'annualLeave' to 'annual'
+            final shortKey =
+                key.toString().replaceAll('Leave', '').toLowerCase();
+            final valueMap = value as Map<String, dynamic>;
+            convertedBalances[shortKey] = {
+              'total': valueMap['total'],
+              'used': valueMap['used'],
+              'available': valueMap['available']
+            };
+          });
+
+          print('DEBUG: Converted balances: $convertedBalances');
+          _leaveBalances.addAll(convertedBalances);
+        } else {
+          // Fallback to old format
+          print('DEBUG: Using fallback format: ${response.data}');
+          _leaveBalances.addAll(response.data);
+        }
       } else {
         _error = response.message;
       }
@@ -84,7 +115,7 @@ class LeaveRequestProvider with ChangeNotifier {
     notifyListeners();
     try {
       final api = ApiService(baseUrl: ApiConfig.baseUrl);
-      final response = await api.post('/leave/apply', requestData);
+      final response = await api.post('/leave/simple/apply', requestData);
       if (response.success) {
         // Optionally refresh leave requests after successful application
         // For admins, we might need a different endpoint to get their leave history
@@ -130,6 +161,36 @@ class LeaveRequestProvider with ChangeNotifier {
     try {
       // TODO: Replace with real API call (e.g., PATCH /api/leave-requests/:requestId/reject).
       throw UnimplementedError("Real API call not implemented.");
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // --- Cancel Leave Request (Employee) ---
+  Future<bool> cancelLeaveRequest(String requestId) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      final api = ApiService(baseUrl: ApiConfig.baseUrl);
+      final response = await api.delete('/leave/simple/$requestId');
+      if (response.success) {
+        // Refresh leave requests after successful cancellation
+        if (_leaveRequests.isNotEmpty) {
+          final employeeId = _leaveRequests.first['employeeId'];
+          if (employeeId != null) {
+            await getUserLeaveRequests(employeeId);
+          }
+        }
+        return true;
+      } else {
+        _error = response.message;
+        return false;
+      }
     } catch (e) {
       _error = e.toString();
       return false;

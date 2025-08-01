@@ -18,7 +18,6 @@ class EmployeeManagementScreen extends StatefulWidget {
 }
 
 class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
-  final TextEditingController _searchController = TextEditingController();
   late final EmployeeService _employeeService;
   late final EmployeeProvider _employeeProvider;
   List<Map<String, dynamic>> _employees = []; // Master list of all employees
@@ -26,14 +25,14 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
       []; // List of employees to display (after filtering)
   bool _isLoading = false;
   String? _error;
-  bool _showInactive = false; // Track whether to show inactive employees
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(_filterEmployees); // Add listener for search
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _employeeService = EmployeeService(ApiService(baseUrl: ApiConfig.baseUrl));
+      _employeeService =
+          EmployeeService(ApiService(baseUrl: ApiConfig.baseUrl));
       _employeeProvider = Provider.of<EmployeeProvider>(context,
           listen: false); // Initialize EmployeeProvider
       _loadEmployees();
@@ -51,13 +50,13 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
 
     try {
       fetchedEmployees =
-          await _employeeService.getEmployees(showInactive: _showInactive);
+          await _employeeService.getEmployees(showInactive: true);
       // Ensure each employee has a 'name' field for detail screen
       for (var emp in fetchedEmployees) {
         final firstName = emp['firstName'] ?? '';
         final lastName = emp['lastName'] ?? '';
         emp['name'] = (firstName.isNotEmpty || lastName.isNotEmpty)
-            ? (firstName + (lastName.isNotEmpty ? ' ' + lastName : ''))
+            ? '$firstName${lastName.isNotEmpty ? ' $lastName' : ''}'
             : null;
       }
     } catch (e) {
@@ -76,284 +75,299 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
 
   @override
   void dispose() {
-    _searchController.removeListener(_filterEmployees);
-    _searchController.dispose();
     super.dispose();
-  }
-
-  void _filterEmployees() {
-    final query = _searchController.text.toLowerCase();
-    if (query.isEmpty) {
-      setState(() {
-        _filteredEmployees = _employees;
-      });
-    } else {
-      setState(() {
-        _filteredEmployees = _employees.where((employee) {
-          final firstName =
-              employee['firstName']?.toString().toLowerCase() ?? '';
-          final lastName = employee['lastName']?.toString().toLowerCase() ?? '';
-          final email = employee['email']?.toString().toLowerCase() ?? '';
-          final position = employee['position']?.toString().toLowerCase() ?? '';
-          return firstName.contains(query) ||
-              lastName.contains(query) ||
-              email.contains(query) ||
-              position.contains(query);
-        }).toList();
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Employee Management'),
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        elevation: 0,
         actions: [
-          // Toggle button to show/hide inactive employees
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _showInactive ? 'All' : 'Active',
-                style: TextStyle(
-                  color: theme.colorScheme.onPrimary,
-                  fontSize: 12,
-                ),
-              ),
-              Switch(
-                value: _showInactive,
-                onChanged: (value) {
-                  setState(() {
-                    _showInactive = value;
-                  });
-                  _loadEmployees(); // Reload employees with new filter
-                },
-                activeColor: theme.colorScheme.onPrimary,
-                activeTrackColor: theme.colorScheme.onPrimary.withOpacity(0.3),
-                inactiveThumbColor: theme.colorScheme.onPrimary,
-                inactiveTrackColor:
-                    theme.colorScheme.onPrimary.withOpacity(0.3),
-              ),
-            ],
+          IconButton(
+            icon: const Icon(Icons.person_add),
+            onPressed: () async {
+              final result = await showDialog<bool>(
+                context: context,
+                builder: (context) =>
+                    AddEmployeeDialog(employeeService: _employeeService),
+              );
+              if (result == true) {
+                if (mounted) {
+                  _loadEmployees(); // Refresh list after add
+                }
+              }
+            },
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
         ],
       ),
       drawer: const AdminSideNavigation(currentRoute: '/employee_management'),
-      body: Padding(
+      body: Column(
+        children: [
+          // Quick Stats Section
+          Container(
+            margin: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    'Total Employees',
+                    '${_employees.length}',
+                    Icons.people,
+                    colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    'Active',
+                    '${_employees.where((emp) => emp['isActive'] != false).length}',
+                    Icons.check_circle,
+                    Colors.green,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    'Inactive',
+                    '${_employees.where((emp) => emp['isActive'] == false).length}',
+                    Icons.person_off,
+                    Colors.orange,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Employee List
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? _buildEmptyState(context, 'Error', _error!, Icons.error,
+                        colorScheme.error)
+                    : _filteredEmployees.isEmpty
+                        ? _buildEmptyState(
+                            context,
+                            'No Employees',
+                            'No employees found in the system',
+                            Icons.people_outline,
+                            colorScheme.primary)
+                        : _buildEmployeeList(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to build a stat card
+  Widget _buildStatCard(BuildContext context, String title, String value,
+      IconData icon, Color color) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search employees...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+            Icon(icon, color: color, size: 32),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.grey,
               ),
-              onChanged: (value) {
-                _filterEmployees(); // Call filter method on change
-              },
             ),
-            const SizedBox(height: 16),
-            if (_isLoading)
-              const Center(child: CircularProgressIndicator())
-            else if (_error != null)
-              Center(
-                  child: Text(_error!,
-                      style: TextStyle(color: theme.colorScheme.error)))
-            else if (_filteredEmployees.isEmpty &&
-                _searchController.text.isEmpty)
-              Center(
-                child: Text(
-                  'No employees found.',
-                  style: theme.textTheme.bodyLarge,
-                ),
-              )
-            else if (_filteredEmployees.isEmpty &&
-                _searchController.text.isNotEmpty)
-              Center(
-                child: Text(
-                  'No employees match your search.',
-                  style: theme.textTheme.bodyLarge,
-                ),
-              )
-            else if (_employees
-                .isEmpty) // This case might be redundant now but kept for safety
-              Center(
-                child: Text(
-                  'No employees found.',
-                  style: theme.textTheme.bodyLarge,
-                ),
-              )
-            else
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _filteredEmployees.length,
-                  itemBuilder: (context, index) {
-                    final employee = _filteredEmployees[index];
-                    return Card(
-                      elevation: 4,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => Dialog(
-                              insetPadding: const EdgeInsets.all(24),
-                              child: SizedBox(
-                                width: 500,
-                                child: EmployeeDetailScreen(
-                                    employee: employee,
-                                    employeeProvider: _employeeProvider),
-                              ),
-                            ),
-                          );
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                backgroundColor: theme.colorScheme.primary,
-                                child: Text(
-                                    (employee['firstName'] != null &&
-                                            employee['firstName'].isNotEmpty)
-                                        ? employee['firstName'][0]
-                                        : '?',
-                                    style: TextStyle(
-                                        color: theme.colorScheme.onPrimary)),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                              "${employee['firstName'] ?? 'N/A'} ${employee['lastName'] ?? 'N/A'}",
-                                              style:
-                                                  theme.textTheme.titleMedium),
-                                        ),
-                                        // Show inactive badge if employee is inactive
-                                        if (employee['isActive'] == false)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 8, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  Colors.red.withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              border: Border.all(
-                                                  color: Colors.red
-                                                      .withOpacity(0.3)),
-                                            ),
-                                            child: const Text(
-                                              'Inactive',
-                                              style: TextStyle(
-                                                color: Colors.red,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    Text(employee['position'] ?? 'N/A',
-                                        style: theme.textTheme.bodyMedium),
-                                    // Employment Type/Subtype
-                                    if (employee['employeeType'] != null &&
-                                        employee['employeeType']
-                                            .toString()
-                                            .isNotEmpty)
-                                      Text(
-                                        'Employment: '
-                                        '${employee['employeeType']}'
-                                        '${employee['employeeSubType'] != null && employee['employeeSubType'].toString().isNotEmpty ? ' - ${employee['employeeSubType']}' : ''}',
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                                fontWeight: FontWeight.w500,
-                                                color: Colors.blueGrey),
-                                      ),
-                                    Text(employee['email'] ?? 'N/A',
-                                        style: theme.textTheme.bodySmall),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.edit),
-                                onPressed: () async {
-                                  final result = await showDialog<bool>(
-                                    context: context,
-                                    builder: (context) => EditEmployeeDialog(
-                                        employee: employee,
-                                        employeeProvider: _employeeProvider),
-                                  );
-                                  if (result == true) {
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                      if (mounted) {
-                                        _loadEmployees();
-                                      }
-                                    });
-                                  }
-                                },
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete),
-                                onPressed: () {
-                                  final employeeId = employee['_id'];
-                                  if (employeeId != null &&
-                                      employeeId is String) {
-                                    _confirmDeleteEmployee(employeeId);
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text(
-                                              'Cannot delete employee: Employee ID is missing.')),
-                                    );
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: color,
               ),
+            ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await showDialog<bool>(
-            context: context,
-            builder: (context) =>
-                AddEmployeeDialog(employeeService: _employeeService),
-          );
-          if (result == true) {
-            if (mounted) {
-              _loadEmployees(); // Refresh list after add
-            }
-          }
-        },
-        icon: const Icon(Icons.person_add),
-        label: const Text('Add Employee'),
+    );
+  }
+
+  // Helper method to build an empty state message
+  Widget _buildEmptyState(BuildContext context, String title, String message,
+      IconData icon, Color color) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 60, color: color),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: Colors.grey,
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  // Helper method to build the employee list
+  Widget _buildEmployeeList(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return ListView.builder(
+      itemCount: _filteredEmployees.length,
+      itemBuilder: (context, index) {
+        final employee = _filteredEmployees[index];
+        return Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EmployeeDetailScreen(
+                    employee: employee,
+                    employeeProvider: _employeeProvider,
+                  ),
+                ),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: colorScheme.primary,
+                    child: Text(
+                        (employee['firstName'] != null &&
+                                employee['firstName'].toString().isNotEmpty)
+                            ? employee['firstName'][0].toUpperCase()
+                            : (employee['lastName'] != null &&
+                                    employee['lastName'].toString().isNotEmpty)
+                                ? employee['lastName'][0].toUpperCase()
+                                : '?',
+                        style: TextStyle(color: colorScheme.onPrimary)),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${employee['firstName'] ?? ''} ${employee['lastName'] ?? ''}'
+                                    .trim(),
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            if (employee['isActive'] == false)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'Inactive',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        Text(employee['position'] ?? 'N/A',
+                            style: theme.textTheme.bodyMedium),
+                        // Employment Type/Subtype
+                        if (employee['employeeType'] != null &&
+                            employee['employeeType'].toString().isNotEmpty)
+                          Text(
+                            'Employment: '
+                            '${employee['employeeType']}'
+                            '${employee['employeeSubType'] != null && employee['employeeSubType'].toString().isNotEmpty ? ' - ${employee['employeeSubType']}' : ''}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w500,
+                                color: Colors.blueGrey),
+                          ),
+                        Text(employee['email'] ?? 'N/A',
+                            style: theme.textTheme.bodySmall),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit),
+                    onPressed: () async {
+                      final result = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => EditEmployeeDialog(
+                            employee: employee,
+                            employeeProvider: _employeeProvider),
+                      );
+                      if (result == true) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            _loadEmployees();
+                          }
+                        });
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete),
+                    onPressed: () {
+                      final employeeId = employee['_id'];
+                      if (employeeId != null && employeeId is String) {
+                        _confirmDeleteEmployee(employeeId);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text(
+                                  'Cannot delete employee: Employee ID is missing.')),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -435,4 +449,4 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
       }
     }
   }
-} // Added missing closing brace for _EmployeeManagementScreenState
+}

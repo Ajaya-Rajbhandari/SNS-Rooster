@@ -131,7 +131,7 @@ class _TimesheetApprovalScreenState extends State<TimesheetApprovalScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Reject Timesheet'),
+        title: const Text('Reject Timesheet'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -209,7 +209,7 @@ class _TimesheetApprovalScreenState extends State<TimesheetApprovalScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.check_circle,
+                          const Icon(Icons.check_circle,
                               size: 64, color: Colors.green),
                           const SizedBox(height: 16),
                           Text(
@@ -257,8 +257,9 @@ class _TimesheetApprovalScreenState extends State<TimesheetApprovalScreen> {
 
                               // Format times for display
                               String formatTime(String? timeString) {
-                                if (timeString == null || timeString.isEmpty)
+                                if (timeString == null || timeString.isEmpty) {
                                   return '--';
+                                }
                                 try {
                                   final time = DateTime.parse(timeString);
                                   return DateFormat('h:mm a').format(time);
@@ -285,8 +286,10 @@ class _TimesheetApprovalScreenState extends State<TimesheetApprovalScreen> {
 
                               // Calculate total work time
                               String calculateWorkTime() {
-                                if (checkInTime == null || checkOutTime == null)
+                                if (checkInTime == null ||
+                                    checkOutTime == null) {
                                   return '--';
+                                }
                                 try {
                                   final checkIn = DateTime.parse(checkInTime);
                                   final checkOut = DateTime.parse(checkOutTime);
@@ -357,7 +360,7 @@ class _TimesheetApprovalScreenState extends State<TimesheetApprovalScreen> {
                                             ),
                                             decoration: BoxDecoration(
                                               color: Colors.orange
-                                                  .withOpacity(0.1),
+                                                  .withValues(alpha: 0.1),
                                               borderRadius:
                                                   BorderRadius.circular(12),
                                               border: Border.all(
@@ -489,7 +492,8 @@ class _TimesheetApprovalScreenState extends State<TimesheetApprovalScreen> {
                                           width: double.infinity,
                                           padding: const EdgeInsets.all(12),
                                           decoration: BoxDecoration(
-                                            color: Colors.grey.withOpacity(0.1),
+                                            color: Colors.grey
+                                                .withValues(alpha: 0.1),
                                             borderRadius:
                                                 BorderRadius.circular(8),
                                             border:

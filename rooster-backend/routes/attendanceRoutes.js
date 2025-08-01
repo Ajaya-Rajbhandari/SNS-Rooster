@@ -7,6 +7,45 @@ const BreakType = require("../models/BreakType");
 const Attendance = require('../models/Attendance');
 const analyticsController = require('../controllers/analytics-controller');
 
+// Simple endpoint for checking attendance status (bypasses company context)
+router.get("/simple/status", authenticateToken, async (req, res) => {
+  try {
+    console.log('DEBUG: Simple attendance status endpoint hit');
+    console.log('DEBUG: Request headers:', req.headers);
+    console.log('DEBUG: Request user:', req.user);
+    
+    // Get company ID from user or headers
+    const companyId = req.user?.companyId || req.headers['x-company-id'];
+    
+    console.log('DEBUG: Company ID:', companyId);
+    
+    if (!companyId) {
+      console.log('DEBUG: No company ID found, returning error');
+      return res.status(400).json({
+        success: false,
+        message: 'Company ID required. Please provide x-company-id header or ensure user has companyId'
+      });
+    }
+
+    // Add company ID to request
+    req.companyId = companyId;
+    req.company = { _id: companyId };
+    
+    console.log('DEBUG: Calling getAttendanceStatus with companyId:', req.companyId);
+    console.log('DEBUG: User ID:', req.user.userId);
+    
+    const result = await attendanceController.getAttendanceStatus(req, res);
+    console.log('DEBUG: getAttendanceStatus result completed');
+  } catch (error) {
+    console.error('DEBUG: Error in simple attendance status endpoint:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting attendance status',
+      error: error.message
+    });
+  }
+});
+
 // Apply authentication first, then company context
 router.use(authenticateToken);
 router.use(validateCompanyContext);

@@ -58,8 +58,12 @@ class FeatureProvider extends ChangeNotifier {
   bool get hasNotifications => _features['notifications'] ?? false;
   bool get hasCustomBranding => _features['customBranding'] ?? false;
   bool get hasApiAccess => _features['apiAccess'] ?? false;
-  bool get hasMultiLocation => _features['multiLocation'] ?? false;
+  bool get hasMultiLocation =>
+      _features['multiLocationSupport'] ??
+      _features['locationManagement'] ??
+      false;
   bool get hasAdvancedReporting => _features['advancedReporting'] ?? false;
+  bool get hasDataExport => _features['dataExport'] ?? false;
   bool get hasTimeTracking => _features['timeTracking'] ?? false;
   bool get hasExpenseManagement => _features['expenseManagement'] ?? false;
   bool get hasPerformanceReviews => _features['performanceReviews'] ?? false;
@@ -72,6 +76,24 @@ class FeatureProvider extends ChangeNotifier {
       _features['locationNotifications'] ?? false;
   bool get hasLocationGeofencing => _features['locationGeofencing'] ?? false;
   bool get hasLocationCapacity => _features['locationCapacity'] ?? false;
+
+  // Employee Features
+  bool get hasEvents => _features['events'] ?? false;
+  bool get hasProfile => _features['profile'] ?? true;
+  bool get hasCompanyInfo => _features['companyInfo'] ?? true;
+
+  // Admin Features
+  bool get hasEmployeeManagement => _features['employeeManagement'] ?? false;
+  bool get hasTimesheetApprovals => _features['timesheetApprovals'] ?? false;
+  bool get hasAttendanceManagement =>
+      _features['attendanceManagement'] ?? false;
+  bool get hasBreakManagement => _features['breakManagement'] ?? false;
+  bool get hasBreakTypes => _features['breakTypes'] ?? false;
+  bool get hasUserManagement => _features['userManagement'] ?? false;
+  bool get hasSettings => _features['settings'] ?? false;
+  bool get hasCompanySettings => _features['companySettings'] ?? false;
+  bool get hasFeatureManagement => _features['featureManagement'] ?? false;
+  bool get hasHelpSupport => _features['helpSupport'] ?? false;
 
   // Usage checks
   int get employeeCount => _usage['currentEmployeeCount'] ?? 0;

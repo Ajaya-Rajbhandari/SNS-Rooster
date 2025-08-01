@@ -203,6 +203,10 @@ class FeatureGuard extends StatelessWidget {
         return 'Performance Reviews';
       case 'trainingManagement':
         return 'Training Management';
+      case 'payroll':
+        return 'Payroll Management';
+      case 'documentManagement':
+        return 'Document Management';
       default:
         return 'Premium Feature';
     }
@@ -226,6 +230,10 @@ class FeatureGuard extends StatelessWidget {
         return 'This feature is not available in your current plan. Upgrade to conduct employee performance evaluations.';
       case 'trainingManagement':
         return 'This feature is not available in your current plan. Upgrade to manage employee training programs.';
+      case 'payroll':
+        return 'This feature is not available in your current plan. Upgrade to access payroll management and payslip generation.';
+      case 'documentManagement':
+        return 'This feature is not available in your current plan. Upgrade to access document storage and management.';
       default:
         return 'This feature is not available in your current plan. Please upgrade to access this functionality.';
     }

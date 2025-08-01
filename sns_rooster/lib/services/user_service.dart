@@ -1,4 +1,4 @@
-import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
+// Import SharedPreferences
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:sns_rooster/models/user_model.dart';

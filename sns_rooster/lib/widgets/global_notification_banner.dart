@@ -136,7 +136,8 @@ class _GlobalNotificationBannerState extends State<GlobalNotificationBanner>
                   left: 12,
                   right: 12,
                   child: _NotificationProgressBar(
-                      duration: duration, color: Colors.white.withOpacity(0.7)),
+                      duration: duration,
+                      color: Colors.white.withValues(alpha: 0.7)),
                 ),
               ],
             ),

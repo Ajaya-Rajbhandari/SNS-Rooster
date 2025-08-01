@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:math';
 
@@ -66,9 +65,7 @@ class _LocationMapPreviewState extends State<LocationMapPreview> {
       }
 
       // Fallback to default location if still no center
-      if (_centerLocation == null) {
-        _centerLocation = const LatLng(27.7172, 85.3240); // Kathmandu default
-      }
+      _centerLocation ??= const LatLng(27.7172, 85.3240);
     } catch (e) {
       // Set default location on error
       _centerLocation = const LatLng(27.7172, 85.3240); // Kathmandu default
@@ -291,7 +288,7 @@ class _LocationMapPreviewState extends State<LocationMapPreview> {
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -311,7 +308,7 @@ class _LocationMapPreviewState extends State<LocationMapPreview> {
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -342,7 +339,7 @@ class _LocationMapPreviewState extends State<LocationMapPreview> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
+                    color: Colors.black.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(

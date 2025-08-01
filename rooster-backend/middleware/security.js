@@ -141,10 +141,14 @@ const validateUserRegistration = [
   body('password')
     .isLength({ min: 8 })
     .withMessage('Password must be at least 8 characters long')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
-    .withMessage('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'),
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
   
   body('role')
+    .customSanitizer(value => {
+      // Convert to lowercase to handle case-insensitive input
+      return typeof value === 'string' ? value.toLowerCase() : value;
+    })
     .isIn(['employee', 'admin', 'super_admin'])
     .withMessage('Invalid role specified'),
   
@@ -162,7 +166,7 @@ const validateUserRegistration = [
   
   body('phone')
     .optional()
-    .matches(/^[\+]?[1-9][\d]{0,15}$/)
+    .matches(/^[\+]?[\d\s\-\(\)]{7,20}$/)
     .withMessage('Please provide a valid phone number')
 ];
 

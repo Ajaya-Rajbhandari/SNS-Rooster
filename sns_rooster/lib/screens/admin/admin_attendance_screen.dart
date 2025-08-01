@@ -235,8 +235,6 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
 
   Future<void> _fetchBreakTypes() async {
     try {
-      final attendanceProvider =
-          Provider.of<AttendanceProvider>(context, listen: false);
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/admin/break-types'),
         headers: {
@@ -346,10 +344,6 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final user = authProvider.user;
-    final avatarUrl = user?['avatar'] as String?;
-    final name = user?['firstName'] ?? 'Admin';
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -440,7 +434,7 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
                     'Welcome back',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.white.withOpacity(0.85),
+                      color: Colors.white.withValues(alpha: 0.85),
                     ),
                   ),
                 ],
@@ -619,7 +613,7 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 10),
                     decoration: BoxDecoration(
-                      color: _getStatusColor().withOpacity(0.15),
+                      color: _getStatusColor().withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(30),
                     ),
                     child: Row(
@@ -788,7 +782,7 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
               label,
               style: TextStyle(
                 fontSize: 14,
-                color: (color ?? Colors.blue).withOpacity(0.8),
+                color: (color ?? Colors.blue).withValues(alpha: 0.8),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -845,12 +839,6 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
   }
 
-  String _formatDurationFromMinutes(int minutes) {
-    final hours = minutes ~/ 60;
-    final remainingMinutes = minutes % 60;
-    return '${hours}h ${remainingMinutes}m';
-  }
-
   String _formatDurationFromHours(double hours) {
     final wholeHours = hours.floor();
     final minutes = ((hours - wholeHours) * 60).round();
@@ -864,9 +852,9 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
         padding: const EdgeInsets.all(12),
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.2)),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Column(
           children: [
@@ -884,7 +872,7 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: color.withOpacity(0.8),
+                color: color.withValues(alpha: 0.8),
               ),
               textAlign: TextAlign.center,
             ),
@@ -940,8 +928,6 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
   }
 
   Map<String, dynamic>? _currentAttendance() {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.user?['_id'];
     final attendanceProvider =
         Provider.of<AttendanceProvider>(context, listen: false);
     return attendanceProvider.currentAttendance;
