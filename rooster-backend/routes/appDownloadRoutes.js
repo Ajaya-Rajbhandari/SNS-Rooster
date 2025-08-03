@@ -8,7 +8,7 @@ const APK_CONFIG = {
   android: {
     latest_version: '1.0.0',
     latest_build_number: '1',
-    download_url: 'https://your-server.com/downloads/sns-rooster.apk',
+    download_url: 'https://sns-rooster.onrender.com/api/app/download/android/file',
     file_path: './uploads/apk/sns-rooster.apk', // Local APK file path
     file_size: 0, // Will be calculated dynamically
     checksum: '', // Will be calculated dynamically
