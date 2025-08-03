@@ -4,8 +4,8 @@ const router = express.Router();
 // App version configuration
 const APP_VERSIONS = {
   android: {
-    latest_version: '1.0.2',
-    latest_build_number: '3',
+    latest_version: '1.0.3',
+    latest_build_number: '4',
     update_required: false,
     update_message: 'A new version of SNS Rooster is available with improved features and bug fixes!',
     download_url: 'https://sns-rooster.onrender.com/api/app/download/android/file',
@@ -13,8 +13,8 @@ const APP_VERSIONS = {
     min_required_build: '1',
   },
   web: {
-    latest_version: '1.0.2',
-    latest_build_number: '3',
+    latest_version: '1.0.3',
+    latest_build_number: '4',
     update_required: false,
     update_message: 'A new version of SNS Rooster is available. Please refresh your browser.',
     download_url: 'https://sns-rooster.onrender.com/api/app/download/android/file',
