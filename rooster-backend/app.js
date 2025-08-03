@@ -64,6 +64,7 @@ const mobileOptimizationRoutes = require('./routes/mobileOptimizationRoutes');
 // Monitoring routes
 const monitoringRoutes = require('./routes/monitoringRoutes');
 const appVersionRoutes = require('./routes/appVersionRoutes');
+const appDownloadRoutes = require('./routes/appDownloadRoutes');
 
 const app = express();
 
@@ -235,6 +236,9 @@ app.use('/api/monitoring', monitoringRoutes);
 
 // App version routes
 app.use('/api/app/version', appVersionRoutes);
+
+// App download routes
+app.use('/api/app/download', appDownloadRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {
