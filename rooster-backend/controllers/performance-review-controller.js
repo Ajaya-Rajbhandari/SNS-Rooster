@@ -1,7 +1,7 @@
 const PerformanceReview = require('../models/PerformanceReview');
 const Employee = require('../models/Employee');
 const User = require('../models/User');
-const logger = require('../config/logger');
+const { Logger } = require('../config/logger');
 
 // Get all performance reviews for the company
 exports.getPerformanceReviews = async (req, res) => {
@@ -32,7 +32,7 @@ exports.getPerformanceReviews = async (req, res) => {
     // Get total count for pagination
     const totalReviews = await PerformanceReview.countDocuments(filter);
 
-    logger.info(`Retrieved ${reviews.length} performance reviews for company ${companyId}`);  
+    Logger.info(`Retrieved ${reviews.length} performance reviews for company ${companyId}`);  
 
     res.json({
       success: true,
@@ -46,7 +46,7 @@ exports.getPerformanceReviews = async (req, res) => {
       }
     });
   } catch (error) {
-    logger.error('Error fetching performance reviews:', error);
+    Logger.error('Error fetching performance reviews:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch performance reviews',
@@ -62,14 +62,14 @@ exports.getStatistics = async (req, res) => {
 
     const statistics = await PerformanceReview.getCompanyStatistics(companyId);
 
-    logger.info(`Retrieved performance review statistics for company ${companyId}`);
+    Logger.info(`Retrieved performance review statistics for company ${companyId}`);
 
     res.json({
       success: true,
       data: statistics
     });
   } catch (error) {
-    logger.error('Error fetching performance review statistics:', error);
+    Logger.error('Error fetching performance review statistics:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch statistics',
@@ -96,14 +96,14 @@ exports.getPerformanceReview = async (req, res) => {
       });
     }
 
-    logger.info(`Retrieved performance review ${id} for company ${companyId}`);
+    Logger.info(`Retrieved performance review ${id} for company ${companyId}`);
 
     res.json({
       success: true,
       data: review
     });
   } catch (error) {
-    logger.error('Error fetching performance review:', error);
+    Logger.error('Error fetching performance review:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch performance review',
@@ -164,7 +164,7 @@ exports.createPerformanceReview = async (req, res) => {
 
     await performanceReview.save();
 
-    logger.info(`Created performance review for employee ${employeeId} in company ${companyId}`);
+    Logger.info(`Created performance review for employee ${employeeId} in company ${companyId}`);
 
     res.status(201).json({
       success: true,
@@ -172,7 +172,7 @@ exports.createPerformanceReview = async (req, res) => {
       message: 'Performance review created successfully'
     });
   } catch (error) {
-    logger.error('Error creating performance review:', error);
+    Logger.error('Error creating performance review:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to create performance review',
@@ -203,7 +203,7 @@ exports.updatePerformanceReview = async (req, res) => {
       });
     }
 
-    logger.info(`Updated performance review ${id} for company ${companyId}`);
+    Logger.info(`Updated performance review ${id} for company ${companyId}`);
 
     res.json({
       success: true,
@@ -211,7 +211,7 @@ exports.updatePerformanceReview = async (req, res) => {
       message: 'Performance review updated successfully'
     });
   } catch (error) {
-    logger.error('Error updating performance review:', error);
+    Logger.error('Error updating performance review:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update performance review',
@@ -239,7 +239,7 @@ exports.submitPerformanceReview = async (req, res) => {
       });
     }
 
-    logger.info(`Submitted performance review ${id} for company ${companyId}`);
+    Logger.info(`Submitted performance review ${id} for company ${companyId}`);
 
     res.json({
       success: true,
@@ -247,7 +247,7 @@ exports.submitPerformanceReview = async (req, res) => {
       message: 'Performance review submitted successfully'
     });
   } catch (error) {
-    logger.error('Error submitting performance review:', error);
+    Logger.error('Error submitting performance review:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to submit performance review',
@@ -284,7 +284,7 @@ exports.completePerformanceReview = async (req, res) => {
       });
     }
 
-    logger.info(`Completed performance review ${id} for company ${companyId}`);
+        Logger.info(`Completed performance review ${id} for company ${companyId}`);
 
     res.json({
       success: true,
@@ -292,7 +292,7 @@ exports.completePerformanceReview = async (req, res) => {
       message: 'Performance review completed successfully'
     });
   } catch (error) {
-    logger.error('Error completing performance review:', error);
+    Logger.error('Error completing performance review:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to complete performance review',
@@ -316,14 +316,14 @@ exports.deletePerformanceReview = async (req, res) => {
       });
     }
 
-    logger.info(`Deleted performance review ${id} for company ${companyId}`);
+    Logger.info(`Deleted performance review ${id} for company ${companyId}`);
 
     res.json({
       success: true,
       message: 'Performance review deleted successfully'
     });
   } catch (error) {
-    logger.error('Error deleting performance review:', error);
+    Logger.error('Error deleting performance review:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to delete performance review',
@@ -342,14 +342,14 @@ exports.getEligibleEmployees = async (req, res) => {
       status: 'active' 
     }).select('firstName lastName email department position hireDate');
 
-    logger.info(`Retrieved ${employees.length} eligible employees for company ${companyId}`);
+    Logger.info(`Retrieved ${employees.length} eligible employees for company ${companyId}`);
 
     res.json({
       success: true,
       data: employees
     });
   } catch (error) {
-    logger.error('Error fetching eligible employees:', error);
+      Logger.error('Error fetching eligible employees:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch eligible employees',

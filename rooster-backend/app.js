@@ -47,6 +47,7 @@ const billingRoutes = require('./routes/billingRoutes');
 const trialRoutes = require('./routes/trialRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 const performanceReviewRoutes = require('./routes/performanceReviewRoutes');
+const performanceReviewTemplateRoutes = require('./routes/performanceReviewTemplateRoutes');
 
 // Enterprise Features Routes
 const locationRoutes = require('./routes/locationRoutes');
@@ -62,6 +63,7 @@ const mobileOptimizationRoutes = require('./routes/mobileOptimizationRoutes');
 
 // Monitoring routes
 const monitoringRoutes = require('./routes/monitoringRoutes');
+const appVersionRoutes = require('./routes/appVersionRoutes');
 
 const app = express();
 
@@ -214,6 +216,7 @@ app.use('/api/trial', trialRoutes);
 app.use('/api', fcmRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/performance-reviews', performanceReviewRoutes);
+app.use('/api/performance-review-templates', performanceReviewTemplateRoutes);
 
 // Enterprise Features Routes
 app.use('/api/locations', locationRoutes);
@@ -229,6 +232,9 @@ app.use('/api/mobile', mobileOptimizationRoutes);
 
 // Monitoring routes
 app.use('/api/monitoring', monitoringRoutes);
+
+// App version routes
+app.use('/api/app/version', appVersionRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {

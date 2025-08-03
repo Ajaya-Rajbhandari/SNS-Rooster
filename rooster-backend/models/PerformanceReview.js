@@ -124,37 +124,42 @@ performanceReviewSchema.pre('save', function(next) {
 
 // Static method to get statistics for a company
 performanceReviewSchema.statics.getCompanyStatistics = async function(companyId) {
-  const stats = await this.aggregate([
-    { $match: { companyId: mongoose.Types.ObjectId(companyId) } },
-    {
-      $group: {
-        _id: null,
-        total: { $sum: 1 },
-        completed: {
-          $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] }
-        },
-        inProgress: {
-          $sum: { $cond: [{ $eq: ['$status', 'in_progress'] }, 1, 0] }
-        },
-        overdue: {
-          $sum: { $cond: [{ $eq: ['$status', 'overdue'] }, 1, 0] }
-        },
-        draft: {
-          $sum: { $cond: [{ $eq: ['$status', 'draft'] }, 1, 0] }
-        },
-        averageRating: { $avg: '$overallRating' }
+  try {
+    const stats = await this.aggregate([
+      { $match: { companyId: new mongoose.Types.ObjectId(companyId) } },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          completed: {
+            $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] }
+          },
+          inProgress: {
+            $sum: { $cond: [{ $eq: ['$status', 'in_progress'] }, 1, 0] }
+          },
+          overdue: {
+            $sum: { $cond: [{ $eq: ['$status', 'overdue'] }, 1, 0] }
+          },
+          draft: {
+            $sum: { $cond: [{ $eq: ['$status', 'draft'] }, 1, 0] }
+          },
+          averageRating: { $avg: '$overallRating' }
+        }
       }
-    }
-  ]);
-  
-  return stats.length > 0 ? stats[0] : {
-    total: 0,
-    completed: 0,
-    inProgress: 0,
-    overdue: 0,
-    draft: 0,
-    averageRating: null
-  };
+    ]);
+    
+    return stats.length > 0 ? stats[0] : {
+      total: 0,
+      completed: 0,
+      inProgress: 0,
+      overdue: 0,
+      draft: 0,
+      averageRating: null
+    };
+  } catch (error) {
+    console.error('Error in getCompanyStatistics:', error);
+    throw error;
+  }
 };
 
 module.exports = mongoose.model('PerformanceReview', performanceReviewSchema); 

@@ -1070,7 +1070,7 @@ exports.approveTimesheet = async (req, res) => {
       type: 'timesheet',
       link: '/timesheet',
       isRead: false,
-      companyId: req.companyId // Add company isolation
+      company: req.companyId // Add company isolation
     });
     await employeeNotification.save();
 
@@ -1135,7 +1135,7 @@ exports.rejectTimesheet = async (req, res) => {
       type: 'timesheet',
       link: '/timesheet',
       isRead: false,
-      companyId: req.companyId // Add company isolation
+      company: req.companyId // Add company isolation
     });
     await employeeNotification.save();
 
