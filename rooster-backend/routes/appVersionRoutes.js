@@ -234,3 +234,4 @@ function _isUpdateRequired(currentVersion, currentBuild, minRequiredVersion, min
 
 module.exports = router; 
 
+
