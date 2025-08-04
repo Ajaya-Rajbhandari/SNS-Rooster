@@ -199,33 +199,6 @@ class _InteractiveLocationMapState extends State<InteractiveLocationMap> {
     return 100.0; // Place markers in the center for now
   }
 
-  void _fitBounds() {
-    if (widget.locations.isEmpty) return;
-
-    final bounds = <LatLng>[];
-    for (final location in widget.locations) {
-      final coords = location['coordinates'];
-      if (coords != null &&
-          coords['latitude'] != null &&
-          coords['longitude'] != null) {
-        bounds.add(LatLng(
-          coords['latitude'].toDouble(),
-          coords['longitude'].toDouble(),
-        ));
-      }
-    }
-
-    if (bounds.isNotEmpty) {
-      _mapController.fitBounds(
-        LatLngBounds.fromPoints(bounds),
-        options: const FitBoundsOptions(
-          padding: EdgeInsets.all(50),
-          maxZoom: 15,
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading || _centerLocation == null) {

@@ -10,7 +10,6 @@ class MapsDebugScreen extends StatefulWidget {
 }
 
 class _MapsDebugScreenState extends State<MapsDebugScreen> {
-  GoogleMapController? _mapController;
   bool _isLoading = true;
   String _debugInfo = '';
   Set<Marker> _markers = {};
@@ -116,7 +115,6 @@ class _MapsDebugScreenState extends State<MapsDebugScreen> {
                   )
                 : GoogleMap(
                     onMapCreated: (GoogleMapController controller) {
-                      _mapController = controller;
                       setState(() {
                         _debugInfo += 'Map created successfully!\n';
                       });

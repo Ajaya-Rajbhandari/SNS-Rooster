@@ -4,11 +4,13 @@ import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart'; // Added import for ProfileProvider
 import '../../services/secure_storage_service.dart';
 import '../../services/company_service.dart';
+import '../../services/app_update_service.dart';
 import '../../models/company.dart';
 import '../employee/employee_dashboard_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
 import '../super_admin/super_admin_dashboard_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -30,11 +32,19 @@ class _LoginScreenState extends State<LoginScreen> {
   Company? _selectedCompany;
   bool _isLoadingCompanies = false;
 
+  // App version and update info
+  String _appVersion = '';
+  String _buildNumber = '';
+  bool _updateAvailable = false;
+  String _latestVersion = '';
+
   @override
   void initState() {
     super.initState();
     _loadSavedCredentials();
     _loadAvailableCompanies();
+    _loadAppVersion();
+    _checkForUpdates();
   }
 
   void _loadSavedCredentials() async {
@@ -101,6 +111,35 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _isLoadingCompanies = false;
       });
+    }
+  }
+
+  /// Load app version information
+  Future<void> _loadAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      setState(() {
+        _appVersion = packageInfo.version;
+        _buildNumber = packageInfo.buildNumber;
+      });
+    } catch (e) {
+      print('Error loading app version: $e');
+    }
+  }
+
+  /// Check for app updates
+  Future<void> _checkForUpdates() async {
+    try {
+      final updateInfo =
+          await AppUpdateService.checkForUpdates(showAlert: false);
+      if (updateInfo != null && updateInfo.hasUpdate) {
+        setState(() {
+          _updateAvailable = true;
+          _latestVersion = updateInfo.latestVersion;
+        });
+      }
+    } catch (e) {
+      print('Error checking for updates: $e');
     }
   }
 
@@ -476,6 +515,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                     ),
+
+                    // App Version and Update Info
+                    const SizedBox(height: 32),
+                    _buildVersionInfo(),
                   ],
                 ),
               ),
@@ -483,6 +526,80 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Build version information widget
+  Widget _buildVersionInfo() {
+    return Column(
+      children: [
+        // App Version
+        if (_appVersion.isNotEmpty)
+          Text(
+            'Version $_appVersion (Build $_buildNumber)',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+        // Update Available Notification
+        if (_updateAvailable)
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Colors.orange.withValues(alpha: 0.5),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.system_update,
+                  color: Colors.orange,
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Update available: v$_latestVersion',
+                  style: const TextStyle(
+                    color: Colors.orange,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () async {
+                    await AppUpdateService.checkForUpdates(showAlert: true);
+                  },
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'Update',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

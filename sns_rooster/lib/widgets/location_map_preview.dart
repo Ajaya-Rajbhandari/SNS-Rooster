@@ -212,20 +212,6 @@ class _LocationMapPreviewState extends State<LocationMapPreview> {
     );
   }
 
-  void _openInMaps(LatLng position, String title) async {
-    final url =
-        'https://www.google.com/maps?q=${position.latitude},${position.longitude}';
-    try {
-      await launchUrl(Uri.parse(url));
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open maps')),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading || _centerLocation == null) {

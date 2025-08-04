@@ -18,7 +18,6 @@ import '../../providers/profile_provider.dart';
 import '../../widgets/app_drawer.dart';
 import '../../providers/auth_provider.dart';
 import '../../config/api_config.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../widgets/user_avatar.dart';
 import '../../services/attendance_service.dart';
 import 'live_clock.dart';
@@ -28,11 +27,13 @@ import '../../widgets/notification_bell.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/global_notification_service.dart';
 import 'company_info_screen.dart';
-import 'package:sns_rooster/utils/debug_company_context.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+
+import '../../widgets/real_time_break_timer.dart';
+
 import '../notification/notification_screen.dart';
 import 'package:sns_rooster/services/feature_service.dart';
 import '../../widgets/employee_location_map_widget.dart';
+import '../../services/fcm_service.dart';
 
 /// Helper function to format duration in a human-readable format
 /// Shows hours and minutes when duration is over 60 minutes
@@ -555,15 +556,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     }
   }
 
-  // Check if user is on leave and update UI accordingly
-  void _checkLeaveStatus(Map<String, dynamic> statusData) {
-    final leaveInfo = statusData['leaveInfo'] as Map<String, dynamic>?;
-    setState(() {
-      _isOnLeave = leaveInfo != null;
-      _leaveInfo = leaveInfo;
-    });
-  }
-
   // Build leave status widget
   Widget _buildLeaveStatusWidget() {
     if (_leaveInfo == null) return const SizedBox.shrink();
@@ -811,6 +803,19 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
       );
     }
     final isAdmin = user['role'] == 'admin';
+    // Listen for attendance toast
+    final attendanceProvider = Provider.of<AttendanceProvider>(context);
+    if (attendanceProvider.toastMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (ScaffoldMessenger.maybeOf(context) != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(attendanceProvider.toastMessage!)),
+          );
+          attendanceProvider.clearToast();
+        }
+      });
+    }
+
     if (isAdmin) {
       return Scaffold(
         appBar: AppBar(title: const Text('Employee Dashboard')),
@@ -824,25 +829,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const NotificationScreen(),
-                ),
-              );
-            },
-          ),
-          // Debug button for development
-          if (kDebugMode)
-            IconButton(
-              icon: const Icon(Icons.bug_report),
-              onPressed: () => DebugCompanyContext.showDebugDialog(context),
-            ),
-        ],
       ),
       drawer: const AppDrawer(),
       body: Consumer<ProfileProvider>(
@@ -1787,8 +1773,7 @@ class StatusCard extends StatelessWidget {
                     if (breakTypeId != null && startTime != null) {
                       final breakStartTime =
                           DateTime.parse(startTime).toLocal();
-                      final duration =
-                          DateTime.now().difference(breakStartTime);
+
                       String breakTypeName = 'Break';
                       if (breakTypeId == '68506da352d98bd74a976ea7') {
                         breakTypeName = 'Medical Break';
@@ -1808,101 +1793,14 @@ class StatusCard extends StatelessWidget {
                                     fontWeight: FontWeight.w500,
                                   ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Duration: ${_formatDuration(duration)}',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.grey[600],
-                                  ),
-                        ),
                         const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                                color: Colors.orange.withValues(alpha: 0.3)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.info_outline,
-                                      size: 16, color: Colors.orange[700]),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Break Details',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.orange[700],
-                                        ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  Icon(Icons.label,
-                                      size: 14, color: Colors.orange[600]),
-                                  const SizedBox(width: 6),
-                                  Text('Type: ',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.w500)),
-                                  Text(breakTypeName,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall),
-                                ],
-                              ),
-                              const SizedBox(height: 3),
-                              Row(
-                                children: [
-                                  Icon(Icons.schedule,
-                                      size: 14, color: Colors.orange[600]),
-                                  const SizedBox(width: 6),
-                                  Text('Started: ',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.w500)),
-                                  Text(
-                                      DateFormat('hh:mm a')
-                                          .format(breakStartTime),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall),
-                                ],
-                              ),
-                              const SizedBox(height: 3),
-                              Row(
-                                children: [
-                                  Icon(Icons.numbers,
-                                      size: 14, color: Colors.orange[600]),
-                                  const SizedBox(width: 6),
-                                  Text('Breaks today: ',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.w500)),
-                                  Text('$totalBreaksToday',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall),
-                                ],
-                              ),
-                            ],
-                          ),
+                        // Real-time break timer widget
+                        RealTimeBreakTimer(
+                          breakStartTime: breakStartTime,
+                          breakTypeName: breakTypeName,
+                          maxDurationMinutes:
+                              15, // Default coffee break duration
+                          totalBreaksToday: totalBreaksToday,
                         ),
                       ]);
                     }

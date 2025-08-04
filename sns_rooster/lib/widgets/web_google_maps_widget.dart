@@ -32,12 +32,14 @@ class _WebGoogleMapsWidgetState extends State<WebGoogleMapsWidget> {
 
   Future<void> _checkWebMapAvailability() async {
     // For web, try to use real Google Maps since API key restrictions are now "None"
+    print('🗺️ Checking web map availability...');
     await Future.delayed(const Duration(milliseconds: 1000));
 
     if (mounted) {
       setState(() {
         _isLoading = false;
       });
+      print('🗺️ Web map availability check completed');
     }
   }
 
@@ -56,10 +58,12 @@ class _WebGoogleMapsWidgetState extends State<WebGoogleMapsWidget> {
       );
     }
 
-    // For web, use enhanced fallback map since Google Maps API has referrer issues
+    // For web, try to use real Google Maps first, fallback if needed
     if (kIsWeb) {
-      if (widget.locations.isNotEmpty) {
-        // Use the enhanced fallback map from employee location widget
+      print('🗺️ Building web Google Maps widget...');
+      try {
+        // Try to use real Google Maps for web
+        print('🗺️ Attempting to create Google Maps widget...');
         return Container(
           height: widget.height,
           decoration: BoxDecoration(
@@ -68,21 +72,98 @@ class _WebGoogleMapsWidgetState extends State<WebGoogleMapsWidget> {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: _buildEnhancedFallbackMap(),
+            child: GoogleMap(
+              onMapCreated: (GoogleMapController controller) {
+                print('🗺️ Web Google Maps: Map created successfully');
+                print('🗺️ Map controller: $controller');
+                print('🗺️ Map markers count: ${_createMarkers().length}');
+                
+                // Try to get current location and center map
+                _getCurrentLocationAndCenter(controller);
+              },
+              initialCameraPosition: _getInitialCameraPosition(),
+              markers: _createMarkers(),
+              myLocationEnabled: true,
+              myLocationButtonEnabled: true,
+              zoomControlsEnabled: true,
+              mapToolbarEnabled: false,
+              compassEnabled: true,
+              onTap: (_) {
+                if (widget.onMapTap != null) {
+                  widget.onMapTap!();
+                }
+              },
+            ),
           ),
         );
-      } else {
-        return FallbackMapWidget(
-          locations: widget.locations,
-          height: widget.height,
-          onMarkerTap: widget.onMarkerTap,
-          onMapTap: widget.onMapTap,
-        );
+      } catch (e) {
+        print('🗺️ Web Google Maps failed, using fallback: $e');
+        print('🗺️ Error type: ${e.runtimeType}');
+        print('🗺️ Error stack trace: ${StackTrace.current}');
+        // Fallback to enhanced map if Google Maps fails
+        if (widget.locations.isNotEmpty) {
+          return Container(
+            height: widget.height,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: _buildEnhancedFallbackMap(),
+            ),
+          );
+        } else {
+          return FallbackMapWidget(
+            locations: widget.locations,
+            height: widget.height,
+            onMarkerTap: widget.onMarkerTap,
+            onMapTap: widget.onMapTap,
+          );
+        }
       }
     }
 
     // For mobile platforms, use Google Maps
     return _buildGoogleMapsWidget();
+  }
+
+  CameraPosition _getInitialCameraPosition() {
+    // If we have locations, center on the first one
+    if (widget.locations.isNotEmpty) {
+      final firstLocation = widget.locations.first;
+      final coords = firstLocation['coordinates'];
+      if (coords != null && coords['latitude'] != null && coords['longitude'] != null) {
+        return CameraPosition(
+          target: LatLng(
+            coords['latitude'].toDouble(),
+            coords['longitude'].toDouble(),
+          ),
+          zoom: 15.0,
+        );
+      }
+    }
+    
+    // Default to Sydney if no locations
+    return const CameraPosition(
+      target: LatLng(-33.8688, 151.2093), // Sydney
+      zoom: 12.0,
+    );
+  }
+
+  Future<void> _getCurrentLocationAndCenter(GoogleMapController controller) async {
+    try {
+      // For web, we'll use a default location since geolocator might not work
+      // In a real implementation, you'd use the browser's geolocation API
+      print('🗺️ Attempting to get current location for web...');
+      
+      // For now, we'll just log that we're trying to get location
+      // In a production app, you'd implement proper web geolocation
+      print('🗺️ Current location feature enabled for web');
+      
+    } catch (e) {
+      print('🗺️ Could not get current location: $e');
+    }
   }
 
   Widget _buildEnhancedFallbackMap() {
@@ -319,40 +400,6 @@ class _WebGoogleMapsWidgetState extends State<WebGoogleMapsWidget> {
     }
 
     return parts.isEmpty ? 'No address available' : parts.join(', ');
-  }
-
-  Widget _buildWebGoogleMapsWidget() {
-    // Try to use real Google Maps for web
-    try {
-      return Container(
-        height: widget.height,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: GoogleMap(
-            onMapCreated: (GoogleMapController controller) {
-              print('🗺️ Web Google Maps: Map created successfully');
-            },
-            initialCameraPosition: const CameraPosition(
-              target: LatLng(-33.8688, 151.2093), // Sydney
-              zoom: 12.0,
-            ),
-            markers: _createMarkers(),
-            myLocationEnabled: true,
-            myLocationButtonEnabled: true,
-            zoomControlsEnabled: true,
-            mapToolbarEnabled: false,
-          ),
-        ),
-      );
-    } catch (e) {
-      print('🗺️ Web Google Maps error: $e');
-      // Fallback to custom map if Google Maps fails
-      return _buildEnhancedFallbackMap();
-    }
   }
 
   Set<Marker> _createMarkers() {

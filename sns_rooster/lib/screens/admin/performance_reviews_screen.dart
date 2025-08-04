@@ -6,6 +6,10 @@ import '../../models/performance_review.dart';
 import '../../services/performance_review_service.dart';
 import '../../services/api_service.dart';
 import '../../widgets/admin_side_navigation.dart';
+import 'performance_review_templates_dialog.dart';
+import 'create_performance_review_dialog.dart';
+import 'performance_review_details_screen.dart';
+import '../../config/api_config.dart';
 
 class PerformanceReviewsScreen extends StatefulWidget {
   const PerformanceReviewsScreen({super.key});
@@ -31,7 +35,7 @@ class _PerformanceReviewsScreenState extends State<PerformanceReviewsScreen> {
   }
 
   void _initializeService() {
-    final apiService = ApiService(baseUrl: 'http://192.168.1.119:5000/api');
+    final apiService = ApiService(baseUrl: ApiConfig.baseUrl);
     _performanceReviewService = PerformanceReviewService(apiService);
   }
 
@@ -173,7 +177,7 @@ class _PerformanceReviewsScreenState extends State<PerformanceReviewsScreen> {
               ),
               drawer: const AdminSideNavigation(
                   currentRoute: '/performance_reviews'),
-              body: Padding(
+              body: SingleChildScrollView(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -243,8 +247,11 @@ class _PerformanceReviewsScreenState extends State<PerformanceReviewsScreen> {
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: () {
-                              _showComingSoonDialog(
-                                  context, 'Review Templates');
+                              showDialog(
+                                context: context,
+                                builder: (context) =>
+                                    const PerformanceReviewTemplatesDialog(),
+                              );
                             },
                             icon: const Icon(Icons.description),
                             label: const Text('Templates'),
@@ -329,86 +336,87 @@ class _PerformanceReviewsScreenState extends State<PerformanceReviewsScreen> {
                     const SizedBox(height: 16),
 
                     // Performance Reviews List
-                    Expanded(
-                      child: Card(
-                        child: Column(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    'Performance Reviews',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleLarge
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                    Card(
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Row(
+                              children: [
+                                Text(
+                                  'Performance Reviews',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                ),
+                                const Spacer(),
+                                if (_isLoading)
+                                  const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
                                   ),
-                                  const Spacer(),
-                                  if (_isLoading)
-                                    const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2),
-                                    ),
-                                ],
-                              ),
+                              ],
                             ),
-                            Expanded(
-                              child: _isLoading
-                                  ? const Center(
-                                      child: CircularProgressIndicator())
-                                  : _filteredReviews.isEmpty
-                                      ? Center(
-                                          child: Column(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.assessment_outlined,
-                                                size: 64,
-                                                color: Colors.grey[400],
-                                              ),
-                                              const SizedBox(height: 16),
-                                              Text(
-                                                'No Performance Reviews',
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .titleLarge
-                                                    ?.copyWith(
-                                                      color: Colors.grey[600],
-                                                    ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                'Create your first performance review to get started.',
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodyMedium
-                                                    ?.copyWith(
-                                                      color: Colors.grey[500],
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
-                                        )
-                                      : ListView.builder(
-                                          padding: const EdgeInsets.all(16.0),
-                                          itemCount: _filteredReviews.length,
-                                          itemBuilder: (context, index) {
-                                            final review =
-                                                _filteredReviews[index];
-                                            return _buildReviewCard(review);
-                                          },
+                          ),
+                          _isLoading
+                              ? const Padding(
+                                  padding: EdgeInsets.all(32.0),
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                )
+                              : _filteredReviews.isEmpty
+                                  ? Padding(
+                                      padding: const EdgeInsets.all(32.0),
+                                      child: Center(
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.assessment_outlined,
+                                              size: 64,
+                                              color: Colors.grey[400],
+                                            ),
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              'No Performance Reviews',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleLarge
+                                                  ?.copyWith(
+                                                    color: Colors.grey[600],
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              'Create your first performance review to get started.',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodyMedium
+                                                  ?.copyWith(
+                                                    color: Colors.grey[500],
+                                                  ),
+                                            ),
+                                          ],
                                         ),
-                            ),
-                          ],
-                        ),
+                                      ),
+                                    )
+                                  : Column(
+                                      children: _filteredReviews
+                                          .map((review) =>
+                                              _buildReviewCard(review))
+                                          .toList(),
+                                    ),
+                        ],
                       ),
                     ),
+                    const SizedBox(height: 24), // Bottom padding for scroll
                   ],
                 ),
               ),
@@ -549,11 +557,25 @@ class _PerformanceReviewsScreenState extends State<PerformanceReviewsScreen> {
   }
 
   void _showReviewDetails(PerformanceReview review) {
-    _showComingSoonDialog(context, 'Review Details');
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => PerformanceReviewDetailsScreen(
+          reviewId: review.id,
+        ),
+      ),
+    );
   }
 
-  void _showCreateReviewDialog() {
-    _showComingSoonDialog(context, 'Create New Review');
+  void _showCreateReviewDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => const CreatePerformanceReviewDialog(),
+    );
+
+    // Refresh data if a review was created successfully
+    if (result == true) {
+      _loadData();
+    }
   }
 
   void _showComingSoonDialog(BuildContext context, String feature) {

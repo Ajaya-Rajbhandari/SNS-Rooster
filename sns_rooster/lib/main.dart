@@ -27,6 +27,8 @@ import 'package:sns_rooster/screens/admin/admin_attendance_screen.dart';
 import 'package:sns_rooster/screens/auth/reset_password_screen.dart';
 import 'package:sns_rooster/screens/auth/verify_email_screen.dart';
 import 'package:sns_rooster/screens/employee/employee_events_screen.dart';
+import 'package:sns_rooster/screens/employee/employee_performance_review_screen.dart';
+import 'package:sns_rooster/screens/employee/employee_performance_reviews_list_screen.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
 import 'package:sns_rooster/providers/profile_provider.dart';
@@ -53,6 +55,7 @@ import 'package:sns_rooster/services/notification_service.dart';
 import 'package:sns_rooster/services/global_notification_service.dart';
 import 'package:sns_rooster/services/fcm_service.dart';
 import 'package:sns_rooster/services/certificate_pinning_service.dart';
+import 'package:sns_rooster/services/app_update_service.dart';
 import 'package:sns_rooster/widgets/global_notification_banner.dart';
 import 'package:sns_rooster/widgets/feature_initializer.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -156,6 +159,11 @@ void main() async {
 
   Logger.info('Starting SNS Rooster application');
   runApp(const MyApp());
+
+  // Check for app updates after app starts
+  Future.delayed(const Duration(seconds: 3), () {
+    AppUpdateService.checkForUpdates(showAlert: true);
+  });
 }
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalNavigator.navigatorKey;
@@ -219,12 +227,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LeaveRequestProvider()),
         ChangeNotifierProxyProvider<AuthProvider, NotificationProvider>(
           create: (context) => NotificationProvider(
-            NotificationService(
-                Provider.of<AuthProvider>(context, listen: false)),
+            Provider.of<AuthProvider>(context, listen: false),
           ),
-          update: (context, auth, previous) => NotificationProvider(
-            NotificationService(auth),
-          ),
+          update: (context, auth, previous) => NotificationProvider(auth),
         ),
         ChangeNotifierProvider(create: (_) => LeaveProvider()),
         ChangeNotifierProxyProvider<AuthProvider, PayrollProvider>(
@@ -436,6 +441,21 @@ class MyApp extends StatelessWidget {
                         const ExpenseManagementScreen(),
                     '/reset-password': (context) => const ResetPasswordScreen(),
                     '/verify-email': (context) => const VerifyEmailScreen(),
+                    '/performance_reviews': (context) =>
+                        const EmployeePerformanceReviewsListScreen(),
+                  },
+                  onGenerateRoute: (settings) {
+                    // Handle dynamic routes for performance reviews
+                    if (settings.name
+                            ?.startsWith('/employee_performance_review/') ==
+                        true) {
+                      final reviewId = settings.name!.split('/').last;
+                      return MaterialPageRoute(
+                        builder: (context) =>
+                            EmployeePerformanceReviewScreen(reviewId: reviewId),
+                      );
+                    }
+                    return null;
                   },
                   builder: (context, child) {
                     if (child == null) return const SizedBox.shrink();
@@ -443,6 +463,7 @@ class MyApp extends StatelessWidget {
                       children: [
                         child,
                         const GlobalNotificationBanner(),
+                        // UpdateAlertWidget will be shown via dialog when needed
                       ],
                     );
                   },

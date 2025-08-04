@@ -14,15 +14,20 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:usesCleartextTraffic="false">
         
-        <!-- Google Maps API Key -->
+        <!-- Google Maps API Key (Using Firebase Browser Key) -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyAoliHYa93yR5plFT3_hDCfqeJ1ClQV9Zo" />
+            android:value="AIzaSyDrqjkWAfQqSWBPmKCAxYxs6cjuDEbPZGc" />
             
         <!-- Add default notification channel for FCM -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="high_importance_channel" />
+            
+        <!-- Add persistent notification channel for status notifications -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id_persistent"
+            android:value="persistent_status_channel" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

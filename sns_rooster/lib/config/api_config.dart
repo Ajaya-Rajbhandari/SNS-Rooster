@@ -20,8 +20,7 @@ class ApiConfig {
 
   // Production URLs (HTTPS only)
   static const String productionApiUrl = 'https://sns-rooster.onrender.com/api';
-  static const String stagingApiUrl =
-      'https://sns-rooster-staging.onrender.com/api';
+  static const String stagingApiUrl = 'https://sns-rooster.onrender.com/api';
 
   static Future<Map<String, dynamic>> getDetailedDebugInfo() async {
     return {

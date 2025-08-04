@@ -11,6 +11,7 @@ import 'dart:typed_data';
 import '../utils/global_navigator.dart';
 import '../providers/notification_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/material.dart'; // Added for Color
 
 class FCMService {
   static final FCMService _instance = FCMService._internal();
@@ -32,11 +33,30 @@ class FCMService {
     importance: Importance.high,
   );
 
+  // Add persistent notification channel for break status
+  static const AndroidNotificationChannel persistentChannel =
+      AndroidNotificationChannel(
+    'persistent_status_channel', // id
+    'Status Notifications', // title
+    description:
+        'This channel is used for persistent status notifications like break timers.',
+    importance: Importance.low, // Low importance to avoid sound/vibration
+    playSound: false,
+    enableVibration: false,
+    showBadge: false,
+  );
+
   Future<void> setupNotificationChannel() async {
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
+
+    // Setup persistent channel
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(persistentChannel);
   }
 
   String? _fcmToken;
@@ -44,6 +64,25 @@ class FCMService {
 
   // Getter for FCM token
   String? get fcmToken => _fcmToken;
+
+  // Debug method to refresh FCM token
+  Future<void> debugRefreshToken({String? authToken, String? userId}) async {
+    try {
+      Logger.info('FCM: Debug - Getting fresh token...');
+      final token = await _firebaseMessaging.getToken();
+      Logger.info('FCM: Debug - Fresh token: ${token?.substring(0, 30)}...');
+
+      _fcmToken = token;
+
+      if (token != null && authToken != null && userId != null) {
+        Logger.info('FCM: Debug - Saving fresh token to backend...');
+        await _saveTokenToDatabase(token, authToken, userId);
+        Logger.info('FCM: Debug - Fresh token saved successfully');
+      }
+    } catch (e) {
+      Logger.error('FCM: Debug - Error refreshing token: $e');
+    }
+  }
 
   // Initialize FCM service
   Future<void> initialize({String? authToken, String? userId}) async {
@@ -183,7 +222,7 @@ class FCMService {
       if (context != null) {
         final provider =
             Provider.of<NotificationProvider>(context, listen: false);
-        provider.refreshUnreadCount();
+        provider.fetchNotifications(refresh: true);
       }
     } catch (_) {}
   }
@@ -201,7 +240,7 @@ class FCMService {
       if (context != null) {
         final provider =
             Provider.of<NotificationProvider>(context, listen: false);
-        provider.refreshUnreadCount();
+        provider.fetchNotifications(refresh: true);
       }
     } catch (_) {}
   }
@@ -249,6 +288,183 @@ class FCMService {
       platformChannelSpecifics,
       payload: json.encode(message.data),
     );
+  }
+
+  // Show persistent break status notification
+  Future<void> showPersistentBreakNotification({
+    required String breakType,
+    required DateTime startTime,
+    required int? maxDurationMinutes,
+    required int totalBreaksToday,
+  }) async {
+    final now = DateTime.now();
+    final elapsed = now.difference(startTime);
+    final remaining = maxDurationMinutes != null
+        ? Duration(minutes: maxDurationMinutes) - elapsed
+        : null;
+
+    final isOvertime =
+        maxDurationMinutes != null && elapsed.inMinutes >= maxDurationMinutes;
+
+    String statusText =
+        'Started: ${_formatTime(startTime)} | Elapsed: ${_formatDuration(elapsed)}';
+    if (remaining != null) {
+      if (remaining.isNegative) {
+        statusText += ' | Overtime: ${_formatDuration(-remaining)}';
+      } else {
+        statusText += ' | Remaining: ${_formatDuration(remaining)}';
+      }
+    }
+    statusText += ' | Breaks today: $totalBreaksToday';
+
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'persistent_status_channel',
+      'Status Notifications',
+      channelDescription: 'Persistent status notifications for SNS Rooster app',
+      importance: Importance.low,
+      priority: Priority.low,
+      ongoing: true, // Makes notification persistent
+      autoCancel: false, // Prevents auto-dismissal
+      showWhen: false, // Don't show timestamp
+      playSound: false,
+      enableVibration: false,
+
+      icon: '@mipmap/launcher_icon',
+      color: isOvertime
+          ? const Color(0xFFFF4444)
+          : const Color(0xFFFF8800), // Red for overtime, orange for normal
+      largeIcon: const DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
+    );
+
+    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+        DarwinNotificationDetails(
+      presentAlert: false, // Don't show alert on iOS
+      presentBadge: false,
+      presentSound: false,
+    );
+
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iOSPlatformChannelSpecifics,
+    );
+
+    await _localNotifications.show(
+      999, // Fixed ID for persistent notification
+      'Break Status: $breakType',
+      statusText,
+      platformChannelSpecifics,
+      payload: json.encode({
+        'type': 'break_status',
+        'breakType': breakType,
+        'startTime': startTime.toIso8601String(),
+        'maxDurationMinutes': maxDurationMinutes,
+        'totalBreaksToday': totalBreaksToday,
+      }),
+    );
+  }
+
+  // Update persistent break notification
+  Future<void> updatePersistentBreakNotification({
+    required String breakType,
+    required DateTime startTime,
+    required int? maxDurationMinutes,
+    required int totalBreaksToday,
+  }) async {
+    // Recalculate elapsed time for real-time updates
+    final now = DateTime.now();
+    final elapsed = now.difference(startTime);
+    final remaining = maxDurationMinutes != null
+        ? Duration(minutes: maxDurationMinutes) - elapsed
+        : null;
+
+    final isOvertime =
+        maxDurationMinutes != null && elapsed.inMinutes >= maxDurationMinutes;
+
+    String statusText =
+        'Started: ${_formatTime(startTime)} | Elapsed: ${_formatDuration(elapsed)}';
+    if (remaining != null) {
+      if (remaining.isNegative) {
+        statusText += ' | Overtime: ${_formatDuration(-remaining)}';
+      } else {
+        statusText += ' | Remaining: ${_formatDuration(remaining)}';
+      }
+    }
+    statusText += ' | Breaks today: $totalBreaksToday';
+
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'persistent_status_channel',
+      'Status Notifications',
+      channelDescription: 'Persistent status notifications for SNS Rooster app',
+      importance: Importance.low,
+      priority: Priority.low,
+      ongoing: true, // Makes notification persistent
+      autoCancel: false, // Prevents auto-dismissal
+      showWhen: false, // Don't show timestamp
+      playSound: false,
+      enableVibration: false,
+
+      icon: '@mipmap/launcher_icon',
+      color: isOvertime
+          ? const Color(0xFFFF4444)
+          : const Color(0xFFFF8800), // Red for overtime, orange for normal
+      largeIcon: const DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
+    );
+
+    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+        DarwinNotificationDetails(
+      presentAlert: false, // Don't show alert on iOS
+      presentBadge: false,
+      presentSound: false,
+    );
+
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iOSPlatformChannelSpecifics,
+    );
+
+    await _localNotifications.show(
+      999, // Fixed ID for persistent notification
+      'Break Status: $breakType',
+      statusText,
+      platformChannelSpecifics,
+      payload: json.encode({
+        'type': 'break_status',
+        'breakType': breakType,
+        'startTime': startTime.toIso8601String(),
+        'maxDurationMinutes': maxDurationMinutes,
+        'totalBreaksToday': totalBreaksToday,
+      }),
+    );
+  }
+
+  // Cancel persistent break notification
+  Future<void> cancelPersistentBreakNotification() async {
+    await _localNotifications.cancel(999);
+  }
+
+  // Helper method to format time
+  String _formatTime(DateTime time) {
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  }
+
+  // Helper method to format duration
+  String _formatDuration(Duration duration) {
+    if (duration.isNegative) {
+      duration = -duration;
+    }
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes % 60;
+    final seconds = duration.inSeconds % 60;
+
+    if (hours > 0) {
+      return '${hours}h ${minutes}m';
+    } else if (minutes > 0) {
+      return '${minutes}m ${seconds}s';
+    } else {
+      return '${seconds}s';
+    }
   }
 
   // Handle notification navigation

@@ -129,18 +129,106 @@ class _EmployeeLocationMapWidgetState extends State<EmployeeLocationMapWidget> {
   @override
   Widget build(BuildContext context) {
     if (kIsWeb) {
-      // For web, use enhanced fallback map with better styling
-      return Container(
-        height: widget.height,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: _buildWebFallbackMap(),
-        ),
-      );
+      // For web, try to use real Google Maps first, fallback if needed
+      try {
+        return Container(
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              children: [
+                GoogleMap(
+                  onMapCreated: (GoogleMapController controller) {
+                    _mapController = controller;
+                    // Fit bounds to show the location and geofence
+                    _fitBounds();
+                  },
+                  initialCameraPosition: CameraPosition(
+                    target: _centerLocation!,
+                    zoom: 15.0, // Closer zoom for better detail
+                  ),
+                  markers: _markers,
+                  circles: _circles,
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: true,
+                  zoomControlsEnabled: false, // Hide default zoom controls
+                  mapToolbarEnabled: false, // Hide map toolbar
+                  compassEnabled: true,
+                  onTap: (_) {
+                    // Handle map tap if needed
+                  },
+                ),
+                // Custom zoom controls
+                Positioned(
+                  right: 16,
+                  top: 16,
+                  child: Column(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.add, size: 20),
+                              onPressed: () {
+                                _mapController?.animateCamera(
+                                  CameraUpdate.zoomIn(),
+                                );
+                              },
+                              tooltip: 'Zoom In',
+                            ),
+                            Container(
+                              height: 1,
+                              color: Colors.grey.shade300,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.remove, size: 20),
+                              onPressed: () {
+                                _mapController?.animateCamera(
+                                  CameraUpdate.zoomOut(),
+                                );
+                              },
+                              tooltip: 'Zoom Out',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      } catch (e) {
+        print('🗺️ Employee map: Google Maps failed, using fallback: $e');
+        // Fallback to the web fallback map
+        return Container(
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: _buildWebFallbackMap(),
+          ),
+        );
+      }
     }
 
     return Container(

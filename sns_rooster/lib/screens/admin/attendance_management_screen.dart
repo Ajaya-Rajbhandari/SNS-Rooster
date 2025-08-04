@@ -19,10 +19,7 @@ class _AttendanceManagementScreenState
   DateTime? _endDate;
   String? _selectedEmployeeId;
   bool _isFiltering = false;
-  int _currentPage = 1;
   final int _pageSize = 10;
-  int _totalPages = 1;
-  int _totalRecords = 0;
 
   @override
   void initState() {
@@ -46,14 +43,7 @@ class _AttendanceManagementScreenState
       page: page,
       limit: _pageSize,
     );
-    // Try to get total and page info from provider (assume provider sets these fields)
-    if (provider.total != null && provider.page != null) {
-      setState(() {
-        _totalRecords = provider.total!;
-        _currentPage = provider.page!;
-        _totalPages = (_totalRecords / _pageSize).ceil();
-      });
-    }
+
     setState(() => _isFiltering = false);
   }
 
@@ -468,51 +458,6 @@ class _AttendanceManagementScreenState
           );
         },
       ),
-    );
-  }
-
-  Widget _buildPaginationControls() {
-    if (_totalPages <= 1) return const SizedBox.shrink();
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.chevron_left),
-          onPressed: _currentPage > 1
-              ? () => _fetchAttendancePage(_currentPage - 1)
-              : null,
-        ),
-        ...List.generate(_totalPages, (i) {
-          final page = i + 1;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    _currentPage == page ? Colors.blue : Colors.grey[200],
-                foregroundColor:
-                    _currentPage == page ? Colors.white : Colors.black,
-                minimumSize: const Size(36, 36),
-                padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: _currentPage == page
-                  ? null
-                  : () => _fetchAttendancePage(page),
-              child: Text('$page'),
-            ),
-          );
-        }),
-        IconButton(
-          icon: const Icon(Icons.chevron_right),
-          onPressed: _currentPage < _totalPages
-              ? () => _fetchAttendancePage(_currentPage + 1)
-              : null,
-        ),
-        const SizedBox(width: 12),
-        Text('Page $_currentPage of $_totalPages'),
-      ],
     );
   }
 

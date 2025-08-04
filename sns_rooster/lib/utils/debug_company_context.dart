@@ -2,8 +2,55 @@ import 'package:flutter/material.dart';
 import '../services/secure_storage_service.dart';
 import '../services/api_service.dart';
 import '../config/api_config.dart';
+import 'package:sns_rooster/services/secure_storage_service.dart';
+import 'package:sns_rooster/utils/logger.dart';
 
+/// Debug utility to manually set company ID for testing
 class DebugCompanyContext {
+  /// Set company ID manually for testing
+  static Future<void> setCompanyIdForTesting() async {
+    try {
+      // Use the company ID from the logs - this should be the company that owns the employees
+      const companyId = '6879eab877a3baf82927dabd'; // From the logs
+
+      await SecureStorageService.storeCompanyId(companyId);
+      Logger.info('Debug: Company ID set manually for testing: $companyId');
+
+      // Verify it was stored
+      final storedCompanyId = await SecureStorageService.getCompanyId();
+      Logger.info('Debug: Verified stored company ID: $storedCompanyId');
+    } catch (e) {
+      Logger.error('Debug: Failed to set company ID: $e');
+    }
+  }
+
+  /// Check current company ID status
+  static Future<void> checkCompanyIdStatus() async {
+    try {
+      final companyId = await SecureStorageService.getCompanyId();
+      Logger.info('Debug: Current company ID: $companyId');
+
+      if (companyId == null) {
+        Logger.warning(
+            'Debug: No company ID found - this will cause API failures');
+      } else {
+        Logger.info('Debug: Company ID is set - API calls should work');
+      }
+    } catch (e) {
+      Logger.error('Debug: Error checking company ID: $e');
+    }
+  }
+
+  /// Clear company ID for testing
+  static Future<void> clearCompanyId() async {
+    try {
+      await SecureStorageService.clearCompanyId();
+      Logger.info('Debug: Company ID cleared');
+    } catch (e) {
+      Logger.error('Debug: Failed to clear company ID: $e');
+    }
+  }
+
   static Future<void> debugCompanyContext() async {
     print('🔍 DEBUGGING COMPANY CONTEXT');
     print('============================');

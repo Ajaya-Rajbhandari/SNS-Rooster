@@ -578,13 +578,6 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
     );
   }
 
-  void _onRoleChanged(String? role) {
-    setState(() {
-      _selectedRole = role;
-    });
-    _fetchAttendanceData();
-  }
-
   void _fetchAttendanceData() {
     final provider =
         Provider.of<AdminAttendanceProvider>(context, listen: false);
@@ -602,15 +595,6 @@ class _AdminTimesheetScreenState extends State<AdminTimesheetScreen> {
       userId: _selectedEmployeeId,
       role: role,
     );
-  }
-
-  void _clearFilters() {
-    setState(() {
-      _selectedEmployeeId = null;
-      _selectedRole = null;
-      _dateRange = _todayRange;
-    });
-    _fetchAttendanceData();
   }
 
   Widget _buildStatCard(
@@ -1186,77 +1170,6 @@ class _LiveBreakTimerState extends State<_LiveBreakTimer> {
       h > 0 ? '${h}h ${m}m ${s}s' : '${m}m ${s}s',
       style: TextStyle(
           color: Colors.orange[800], fontWeight: FontWeight.bold, fontSize: 12),
-    );
-  }
-}
-
-Widget _buildBreakBadge(Map<String, dynamic> rec) {
-  final breaks = rec['breaks'] as List?;
-  if (breaks != null && breaks.isNotEmpty) {
-    final ongoing = breaks.any((b) => b['end'] == null);
-    if (ongoing) {
-      return const Row(
-        children: [
-          Icon(Icons.pause_circle_filled, color: Colors.orange, size: 18),
-          SizedBox(width: 4),
-          Text('On Break',
-              style:
-                  TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-          SizedBox(width: 4),
-          Icon(Icons.circle, color: Colors.red, size: 10),
-          SizedBox(width: 2),
-          Text('LIVE',
-              style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12)),
-        ],
-      );
-    } else {
-      return const Row(
-        children: [
-          Icon(Icons.check_circle, color: Colors.blue, size: 18),
-          SizedBox(width: 4),
-          Text('Break Ended',
-              style:
-                  TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
-        ],
-      );
-    }
-  } else {
-    return const Row(
-      children: [
-        Icon(Icons.remove_circle_outline, color: Colors.grey, size: 18),
-        SizedBox(width: 4),
-        Text('No Break',
-            style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
-}
-
-class _QuickFilterBtn extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _QuickFilterBtn(
-      {required this.label, required this.selected, required this.onTap});
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton(
-      style: OutlinedButton.styleFrom(
-        backgroundColor: selected
-            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
-            : null,
-        side: BorderSide(
-            color: selected
-                ? Theme.of(context).colorScheme.primary
-                : Colors.grey.shade300),
-      ),
-      onPressed: onTap,
-      child: Text(label,
-          style: TextStyle(
-              color: selected ? Theme.of(context).colorScheme.primary : null)),
     );
   }
 }

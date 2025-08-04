@@ -116,6 +116,9 @@ class ApiService {
       print('🔍 API_DEBUG: Adding company ID header: $companyId');
     } else {
       print('⚠️  API_DEBUG: No company ID found in secure storage');
+      // Try to re-check secure storage
+      final recheckCompanyId = await SecureStorageService.getCompanyId();
+      print('⚠️  API_DEBUG: Re-check company ID: $recheckCompanyId');
     }
 
     print('🔍 API_DEBUG: Headers being sent: ${headers.keys.toList()}');

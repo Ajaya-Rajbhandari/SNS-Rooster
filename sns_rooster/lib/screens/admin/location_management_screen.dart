@@ -14,7 +14,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:sns_rooster/widgets/company_style_location_picker.dart';
 import 'package:sns_rooster/widgets/employee_assignment_dialog.dart';
 import 'package:sns_rooster/services/location_settings_service.dart';

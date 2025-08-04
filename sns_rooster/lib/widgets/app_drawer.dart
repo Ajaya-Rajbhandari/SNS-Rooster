@@ -3,6 +3,7 @@ import 'package:sns_rooster/utils/logger.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/feature_provider.dart';
+import '../providers/notification_provider.dart';
 import '../widgets/user_avatar.dart'; // Assuming UserAvatar is a reusable widget
 import '../../providers/profile_provider.dart';
 
@@ -129,14 +130,46 @@ class AppDrawer extends StatelessWidget {
                 if (featureProvider.hasEvents)
                   _buildNavTile(context,
                       icon: Icons.event, label: 'Events', route: '/events'),
+                // Only show Performance Reviews if the feature is enabled
+                if (featureProvider.hasPerformanceReviews)
+                  _buildNavTile(context,
+                      icon: Icons.assessment,
+                      label: 'Performance Reviews',
+                      route: '/performance_reviews'),
                 _buildNavTile(context,
                     icon: Icons.person_outline,
                     label: 'Profile',
                     route: '/profile'),
-                _buildNavTile(context,
-                    icon: Icons.notifications,
-                    label: 'Notifications',
-                    route: '/notification'),
+                Consumer<NotificationProvider>(
+                  builder: (context, notificationProvider, child) {
+                    return _buildNavTile(
+                      context,
+                      icon: Icons.notifications,
+                      label: 'Notifications',
+                      route: '/notification',
+                      trailing: (notificationProvider?.unreadCount ?? 0) > 0
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${notificationProvider?.unreadCount ?? 0}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            )
+                          : null,
+                    );
+                  },
+                ),
                 const Divider(),
                 ListTile(
                   leading:

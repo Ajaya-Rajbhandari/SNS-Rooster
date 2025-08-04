@@ -44,16 +44,46 @@ class PerformanceReview {
   });
 
   factory PerformanceReview.fromJson(Map<String, dynamic> json) {
+    // Handle populated employeeId (could be object or string)
+    String employeeId;
+    String employeeName;
+    if (json['employeeId'] is Map<String, dynamic>) {
+      employeeId = json['employeeId']['_id'] ?? '';
+      // Extract employee name from populated object if available
+      final firstName = json['employeeId']['firstName'] ?? '';
+      final lastName = json['employeeId']['lastName'] ?? '';
+      employeeName = '$firstName $lastName'.trim();
+    } else {
+      employeeId = json['employeeId'] ?? '';
+      employeeName = json['employeeName'] ?? '';
+    }
+
+    // Handle populated reviewerId (could be object or string)
+    String reviewerId;
+    String reviewerName;
+    if (json['reviewerId'] is Map<String, dynamic>) {
+      reviewerId = json['reviewerId']['_id'] ?? '';
+      // Extract reviewer name from populated object if available
+      final firstName = json['reviewerId']['firstName'] ?? '';
+      final lastName = json['reviewerId']['lastName'] ?? '';
+      reviewerName = '$firstName $lastName'.trim();
+    } else {
+      reviewerId = json['reviewerId'] ?? '';
+      reviewerName = json['reviewerName'] ?? '';
+    }
+
+    final status = json['status'] ?? 'draft';
+
     return PerformanceReview(
       id: json['_id'] ?? json['id'] ?? '',
-      employeeId: json['employeeId'] ?? '',
-      employeeName: json['employeeName'] ?? '',
-      reviewerId: json['reviewerId'] ?? '',
-      reviewerName: json['reviewerName'] ?? '',
+      employeeId: employeeId,
+      employeeName: employeeName,
+      reviewerId: reviewerId,
+      reviewerName: reviewerName,
       reviewPeriod: json['reviewPeriod'] ?? '',
       startDate: DateTime.parse(json['startDate']),
       endDate: DateTime.parse(json['endDate']),
-      status: json['status'] ?? 'draft',
+      status: status,
       scores: Map<String, dynamic>.from(json['scores'] ?? {}),
       comments: json['comments'],
       employeeComments: json['employeeComments'],
@@ -99,6 +129,10 @@ class PerformanceReview {
         return 'Draft';
       case 'in_progress':
         return 'In Progress';
+      case 'submitted_for_employee_review':
+        return 'Pending Employee Review';
+      case 'employee_review_complete':
+        return 'Employee Review Complete';
       case 'completed':
         return 'Completed';
       case 'overdue':
@@ -114,6 +148,10 @@ class PerformanceReview {
         return Colors.grey;
       case 'in_progress':
         return Colors.orange;
+      case 'submitted_for_employee_review':
+        return Colors.orange;
+      case 'employee_review_complete':
+        return Colors.blue;
       case 'completed':
         return Colors.green;
       case 'overdue':

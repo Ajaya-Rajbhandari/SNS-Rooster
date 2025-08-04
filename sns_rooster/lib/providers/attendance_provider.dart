@@ -2,8 +2,10 @@
 import 'package:sns_rooster/utils/logger.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../providers/auth_provider.dart';
 import '../services/attendance_service.dart';
+import '../services/fcm_service.dart';
 
 class AttendanceProvider with ChangeNotifier {
   final AuthProvider _authProvider;
@@ -16,8 +18,12 @@ class AttendanceProvider with ChangeNotifier {
   Map<String, dynamic>? _currentAttendance;
   Map<String, dynamic>? _leaveInfo;
 
+  // Toast message to show latest attendance update
+  String? _toastMessage;
+
   AttendanceProvider(this._authProvider) {
     _attendanceService = AttendanceService(_authProvider);
+    _initFCMListener();
   }
 
   List<Map<String, dynamic>> get attendanceRecords => _attendanceRecords;
@@ -27,6 +33,7 @@ class AttendanceProvider with ChangeNotifier {
   String? get todayStatus => _todayStatus;
   Map<String, dynamic>? get currentAttendance => _currentAttendance;
   Map<String, dynamic>? get leaveInfo => _leaveInfo;
+  String? get toastMessage => _toastMessage;
 
   Future<void> fetchUserAttendance(String userId) async {
     _isLoading = true;
@@ -133,6 +140,19 @@ class AttendanceProvider with ChangeNotifier {
     notifyListeners();
     try {
       await _attendanceService.startBreakWithType(userId, breakType);
+
+      // Show persistent notification for break status
+      final now = DateTime.now();
+      final breakTypeName =
+          breakType['displayName'] ?? breakType['name'] ?? 'Break';
+      final maxDuration = breakType['duration'] as int?;
+
+      await FCMService().showPersistentBreakNotification(
+        breakType: breakTypeName,
+        startTime: now,
+        maxDurationMinutes: maxDuration,
+        totalBreaksToday: _calculateTotalBreaksToday(),
+      );
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -150,6 +170,9 @@ class AttendanceProvider with ChangeNotifier {
       // If the service returns a response object, check for success
       if (response != null &&
           response['message'] == 'Break ended successfully') {
+        // Cancel persistent notification when break ends
+        await FCMService().cancelPersistentBreakNotification();
+
         return true;
       } else {
         _error = response != null && response['message'] != null
@@ -199,6 +222,45 @@ class AttendanceProvider with ChangeNotifier {
     } catch (e) {
       log('FETCH_BREAK_TYPES_DEBUG: Error during API call: $e');
     }
+  }
+
+  void _initFCMListener() {
+    try {
+      FirebaseMessaging.onMessage.listen((RemoteMessage msg) async {
+        if (msg.data['type'] == 'attendance') {
+          final user = _authProvider.user;
+          if (user != null && user['_id'] != null) {
+            await fetchTodayStatus(user['_id']);
+          }
+          _toastMessage = msg.notification?.body ?? 'Attendance updated';
+          notifyListeners();
+        }
+      });
+    } catch (e) {
+      log('DEBUG: Error setting up FCM listener in AttendanceProvider: $e');
+    }
+  }
+
+  void clearToast() {
+    _toastMessage = null;
+  }
+
+  // Helper method to calculate total breaks today
+  int _calculateTotalBreaksToday() {
+    if (_currentAttendance == null) return 0;
+
+    final breaks = _currentAttendance!['breaks'] as List<dynamic>?;
+    if (breaks == null) return 0;
+
+    final today = DateTime.now();
+    final todayBreaks = breaks.where((breakRecord) {
+      final breakDate = DateTime.parse(breakRecord['startTime']);
+      return breakDate.year == today.year &&
+          breakDate.month == today.month &&
+          breakDate.day == today.day;
+    }).length;
+
+    return todayBreaks;
   }
 
   @override

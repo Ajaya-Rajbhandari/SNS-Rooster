@@ -18,7 +18,6 @@ class LeaveManagementScreen extends StatefulWidget {
 
 class _LeaveManagementScreenState extends State<LeaveManagementScreen>
     with WidgetsBindingObserver {
-  final List<Map<String, dynamic>> _leaveRequests = [];
   String _selectedStatus = 'all';
   String _selectedRole = 'all';
   bool _showHalfDayOnly = false;
@@ -110,13 +109,6 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen>
   void _onFilterChanged(String value) {
     setState(() {
       _selectedStatus = value;
-      // _currentPage = 1; // This line is removed
-    });
-  }
-
-  void _onSearchChanged(String query) {
-    setState(() {
-      // _searchQuery = query; // This line is removed
       // _currentPage = 1; // This line is removed
     });
   }
@@ -764,38 +756,5 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen>
         ),
       ),
     );
-  }
-
-  Widget _buildDateRange(DateTime startDate, DateTime endDate) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.calendar_today, size: 16),
-            const SizedBox(width: 8),
-            Text(
-              'From: ${_formatDate(startDate)}',
-              style: const TextStyle(fontSize: 14),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            const Icon(Icons.calendar_today, size: 16),
-            const SizedBox(width: 8),
-            Text(
-              'To: ${_formatDate(endDate)}',
-              style: const TextStyle(fontSize: 14),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
   }
 }
