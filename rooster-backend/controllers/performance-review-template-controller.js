@@ -103,7 +103,7 @@ exports.getTemplate = async (req, res) => {
 exports.createTemplate = async (req, res) => {
   try {
     const companyId = req.companyId;
-    const createdBy = req.user.id;
+    const createdBy = req.user.userId;
     const {
       name,
       description,
@@ -168,7 +168,7 @@ exports.updateTemplate = async (req, res) => {
   try {
     const { id } = req.params;
     const companyId = req.companyId;
-    const updatedBy = req.user.id;
+    const updatedBy = req.user.userId;
     const updateData = { ...req.body, updatedBy };
 
     // Cannot update default templates
@@ -254,7 +254,7 @@ exports.duplicateTemplate = async (req, res) => {
   try {
     const { id } = req.params;
     const companyId = req.companyId;
-    const createdBy = req.user.id;
+    const createdBy = req.user.userId;
     const { name, description } = req.body;
 
     let sourceTemplate;

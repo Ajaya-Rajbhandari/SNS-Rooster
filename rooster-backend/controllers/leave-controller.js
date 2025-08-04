@@ -300,7 +300,7 @@ exports.applyLeave = async (req, res) => {
 // (Optional) Get leave history for employee
 exports.getLeaveHistory = async (req, res) => {
   try {
-    const employeeId = req.query.employeeId || (req.user && req.user.id);
+    const employeeId = req.query.employeeId || (req.user && req.user.userId);
     if (!employeeId) return res.status(400).json({ message: 'Employee ID is required.' });
     const leaves = await Leave.find({ employee: employeeId, companyId: req.companyId }).populate('employee').sort({ appliedAt: -1 });
     const result = leaves.map(leave => ({

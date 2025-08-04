@@ -16,7 +16,9 @@ const authenticateToken = async (req, res, next) => {
     const token = authHeader.replace('Bearer ', '');
     
     // Verify token using async/await
+    console.log('DEBUG: Attempting to verify token:', token.substring(0, 50) + '...');
     const decoded = await jwt.verify(token, process.env.JWT_SECRET);
+    console.log('DEBUG: Token decoded successfully:', { userId: decoded.userId, iat: decoded.iat, exp: decoded.exp });
     if (!decoded || !decoded.userId) {
       console.error('DEBUG: Invalid token payload');
       return res.status(403).json({ error: 'Invalid token payload' });

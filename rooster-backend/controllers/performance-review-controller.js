@@ -8,13 +8,28 @@ exports.getPerformanceReviews = async (req, res) => {
   try {
     const { status, employeeId, page = 1, limit = 20 } = req.query;
     const companyId = req.companyId;
+    const currentUserId = req.user.userId;
+    const userRole = req.user.role;
 
     // Build filter
     const filter = { companyId };
     if (status && status !== 'all') {
       filter.status = status;
     }
-    if (employeeId) {
+    
+    // If user is an employee, only show their own reviews
+    if (userRole === 'employee') {
+      // Find the employee record for the current user
+      const employee = await Employee.findOne({ userId: currentUserId, companyId });
+      if (!employee) {
+        return res.status(404).json({
+          success: false,
+          message: 'Employee record not found'
+        });
+      }
+      filter.employeeId = employee._id;
+    } else if (employeeId) {
+      // For admins, allow filtering by specific employee
       filter.employeeId = employeeId;
     }
 
@@ -83,8 +98,25 @@ exports.getPerformanceReview = async (req, res) => {
   try {
     const { id } = req.params;
     const companyId = req.companyId;
+    const currentUserId = req.user.userId;
+    const userRole = req.user.role;
 
-    const review = await PerformanceReview.findOne({ _id: id, companyId })
+    // Build filter
+    const filter = { _id: id, companyId };
+    
+    // If user is an employee, ensure they can only access their own reviews
+    if (userRole === 'employee') {
+      const employee = await Employee.findOne({ userId: currentUserId, companyId });
+      if (!employee) {
+        return res.status(404).json({
+          success: false,
+          message: 'Employee record not found'
+        });
+      }
+      filter.employeeId = employee._id;
+    }
+
+    const review = await PerformanceReview.findOne(filter)
       .populate('employeeId', 'firstName lastName email department position')
       .populate('reviewerId', 'firstName lastName email')
       .populate('createdBy', 'firstName lastName email');
@@ -116,7 +148,7 @@ exports.getPerformanceReview = async (req, res) => {
 exports.createPerformanceReview = async (req, res) => {
   try {
     const companyId = req.companyId;
-    const createdBy = req.user.id;
+    const createdBy = req.user.userId;
     const {
       employeeId,
       reviewerId,
@@ -186,11 +218,47 @@ exports.updatePerformanceReview = async (req, res) => {
   try {
     const { id } = req.params;
     const companyId = req.companyId;
-    const updatedBy = req.user.id;
-    const updateData = { ...req.body, updatedBy };
+    const currentUserId = req.user.userId;
+    const userRole = req.user.role;
+    const updateData = { ...req.body, updatedBy: currentUserId };
+
+    // Build filter
+    const filter = { _id: id, companyId };
+    
+    // If user is an employee, ensure they can only update their own reviews
+    if (userRole === 'employee') {
+      const employee = await Employee.findOne({ userId: currentUserId, companyId });
+      if (!employee) {
+        return res.status(404).json({
+          success: false,
+          message: 'Employee record not found'
+        });
+      }
+      filter.employeeId = employee._id;
+      
+      // Employees can only update specific fields
+      const allowedFields = ['employeeComments', 'status'];
+      const filteredUpdateData = {};
+      allowedFields.forEach(field => {
+        if (updateData[field] !== undefined) {
+          filteredUpdateData[field] = updateData[field];
+        }
+      });
+      filteredUpdateData.updatedBy = currentUserId;
+      
+      // Only allow status change to 'employee_review_complete' when employee adds comments
+      if (filteredUpdateData.status && filteredUpdateData.status !== 'employee_review_complete') {
+        return res.status(403).json({
+          success: false,
+          message: 'Employees can only complete their self-assessment'
+        });
+      }
+      
+      Object.assign(updateData, filteredUpdateData);
+    }
 
     const review = await PerformanceReview.findOneAndUpdate(
-      { _id: id, companyId },
+      filter,
       updateData,
       { new: true, runValidators: true }
     ).populate('employeeId', 'firstName lastName email')

@@ -1,4 +1,5 @@
 const admin = require('firebase-admin');
+const Notification = require('../models/Notification');
 
 // Initialize Firebase Admin SDK using environment variables
 if (!admin.apps.length) {
@@ -35,8 +36,25 @@ if (!admin.apps.length) {
   console.log('DEBUG: FCM - Firebase Admin SDK already initialized');
 }
 
-async function sendNotificationToUser(fcmToken, title, body, data = {}) {
+async function sendNotificationToUser(fcmToken, title, body, data = {}, userId = null) {
   try {
+    // Save notification to database if userId is provided
+    if (userId) {
+      try {
+        const notification = new Notification({
+          userId,
+          title,
+          body,
+          data,
+        });
+        await notification.save();
+        console.log('DEBUG: FCM - Notification saved to database for user:', userId);
+      } catch (dbError) {
+        console.error('Error saving notification to database:', dbError);
+        // Continue with FCM even if DB save fails
+      }
+    }
+
     if (!admin.apps.length) {
       console.warn('Firebase not initialized. Skipping push notification.');
       return;

@@ -349,6 +349,23 @@ exports.checkIn = async (req, res) => {
 
     await attendance.save();
     console.log("DEBUG: checkIn - Attendance created:", attendance);
+                // 🔔 Send push notification for clock-in
+            try {
+              const FCMToken = require('../models/FCMToken');
+              const { sendNotificationToUser } = require('../services/notificationService');
+              const fcmDoc = await FCMToken.findOne({ userId });
+              if (fcmDoc && fcmDoc.fcmToken) {
+                await sendNotificationToUser(
+                  fcmDoc.fcmToken,
+                  'Attendance Update',
+                  'Clock-in recorded successfully',
+                  { type: 'attendance', event: 'clock_in', time: new Date().toISOString() },
+                  userId
+                );
+              }
+            } catch (notifErr) {
+              console.error('Failed to send clock-in notification', notifErr);
+            }
     res.status(201).json({ message: "Check-in successful", attendance });
   } catch (error) {
     console.error("Check-in error:", error);
@@ -448,6 +465,24 @@ exports.checkOut = async (req, res) => {
       attendance
     );
 
+                // 🔔 Send push notification for clock-out
+            try {
+              const FCMToken = require('../models/FCMToken');
+              const { sendNotificationToUser } = require('../services/notificationService');
+              const fcmDoc = await FCMToken.findOne({ userId });
+              if (fcmDoc && fcmDoc.fcmToken) {
+                await sendNotificationToUser(
+                  fcmDoc.fcmToken,
+                  'Attendance Update',
+                  'Clock-out recorded successfully',
+                  { type: 'attendance', event: 'clock_out', time: new Date().toISOString() },
+                  userId
+                );
+              }
+            } catch (notifErr) {
+              console.error('Failed to send clock-out notification', notifErr);
+            }
+
     res.json({ message: "Check-out successful", attendance });
   } catch (error) {
     console.error("Check-out error:", error);
@@ -534,6 +569,74 @@ exports.startBreak = async (req, res) => {
     console.log("DEBUG: Attendance object after save in startBreak:", attendance);
     // Populate the breaks so the client gets the type details if they want:
     await attendance.populate("breaks.type", "displayName icon color");
+    
+    console.log("DEBUG: About to send break start notification for user:", userId);
+    console.log("DEBUG: Break type object:", typeObj);
+    
+    // 🔔 Send push notification for break start
+    try {
+              const FCMToken = require('../models/FCMToken');
+              const { sendNotificationToUser } = require('../services/notificationService');
+              const fcmDoc = await FCMToken.findOne({ userId });
+              console.log("DEBUG: FCM token found:", fcmDoc ? 'Yes' : 'No');
+              console.log("DEBUG: FCM token value:", fcmDoc ? (fcmDoc.fcmToken ? fcmDoc.fcmToken.substring(0, 30) + '...' : 'NULL TOKEN') : 'NO DOC');
+              if (fcmDoc && fcmDoc.fcmToken) {
+                console.log("DEBUG: Sending break start notification to token:", fcmDoc.fcmToken.substring(0, 20) + '...');
+                await sendNotificationToUser(
+                  fcmDoc.fcmToken,
+                  'Break Started',
+                  `${typeObj.displayName} break started at ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
+                  { type: 'attendance', event: 'break_start', breakType: typeObj.displayName, time: new Date().toISOString() },
+                  userId
+                );
+                console.log("DEBUG: Break start notification sent successfully");
+                
+                // Schedule break end reminder if break has duration
+                if (typeObj.duration && typeObj.duration > 0) {
+                  const breakEndTime = new Date(Date.now() + typeObj.duration * 60 * 1000); // Convert minutes to milliseconds
+                  const reminderTime = new Date(breakEndTime.getTime() - 5 * 60 * 1000); // 5 minutes before end
+                  
+                  // Schedule reminder notification
+                  setTimeout(async () => {
+                    try {
+                      const currentFcmDoc = await FCMToken.findOne({ userId });
+                      if (currentFcmDoc && currentFcmDoc.fcmToken) {
+                        await sendNotificationToUser(
+                          currentFcmDoc.fcmToken,
+                          'Break Reminder',
+                          `Your ${typeObj.displayName} break ends in 5 minutes - Time to wrap up!`,
+                          { type: 'attendance', event: 'break_reminder', breakType: typeObj.displayName, time: new Date().toISOString() },
+                          userId
+                        );
+                      }
+                    } catch (reminderErr) {
+                      console.error('Failed to send break reminder notification', reminderErr);
+                    }
+                  }, reminderTime.getTime() - Date.now());
+                  
+                  // Schedule break end notification
+                  setTimeout(async () => {
+                    try {
+                      const currentFcmDoc = await FCMToken.findOne({ userId });
+                      if (currentFcmDoc && currentFcmDoc.fcmToken) {
+                        await sendNotificationToUser(
+                          currentFcmDoc.fcmToken,
+                          'Break Time Up',
+                          `Your ${typeObj.displayName} break has ended - Back to work!`,
+                          { type: 'attendance', event: 'break_ended_auto', breakType: typeObj.displayName, time: new Date().toISOString() },
+                          userId
+                        );
+                      }
+                    } catch (endErr) {
+                      console.error('Failed to send break end notification', endErr);
+                    }
+                  }, typeObj.duration * 60 * 1000);
+                }
+              }
+            } catch (notifErr) {
+              console.error('Failed to send break-start notification', notifErr);
+            }
+
     res.status(200).json({ message: "Break started", attendance });
   } catch (error) {
     console.error("Start break error:", error, req.body);
@@ -598,6 +701,24 @@ exports.endBreak = async (req, res) => {
     console.log("DEBUG: endBreak - Saving attendance with updated break");
     await attendance.save();
     console.log("DEBUG: endBreak - Attendance saved successfully");
+
+                // 🔔 Send push notification for break end
+            try {
+              const FCMToken = require('../models/FCMToken');
+              const { sendNotificationToUser } = require('../services/notificationService');
+              const fcmDoc = await FCMToken.findOne({ userId });
+              if (fcmDoc && fcmDoc.fcmToken) {
+                await sendNotificationToUser(
+                  fcmDoc.fcmToken,
+                  'Break Ended',
+                  `Break ended at ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
+                  { type: 'attendance', event: 'break_end', time: new Date().toISOString() },
+                  userId
+                );
+              }
+            } catch (notifErr) {
+              console.error('Failed to send break-end notification', notifErr);
+            }
 
     res.status(200).json({ message: "Break ended successfully", attendance });
   } catch (error) {

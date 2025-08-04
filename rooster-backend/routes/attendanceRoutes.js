@@ -46,6 +46,41 @@ router.get("/simple/status", authenticateToken, async (req, res) => {
   }
 });
 
+// Test notification endpoint (before auth middleware for easier testing)
+router.post("/test-notification", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    console.log('DEBUG: Test notification endpoint hit for user:', userId);
+    
+    const FCMToken = require('../models/FCMToken');
+    const { sendNotificationToUser } = require('../services/notificationService');
+    
+    const fcmDoc = await FCMToken.findOne({ userId });
+    console.log('DEBUG: FCM token found:', fcmDoc ? 'Yes' : 'No');
+    
+    if (fcmDoc && fcmDoc.token) {
+      console.log('DEBUG: Sending test notification to token:', fcmDoc.token.substring(0, 20) + '...');
+      
+      await sendNotificationToUser(
+        fcmDoc.token,
+        'Test Notification',
+        'This is a test notification from the backend',
+        { type: 'test', event: 'test_notification', time: new Date().toISOString() },
+        userId
+      );
+      
+      console.log('DEBUG: Test notification sent successfully');
+      res.json({ success: true, message: 'Test notification sent' });
+    } else {
+      console.log('DEBUG: No FCM token found for user');
+      res.status(404).json({ success: false, message: 'No FCM token found for user' });
+    }
+  } catch (error) {
+    console.error('DEBUG: Error sending test notification:', error);
+    res.status(500).json({ success: false, message: 'Error sending test notification', error: error.message });
+  }
+});
+
 // Apply authentication first, then company context
 router.use(authenticateToken);
 router.use(validateCompanyContext);

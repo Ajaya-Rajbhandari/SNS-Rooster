@@ -42,7 +42,7 @@ const performanceReviewSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['draft', 'in_progress', 'completed', 'overdue'],
+    enum: ['draft', 'submitted_for_employee_review', 'employee_review_complete', 'completed', 'overdue'],
     default: 'draft'
   },
   scores: {

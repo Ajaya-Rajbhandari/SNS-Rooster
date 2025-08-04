@@ -151,7 +151,7 @@ exports.getAnalyticsSummary = async (req, res) => {
 exports.getLeaveTypesBreakdown = async (req, res) => {
   try {
     // If using authentication middleware, get user from req.user; fallback to query param for demo
-    const userId = req.user ? req.user.id : req.query.userId;
+    const userId = req.user ? req.user.userId : req.query.userId;
     if (!userId) {
       return res.status(400).json({ error: 'User ID required' });
     }
@@ -273,7 +273,7 @@ exports.getMonthlyHoursTrendAdmin = async (req, res) => {
 // GET /analytics/late-checkins/:userId
 exports.getLateCheckins = async (req, res) => {
   try {
-    const userId = req.params.userId || (req.user && req.user.id);
+    const userId = req.params.userId || (req.user && req.user.userId);
     if (!userId) return res.status(400).json({ error: 'User ID required' });
     const range = parseInt(req.query.range) || 30; // default last 30 days
     const attendanceRecords = await Attendance.find({ user: userId, companyId: req.companyId }).sort({ date: -1 }).limit(range);
@@ -298,7 +298,7 @@ exports.getLateCheckins = async (req, res) => {
 // GET /analytics/avg-checkout/:userId
 exports.getAverageCheckoutTime = async (req, res) => {
   try {
-    const userId = req.params.userId || (req.user && req.user.id);
+    const userId = req.params.userId || (req.user && req.user.userId);
     if (!userId) return res.status(400).json({ error: 'User ID required' });
     const range = parseInt(req.query.range) || 30;
     const attendanceRecords = await Attendance.find({ user: userId, checkOutTime: { $exists: true, $ne: null }, companyId: req.companyId }).sort({ date: -1 }).limit(range);
@@ -326,7 +326,7 @@ exports.getAverageCheckoutTime = async (req, res) => {
 // GET /analytics/recent-activity/:userId
 exports.getRecentActivity = async (req, res) => {
   try {
-    const userId = req.params.userId || (req.user && req.user.id);
+    const userId = req.params.userId || (req.user && req.user.userId);
     if (!userId) return res.status(400).json({ error: 'User ID required' });
     const limit = parseInt(req.query.limit) || 10;
     const records = await Attendance.find({ user: userId, companyId: req.companyId }).sort({ date: -1 }).limit(limit);

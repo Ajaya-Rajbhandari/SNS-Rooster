@@ -1,47 +1,35 @@
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
-  company: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Company',
-    required: true,
-  },
-  user: {
+  userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    default: null, // null means broadcast or role-based
-  },
-  role: {
-    type: String,
-    enum: ['admin', 'employee', 'all'],
-    default: 'all',
+    required: true,
   },
   title: {
     type: String,
     required: true,
   },
-  message: {
+  body: {
     type: String,
     required: true,
   },
-  type: {
-    type: String,
-    enum: ['info', 'alert', 'action', 'system', 'payroll', 'leave', 'timesheet', 'review', 'break_violation', 'break_warning', 'location_assignment', 'location_settings', 'company_settings'],
-    default: 'info',
+  data: {
+    type: mongoose.Schema.Types.Mixed, // To store structured data like { type: 'attendance', event: 'clock_in' }
+    default: {},
   },
-  link: {
-    type: String,
-    default: '',
-  },
-  isRead: {
+  readStatus: {
     type: Boolean,
     default: false,
   },
-  expiresAt: {
+  createdAt: {
     type: Date,
-    default: null,
+    default: Date.now,
   },
-}, { timestamps: true });
+});
+
+// Add an index for efficient querying by user and creation time
+notificationSchema.index({ userId: 1, createdAt: -1 });
 
 const Notification = mongoose.model('Notification', notificationSchema);
 
