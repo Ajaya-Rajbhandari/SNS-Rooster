@@ -2,12 +2,13 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Company = require('../models/Company');
 
-// Use logger if available, otherwise use console
-let logger;
+// Use Logger if available, otherwise use console
+let Logger;
 try {
-  logger = require('../config/logger');
+  const loggerModule = require('../config/logger');
+  Logger = loggerModule.Logger;
 } catch (error) {
-  logger = {
+  Logger = {
     info: (message) => console.log(`[INFO] ${message}`),
     error: (message) => console.error(`[ERROR] ${message}`),
   };
@@ -25,7 +26,7 @@ class CompanyNotificationService {
    */
   static async sendCompanyNotification(companyId, title, message, type, role = 'all', link = '') {
     try {
-      logger.info(`Sending company notification: ${title} to company ${companyId}`);
+      Logger.info(`Sending company notification: ${title} to company ${companyId}`);
       
       const notification = new Notification({
         company: companyId,
@@ -37,10 +38,10 @@ class CompanyNotificationService {
       });
 
       await notification.save();
-      logger.info(`Company notification sent successfully: ${notification._id}`);
+      Logger.info(`Company notification sent successfully: ${notification._id}`);
       return notification;
     } catch (error) {
-      logger.error(`Error sending company notification: ${error.message}`);
+      Logger.error(`Error sending company notification: ${error.message}`);
       throw error;
     }
   }
@@ -56,7 +57,7 @@ class CompanyNotificationService {
    */
   static async sendRoleNotification(companyId, title, message, type, role, link = '') {
     try {
-      logger.info(`Sending role notification: ${title} to ${role}s in company ${companyId}`);
+      Logger.info(`Sending role notification: ${title} to ${role}s in company ${companyId}`);
       
       const notification = new Notification({
         company: companyId,
@@ -68,10 +69,10 @@ class CompanyNotificationService {
       });
 
       await notification.save();
-      logger.info(`Role notification sent successfully: ${notification._id}`);
+      Logger.info(`Role notification sent successfully: ${notification._id}`);
       return notification;
     } catch (error) {
-      logger.error(`Error sending role notification: ${error.message}`);
+      Logger.error(`Error sending role notification: ${error.message}`);
       throw error;
     }
   }
@@ -175,7 +176,7 @@ class CompanyNotificationService {
 
       return notifications;
     } catch (error) {
-      logger.error(`Error fetching company notifications: ${error.message}`);
+      Logger.error(`Error fetching company notifications: ${error.message}`);
       throw error;
     }
   }
@@ -200,10 +201,10 @@ class CompanyNotificationService {
       notification.isRead = true;
       await notification.save();
       
-      logger.info(`Notification marked as read: ${notificationId} by user ${userId}`);
+      Logger.info(`Notification marked as read: ${notificationId} by user ${userId}`);
       return notification;
     } catch (error) {
-      logger.error(`Error marking notification as read: ${error.message}`);
+      Logger.error(`Error marking notification as read: ${error.message}`);
       throw error;
     }
   }
@@ -229,7 +230,7 @@ class CompanyNotificationService {
       const count = await Notification.countDocuments(query);
       return count;
     } catch (error) {
-      logger.error(`Error getting unread count: ${error.message}`);
+      Logger.error(`Error getting unread count: ${error.message}`);
       throw error;
     }
   }

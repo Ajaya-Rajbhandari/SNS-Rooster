@@ -170,6 +170,287 @@ class _EmployeeEventsScreenState extends State<EmployeeEventsScreen> {
     }
   }
 
+  Widget _buildEmptyState() {
+    final theme = Theme.of(context);
+    final isUpcoming = _filter == 'Upcoming';
+    final isPast = _filter == 'Past';
+    final isMyEvents = _filter == 'My Events';
+
+    String title;
+    String subtitle;
+    IconData icon;
+    Color iconColor;
+
+    if (isUpcoming) {
+      title = 'No Upcoming Events';
+      subtitle =
+          'There are no upcoming events scheduled at the moment. Check back later for new events!';
+      icon = Icons.event_busy;
+      iconColor = Colors.orange;
+    } else if (isPast) {
+      title = 'No Past Events';
+      subtitle = 'There are no past events to display.';
+      icon = Icons.history;
+      iconColor = Colors.grey;
+    } else if (isMyEvents) {
+      title = 'No Events Joined';
+      subtitle =
+          'You haven\'t joined any events yet. Browse available events and join the ones that interest you!';
+      icon = Icons.person_off;
+      iconColor = Colors.blue;
+    } else {
+      title = 'No Events Available';
+      subtitle =
+          'There are currently no events scheduled. Events will appear here once they are created by administrators.';
+      icon = Icons.event_note;
+      iconColor = theme.colorScheme.primary;
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Large icon with background
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 60,
+                color: iconColor,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Title
+            Text(
+              title,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+
+            // Subtitle
+            Text(
+              subtitle,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+
+            // Action buttons
+            if (_filter != 'All') ...[
+              ElevatedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _filter = 'All';
+                  });
+                },
+                icon: const Icon(Icons.list),
+                label: const Text('View All Events'),
+                style: ElevatedButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Refresh button
+            OutlinedButton.icon(
+              onPressed: _fetchEvents,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Refresh'),
+              style: OutlinedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+
+            // Additional info for different filters
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: theme.colorScheme.outline.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 20,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _getFilterInfoText(),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getFilterInfoText() {
+    switch (_filter) {
+      case 'Upcoming':
+        return 'Upcoming events are those scheduled for future dates.';
+      case 'Past':
+        return 'Past events are those that have already occurred.';
+      case 'My Events':
+        return 'My Events shows events you have joined or are attending.';
+      case 'Active':
+        return 'Active events are currently ongoing or have started.';
+      default:
+        return 'All events from your organization will be displayed here.';
+    }
+  }
+
+  Widget _buildLoadingState() {
+    final theme = Theme.of(context);
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Animated loading icon
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const CircularProgressIndicator(
+              strokeWidth: 3,
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Loading text
+          Text(
+            'Loading Events...',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          Text(
+            'Please wait while we fetch your events',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Error icon
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.error_outline,
+                size: 50,
+                color: Colors.red,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Error title
+            Text(
+              'Failed to Load Events',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+
+            // Error message
+            Text(
+              _errorMessage ?? 'An unknown error occurred',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+
+            // Retry button
+            ElevatedButton.icon(
+              onPressed: _fetchEvents,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try Again'),
+              style: ElevatedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Alternative action
+            OutlinedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _errorMessage = null;
+                  _isLoading = true;
+                });
+                _fetchEvents();
+              },
+              icon: const Icon(Icons.settings),
+              label: const Text('Check Connection'),
+              style: OutlinedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -207,24 +488,107 @@ class _EmployeeEventsScreenState extends State<EmployeeEventsScreen> {
           // Filter section
           Container(
             padding: const EdgeInsets.all(16),
-            child: Row(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              border: Border(
+                bottom: BorderSide(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .outline
+                      .withValues(alpha: 0.1),
+                  width: 1,
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Filter: ',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(width: 8),
-                DropdownButton<String>(
-                  value: _filter,
-                  items: ['All', 'Upcoming', 'Active', 'Past', 'My Events']
-                      .map((filter) => DropdownMenuItem(
-                            value: filter,
-                            child: Text(filter),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _filter = value!;
-                    });
-                  },
+                Row(
+                  children: [
+                    Icon(
+                      Icons.filter_list,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Filter Events',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withValues(alpha: 0.3),
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: DropdownButton<String>(
+                    value: _filter,
+                    underline: const SizedBox.shrink(),
+                    icon: Icon(
+                      Icons.keyboard_arrow_down,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    items: [
+                      {
+                        'value': 'All',
+                        'label': 'All Events',
+                        'icon': Icons.list
+                      },
+                      {
+                        'value': 'Upcoming',
+                        'label': 'Upcoming',
+                        'icon': Icons.event
+                      },
+                      {
+                        'value': 'Active',
+                        'label': 'Active Now',
+                        'icon': Icons.play_circle
+                      },
+                      {
+                        'value': 'Past',
+                        'label': 'Past Events',
+                        'icon': Icons.history
+                      },
+                      {
+                        'value': 'My Events',
+                        'label': 'My Events',
+                        'icon': Icons.person
+                      },
+                    ]
+                        .map((item) => DropdownMenuItem(
+                              value: item['value'] as String,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    item['icon'] as IconData,
+                                    size: 18,
+                                    color:
+                                        Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(item['label'] as String),
+                                ],
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _filter = value!;
+                      });
+                    },
+                  ),
                 ),
               ],
             ),
@@ -232,37 +596,26 @@ class _EmployeeEventsScreenState extends State<EmployeeEventsScreen> {
           // Events list
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? _buildLoadingState()
                 : _errorMessage != null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('Error: $_errorMessage'),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: _fetchEvents,
-                              child: const Text('Retry'),
-                            ),
-                          ],
-                        ),
-                      )
+                    ? _buildErrorState()
                     : _getFilteredEvents().isEmpty
-                        ? const Center(
-                            child: Text('No events found.'),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _getFilteredEvents().length,
-                            itemBuilder: (context, index) {
-                              final event = _getFilteredEvents()[index];
-                              return _EventCard(
-                                event: event,
-                                onJoin: () => _joinEvent(event['_id']),
-                                onLeave: () => _leaveEvent(event['_id']),
-                                currentUserId: authProvider.user?['_id'],
-                              );
-                            },
+                        ? _buildEmptyState()
+                        : RefreshIndicator(
+                            onRefresh: _fetchEvents,
+                            child: ListView.builder(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: _getFilteredEvents().length,
+                              itemBuilder: (context, index) {
+                                final event = _getFilteredEvents()[index];
+                                return _EventCard(
+                                  event: event,
+                                  onJoin: () => _joinEvent(event['_id']),
+                                  onLeave: () => _leaveEvent(event['_id']),
+                                  currentUserId: authProvider.user?['_id'],
+                                );
+                              },
+                            ),
                           ),
           ),
         ],
@@ -305,6 +658,14 @@ class _EventCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: theme.colorScheme.outline.withValues(alpha: 0.1),
+          width: 1,
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -420,17 +781,33 @@ class _EventCard extends StatelessWidget {
                 else if (isUpcoming)
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'Upcoming',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.bold,
+                      color: Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.orange.withValues(alpha: 0.3),
+                        width: 1,
                       ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.schedule,
+                          size: 14,
+                          color: Colors.orange[700],
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Upcoming',
+                          style: TextStyle(
+                            color: Colors.orange[700],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
               ],

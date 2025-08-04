@@ -1,74 +1,124 @@
 const Notification = require('../models/Notification');
-const User = require('../models/User');
-const CompanyNotificationService = require('../services/companyNotificationService');
+const { Logger } = require('../config/logger');
 
-// Create a notification (admin/system)
+// Create a new notification
 exports.createNotification = async (req, res) => {
   try {
-    const { user, role, title, message, type, link, expiresAt } = req.body;
+    const { userId, title, body, data = {} } = req.body;
+    
     const notification = new Notification({
-      user: user || null,
-      role: role || 'all',
+      userId,
       title,
-      message,
-      type: type || 'info',
-      link: link || '',
-      expiresAt: expiresAt || null,
-      companyId: req.companyId, // Add company isolation
+      body,
+      data,
     });
+
     await notification.save();
-    res.status(201).json({ message: 'Notification created', notification });
+    
+    Logger.info(`Notification created for user ${userId}: ${title}`);
+    
+    res.status(201).json({
+      success: true,
+      message: 'Notification created successfully',
+      data: notification,
+    });
   } catch (error) {
-    console.error('Create notification error:', error);
-    res.status(500).json({ message: 'Server error' });
+    Logger.error('Error creating notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating notification',
+      error: error.message,
+    });
   }
 };
 
-// List notifications for current user (user-specific, role, or broadcast)
+// Get notifications for the current user
 exports.getNotifications = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const role = req.user.role;
-    const companyId = req.companyId;
+    const { page = 1, limit = 20 } = req.query;
     
-    // Use the new company notification service
-    const notifications = await CompanyNotificationService.getCompanyNotifications(
-      companyId,
+    const skip = (page - 1) * limit;
+    
+    // Build filter - exclude attendance notifications and only show notifications for current user
+    const filter = { 
       userId,
-      role,
-      {
-        limit: parseInt(req.query.limit) || 50,
-        skip: parseInt(req.query.skip) || 0,
-        unreadOnly: req.query.unreadOnly === 'true',
-      }
-    );
+      // Exclude attendance-related notifications
+      $or: [
+        { 'data.type': { $ne: 'attendance' } },
+        { 'data.type': { $exists: false } }
+      ]
+    };
     
-    res.json({ notifications });
+    const notifications = await Notification.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    const total = await Notification.countDocuments(filter);
+    const unreadCount = await Notification.countDocuments({ 
+      userId, 
+      readStatus: false,
+      $or: [
+        { 'data.type': { $ne: 'attendance' } },
+        { 'data.type': { $exists: false } }
+      ]
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        notifications,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / limit),
+        },
+        unreadCount,
+      },
+    });
   } catch (error) {
-    console.error('Get notifications error:', error);
-    res.status(500).json({ message: 'Server error' });
+    Logger.error('Error fetching notifications:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching notifications',
+      error: error.message,
+    });
   }
 };
 
 // Mark notification as read
 exports.markAsRead = async (req, res) => {
   try {
-    const notificationId = req.params.id;
+    const { id } = req.params;
     const userId = req.user.userId;
     
-    // Use the new company notification service
-    await CompanyNotificationService.markAsRead(notificationId, userId);
+    const notification = await Notification.findOneAndUpdate(
+      { _id: id, userId },
+      { readStatus: true },
+      { new: true }
+    );
     
-    res.status(200).json({ message: 'Notification marked as read' });
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found',
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Notification marked as read',
+      data: notification,
+    });
   } catch (error) {
-    console.error('Mark as read error:', error);
-    if (error.message === 'Notification not found') {
-      return res.status(404).json({ message: 'Notification not found' });
-    }
-    if (error.message === 'Access denied') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    res.status(500).json({ message: 'Server error' });
+    Logger.error('Error marking notification as read:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error marking notification as read',
+      error: error.message,
+    });
   }
 };
 
@@ -76,97 +126,86 @@ exports.markAsRead = async (req, res) => {
 exports.markAllAsRead = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const userRole = req.user.role;
+    
     await Notification.updateMany(
-      {
-        companyId: req.companyId, // Add company isolation
+      { 
+        userId, 
+        readStatus: false,
         $or: [
-          { user: userId },
-          { $and: [{ role: userRole }, { user: null }] },
-          { $and: [{ role: 'all' }, { user: null }] },
-        ],
-        isRead: false,
+          { 'data.type': { $ne: 'attendance' } },
+          { 'data.type': { $exists: false } }
+        ]
       },
-      { $set: { isRead: true } }
+      { readStatus: true }
     );
-    res.status(200).json({ message: 'All notifications marked as read' });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// Delete all notifications for the current user/role
-exports.clearAllNotifications = async (req, res) => {
-  try {
-    console.log('clearAllNotifications called by user:', req.user);
-    await Notification.deleteMany({
-      companyId: req.companyId, // Add company isolation
-      $or: [
-        { user: req.user.userId },
-        { $and: [{ role: req.user.role }, { user: null }] },
-        { $and: [{ role: 'all' }, { user: null }] },
-      ],
+    
+    res.json({
+      success: true,
+      message: 'All notifications marked as read',
     });
-    res.status(200).json({ message: 'All notifications cleared' });
   } catch (error) {
-    console.error('Clear all notifications error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// Admin-only: delete all admin notifications
-exports.clearAllAdminNotifications = async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Only admins can clear all admin notifications' });
-    }
-    const result = await Notification.deleteMany({ 
-      role: 'admin',
-      companyId: req.companyId // Add company isolation
+    Logger.error('Error marking all notifications as read:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error marking all notifications as read',
+      error: error.message,
     });
-    res.status(200).json({ message: 'All admin notifications cleared', deletedCount: result.deletedCount });
-  } catch (error) {
-    console.error('Clear all admin notifications error:', error);
-    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Delete a single notification by ID
+// Delete a notification
 exports.deleteNotification = async (req, res) => {
   try {
-    const notificationId = req.params.id;
+    const { id } = req.params;
     const userId = req.user.userId;
-    // Only allow deleting if the notification belongs to the user or their role
-    const notification = await Notification.findOneAndDelete({
-      _id: notificationId,
-      companyId: req.companyId, // Add company isolation
-      $or: [
-        { user: userId },
-        { role: req.user.role },
-        { role: 'all' }
-      ]
-    });
+    
+    const notification = await Notification.findOneAndDelete({ _id: id, userId });
+    
     if (!notification) {
-      return res.status(404).json({ message: 'Notification not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found',
+      });
     }
-    res.status(200).json({ message: 'Notification deleted' });
+    
+    res.json({
+      success: true,
+      message: 'Notification deleted successfully',
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    Logger.error('Error deleting notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting notification',
+      error: error.message,
+    });
   }
-}; 
+};
 
-// Get unread notification count
-exports.getUnreadCount = async (req, res) => {
+// Delete all notifications for user
+exports.deleteAllNotifications = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const role = req.user.role;
-    const companyId = req.companyId;
     
-    const count = await CompanyNotificationService.getUnreadCount(companyId, userId, role);
+    // Delete all notifications except attendance-related ones
+    await Notification.deleteMany({ 
+      userId,
+      $or: [
+        { 'data.type': { $ne: 'attendance' } },
+        { 'data.type': { $exists: false } }
+      ]
+    });
     
-    res.json({ count });
+    res.json({
+      success: true,
+      message: 'All notifications deleted successfully',
+    });
   } catch (error) {
-    console.error('Get unread count error:', error);
-    res.status(500).json({ message: 'Server error' });
+    Logger.error('Error deleting all notifications:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting all notifications',
+      error: error.message,
+    });
   }
 }; 

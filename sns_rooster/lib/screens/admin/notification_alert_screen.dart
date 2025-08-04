@@ -83,8 +83,7 @@ class _NotificationAlertScreenState extends State<NotificationAlertScreen> {
                   Provider.of<AuthProvider>(context, listen: false);
               final token = authProvider.token;
               if (token == null) return;
-              final url =
-                  Uri.parse('${ApiConfig.baseUrl}/notifications/clear-all');
+              final url = Uri.parse('${ApiConfig.baseUrl}/notifications');
               final response = await http.delete(url, headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer $token',
