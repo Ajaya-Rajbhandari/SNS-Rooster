@@ -29,6 +29,7 @@ import 'package:sns_rooster/screens/auth/verify_email_screen.dart';
 import 'package:sns_rooster/screens/employee/employee_events_screen.dart';
 import 'package:sns_rooster/screens/employee/employee_performance_review_screen.dart';
 import 'package:sns_rooster/screens/employee/employee_performance_reviews_list_screen.dart';
+import 'package:sns_rooster/screens/employee/employee_training_screen.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/attendance_provider.dart';
 import 'package:sns_rooster/providers/profile_provider.dart';
@@ -50,6 +51,7 @@ import 'package:sns_rooster/providers/company_settings_provider.dart';
 import 'package:sns_rooster/providers/company_provider.dart';
 import 'package:sns_rooster/providers/super_admin_provider.dart';
 import 'package:sns_rooster/providers/feature_provider.dart';
+import 'package:sns_rooster/providers/training_provider.dart';
 import 'package:sns_rooster/services/employee_service.dart';
 import 'package:sns_rooster/services/global_notification_service.dart';
 import 'package:sns_rooster/services/fcm_service.dart';
@@ -74,6 +76,7 @@ import 'package:sns_rooster/config/debug_config.dart';
 import 'package:sns_rooster/screens/admin/edit_company_form_screen.dart';
 import 'package:sns_rooster/screens/admin/location_management_screen.dart';
 import 'package:sns_rooster/screens/admin/expense_management_screen.dart';
+import 'package:sns_rooster/screens/admin/training_management_screen.dart';
 import 'package:sns_rooster/screens/settings/privacy_settings_screen.dart';
 import 'package:sns_rooster/screens/about/about_screen.dart';
 import 'utils/global_navigator.dart';
@@ -317,6 +320,10 @@ class MyApp extends StatelessWidget {
               Provider.of<AuthProvider>(context, listen: false)),
           update: (context, auth, previous) => CompanySettingsProvider(auth),
         ),
+        ChangeNotifierProvider(create: (context) {
+          final apiService = ApiService(baseUrl: ApiConfig.baseUrl);
+          return TrainingProvider(apiService);
+        }),
         ChangeNotifierProvider(create: (_) => CompanyProvider()),
       ],
       child: Consumer<AuthProvider>(
@@ -440,10 +447,13 @@ class MyApp extends StatelessWidget {
                         const LocationManagementScreen(),
                     '/expense_management': (context) =>
                         const ExpenseManagementScreen(),
+                    '/training_management': (context) =>
+                        const TrainingManagementScreen(),
                     '/reset-password': (context) => const ResetPasswordScreen(),
                     '/verify-email': (context) => const VerifyEmailScreen(),
                     '/performance_reviews': (context) =>
                         const EmployeePerformanceReviewsListScreen(),
+                    '/training': (context) => const EmployeeTrainingScreen(),
                     '/privacy-settings': (context) =>
                         const PrivacySettingsScreen(),
                     '/about': (context) => const AboutScreen(),

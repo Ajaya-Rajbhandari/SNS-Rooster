@@ -29,6 +29,7 @@ import '../screens/admin/feature_management_screen.dart';
 import '../screens/admin/advanced_reporting_screen.dart';
 import '../screens/admin/location_management_screen.dart';
 import '../screens/admin/expense_management_screen.dart';
+import '../screens/admin/training_management_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class AdminSideNavigation extends StatelessWidget {
@@ -299,6 +300,15 @@ class AdminSideNavigation extends StatelessWidget {
                     title: 'Expense Management',
                     route: '/expense_management',
                     screen: const ExpenseManagementScreen(),
+                    colorScheme: colorScheme,
+                  ),
+                if (featureProvider.hasTrainingManagement)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.school,
+                    title: 'Training Management',
+                    route: '/training_management',
+                    screen: const TrainingManagementScreen(),
                     colorScheme: colorScheme,
                   ),
 

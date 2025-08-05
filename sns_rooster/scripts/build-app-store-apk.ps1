@@ -1,16 +1,16 @@
-# 📱 Build App Store APK Script
+# Build App Store APK Script
 # This script builds a production-ready APK for Google Play Store submission
 
-Write-Host "🚀 Building SNS Rooster HR APK for App Store Submission" -ForegroundColor Green
+Write-Host "Building SNS Rooster HR APK for App Store Submission" -ForegroundColor Green
 Write-Host "==================================================" -ForegroundColor Green
 
 # Check if we're in the correct directory
 if (-not (Test-Path "pubspec.yaml")) {
-    Write-Host "❌ Error: pubspec.yaml not found. Please run this script from the Flutter project root." -ForegroundColor Red
+    Write-Host "Error: pubspec.yaml not found. Please run this script from the Flutter project root." -ForegroundColor Red
     exit 1
 }
 
-Write-Host "📋 Pre-build Checks:" -ForegroundColor Yellow
+Write-Host "Pre-build Checks:" -ForegroundColor Yellow
 
 # Check Flutter installation
 Write-Host "1. Checking Flutter installation..." -ForegroundColor Cyan
@@ -132,9 +132,9 @@ Write-Host "==================================================" -ForegroundColor
 Write-Host "1. 📱 Test the APK thoroughly on different devices" -ForegroundColor Cyan
 Write-Host "2. 🎨 Create app store graphics (icon, screenshots, feature graphic)" -ForegroundColor Cyan
 Write-Host "3. 📝 Write app store description and metadata" -ForegroundColor Cyan
-Write-Host "4. 🔒 Create privacy policy and terms of service" -ForegroundColor Cyan
-Write-Host "5. 💳 Set up Google Play Developer account ($25)" -ForegroundColor Cyan
-Write-Host "6. 📤 Upload APK to Google Play Console" -ForegroundColor Cyan
+Write-Host "4. Create privacy policy and terms of service" -ForegroundColor Cyan
+Write-Host "5. Set up Google Play Developer account (25 USD)" -ForegroundColor Cyan
+Write-Host "6. Upload APK to Google Play Console" -ForegroundColor Cyan
 Write-Host "7. Submit for review (1-7 days)" -ForegroundColor Cyan
 
 Write-Host ""
@@ -142,7 +142,7 @@ Write-Host "APK Location: $apkPath" -ForegroundColor Green
 Write-Host "APK Size: $apkSizeMB MB" -ForegroundColor Green
 
 Write-Host ""
-Write-Host "🎉 APK build completed successfully!" -ForegroundColor Green
+Write-Host "APK build completed successfully!" -ForegroundColor Green
 Write-Host "Ready for Google Play Store submission!" -ForegroundColor Green
 
 # Optional: Open the APK location in file explorer

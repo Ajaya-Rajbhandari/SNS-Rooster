@@ -137,6 +137,12 @@ class AppDrawer extends StatelessWidget {
                       icon: Icons.assessment,
                       label: 'Performance Reviews',
                       route: '/performance_reviews'),
+                // Only show Training Programs if the feature is enabled
+                if (featureProvider.hasTrainingManagement)
+                  _buildNavTile(context,
+                      icon: Icons.school,
+                      label: 'Training Programs',
+                      route: '/training'),
                 _buildNavTile(context,
                     icon: Icons.person_outline,
                     label: 'Profile',
