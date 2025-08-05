@@ -19,17 +19,17 @@ try {
 Write-Host ""
 Write-Host "2. Testing Backend API:" -ForegroundColor Green
 try {
-    $apiResponse = Invoke-WebRequest -Uri "https://sns-rooster.onrender.com/api/app/version" -TimeoutSec 10
-    Write-Host "   PASS: Backend API root endpoint working (Status: $($apiResponse.StatusCode))" -ForegroundColor Green
-} catch {
-    Write-Host "   FAIL: Backend API root endpoint failed: $($_.Exception.Message)" -ForegroundColor Red
-}
-
-try {
     $apiInfoResponse = Invoke-WebRequest -Uri "https://sns-rooster.onrender.com/api/app/version/info" -TimeoutSec 10
     Write-Host "   PASS: Backend API info endpoint working (Status: $($apiInfoResponse.StatusCode))" -ForegroundColor Green
 } catch {
     Write-Host "   FAIL: Backend API info endpoint failed: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+try {
+    $apiCheckResponse = Invoke-WebRequest -Uri "https://sns-rooster.onrender.com/api/app/version/check" -TimeoutSec 10
+    Write-Host "   PASS: Backend API check endpoint working (Status: $($apiCheckResponse.StatusCode))" -ForegroundColor Green
+} catch {
+    Write-Host "   FAIL: Backend API check endpoint failed: $($_.Exception.Message)" -ForegroundColor Red
 }
 
 # Test 3: Google Maps Script
