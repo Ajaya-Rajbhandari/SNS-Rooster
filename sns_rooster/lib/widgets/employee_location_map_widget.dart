@@ -2,17 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:math' show pi, cos;
+import 'dart:io' show Platform;
+import 'dart:async' show Timer;
 
 class EmployeeLocationMapWidget extends StatefulWidget {
   final Map<String, dynamic> location;
   final double height;
   final bool showGeofence;
+  final VoidCallback? onMapTap;
 
   const EmployeeLocationMapWidget({
     Key? key,
     required this.location,
     this.height = 200,
     this.showGeofence = true,
+    this.onMapTap,
   }) : super(key: key);
 
   @override
@@ -128,111 +132,51 @@ class _EmployeeLocationMapWidgetState extends State<EmployeeLocationMapWidget> {
 
   @override
   Widget build(BuildContext context) {
+    print(
+        '🗺️ EmployeeLocationMapWidget: Building with height ${widget.height}');
+    print(
+        '🗺️ EmployeeLocationMapWidget: Screen size ${MediaQuery.of(context).size}');
+    print('🗺️ EmployeeLocationMapWidget: Center location $_centerLocation');
+
+    // Add Android-specific debugging
     if (kIsWeb) {
-      // For web, try to use real Google Maps first, fallback if needed
-      try {
-        return Container(
-          height: widget.height,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Stack(
-              children: [
-                GoogleMap(
-                  onMapCreated: (GoogleMapController controller) {
-                    _mapController = controller;
-                    // Fit bounds to show the location and geofence
-                    _fitBounds();
-                  },
-                  initialCameraPosition: CameraPosition(
-                    target: _centerLocation!,
-                    zoom: 15.0, // Closer zoom for better detail
-                  ),
-                  markers: _markers,
-                  circles: _circles,
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: true,
-                  zoomControlsEnabled: false, // Hide default zoom controls
-                  mapToolbarEnabled: false, // Hide map toolbar
-                  compassEnabled: true,
-                  onTap: (_) {
-                    // Handle map tap if needed
-                  },
-                ),
-                // Custom zoom controls
-                Positioned(
-                  right: 16,
-                  top: 16,
-                  child: Column(
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.add, size: 20),
-                              onPressed: () {
-                                _mapController?.animateCamera(
-                                  CameraUpdate.zoomIn(),
-                                );
-                              },
-                              tooltip: 'Zoom In',
-                            ),
-                            Container(
-                              height: 1,
-                              color: Colors.grey.shade300,
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.remove, size: 20),
-                              onPressed: () {
-                                _mapController?.animateCamera(
-                                  CameraUpdate.zoomOut(),
-                                );
-                              },
-                              tooltip: 'Zoom Out',
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      } catch (e) {
-        print('🗺️ Employee map: Google Maps failed, using fallback: $e');
-        // Fallback to the web fallback map
-        return Container(
-          height: widget.height,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: _buildWebFallbackMap(),
-          ),
-        );
-      }
+      print('🗺️ EmployeeLocationMapWidget: Running on WEB platform');
+    } else {
+      print('🗺️ EmployeeLocationMapWidget: Running on MOBILE platform');
+      print(
+          '🗺️ EmployeeLocationMapWidget: Platform: ${Platform.operatingSystem}');
     }
+
+    if (_centerLocation == null) {
+      print(
+          '🗺️ EmployeeLocationMapWidget: Center location is null, showing loading');
+      return Container(
+        height: widget.height,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (kIsWeb) {
+      return _buildWebMap();
+    } else {
+      return _buildMobileMap();
+    }
+  }
+
+  Widget _buildWebMap() {
+    print('🗺️ EmployeeLocationMapWidget: Building WEB map');
+    print('🗺️ EmployeeLocationMapWidget: Web map height: ${widget.height}');
 
     return Container(
       height: widget.height,
+      width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade300),
@@ -241,26 +185,179 @@ class _EmployeeLocationMapWidgetState extends State<EmployeeLocationMapWidget> {
         borderRadius: BorderRadius.circular(12),
         child: Stack(
           children: [
-            GoogleMap(
-              onMapCreated: (GoogleMapController controller) {
-                _mapController = controller;
-                // Fit bounds to show the location and geofence
-                _fitBounds();
-              },
-              initialCameraPosition: CameraPosition(
-                target: _centerLocation!,
-                zoom: 15.0, // Closer zoom for better detail
+            SizedBox(
+              width: double.infinity,
+              height: double.infinity,
+              child: GoogleMap(
+                onMapCreated: (GoogleMapController controller) {
+                  print(
+                      '🗺️ EmployeeLocationMapWidget: Web map created successfully');
+                  _mapController = controller;
+                  // Add delay to ensure map is fully loaded
+                  Future.delayed(const Duration(milliseconds: 1000), () {
+                    print(
+                        '🗺️ EmployeeLocationMapWidget: Fitting bounds after delay');
+                    _fitBounds();
+                  });
+                },
+                onCameraMoveStarted: () {
+                  print(
+                      '🗺️ EmployeeLocationMapWidget: Web camera move started');
+                },
+                onCameraMove: (position) {
+                  print(
+                      '🗺️ EmployeeLocationMapWidget: Web camera moved to ${position.target}');
+                },
+                onCameraIdle: () {
+                  print('🗺️ EmployeeLocationMapWidget: Web camera idle');
+                },
+                initialCameraPosition: CameraPosition(
+                  target: _centerLocation!,
+                  zoom: MediaQuery.of(context).size.width < 600 ? 14.0 : 15.0,
+                ),
+                markers: _markers,
+                circles: widget.showGeofence ? _circles : {},
+                myLocationEnabled: true,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                mapToolbarEnabled: false,
+                onTap: (_) {
+                  if (widget.onMapTap != null) {
+                    widget.onMapTap!();
+                  }
+                },
               ),
-              markers: _markers,
-              circles: _circles,
-              myLocationEnabled: true,
-              myLocationButtonEnabled: true,
-              zoomControlsEnabled: false, // Hide default zoom controls
-              mapToolbarEnabled: false, // Hide map toolbar
-              compassEnabled: true,
-              onTap: (_) {
-                // Handle map tap if needed
-              },
+            ),
+            // Custom zoom controls
+            Positioned(
+              right: 16,
+              top: 16,
+              child: Column(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.add, size: 20),
+                          onPressed: () {
+                            _mapController?.animateCamera(
+                              CameraUpdate.zoomIn(),
+                            );
+                          },
+                          tooltip: 'Zoom In',
+                        ),
+                        Container(
+                          height: 1,
+                          color: Colors.grey.shade300,
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.remove, size: 20),
+                          onPressed: () {
+                            _mapController?.animateCamera(
+                              CameraUpdate.zoomOut(),
+                            );
+                          },
+                          tooltip: 'Zoom Out',
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileMap() {
+    print('🗺️ EmployeeLocationMapWidget: Building MOBILE map');
+    print('🗺️ EmployeeLocationMapWidget: Mobile map height: ${widget.height}');
+
+    return Container(
+      height: widget.height,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              height: double.infinity,
+              child: GoogleMap(
+                onMapCreated: (GoogleMapController controller) {
+                  print(
+                      '🗺️ EmployeeLocationMapWidget: Mobile map created successfully');
+                  _mapController = controller;
+
+                  // Add timeout detection for REQUEST_TIMEOUT error
+                  Timer(const Duration(seconds: 10), () {
+                    if (_mapController != null) {
+                      print(
+                          '🗺️ EmployeeLocationMapWidget: Checking for REQUEST_TIMEOUT after 10 seconds');
+                      // Try to perform a simple operation to test if map is responsive
+                      _mapController!.getVisibleRegion().then((bounds) {
+                        print(
+                            '🗺️ EmployeeLocationMapWidget: Map is responsive, bounds: $bounds');
+                      }).catchError((error) {
+                        print(
+                            '🗺️ EmployeeLocationMapWidget: REQUEST_TIMEOUT detected: $error');
+                        print(
+                            '🗺️ EmployeeLocationMapWidget: This indicates API key restrictions or network issues');
+                      });
+                    }
+                  });
+
+                  // Add delay to ensure map is fully loaded
+                  Future.delayed(const Duration(milliseconds: 1000), () {
+                    print(
+                        '🗺️ EmployeeLocationMapWidget: Fitting bounds after delay');
+                    _fitBounds();
+                  });
+                },
+                onCameraMoveStarted: () {
+                  print(
+                      '🗺️ EmployeeLocationMapWidget: Mobile camera move started');
+                },
+                onCameraMove: (position) {
+                  print(
+                      '🗺️ EmployeeLocationMapWidget: Mobile camera moved to ${position.target}');
+                },
+                onCameraIdle: () {
+                  print('🗺️ EmployeeLocationMapWidget: Mobile camera idle');
+                },
+                initialCameraPosition: CameraPosition(
+                  target: _centerLocation!,
+                  zoom: MediaQuery.of(context).size.width < 600 ? 14.0 : 15.0,
+                ),
+                markers: _markers,
+                circles: widget.showGeofence ? _circles : {},
+                myLocationEnabled: true,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                mapToolbarEnabled: false,
+                onTap: (_) {
+                  if (widget.onMapTap != null) {
+                    widget.onMapTap!();
+                  }
+                },
+              ),
             ),
             // Custom zoom controls
             Positioned(
@@ -505,31 +602,42 @@ class _EmployeeLocationMapWidgetState extends State<EmployeeLocationMapWidget> {
 
   void _fitBounds() {
     if (_mapController != null && _centerLocation != null) {
-      final geofenceRadius =
-          widget.location['settings']?['geofenceRadius']?.toDouble() ?? 100.0;
-      final padding =
-          geofenceRadius * 2; // Add some padding around the geofence
+      // Add a small delay to ensure the map is fully loaded
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (_mapController != null) {
+          final geofenceRadius =
+              widget.location['settings']?['geofenceRadius']?.toDouble() ??
+                  100.0;
+          final padding =
+              geofenceRadius * 3; // Increase padding for better visibility
 
-      _mapController!.animateCamera(
-        CameraUpdate.newLatLngBounds(
-          LatLngBounds(
-            southwest: LatLng(
-              _centerLocation!.latitude -
-                  (padding / 111000), // Convert meters to degrees
-              _centerLocation!.longitude -
-                  (padding /
-                      (111000 * cos(_centerLocation!.latitude * pi / 180))),
+          // Calculate bounds with more generous padding
+          final southwest = LatLng(
+            _centerLocation!.latitude -
+                (padding / 111000), // Convert meters to degrees
+            _centerLocation!.longitude -
+                (padding /
+                    (111000 * cos(_centerLocation!.latitude * pi / 180))),
+          );
+          final northeast = LatLng(
+            _centerLocation!.latitude + (padding / 111000),
+            _centerLocation!.longitude +
+                (padding /
+                    (111000 * cos(_centerLocation!.latitude * pi / 180))),
+          );
+
+          // Use a larger padding for mobile devices to ensure the map fits properly
+          final devicePadding =
+              MediaQuery.of(context).size.width < 600 ? 80.0 : 50.0;
+
+          _mapController!.animateCamera(
+            CameraUpdate.newLatLngBounds(
+              LatLngBounds(southwest: southwest, northeast: northeast),
+              devicePadding,
             ),
-            northeast: LatLng(
-              _centerLocation!.latitude + (padding / 111000),
-              _centerLocation!.longitude +
-                  (padding /
-                      (111000 * cos(_centerLocation!.latitude * pi / 180))),
-            ),
-          ),
-          50.0, // Padding in pixels
-        ),
-      );
+          );
+        }
+      });
     }
   }
 }

@@ -18,85 +18,170 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="SNS Rooster - Employee Management System">
-  
-  <!-- Viewport meta tag for responsive design -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="SNS HR - Employee Management System">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="SNS HR">
-  <meta name="apple-touch-fullscreen" content="yes">
-  <meta name="format-detection" content="telephone=no">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-  <link rel="apple-touch-icon" sizes="152x152" href="icons/Icon-192.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="icons/Icon-192.png">
-  <link rel="apple-touch-icon" sizes="167x167" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>SNS HR</title>
   <link rel="manifest" href="manifest.json">
-  
-  <!-- Google Maps API will be loaded by Flutter plugin when needed -->
-  <!-- API Key: {{GOOGLE_MAPS_API_KEY}} -->
-  
-  <!-- Firebase Configuration for Web -->
-  <script type="module">
-    // Import the functions you need from the SDKs you need
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getStorage } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
-    // Your web app's Firebase configuration
-    const firebaseConfig = {
-      apiKey: "YOUR_FIREBASE_API_KEY",
-      authDomain: "sns-rooster-8cca5.firebaseapp.com",
-      projectId: "sns-rooster-8cca5",
-      storageBucket: "sns-rooster-8cca5.appspot.com",
-      messagingSenderId: "901502276055",
-      appId: "1:901502276055:web:f4f94088120f52dc8f7b92",
-      measurementId: "G-7QJ3X926H8"
-    };
-
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const storage = getStorage(app);
-    
-    // Make Firebase Storage available globally for debugging
-    window.firebaseStorage = storage;
-    console.log('Firebase Storage initialized for web');
+  <script>
+    // The value below is injected by flutter build, do not touch.
+    const serviceWorkerVersion = null;
   </script>
+  <!-- This script adds the flutter initialization JS code -->
+  <script src="flutter.js" defer></script>
 </head>
 <body>
   <script>
-    // If the path is / and there is a query string with verify-email or reset-password, rewrite the path
-    if (
-      window.location.pathname === "/" &&
-      (window.location.search.includes("verify-email") || window.location.search.includes("reset-password"))
-    ) {
-      var target = window.location.search.includes("verify-email")
-        ? "/verify-email" + window.location.search
-        : "/reset-password" + window.location.search;
-      window.history.replaceState({}, "", target);
-    }
-    
-    // iOS Safari compatibility fixes
-    if (navigator.userAgent.match(/iPad|iPhone|iPod/)) {
-      // Prevent zoom on input focus
-      document.addEventListener('gesturestart', function(e) {
-        e.preventDefault();
+    window.addEventListener('load', function(ev) {
+      // Download main.dart.js
+      _flutter.loader.loadEntrypoint({
+        serviceWorker: {
+          serviceWorkerVersion: serviceWorkerVersion,
+        },
+        onEntrypointLoaded: function(engineInitializer) {
+          engineInitializer.initializeEngine().then(function(appRunner) {
+            appRunner.runApp();
+          });
+        }
       });
-      
-      // Fix viewport issues
-      var viewport = document.querySelector('meta[name=viewport]');
-      if (viewport) {
-        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+    });
+  </script>
+  
+  <!-- Firebase Configuration - SECURE -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getMessaging, onMessage } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
+    import { getStorage } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+    async function initializeFirebaseSecurely() {
+      try {
+        // Check if we're in development or production
+        const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        
+        let firebaseConfigUrl;
+        if (isDevelopment) {
+          // Development: Use environment variable or detect automatically
+          const devBackendUrl = window.location.hostname === 'localhost' ? 
+            'http://localhost:5000/api/firebase' : 
+            `http://${window.location.hostname}:5000/api/firebase`;
+          firebaseConfigUrl = devBackendUrl;
+          console.log('Firebase: Loading config from development backend:', firebaseConfigUrl);
+        } else {
+          // Production: Use relative URL (same origin)
+          firebaseConfigUrl = '/api/firebase';
+          console.log('Firebase: Loading config from production backend:', firebaseConfigUrl);
+        }
+        
+        const response = await fetch(firebaseConfigUrl);
+        if (!response.ok) throw new Error('Failed to load Firebase configuration');
+        const firebaseConfig = await response.json();
+        console.log('Firebase: Configuration loaded securely from backend');
+        const app = initializeApp(firebaseConfig);
+        const messaging = getMessaging(app);
+        const storage = getStorage(app);
+        console.log('Firebase: Storage initialized securely for web');
+        onMessage(messaging, (payload) => {
+          console.log('Message received in foreground:', payload);
+        });
+      } catch (error) {
+        console.error('Firebase: Failed to initialize securely:', error);
       }
     }
+    window.addEventListener('load', initializeFirebaseSecurely);
   </script>
-  <script src="flutter_bootstrap.js" async></script>
+
+  <!-- Google Maps API - SECURE LOADING -->
+  <script>
+    // SECURE: Load Google Maps API through backend proxy to avoid exposing API key
+    function loadGoogleMapsAPISecurely() {
+      // Check if Google Maps is already loaded
+      if (window.google && window.google.maps) {
+        console.log('🗺️ Google Maps already loaded, skipping...');
+        window.googleMapsLoaded = true;
+        return;
+      }
+      
+      const script = document.createElement('script');
+      
+      // Check if we're in development or production
+      const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      
+      if (isDevelopment) {
+        // Development: Use environment variable or detect automatically
+        const devBackendUrl = window.location.hostname === 'localhost' ? 
+          'http://localhost:5000/api/google-maps/script' : 
+          `http://${window.location.hostname}:5000/api/google-maps/script`;
+        script.src = devBackendUrl;
+        console.log('🗺️ Loading Google Maps from development backend:', script.src);
+      } else {
+        // Production: Use relative URL (same origin)
+        script.src = '/api/google-maps/script';
+        console.log('🗺️ Loading Google Maps from production backend:', script.src);
+      }
+      
+      script.async = true;
+      script.defer = true;
+      script.onload = function() {
+        console.log('🗺️ Google Maps script loaded successfully');
+        window.googleMapsLoaded = true;
+      };
+      script.onerror = function() {
+        console.error('🗺️ Failed to load Google Maps API script securely');
+        window.googleMapsLoaded = false;
+      };
+      document.head.appendChild(script);
+    }
+    
+    // Load Google Maps when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadGoogleMapsAPISecurely);
+    } else {
+      loadGoogleMapsAPISecurely();
+    }
+  </script>
+
+  <script>
+    function initMap() {
+      console.log('🗺️ Google Maps API loaded successfully (SECURE)');
+      console.log('🗺️ Google Maps version:', google?.maps?.version);
+      console.log('🗺️ Google Maps libraries:', google?.maps?.libraries);
+      window.googleMapsLoaded = true;
+    }
+    
+    window.gm_authFailure = function() {
+      console.error('🗺️ Google Maps API authentication failed');
+      window.googleMapsLoaded = false;
+    };
+    
+    // Additional error handling
+    window.addEventListener('error', function(e) {
+      if (e.message && e.message.includes('maps')) {
+        console.error('🗺️ Google Maps error:', e);
+      }
+    });
+  </script>
+
+  <!-- Removed flutter_bootstrap.js to avoid conflicts -->
+  <script>
+    // Debug Flutter web initialization
+    window.addEventListener('flutter-first-frame', function() {
+      console.log('🗺️ Flutter web first frame rendered');
+      if (window.googleMapsLoaded) {
+        console.log('🗺️ Google Maps is ready for Flutter');
+      } else {
+        console.warn('🗺️ Google Maps not loaded when Flutter started');
+      }
+    });
+  </script>
 </body>
 </html>

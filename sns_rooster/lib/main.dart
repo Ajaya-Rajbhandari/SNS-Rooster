@@ -51,7 +51,6 @@ import 'package:sns_rooster/providers/company_provider.dart';
 import 'package:sns_rooster/providers/super_admin_provider.dart';
 import 'package:sns_rooster/providers/feature_provider.dart';
 import 'package:sns_rooster/services/employee_service.dart';
-import 'package:sns_rooster/services/notification_service.dart';
 import 'package:sns_rooster/services/global_notification_service.dart';
 import 'package:sns_rooster/services/fcm_service.dart';
 import 'package:sns_rooster/services/certificate_pinning_service.dart';

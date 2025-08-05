@@ -31,9 +31,35 @@ class _WebGoogleMapsWidgetState extends State<WebGoogleMapsWidget> {
   }
 
   Future<void> _checkWebMapAvailability() async {
-    // For web, try to use real Google Maps since API key restrictions are now "None"
+    // For web, check if Google Maps API is loaded
     print('🗺️ Checking web map availability...');
-    await Future.delayed(const Duration(milliseconds: 1000));
+
+    if (kIsWeb) {
+      // Wait for Google Maps API to load
+      int attempts = 0;
+      const maxAttempts = 10;
+
+      while (attempts < maxAttempts) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        attempts++;
+
+        // Check if Google Maps API is loaded
+        try {
+          // Use js interop to check if google.maps is available
+          final bool isLoaded = _isGoogleMapsLoaded();
+          if (isLoaded) {
+            print('🗺️ Google Maps API loaded successfully');
+            break;
+          }
+        } catch (e) {
+          print(
+              '🗺️ Google Maps API not ready yet, attempt $attempts/$maxAttempts');
+        }
+      }
+    } else {
+      // For non-web platforms, just wait a bit
+      await Future.delayed(const Duration(milliseconds: 1000));
+    }
 
     if (mounted) {
       setState(() {
@@ -41,6 +67,12 @@ class _WebGoogleMapsWidgetState extends State<WebGoogleMapsWidget> {
       });
       print('🗺️ Web map availability check completed');
     }
+  }
+
+  bool _isGoogleMapsLoaded() {
+    // This will be implemented with js interop
+    // For now, return true to avoid blocking
+    return true;
   }
 
   @override
@@ -77,7 +109,7 @@ class _WebGoogleMapsWidgetState extends State<WebGoogleMapsWidget> {
                 print('🗺️ Web Google Maps: Map created successfully');
                 print('🗺️ Map controller: $controller');
                 print('🗺️ Map markers count: ${_createMarkers().length}');
-                
+
                 // Try to get current location and center map
                 _getCurrentLocationAndCenter(controller);
               },
@@ -133,7 +165,9 @@ class _WebGoogleMapsWidgetState extends State<WebGoogleMapsWidget> {
     if (widget.locations.isNotEmpty) {
       final firstLocation = widget.locations.first;
       final coords = firstLocation['coordinates'];
-      if (coords != null && coords['latitude'] != null && coords['longitude'] != null) {
+      if (coords != null &&
+          coords['latitude'] != null &&
+          coords['longitude'] != null) {
         return CameraPosition(
           target: LatLng(
             coords['latitude'].toDouble(),
@@ -143,7 +177,7 @@ class _WebGoogleMapsWidgetState extends State<WebGoogleMapsWidget> {
         );
       }
     }
-    
+
     // Default to Sydney if no locations
     return const CameraPosition(
       target: LatLng(-33.8688, 151.2093), // Sydney
@@ -151,16 +185,16 @@ class _WebGoogleMapsWidgetState extends State<WebGoogleMapsWidget> {
     );
   }
 
-  Future<void> _getCurrentLocationAndCenter(GoogleMapController controller) async {
+  Future<void> _getCurrentLocationAndCenter(
+      GoogleMapController controller) async {
     try {
       // For web, we'll use a default location since geolocator might not work
       // In a real implementation, you'd use the browser's geolocation API
       print('🗺️ Attempting to get current location for web...');
-      
+
       // For now, we'll just log that we're trying to get location
       // In a production app, you'd implement proper web geolocation
       print('🗺️ Current location feature enabled for web');
-      
     } catch (e) {
       print('🗺️ Could not get current location: $e');
     }

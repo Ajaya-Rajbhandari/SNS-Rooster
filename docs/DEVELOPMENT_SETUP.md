@@ -324,6 +324,70 @@ class ProdConfig {
 4. Check Flutter app error logs
 5. Verify firewall/antivirus settings
 
+## 🚀 App Update Workflow (CRITICAL)
+
+**IMPORTANT**: Every time you add new features to the app, you MUST follow this update workflow to ensure the app update system works correctly.
+
+### Quick Deployment (Recommended)
+```powershell
+# From sns_rooster directory
+.\scripts\deploy-app-update.ps1 -NewVersion "1.0.4" -NewBuildNumber "5" -FeatureDescription "new feature description"
+```
+
+### Manual Update Process
+1. **Update Version in pubspec.yaml**
+   ```yaml
+   version: 1.0.4+5  # Increment both version and build number
+   ```
+
+2. **Build New APK**
+   ```bash
+   flutter build apk --release
+   ```
+
+3. **Update Backend Configuration (CRITICAL)**
+   ```javascript
+   // In rooster-backend/routes/appVersionRoutes.js
+   android: {
+     latest_version: '1.0.5',        // NEXT version (not 1.0.4)
+     latest_build_number: '6',        // NEXT build number
+     // ... rest of config
+   }
+   ```
+
+4. **Deploy APK to Backend**
+   ```bash
+   copy "build\app\outputs\flutter-apk\app-release.apk" "..\rooster-backend\downloads\sns-rooster.apk"
+   cd ..\rooster-backend
+   git add downloads/sns-rooster.apk
+   git commit -m "Deploy version 1.0.4 APK"
+   git push origin main
+   ```
+
+5. **Deploy Backend Changes**
+   ```bash
+   git add routes/appVersionRoutes.js
+   git commit -m "Update backend to expect v1.0.5"
+   git push origin main
+   ```
+
+6. **Test Update Flow**
+   ```bash
+   cd ..\sns_rooster
+   flutter install --release
+   ```
+
+### ⚠️ Critical Rules
+1. **Always increment both version AND build number**
+2. **Backend expects NEXT version, not current version**
+3. **Deploy APK first, then backend config**
+4. **Test the complete flow before releasing**
+
+### 📚 Documentation
+- **Complete Workflow**: `docs/APP_UPDATE_WORKFLOW.md`
+- **Quick Reference**: `docs/QUICK_UPDATE_GUIDE.md`
+- **System Summary**: `docs/UPDATE_SYSTEM_SUMMARY.md`
+
 ## Production Deployment Considerations
 
 ### Backend

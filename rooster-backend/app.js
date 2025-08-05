@@ -65,6 +65,7 @@ const mobileOptimizationRoutes = require('./routes/mobileOptimizationRoutes');
 const monitoringRoutes = require('./routes/monitoringRoutes');
 const appVersionRoutes = require('./routes/appVersionRoutes');
 const appDownloadRoutes = require('./routes/appDownloadRoutes');
+const googleMapsRoutes = require('./routes/googleMapsRoutes');
 
 const app = express();
 
@@ -239,6 +240,9 @@ app.use('/api/app/version', appVersionRoutes);
 
 // App download routes
 app.use('/api/app/download', appDownloadRoutes);
+
+// Google Maps API routes (server-side proxy)
+app.use('/api', googleMapsRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {

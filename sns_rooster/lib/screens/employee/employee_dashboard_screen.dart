@@ -30,10 +30,8 @@ import 'company_info_screen.dart';
 
 import '../../widgets/real_time_break_timer.dart';
 
-import '../notification/notification_screen.dart';
 import 'package:sns_rooster/services/feature_service.dart';
 import '../../widgets/employee_location_map_widget.dart';
-import '../../services/fcm_service.dart';
 
 /// Helper function to format duration in a human-readable format
 /// Shows hours and minutes when duration is over 60 minutes
@@ -1341,7 +1339,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
                           const SizedBox(height: 12),
                           EmployeeLocationMapWidget(
                             location: assignedLocation,
-                            height: 180,
+                            height:
+                                200, // Increased height for better visibility
                             showGeofence: true,
                           ),
                         ],

@@ -41,8 +41,22 @@
   <title>SNS HR</title>
   <link rel="manifest" href="manifest.json">
   
-  <!-- Google Maps API will be loaded by Flutter plugin when needed -->
-  <!-- API Key: {{GOOGLE_MAPS_API_KEY}} -->
+  <!-- Google Maps API for Web - Loaded with proper async defer pattern -->
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key={{GOOGLE_MAPS_API_KEY}}&libraries=places&callback=initMap"></script>
+  
+  <script>
+    // Global callback function for Google Maps API
+    function initMap() {
+      console.log('🗺️ Google Maps API loaded successfully');
+      window.googleMapsLoaded = true;
+    }
+    
+    // Error handling for Google Maps API
+    window.gm_authFailure = function() {
+      console.error('🗺️ Google Maps API authentication failed');
+      window.googleMapsLoaded = false;
+    };
+  </script>
   
   <!-- Firebase Configuration for Web -->
   <script type="module">

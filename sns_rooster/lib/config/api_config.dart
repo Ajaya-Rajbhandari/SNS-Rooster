@@ -70,8 +70,8 @@ class ApiConfig {
           androidIP = androidEmulatorIP;
           log('DEV_API: Android emulator mode forced, using: $androidIP');
         } else {
-          // For physical devices, use your computer's IP address
-          androidIP = '192.168.1.119'; // Your computer's IP address (current)
+          // For physical devices, use environment variable or detect automatically
+          androidIP = const String.fromEnvironment('API_HOST', defaultValue: 'localhost');
           print('DEV_API: Android physical device mode, using: $androidIP');
         }
       }
