@@ -6,6 +6,7 @@ import '../providers/feature_provider.dart';
 import '../providers/notification_provider.dart';
 import '../widgets/user_avatar.dart'; // Assuming UserAvatar is a reusable widget
 import '../../providers/profile_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -147,7 +148,7 @@ class AppDrawer extends StatelessWidget {
                       icon: Icons.notifications,
                       label: 'Notifications',
                       route: '/notification',
-                      trailing: (notificationProvider?.unreadCount ?? 0) > 0
+                      trailing: (notificationProvider.unreadCount ?? 0) > 0
                           ? Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 6,
@@ -158,7 +159,7 @@ class AppDrawer extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                '${notificationProvider?.unreadCount ?? 0}',
+                                '${notificationProvider.unreadCount ?? 0}',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 12,
@@ -168,6 +169,31 @@ class AppDrawer extends StatelessWidget {
                             )
                           : null,
                     );
+                  },
+                ),
+                const Divider(),
+                // Android App Download Link
+                ListTile(
+                  leading:
+                      Icon(Icons.android, color: theme.colorScheme.onSurface),
+                  title: Text(
+                    'Download Android App',
+                    style: theme.textTheme.bodyLarge,
+                  ),
+                  subtitle: const Text(
+                    'Get the mobile app for better experience',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.download, size: 16),
+                  onTap: () async {
+                    Navigator.pop(context); // Close the drawer
+                    const downloadUrl =
+                        'https://sns-rooster.onrender.com/api/app/download/android/file';
+                    final uri = Uri.parse(downloadUrl);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri,
+                          mode: LaunchMode.externalApplication);
+                    }
                   },
                 ),
                 const Divider(),
