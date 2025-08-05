@@ -77,8 +77,8 @@
           firebaseConfigUrl = devBackendUrl;
           console.log('Firebase: Loading config from development backend:', firebaseConfigUrl);
         } else {
-          // Production: Use relative URL (same origin)
-          firebaseConfigUrl = '/api/firebase';
+          // Production: Use full backend URL
+          firebaseConfigUrl = 'https://sns-rooster.onrender.com/api/firebase';
           console.log('Firebase: Loading config from production backend:', firebaseConfigUrl);
         }
         
@@ -124,8 +124,8 @@
         script.src = devBackendUrl;
         console.log('🗺️ Loading Google Maps from development backend:', script.src);
       } else {
-        // Production: Use relative URL (same origin)
-        script.src = '/api/google-maps/script';
+        // Production: Use full backend URL
+        script.src = 'https://sns-rooster.onrender.com/api/google-maps/script';
         console.log('🗺️ Loading Google Maps from production backend:', script.src);
       }
       
