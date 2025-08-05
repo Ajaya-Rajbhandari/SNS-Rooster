@@ -550,7 +550,8 @@ class _LoginScreenState extends State<LoginScreen> {
           margin: const EdgeInsets.only(top: 16),
           child: InkWell(
             onTap: () async {
-              const downloadUrl = 'https://sns-rooster.onrender.com/api/app/download/android/file';
+              const downloadUrl =
+                  'https://sns-rooster.onrender.com/api/app/download/android/file';
               final uri = Uri.parse(downloadUrl);
               if (await canLaunchUrl(uri)) {
                 await launchUrl(uri, mode: LaunchMode.externalApplication);
