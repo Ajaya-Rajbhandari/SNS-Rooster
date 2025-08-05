@@ -74,6 +74,8 @@ import 'package:sns_rooster/config/debug_config.dart';
 import 'package:sns_rooster/screens/admin/edit_company_form_screen.dart';
 import 'package:sns_rooster/screens/admin/location_management_screen.dart';
 import 'package:sns_rooster/screens/admin/expense_management_screen.dart';
+import 'package:sns_rooster/screens/settings/privacy_settings_screen.dart';
+import 'package:sns_rooster/screens/about/about_screen.dart';
 import 'utils/global_navigator.dart';
 
 Future<void> requestAndroidNotificationPermission() async {
@@ -442,6 +444,9 @@ class MyApp extends StatelessWidget {
                     '/verify-email': (context) => const VerifyEmailScreen(),
                     '/performance_reviews': (context) =>
                         const EmployeePerformanceReviewsListScreen(),
+                    '/privacy-settings': (context) =>
+                        const PrivacySettingsScreen(),
+                    '/about': (context) => const AboutScreen(),
                   },
                   onGenerateRoute: (settings) {
                     // Handle dynamic routes for performance reviews

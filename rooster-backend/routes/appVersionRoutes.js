@@ -32,6 +32,8 @@ const APP_VERSIONS = {
   }
 };
 
+
+
 /**
  * @route   GET /api/app/version/check
  * @desc    Check for app updates

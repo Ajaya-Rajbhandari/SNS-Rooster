@@ -341,6 +341,22 @@ class AdminSideNavigation extends StatelessWidget {
             ),
           ),
           const Divider(),
+          // About Section
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+            child: _buildDrawerItem(
+              context,
+              icon: Icons.info_outline,
+              title: 'About',
+              route: '/about',
+              onTap: () {
+                Navigator.pop(context); // Close the drawer
+                Navigator.pushNamed(context, '/about');
+              },
+              colorScheme: colorScheme,
+            ),
+          ),
+          const Divider(),
           // Android App Download Link
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
@@ -351,7 +367,8 @@ class AdminSideNavigation extends StatelessWidget {
               route: '/download_app',
               onTap: () async {
                 Navigator.pop(context); // Close the drawer
-                const downloadUrl = 'https://sns-rooster.onrender.com/api/app/download/android/file';
+                const downloadUrl =
+                    'https://sns-rooster.onrender.com/api/app/download/android/file';
                 final uri = Uri.parse(downloadUrl);
                 if (await canLaunchUrl(uri)) {
                   await launchUrl(uri, mode: LaunchMode.externalApplication);

@@ -198,6 +198,31 @@ class AppDrawer extends StatelessWidget {
                 ),
                 const Divider(),
                 ListTile(
+                  leading: Icon(Icons.privacy_tip,
+                      color: theme.colorScheme.onSurface),
+                  title: Text(
+                    'Privacy Settings',
+                    style: theme.textTheme.bodyLarge,
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/privacy-settings');
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.info_outline,
+                      color: theme.colorScheme.onSurface),
+                  title: Text(
+                    'About',
+                    style: theme.textTheme.bodyLarge,
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/about');
+                  },
+                ),
+                const Divider(),
+                ListTile(
                   leading:
                       Icon(Icons.logout, color: theme.colorScheme.onSurface),
                   title: Text(

@@ -135,11 +135,11 @@ Write-Host "3. 📝 Write app store description and metadata" -ForegroundColor C
 Write-Host "4. 🔒 Create privacy policy and terms of service" -ForegroundColor Cyan
 Write-Host "5. 💳 Set up Google Play Developer account ($25)" -ForegroundColor Cyan
 Write-Host "6. 📤 Upload APK to Google Play Console" -ForegroundColor Cyan
-Write-Host "7. ✅ Submit for review (1-7 days)" -ForegroundColor Cyan
+Write-Host "7. Submit for review (1-7 days)" -ForegroundColor Cyan
 
 Write-Host ""
-Write-Host "📁 APK Location: $apkPath" -ForegroundColor Green
-Write-Host "📊 APK Size: $apkSizeMB MB" -ForegroundColor Green
+Write-Host "APK Location: $apkPath" -ForegroundColor Green
+Write-Host "APK Size: $apkSizeMB MB" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "🎉 APK build completed successfully!" -ForegroundColor Green
@@ -148,5 +148,5 @@ Write-Host "Ready for Google Play Store submission!" -ForegroundColor Green
 # Optional: Open the APK location in file explorer
 $openFolder = Read-Host "Do you want to open the APK folder? (y/n)"
 if ($openFolder -eq "y" -or $openFolder -eq "Y") {
-    Start-Process "build\app\outputs\flutter-apk\"
+    Start-Process "build\app\outputs\flutter-apk"
 } 
