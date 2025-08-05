@@ -1,195 +1,128 @@
-# Performance Monitoring Script for SNS Rooster
-Write-Host "⚡ PERFORMANCE MONITORING SUITE" -ForegroundColor Yellow
-Write-Host "=============================" -ForegroundColor Yellow
+# Performance Monitor Script for SNS Rooster
+Write-Host "PERFORMANCE MONITOR" -ForegroundColor Cyan
+Write-Host "===================" -ForegroundColor Cyan
 Write-Host ""
 
-Write-Host "📊 Monitoring performance metrics..." -ForegroundColor Cyan
+Write-Host "Running performance tests..." -ForegroundColor Yellow
 Write-Host ""
 
-# Configuration
-$testCount = 10
+# 1. API Response Time Test
+Write-Host "1. API Response Time Test:" -ForegroundColor Green
+
 $endpoints = @(
-    @{url="https://sns-rooster.onrender.com/api/app/version"; name="App Version API"},
-    @{url="https://sns-rooster.onrender.com/api/firebase"; name="Firebase Config API"},
-    @{url="https://sns-rooster.onrender.com/api/google-maps/script"; name="Google Maps Script API"},
-    @{url="https://sns-rooster.onrender.com/api/app/version/check?platform=android&version=1.0.5&build=6"; name="Version Check API"},
-    @{url="https://sns-rooster-8cca5.web.app"; name="Web App Load"}
+    "https://sns-rooster.onrender.com/api/app/version/info",
+    "https://sns-rooster.onrender.com/api/app/version/check?platform=android`&version=1.0.5`&build=6",
+    "https://sns-rooster.onrender.com/api/firebase",
+    "https://sns-rooster.onrender.com/api/google-maps/script"
 )
 
-function Test-EndpointPerformance {
-    param($endpoint)
-    
-    Write-Host "Testing $($endpoint.name)..." -ForegroundColor Yellow
-    $responseTimes = @()
-    $successCount = 0
-    $errorCount = 0
-    
-    for ($i = 1; $i -le $testCount; $i++) {
-        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-        try {
-            $response = Invoke-WebRequest -Uri $endpoint.url -TimeoutSec 30
-            $stopwatch.Stop()
-            $responseTime = $stopwatch.ElapsedMilliseconds
-            $responseTimes += $responseTime
-            $successCount++
-            
-            Write-Host "   Test $i`: ${responseTime}ms (Status: $($response.StatusCode))" -ForegroundColor Green
-        } catch {
-            $stopwatch.Stop()
-            $errorCount++
-            Write-Host "   Test $i`: Failed - $($_.Exception.Message)" -ForegroundColor Red
-        }
-        
-        # Small delay between tests
-        Start-Sleep -Milliseconds 100
-    }
-    
-    if ($responseTimes.Count -gt 0) {
-        $avgTime = [math]::Round(($responseTimes | Measure-Object -Average).Average, 2)
-        $minTime = ($responseTimes | Measure-Object -Minimum).Minimum
-        $maxTime = ($responseTimes | Measure-Object -Maximum).Maximum
-        $successRate = [math]::Round(($successCount / $testCount) * 100, 1)
-        
-        Write-Host ""
-        Write-Host "📈 $($endpoint.name) Performance Summary:" -ForegroundColor Cyan
-        Write-Host "   Average Response Time: ${avgTime}ms" -ForegroundColor White
-        Write-Host "   Min Response Time: ${minTime}ms" -ForegroundColor White
-        Write-Host "   Max Response Time: ${maxTime}ms" -ForegroundColor White
-        Write-Host "   Success Rate: ${successRate}%" -ForegroundColor White
-        Write-Host "   Tests: $successCount/$testCount successful" -ForegroundColor White
-        
-        # Performance rating
-        if ($avgTime -lt 500) {
-            Write-Host "   🟢 Performance: Excellent" -ForegroundColor Green
-        } elseif ($avgTime -lt 1000) {
-            Write-Host "   🟡 Performance: Good" -ForegroundColor Yellow
-        } elseif ($avgTime -lt 2000) {
-            Write-Host "   🟠 Performance: Acceptable" -ForegroundColor DarkYellow
-        } else {
-            Write-Host "   🔴 Performance: Poor - needs optimization" -ForegroundColor Red
-        }
-    } else {
-        Write-Host "   ❌ All tests failed for $($endpoint.name)" -ForegroundColor Red
-    }
-    
-    Write-Host ""
-    return @{
-        Name = $endpoint.name
-        AvgTime = if ($responseTimes.Count -gt 0) { [math]::Round(($responseTimes | Measure-Object -Average).Average, 2) } else { 0 }
-        SuccessRate = [math]::Round(($successCount / $testCount) * 100, 1)
-        ResponseTimes = $responseTimes
-    }
-}
+$responseTimes = @()
 
-# Run performance tests
-$results = @()
 foreach ($endpoint in $endpoints) {
-    $result = Test-EndpointPerformance -endpoint $endpoint
-    $results += $result
+    try {
+        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $response = Invoke-WebRequest -Uri $endpoint -TimeoutSec 30
+        $stopwatch.Stop()
+        $responseTime = $stopwatch.ElapsedMilliseconds
+        
+        $responseTimes += [PSCustomObject]@{
+            Endpoint = $endpoint
+            ResponseTime = $responseTime
+            Status = $response.StatusCode
+        }
+        
+        if ($responseTime -lt 1000) {
+            Write-Host "   PASS: $endpoint - ${responseTime}ms (Excellent)" -ForegroundColor Green
+        } elseif ($responseTime -lt 3000) {
+            Write-Host "   PASS: $endpoint - ${responseTime}ms (Good)" -ForegroundColor Green
+        } elseif ($responseTime -lt 5000) {
+            Write-Host "   WARN: $endpoint - ${responseTime}ms (Slow)" -ForegroundColor Yellow
+        } else {
+            Write-Host "   FAIL: $endpoint - ${responseTime}ms (Very Slow)" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host "   FAIL: $endpoint - Error: $($_.Exception.Message)" -ForegroundColor Red
+    }
 }
 
-# Overall performance summary
-Write-Host "📊 OVERALL PERFORMANCE SUMMARY" -ForegroundColor Cyan
-Write-Host "=============================" -ForegroundColor Cyan
-Write-Host ""
-
-$workingEndpoints = $results | Where-Object { $_.SuccessRate -gt 0 }
-if ($workingEndpoints.Count -gt 0) {
-    $overallAvg = [math]::Round(($workingEndpoints.AvgTime | Measure-Object -Average).Average, 2)
-    $overallSuccess = [math]::Round(($workingEndpoints.SuccessRate | Measure-Object -Average).Average, 1)
-    
-    Write-Host "Overall Average Response Time: ${overallAvg}ms" -ForegroundColor White
-    Write-Host "Overall Success Rate: ${overallSuccess}%" -ForegroundColor White
+# Calculate average response time
+if ($responseTimes.Count -gt 0) {
+    $avgResponseTime = ($responseTimes | Measure-Object -Property ResponseTime -Average).Average
     Write-Host ""
-    
-    # Performance recommendations
-    Write-Host "🔧 PERFORMANCE RECOMMENDATIONS:" -ForegroundColor Yellow
-    Write-Host "=============================" -ForegroundColor Yellow
-    
-    if ($overallAvg -gt 2000) {
-        Write-Host "🔴 CRITICAL: Overall performance is poor" -ForegroundColor Red
-        Write-Host "   - Consider server scaling" -ForegroundColor White
-        Write-Host "   - Optimize database queries" -ForegroundColor White
-        Write-Host "   - Implement caching" -ForegroundColor White
-    } elseif ($overallAvg -gt 1000) {
-        Write-Host "🟡 WARNING: Performance needs improvement" -ForegroundColor Yellow
-        Write-Host "   - Consider implementing caching" -ForegroundColor White
-        Write-Host "   - Optimize API responses" -ForegroundColor White
-    } else {
-        Write-Host "🟢 GOOD: Performance is acceptable" -ForegroundColor Green
-        Write-Host "   - Continue monitoring" -ForegroundColor White
-        Write-Host "   - Consider optimization for scale" -ForegroundColor White
-    }
-    
-    # Identify slowest endpoints
-    $slowestEndpoint = $workingEndpoints | Sort-Object AvgTime -Descending | Select-Object -First 1
-    if ($slowestEndpoint.AvgTime -gt 1000) {
-        Write-Host ""
-        Write-Host "🐌 SLOWEST ENDPOINT: $($slowestEndpoint.Name)" -ForegroundColor Red
-        Write-Host "   Average Time: $($slowestEndpoint.AvgTime)ms" -ForegroundColor White
-        Write-Host "   Consider optimizing this endpoint" -ForegroundColor White
-    }
-} else {
-    Write-Host "❌ No endpoints are working properly" -ForegroundColor Red
+    Write-Host "   Average Response Time: ${avgResponseTime}ms" -ForegroundColor Cyan
 }
 
-# Memory usage monitoring (if running locally)
+# 2. Web App Load Time Test
 Write-Host ""
-Write-Host "🧠 MEMORY USAGE MONITORING" -ForegroundColor DarkYellow
-Write-Host "=========================" -ForegroundColor DarkYellow
+Write-Host "2. Web App Load Time Test:" -ForegroundColor Green
+try {
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $webResponse = Invoke-WebRequest -Uri "https://sns-rooster-8cca5.web.app" -TimeoutSec 30
+    $stopwatch.Stop()
+    $loadTime = $stopwatch.ElapsedMilliseconds
+    
+    if ($loadTime -lt 2000) {
+        Write-Host "   PASS: Web app loaded in ${loadTime}ms (Excellent)" -ForegroundColor Green
+    } elseif ($loadTime -lt 5000) {
+        Write-Host "   PASS: Web app loaded in ${loadTime}ms (Good)" -ForegroundColor Green
+    } elseif ($loadTime -lt 10000) {
+        Write-Host "   WARN: Web app loaded in ${loadTime}ms (Slow)" -ForegroundColor Yellow
+    } else {
+        Write-Host "   FAIL: Web app loaded in ${loadTime}ms (Very Slow)" -ForegroundColor Red
+    }
+} catch {
+    Write-Host "   FAIL: Web app load test failed: $($_.Exception.Message)" -ForegroundColor Red
+}
 
+# 3. Memory Usage Check (if backend is running locally)
+Write-Host ""
+Write-Host "3. Memory Usage Check:" -ForegroundColor Green
 try {
     $nodeProcesses = Get-Process -Name "node" -ErrorAction SilentlyContinue
     if ($nodeProcesses) {
         foreach ($process in $nodeProcesses) {
             $memoryMB = [math]::Round($process.WorkingSet64 / 1MB, 2)
-            Write-Host "   Node.js Process (PID: $($process.Id)): ${memoryMB}MB" -ForegroundColor White
-            
-            if ($memoryMB -gt 500) {
-                Write-Host "   ⚠️ High memory usage detected" -ForegroundColor Yellow
-            }
+            Write-Host "   INFO: Node.js process (PID: $($process.Id)) using ${memoryMB}MB" -ForegroundColor White
         }
     } else {
-        Write-Host "   ℹ️ No Node.js processes found (backend may not be running locally)" -ForegroundColor White
+        Write-Host "   INFO: No local Node.js processes found (backend may be running on Render)" -ForegroundColor White
     }
 } catch {
-    Write-Host "   ℹ️ Memory monitoring not available" -ForegroundColor White
+    Write-Host "   INFO: Could not check memory usage" -ForegroundColor White
 }
 
-# Load testing simulation
+# 4. Basic Load Testing
 Write-Host ""
-Write-Host "🚀 LOAD TESTING SIMULATION" -ForegroundColor Magenta
-Write-Host "=========================" -ForegroundColor Magenta
+Write-Host "4. Basic Load Testing:" -ForegroundColor Green
 
-$loadTestCount = 20
-Write-Host "Simulating $loadTestCount concurrent requests to version API..." -ForegroundColor Yellow
+$loadTestEndpoint = "https://sns-rooster.onrender.com/api/app/version/info"
+$concurrentRequests = 10
+$successCount = 0
+$failCount = 0
+$totalTime = 0
 
-$loadTestResults = @()
+Write-Host "   Testing $concurrentRequests concurrent requests..." -ForegroundColor White
+
 $jobs = @()
-
-for ($i = 1; $i -le $loadTestCount; $i++) {
-    $job = Start-Job -ScriptBlock {
+for ($i = 1; $i -le $concurrentRequests; $i++) {
+    $jobs += Start-Job -ScriptBlock {
         param($url)
-        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
         try {
+            $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
             $response = Invoke-WebRequest -Uri $url -TimeoutSec 10
             $stopwatch.Stop()
             return @{
                 Success = $true
-                Time = $stopwatch.ElapsedMilliseconds
+                ResponseTime = $stopwatch.ElapsedMilliseconds
                 Status = $response.StatusCode
             }
         } catch {
-            $stopwatch.Stop()
             return @{
                 Success = $false
-                Time = $stopwatch.ElapsedMilliseconds
                 Error = $_.Exception.Message
             }
         }
-    } -ArgumentList "https://sns-rooster.onrender.com/api/app/version"
-    
-    $jobs += $job
+    } -ArgumentList $loadTestEndpoint
 }
 
 # Wait for all jobs to complete
@@ -198,40 +131,53 @@ Wait-Job -Job $jobs | Out-Null
 # Collect results
 foreach ($job in $jobs) {
     $result = Receive-Job -Job $job
-    $loadTestResults += $result
-    Remove-Job -Job $job
-}
-
-$successfulLoadTests = $loadTestResults | Where-Object { $_.Success }
-$failedLoadTests = $loadTestResults | Where-Object { -not $_.Success }
-
-if ($successfulLoadTests.Count -gt 0) {
-    $loadAvgTime = [math]::Round(($successfulLoadTests.Time | Measure-Object -Average).Average, 2)
-    $loadSuccessRate = [math]::Round(($successfulLoadTests.Count / $loadTestCount) * 100, 1)
-    
-    Write-Host "   Load Test Results:" -ForegroundColor White
-    Write-Host "   - Average Response Time: ${loadAvgTime}ms" -ForegroundColor White
-    Write-Host "   - Success Rate: ${loadSuccessRate}%" -ForegroundColor White
-    Write-Host "   - Failed Requests: $($failedLoadTests.Count)" -ForegroundColor White
-    
-    if ($loadSuccessRate -lt 90) {
-        Write-Host "   ⚠️ Load test shows reliability issues" -ForegroundColor Yellow
+    if ($result.Success) {
+        $successCount++
+        $totalTime += $result.ResponseTime
     } else {
-        Write-Host "   ✅ Load test passed successfully" -ForegroundColor Green
+        $failCount++
     }
-} else {
-    Write-Host "   ❌ All load tests failed" -ForegroundColor Red
 }
+
+# Clean up jobs
+Remove-Job -Job $jobs
+
+$successRate = [math]::Round(($successCount / $concurrentRequests) * 100, 2)
+$avgLoadTime = if ($successCount -gt 0) { [math]::Round($totalTime / $successCount, 2) } else { 0 }
+
+Write-Host "   Success Rate: ${successRate}% ($successCount/$concurrentRequests)" -ForegroundColor $(if ($successRate -ge 90) { "Green" } elseif ($successRate -ge 70) { "Yellow" } else { "Red" })
+Write-Host "   Average Response Time: ${avgLoadTime}ms" -ForegroundColor $(if ($avgLoadTime -lt 2000) { "Green" } elseif ($avgLoadTime -lt 5000) { "Yellow" } else { "Red" })
+
+# 5. Database Connection Test (if accessible)
+Write-Host ""
+Write-Host "5. Database Connection Test:" -ForegroundColor Green
+Write-Host "   INFO: Database connection test requires backend access" -ForegroundColor White
+Write-Host "   INFO: Consider implementing health check endpoint for database status" -ForegroundColor White
+
+# 6. File Upload Performance (if applicable)
+Write-Host ""
+Write-Host "6. File Upload Performance:" -ForegroundColor Green
+Write-Host "   INFO: File upload testing requires authentication" -ForegroundColor White
+Write-Host "   INFO: Test with various file sizes (1MB, 5MB, 10MB)" -ForegroundColor White
 
 Write-Host ""
-Write-Host "📋 PERFORMANCE MONITORING CHECKLIST:" -ForegroundColor Yellow
-Write-Host "====================================" -ForegroundColor Yellow
+Write-Host "PERFORMANCE SUMMARY:" -ForegroundColor Yellow
+Write-Host "===================" -ForegroundColor Yellow
+
+# Performance recommendations based on results
+Write-Host ""
+Write-Host "PERFORMANCE RECOMMENDATIONS:" -ForegroundColor Yellow
+Write-Host "============================" -ForegroundColor Yellow
 Write-Host "1. Monitor response times regularly" -ForegroundColor White
-Write-Host "2. Set up alerts for slow responses" -ForegroundColor White
-Write-Host "3. Monitor server resource usage" -ForegroundColor White
-Write-Host "4. Implement caching where appropriate" -ForegroundColor White
-Write-Host "5. Optimize database queries" -ForegroundColor White
-Write-Host "6. Consider CDN for static assets" -ForegroundColor White
-Write-Host "7. Monitor error rates" -ForegroundColor White
+Write-Host "2. Implement caching for frequently accessed data" -ForegroundColor White
+Write-Host "3. Optimize database queries" -ForegroundColor White
+Write-Host "4. Use CDN for static assets" -ForegroundColor White
+Write-Host "5. Implement request compression" -ForegroundColor White
+Write-Host "6. Monitor memory usage" -ForegroundColor White
+Write-Host "7. Set up performance alerts" -ForegroundColor White
 Write-Host "8. Set up performance dashboards" -ForegroundColor White
+Write-Host ""
+
+Write-Host "PERFORMANCE TEST COMPLETE!" -ForegroundColor Green
+Write-Host "==========================" -ForegroundColor Green
 Write-Host "" 

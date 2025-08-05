@@ -1,230 +1,398 @@
 # Manual Testing Checklist for SNS Rooster
-Write-Host "📋 MANUAL TESTING CHECKLIST" -ForegroundColor Cyan
-Write-Host "=========================" -ForegroundColor Cyan
+Write-Host "MANUAL TESTING CHECKLIST" -ForegroundColor Cyan
+Write-Host "=======================" -ForegroundColor Cyan
 Write-Host ""
 
-Write-Host "🎯 This checklist will guide you through comprehensive manual testing" -ForegroundColor Yellow
+Write-Host "This interactive checklist will guide you through testing all features." -ForegroundColor Yellow
+Write-Host "Follow each section and mark items as completed." -ForegroundColor Yellow
 Write-Host ""
 
-$currentStep = 1
-
-function Show-TestSection {
-    param($title, $description, $tests)
-    
-    Write-Host "Step $currentStep`: $title" -ForegroundColor Green
-    Write-Host "=======================" -ForegroundColor Green
-    Write-Host $description -ForegroundColor White
-    Write-Host ""
-    
-    foreach ($test in $tests) {
-        Write-Host "   □ $test" -ForegroundColor White
-    }
-    
-    Write-Host ""
-    $response = Read-Host "Press Enter when you've completed this section (or 'skip' to skip)"
-    if ($response -ne "skip") {
-        Write-Host "   ✅ Section completed!" -ForegroundColor Green
-    } else {
-        Write-Host "   ⏭️ Section skipped" -ForegroundColor Yellow
-    }
-    Write-Host ""
-    
-    $script:currentStep++
+# Function to get user input
+function Get-UserConfirmation {
+    param($message)
+    Write-Host $message -ForegroundColor Green
+    $response = Read-Host "Enter 'y' for yes, 'n' for no, or 'skip' to skip"
+    return $response.ToLower()
 }
 
 # 1. Android App Testing
-Show-TestSection -title "Android App Installation & Basic Functionality" -description "Test the Android app installation and basic features" -tests @(
-    "Install the APK on a physical Android device",
-    "Verify app launches without crashes",
-    "Check app version shows correctly (1.0.5+6)",
-    "Test login functionality",
-    "Verify Google Maps loads correctly",
-    "Test location permissions",
-    "Check if app responds to network changes",
-    "Test app in background/foreground transitions"
-)
-
-# 2. OTA Update Testing
-Show-TestSection -title "Over-The-Air Update System" -description "Test the OTA update functionality" -tests @(
-    "Install an older version of the app (if available)",
-    "Check if update notification appears",
-    "Test update download functionality",
-    "Verify update installation process",
-    "Check if app works correctly after update",
-    "Test update flow with poor network connection",
-    "Verify version number updates correctly",
-    "Test update cancellation and retry"
-)
-
-# 3. Web App Testing
-Show-TestSection -title "Web Application Testing" -description "Test the web application in different browsers" -tests @(
-    "Open https://sns-rooster-8cca5.web.app in Chrome",
-    "Test in Firefox browser",
-    "Test in Safari browser (if available)",
-    "Test in Edge browser",
-    "Verify Google Maps loads correctly",
-    "Test responsive design on different screen sizes",
-    "Check if all features work in web version",
-    "Test browser refresh and navigation",
-    "Verify no console errors appear"
-)
-
-# 4. Google Maps Integration
-Show-TestSection -title "Google Maps Functionality" -description "Test Google Maps integration across platforms" -tests @(
-    "Verify map loads in Android app",
-    "Verify map loads in web app",
-    "Test map zoom in/out functionality",
-    "Test map panning",
-    "Check if user location is displayed",
-    "Test geofencing circles display",
-    "Verify map performance (no lag)",
-    "Test map in different network conditions",
-    "Check if map works offline (cached areas)"
-)
-
-# 5. Firebase Integration
-Show-TestSection -title "Firebase Services Testing" -description "Test Firebase integration and features" -tests @(
-    "Verify Firebase configuration loads",
-    "Test push notifications (if implemented)",
-    "Check Firebase authentication",
-    "Test data synchronization",
-    "Verify offline data handling",
-    "Check Firebase console for errors",
-    "Test Firebase storage (if used)",
-    "Verify Firebase analytics (if implemented)"
-)
-
-# 6. Admin Portal Testing
-Show-TestSection -title "Admin Portal & Super Admin Features" -description "Test admin portal functionality" -tests @(
-    "Access admin portal with correct credentials",
-    "Test user management features",
-    "Verify company management",
-    "Test employee management",
-    "Check dashboard functionality",
-    "Test reporting features",
-    "Verify data export functionality",
-    "Test admin permissions and access control",
-    "Check admin portal responsiveness"
-)
-
-# 7. API Endpoint Testing
-Show-TestSection -title "API Endpoint Verification" -description "Test all API endpoints manually" -tests @(
-    "Test /api/app/version endpoint",
-    "Test /api/app/version/check endpoint",
-    "Test /api/app/download/android/file endpoint",
-    "Test /api/firebase endpoint",
-    "Test /api/google-maps/script endpoint",
-    "Test /api/companies/available endpoint",
-    "Test /api/employees endpoint",
-    "Verify all endpoints return correct data",
-    "Test error handling for invalid requests"
-)
-
-# 8. Security Testing
-Show-TestSection -title "Security & Vulnerability Testing" -description "Test security aspects of the application" -tests @(
-    "Check for exposed API keys in browser source",
-    "Test authentication bypass attempts",
-    "Verify HTTPS enforcement",
-    "Test input validation on forms",
-    "Check for SQL injection vulnerabilities",
-    "Test XSS vulnerability attempts",
-    "Verify CORS configuration",
-    "Test rate limiting (if implemented)",
-    "Check for sensitive data exposure"
-)
-
-# 9. Performance Testing
-Show-TestSection -title "Performance & Load Testing" -description "Test application performance under various conditions" -tests @(
-    "Test app startup time",
-    "Test API response times",
-    "Test map loading performance",
-    "Test app performance on slow network",
-    "Test app performance on fast network",
-    "Test memory usage over time",
-    "Test battery consumption",
-    "Test app performance with multiple users",
-    "Test concurrent API requests"
-)
-
-# 10. Error Handling Testing
-Show-TestSection -title "Error Handling & Edge Cases" -description "Test error handling and edge cases" -tests @(
-    "Test app behavior with no internet connection",
-    "Test app behavior with slow internet",
-    "Test app behavior with server errors",
-    "Test app behavior with invalid data",
-    "Test app behavior with corrupted files",
-    "Test app behavior with low memory",
-    "Test app behavior with low battery",
-    "Test app behavior with system updates",
-    "Test app behavior with different Android versions"
-)
-
-# 11. Cross-Platform Testing
-Show-TestSection -title "Cross-Platform Compatibility" -description "Test compatibility across different platforms and devices" -tests @(
-    "Test on different Android versions (8, 9, 10, 11, 12, 13)",
-    "Test on different screen sizes and resolutions",
-    "Test on different device manufacturers",
-    "Test on tablets vs phones",
-    "Test on different browsers (Chrome, Firefox, Safari, Edge)",
-    "Test on different operating systems (Windows, Mac, Linux)",
-    "Test on mobile browsers vs desktop browsers",
-    "Test on different network types (WiFi, 4G, 5G)"
-)
-
-# 12. User Experience Testing
-Show-TestSection -title "User Experience & Usability" -description "Test user experience and usability aspects" -tests @(
-    "Test app navigation and flow",
-    "Test form validation and error messages",
-    "Test loading states and progress indicators",
-    "Test accessibility features",
-    "Test app responsiveness to user input",
-    "Test app feedback and notifications",
-    "Test app consistency across screens",
-    "Test app intuitiveness for new users",
-    "Test app efficiency for power users"
-)
-
-Write-Host "🎉 COMPREHENSIVE TESTING COMPLETE!" -ForegroundColor Green
-Write-Host "===============================" -ForegroundColor Green
+Write-Host "1. ANDROID APP TESTING" -ForegroundColor Yellow
+Write-Host "=====================" -ForegroundColor Yellow
 Write-Host ""
 
-Write-Host "📊 TESTING SUMMARY:" -ForegroundColor Yellow
+$androidTests = @(
+    "App launches without crashes",
+    "Login screen displays correctly",
+    "User can log in with valid credentials",
+    "Dashboard loads and displays data",
+    "Google Maps shows employee locations",
+    "Attendance marking works",
+    "Profile information displays correctly",
+    "Settings can be accessed and modified",
+    "App responds to different screen orientations",
+    "Push notifications work (if implemented)"
+)
+
+foreach ($test in $androidTests) {
+    $result = Get-UserConfirmation "Did you test: $test"
+    if ($result -eq "y") {
+        Write-Host "   PASS: $test" -ForegroundColor Green
+    } elseif ($result -eq "n") {
+        Write-Host "   FAIL: $test" -ForegroundColor Red
+    } else {
+        Write-Host "   SKIP: $test" -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
+Write-Host "Press Enter when you've completed Android testing (or 'skip' to skip)" -ForegroundColor Cyan
+Read-Host
+
+# 2. OTA Update Testing
+Write-Host ""
+Write-Host "2. OTA UPDATE TESTING" -ForegroundColor Yellow
+Write-Host "====================" -ForegroundColor Yellow
+Write-Host ""
+
+$otaTests = @(
+    "App checks for updates on startup",
+    "Update notification displays correctly",
+    "Update download works",
+    "App installs update successfully",
+    "App works correctly after update"
+)
+
+foreach ($test in $otaTests) {
+    $result = Get-UserConfirmation "Did you test: $test"
+    if ($result -eq "y") {
+        Write-Host "   PASS: $test" -ForegroundColor Green
+    } elseif ($result -eq "n") {
+        Write-Host "   FAIL: $test" -ForegroundColor Red
+    } else {
+        Write-Host "   SKIP: $test" -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
+Write-Host "Press Enter when you've completed OTA testing (or 'skip' to skip)" -ForegroundColor Cyan
+Read-Host
+
+# 3. Web App Testing
+Write-Host ""
+Write-Host "3. WEB APP TESTING" -ForegroundColor Yellow
+Write-Host "=================" -ForegroundColor Yellow
+Write-Host ""
+
+$webTests = @(
+    "Web app loads in browser",
+    "Google Maps displays correctly",
+    "Firebase integration works",
+    "Responsive design on different screen sizes",
+    "All buttons and links work",
+    "Forms submit correctly",
+    "Data displays properly",
+    "No console errors"
+)
+
+foreach ($test in $webTests) {
+    $result = Get-UserConfirmation "Did you test: $test"
+    if ($result -eq "y") {
+        Write-Host "   PASS: $test" -ForegroundColor Green
+    } elseif ($result -eq "n") {
+        Write-Host "   FAIL: $test" -ForegroundColor Red
+    } else {
+        Write-Host "   SKIP: $test" -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
+Write-Host "Press Enter when you've completed Web app testing (or 'skip' to skip)" -ForegroundColor Cyan
+Read-Host
+
+# 4. Google Maps Testing
+Write-Host ""
+Write-Host "4. GOOGLE MAPS TESTING" -ForegroundColor Yellow
+Write-Host "=====================" -ForegroundColor Yellow
+Write-Host ""
+
+$mapsTests = @(
+    "Map loads without errors",
+    "Employee locations display correctly",
+    "Map controls work (zoom, pan)",
+    "Geofencing circles display",
+    "Map performance is smooth",
+    "No API key exposure in browser console"
+)
+
+foreach ($test in $mapsTests) {
+    $result = Get-UserConfirmation "Did you test: $test"
+    if ($result -eq "y") {
+        Write-Host "   PASS: $test" -ForegroundColor Green
+    } elseif ($result -eq "n") {
+        Write-Host "   FAIL: $test" -ForegroundColor Red
+    } else {
+        Write-Host "   SKIP: $test" -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
+Write-Host "Press Enter when you've completed Google Maps testing (or 'skip' to skip)" -ForegroundColor Cyan
+Read-Host
+
+# 5. Firebase Testing
+Write-Host ""
+Write-Host "5. FIREBASE TESTING" -ForegroundColor Yellow
 Write-Host "==================" -ForegroundColor Yellow
 Write-Host ""
 
-Write-Host "✅ What to document:" -ForegroundColor White
-Write-Host "   - Any bugs or issues found" -ForegroundColor White
-Write-Host "   - Performance problems" -ForegroundColor White
-Write-Host "   - Security concerns" -ForegroundColor White
-Write-Host "   - User experience issues" -ForegroundColor White
-Write-Host "   - Platform-specific problems" -ForegroundColor White
+$firebaseTests = @(
+    "Firebase config loads securely",
+    "Authentication works (if implemented)",
+    "Database operations work",
+    "File storage works (if implemented)",
+    "Push notifications work (if implemented)",
+    "No Firebase errors in console"
+)
+
+foreach ($test in $firebaseTests) {
+    $result = Get-UserConfirmation "Did you test: $test"
+    if ($result -eq "y") {
+        Write-Host "   PASS: $test" -ForegroundColor Green
+    } elseif ($result -eq "n") {
+        Write-Host "   FAIL: $test" -ForegroundColor Red
+    } else {
+        Write-Host "   SKIP: $test" -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
+Write-Host "Press Enter when you've completed Firebase testing (or 'skip' to skip)" -ForegroundColor Cyan
+Read-Host
+
+# 6. Admin Portal Testing
+Write-Host ""
+Write-Host "6. ADMIN PORTAL TESTING" -ForegroundColor Yellow
+Write-Host "======================" -ForegroundColor Yellow
 Write-Host ""
 
-Write-Host "🔧 Next Steps:" -ForegroundColor Yellow
-Write-Host "=============" -ForegroundColor Yellow
-Write-Host "1. Document all findings" -ForegroundColor White
-Write-Host "2. Prioritize issues by severity" -ForegroundColor White
-Write-Host "3. Create bug reports for critical issues" -ForegroundColor White
-Write-Host "4. Plan fixes for identified problems" -ForegroundColor White
-Write-Host "5. Schedule follow-up testing after fixes" -ForegroundColor White
+$adminTests = @(
+    "Admin portal loads correctly",
+    "Admin can log in",
+    "Dashboard displays analytics",
+    "Employee management works",
+    "Attendance reports generate",
+    "Settings can be modified",
+    "Data export works",
+    "User management functions work"
+)
+
+foreach ($test in $adminTests) {
+    $result = Get-UserConfirmation "Did you test: $test"
+    if ($result -eq "y") {
+        Write-Host "   PASS: $test" -ForegroundColor Green
+    } elseif ($result -eq "n") {
+        Write-Host "   FAIL: $test" -ForegroundColor Red
+    } else {
+        Write-Host "   SKIP: $test" -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
+Write-Host "Press Enter when you've completed Admin portal testing (or 'skip' to skip)" -ForegroundColor Cyan
+Read-Host
+
+# 7. API Endpoint Testing
+Write-Host ""
+Write-Host "7. API ENDPOINT TESTING" -ForegroundColor Yellow
+Write-Host "======================" -ForegroundColor Yellow
 Write-Host ""
 
-Write-Host "📋 ADDITIONAL TESTING TOOLS:" -ForegroundColor Cyan
-Write-Host "===========================" -ForegroundColor Cyan
+$apiTests = @(
+    "Version check endpoint works",
+    "Firebase config endpoint works",
+    "Google Maps script endpoint works",
+    "Authentication endpoints work",
+    "Data endpoints return correct responses",
+    "Error handling works properly",
+    "Rate limiting works (if implemented)"
+)
+
+foreach ($test in $apiTests) {
+    $result = Get-UserConfirmation "Did you test: $test"
+    if ($result -eq "y") {
+        Write-Host "   PASS: $test" -ForegroundColor Green
+    } elseif ($result -eq "n") {
+        Write-Host "   FAIL: $test" -ForegroundColor Red
+    } else {
+        Write-Host "   SKIP: $test" -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
+Write-Host "Press Enter when you've completed API testing (or 'skip' to skip)" -ForegroundColor Cyan
+Read-Host
+
+# 8. Security Testing
+Write-Host ""
+Write-Host "8. SECURITY TESTING" -ForegroundColor Yellow
+Write-Host "==================" -ForegroundColor Yellow
 Write-Host ""
 
-Write-Host "Automated Testing Scripts:" -ForegroundColor White
-Write-Host "   - Run .\scripts\comprehensive-testing.ps1" -ForegroundColor White
-Write-Host "   - Run .\scripts\security-audit.ps1" -ForegroundColor White
-Write-Host "   - Run .\scripts\performance-monitor.ps1" -ForegroundColor White
+$securityTests = @(
+    "API keys are not exposed in frontend",
+    "HTTPS is enforced",
+    "Authentication is required for sensitive endpoints",
+    "Input validation works",
+    "No sensitive data in error messages",
+    "CORS is properly configured",
+    "Security headers are present"
+)
+
+foreach ($test in $securityTests) {
+    $result = Get-UserConfirmation "Did you test: $test"
+    if ($result -eq "y") {
+        Write-Host "   PASS: $test" -ForegroundColor Green
+    } elseif ($result -eq "n") {
+        Write-Host "   FAIL: $test" -ForegroundColor Red
+    } else {
+        Write-Host "   SKIP: $test" -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
+Write-Host "Press Enter when you've completed Security testing (or 'skip' to skip)" -ForegroundColor Cyan
+Read-Host
+
+# 9. Performance Testing
+Write-Host ""
+Write-Host "9. PERFORMANCE TESTING" -ForegroundColor Yellow
+Write-Host "=====================" -ForegroundColor Yellow
 Write-Host ""
 
-Write-Host "External Testing Tools:" -ForegroundColor White
-Write-Host "   - Google PageSpeed Insights" -ForegroundColor White
-Write-Host "   - GTmetrix for performance" -ForegroundColor White
-Write-Host "   - OWASP ZAP for security testing" -ForegroundColor White
-Write-Host "   - Browser DevTools for debugging" -ForegroundColor White
+$performanceTests = @(
+    "App loads quickly",
+    "Maps load within reasonable time",
+    "No memory leaks during use",
+    "App remains responsive during heavy use",
+    "Concurrent users can access the app",
+    "Database queries are optimized"
+)
+
+foreach ($test in $performanceTests) {
+    $result = Get-UserConfirmation "Did you test: $test"
+    if ($result -eq "y") {
+        Write-Host "   PASS: $test" -ForegroundColor Green
+    } elseif ($result -eq "n") {
+        Write-Host "   FAIL: $test" -ForegroundColor Red
+    } else {
+        Write-Host "   SKIP: $test" -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
+Write-Host "Press Enter when you've completed Performance testing (or 'skip' to skip)" -ForegroundColor Cyan
+Read-Host
+
+# 10. Error Handling Testing
+Write-Host ""
+Write-Host "10. ERROR HANDLING TESTING" -ForegroundColor Yellow
+Write-Host "=========================" -ForegroundColor Yellow
 Write-Host ""
 
-Write-Host "🎯 Remember: Manual testing is crucial for catching issues that automated tests might miss!" -ForegroundColor Green
+$errorTests = @(
+    "Network errors are handled gracefully",
+    "Invalid inputs show appropriate error messages",
+    "Server errors don't crash the app",
+    "App recovers from errors properly",
+    "Error messages are user-friendly",
+    "Logging works for debugging"
+)
+
+foreach ($test in $errorTests) {
+    $result = Get-UserConfirmation "Did you test: $test"
+    if ($result -eq "y") {
+        Write-Host "   PASS: $test" -ForegroundColor Green
+    } elseif ($result -eq "n") {
+        Write-Host "   FAIL: $test" -ForegroundColor Red
+    } else {
+        Write-Host "   SKIP: $test" -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
+Write-Host "Press Enter when you've completed Error handling testing (or 'skip' to skip)" -ForegroundColor Cyan
+Read-Host
+
+# 11. Cross-Platform Testing
+Write-Host ""
+Write-Host "11. CROSS-PLATFORM TESTING" -ForegroundColor Yellow
+Write-Host "=========================" -ForegroundColor Yellow
+Write-Host ""
+
+$crossPlatformTests = @(
+    "App works on different Android versions",
+    "Web app works on different browsers",
+    "Responsive design works on tablets",
+    "App works on different screen sizes",
+    "No platform-specific bugs"
+)
+
+foreach ($test in $crossPlatformTests) {
+    $result = Get-UserConfirmation "Did you test: $test"
+    if ($result -eq "y") {
+        Write-Host "   PASS: $test" -ForegroundColor Green
+    } elseif ($result -eq "n") {
+        Write-Host "   FAIL: $test" -ForegroundColor Red
+    } else {
+        Write-Host "   SKIP: $test" -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
+Write-Host "Press Enter when you've completed Cross-platform testing (or 'skip' to skip)" -ForegroundColor Cyan
+Read-Host
+
+# 12. User Experience Testing
+Write-Host ""
+Write-Host "12. USER EXPERIENCE TESTING" -ForegroundColor Yellow
+Write-Host "==========================" -ForegroundColor Yellow
+Write-Host ""
+
+$uxTests = @(
+    "App is intuitive to use",
+    "Navigation is clear and logical",
+    "Loading states are shown",
+    "Success/error feedback is clear",
+    "App is accessible (if applicable)",
+    "User flows are smooth and efficient"
+)
+
+foreach ($test in $uxTests) {
+    $result = Get-UserConfirmation "Did you test: $test"
+    if ($result -eq "y") {
+        Write-Host "   PASS: $test" -ForegroundColor Green
+    } elseif ($result -eq "n") {
+        Write-Host "   FAIL: $test" -ForegroundColor Red
+    } else {
+        Write-Host "   SKIP: $test" -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
+Write-Host "MANUAL TESTING COMPLETE!" -ForegroundColor Green
+Write-Host "========================" -ForegroundColor Green
+Write-Host ""
+
+Write-Host "SUMMARY:" -ForegroundColor Yellow
+Write-Host "========" -ForegroundColor Yellow
+Write-Host "You have completed manual testing of all major features." -ForegroundColor White
+Write-Host "Review any FAIL items and address them before production deployment." -ForegroundColor White
+Write-Host ""
+
+Write-Host "NEXT STEPS:" -ForegroundColor Cyan
+Write-Host "===========" -ForegroundColor Cyan
+Write-Host "1. Fix any issues found during testing" -ForegroundColor White
+Write-Host "2. Run automated tests again" -ForegroundColor White
+Write-Host "3. Deploy to production" -ForegroundColor White
+Write-Host "4. Monitor the application in production" -ForegroundColor White
 Write-Host "" 
