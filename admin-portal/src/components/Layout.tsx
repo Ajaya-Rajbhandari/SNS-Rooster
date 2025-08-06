@@ -81,6 +81,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Companies', icon: <BusinessIcon />, path: '/companies' },
     { text: 'Archived Companies', icon: <BusinessIcon />, path: '/companies/archived' },
+    { text: 'Employees', icon: <PeopleIcon />, path: '/employees' },
     { text: 'Subscription Plans', icon: <SubscriptionsIcon />, path: '/subscription-plans' },
     { text: 'Users', icon: <PeopleIcon />, path: '/users' },
     { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },

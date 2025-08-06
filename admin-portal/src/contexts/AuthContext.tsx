@@ -7,6 +7,7 @@ interface User {
   firstName: string;
   lastName: string;
   role: string;
+  companyId?: string;
 }
 
 interface AuthContextType {
@@ -56,6 +57,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (response.valid && response.user) {
         setUser(response.user);
         localStorage.setItem('user', JSON.stringify(response.user));
+        
+        // Store companyId if available
+        if (response.user.companyId) {
+          localStorage.setItem('companyId', response.user.companyId);
+        }
+        
         return true;
       }
       return false;
@@ -66,6 +73,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           const userData = JSON.parse(storedUser);
           setUser(userData);
+          
+          // Store companyId if available
+          if (userData.companyId) {
+            localStorage.setItem('companyId', userData.companyId);
+          }
+          
           return true;
         } catch (parseError) {
           return false;
@@ -112,6 +125,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(userData);
         localStorage.setItem('authToken', newToken);
         localStorage.setItem('user', JSON.stringify(userData));
+        
+        // Store companyId if available
+        if (userData.companyId) {
+          localStorage.setItem('companyId', userData.companyId);
+        }
         
         // Store super admin token separately if needed
         if (userData.role === 'super_admin') {

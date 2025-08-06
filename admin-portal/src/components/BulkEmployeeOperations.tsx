@@ -54,11 +54,29 @@ interface Employee {
   monthlySalary?: number;
 }
 
+interface BulkOperationResponse {
+  message: string;
+  results: {
+    successful: Array<{
+      email: string;
+      employeeId?: string;
+      userId?: string;
+    }>;
+    failed: Array<{
+      email?: string;
+      employeeId?: string;
+      error: string;
+    }>;
+    total: number;
+  };
+}
+
 interface BulkEmployeeOperationsProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
   employees: Employee[];
+  companyId?: string;
 }
 
 interface TabPanelProps {
@@ -87,7 +105,8 @@ const BulkEmployeeOperations: React.FC<BulkEmployeeOperationsProps> = ({
   open,
   onClose,
   onSuccess,
-  employees
+  employees,
+  companyId
 }) => {
   const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -144,7 +163,7 @@ const BulkEmployeeOperations: React.FC<BulkEmployeeOperationsProps> = ({
       email: '',
       position: '',
       department: '',
-      employeeType: 'Full-time',
+             employeeType: 'Permanent',
       employeeId: '',
       password: 'defaultPassword123'
     }]);
@@ -179,7 +198,7 @@ const BulkEmployeeOperations: React.FC<BulkEmployeeOperationsProps> = ({
     setError('');
 
     try {
-      const response = await apiService.post('/api/employees/bulk-create', {
+      const response: BulkOperationResponse = await apiService.post(`/api/super-admin/employees/${companyId}/bulk-create`, {
         employees: validEmployees
       });
 
@@ -202,14 +221,12 @@ const BulkEmployeeOperations: React.FC<BulkEmployeeOperationsProps> = ({
 
     const updates = selectedEmployees.map(employeeId => ({
       employeeId,
-      updates: {
-        ...(bulkUpdateData.position && { position: bulkUpdateData.position }),
-        ...(bulkUpdateData.department && { department: bulkUpdateData.department }),
-        ...(bulkUpdateData.employeeType && { employeeType: bulkUpdateData.employeeType }),
-        ...(bulkUpdateData.hourlyRate && { hourlyRate: parseFloat(bulkUpdateData.hourlyRate) }),
-        ...(bulkUpdateData.monthlySalary && { monthlySalary: parseFloat(bulkUpdateData.monthlySalary) })
-      }
-    })).filter(update => Object.keys(update.updates).length > 0);
+      ...(bulkUpdateData.position && { position: bulkUpdateData.position }),
+      ...(bulkUpdateData.department && { department: bulkUpdateData.department }),
+      ...(bulkUpdateData.employeeType && { employeeType: bulkUpdateData.employeeType }),
+      ...(bulkUpdateData.hourlyRate && { hourlyRate: parseFloat(bulkUpdateData.hourlyRate) }),
+      ...(bulkUpdateData.monthlySalary && { monthlySalary: parseFloat(bulkUpdateData.monthlySalary) })
+    })).filter(update => Object.keys(update).length > 1); // More than just employeeId
 
     if (updates.length === 0) {
       setError('Please provide at least one field to update');
@@ -220,7 +237,11 @@ const BulkEmployeeOperations: React.FC<BulkEmployeeOperationsProps> = ({
     setError('');
 
     try {
-      const response = await apiService.put('/api/employees/bulk-update', {
+      console.log('DEBUG: Bulk update request data:', { updates });
+      console.log('DEBUG: Selected employees:', selectedEmployees);
+      console.log('DEBUG: Bulk update data:', bulkUpdateData);
+
+      const response: BulkOperationResponse = await apiService.put('/api/super-admin/employees/bulk-update', {
         updates
       });
 
@@ -256,7 +277,7 @@ const BulkEmployeeOperations: React.FC<BulkEmployeeOperationsProps> = ({
     setError('');
 
     try {
-      const response = await apiService.delete('/api/employees/bulk-delete', {
+      const response: BulkOperationResponse = await apiService.delete('/api/super-admin/employees/bulk-delete', {
         data: { employeeIds: selectedEmployees }
       });
 
@@ -404,10 +425,8 @@ const BulkEmployeeOperations: React.FC<BulkEmployeeOperationsProps> = ({
                             value={employee.employeeType}
                             onChange={(e) => updateNewEmployee(index, 'employeeType', e.target.value)}
                           >
-                            <MenuItem value="Full-time">Full-time</MenuItem>
-                            <MenuItem value="Part-time">Part-time</MenuItem>
-                            <MenuItem value="Contract">Contract</MenuItem>
-                            <MenuItem value="Intern">Intern</MenuItem>
+                                                         <MenuItem value="Permanent">Permanent</MenuItem>
+                             <MenuItem value="Temporary">Temporary</MenuItem>
                           </Select>
                         </FormControl>
                       </TableCell>
@@ -488,11 +507,9 @@ const BulkEmployeeOperations: React.FC<BulkEmployeeOperationsProps> = ({
                   onChange={(e) => setBulkUpdateData(prev => ({ ...prev, employeeType: e.target.value }))}
                   label="Employee Type"
                 >
-                  <MenuItem value="">Leave unchanged</MenuItem>
-                  <MenuItem value="Full-time">Full-time</MenuItem>
-                  <MenuItem value="Part-time">Part-time</MenuItem>
-                  <MenuItem value="Contract">Contract</MenuItem>
-                  <MenuItem value="Intern">Intern</MenuItem>
+                                               <MenuItem value="">Leave unchanged</MenuItem>
+                             <MenuItem value="Permanent">Permanent</MenuItem>
+                             <MenuItem value="Temporary">Temporary</MenuItem>
                 </Select>
               </FormControl>
               <TextField

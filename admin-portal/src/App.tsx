@@ -19,6 +19,7 @@ import TestConnectionPage from './pages/TestConnectionPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
 import ProfilePage from './pages/ProfilePage';
 import BillingPage from './pages/BillingPage';
+import EmployeeManagementPage from './pages/EmployeeManagementPage';
 import SuperAdminRoute from './components/SuperAdminRoute';
 import AdminRoute from './components/AdminRoute';
 
@@ -84,6 +85,14 @@ function App() {
                 <SuperAdminRoute>
                   <Layout>
                     <UserManagementPage />
+                  </Layout>
+                </SuperAdminRoute>
+              } />
+              
+              <Route path="/employees" element={
+                <SuperAdminRoute>
+                  <Layout>
+                    <EmployeeManagementPage />
                   </Layout>
                 </SuperAdminRoute>
               } />

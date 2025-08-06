@@ -115,6 +115,50 @@ router.get('/users',
   SuperAdminController.getAllUsers
 );
 
+// ===== EMPLOYEE MANAGEMENT =====
+
+// Bulk update employees (must come before parameterized routes)
+router.put('/employees/bulk-update', 
+  requirePermission('manageUsers'), 
+  SuperAdminController.bulkUpdateEmployees
+);
+
+// Bulk delete employees (must come before parameterized routes)
+router.delete('/employees/bulk-delete', 
+  requirePermission('manageUsers'), 
+  SuperAdminController.bulkDeleteEmployees
+);
+
+// Get all employees for a specific company
+router.get('/employees/:companyId', 
+  requirePermission('manageUsers'), 
+  SuperAdminController.getEmployeesByCompany
+);
+
+// Bulk create employees for a specific company (must come before single create)
+router.post('/employees/:companyId/bulk-create', 
+  requirePermission('manageUsers'), 
+  SuperAdminController.bulkCreateEmployees
+);
+
+// Create employee for a specific company
+router.post('/employees/:companyId', 
+  requirePermission('manageUsers'), 
+  SuperAdminController.createEmployeeForCompany
+);
+
+// Update employee
+router.put('/employees/:employeeId', 
+  requirePermission('manageUsers'), 
+  SuperAdminController.updateEmployee
+);
+
+// Delete employee
+router.delete('/employees/:employeeId', 
+  requirePermission('manageUsers'), 
+  SuperAdminController.deleteEmployee
+);
+
 // Create new user
 router.post('/users', 
   requirePermission('manageUsers'), 

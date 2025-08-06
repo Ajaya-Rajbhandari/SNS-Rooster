@@ -1,8 +1,16 @@
 const Company = require('../models/Company');
 const User = require('../models/User');
+const Employee = require('../models/Employee');
 const SuperAdmin = require('../models/SuperAdmin');
 const SubscriptionPlan = require('../models/SubscriptionPlan');
 const bcrypt = require('bcrypt');
+
+// Helper function to get avatar URL
+const getAvatarUrl = (avatar) => {
+  if (!avatar) return null;
+  if (avatar.startsWith('http')) return avatar;
+  return `${process.env.BASE_URL || 'http://localhost:5000'}/uploads/avatars/${avatar}`;
+};
 
 /**
  * Super Admin Controller
@@ -2069,6 +2077,357 @@ class SuperAdminController {
     } catch (error) {
       console.error('Error changing user password:', error);
       res.status(500).json({ error: 'Failed to change password' });
+    }
+  }
+
+  // ===== EMPLOYEE MANAGEMENT =====
+
+  /**
+   * Get all employees for a specific company
+   */
+  static async getEmployeesByCompany(req, res) {
+    try {
+      const { companyId } = req.params;
+      const { showInactive = 'false', search } = req.query;
+
+      // Verify company exists
+      const company = await Company.findById(companyId);
+      if (!company) {
+        return res.status(404).json({ error: 'Company not found' });
+      }
+
+      // Build filter
+      const filter = { companyId };
+      if (showInactive !== 'true') {
+        filter.isActive = true;
+      }
+
+      if (search) {
+        filter.$or = [
+          { firstName: { $regex: search, $options: 'i' } },
+          { lastName: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } },
+          { position: { $regex: search, $options: 'i' } },
+          { department: { $regex: search, $options: 'i' } }
+        ];
+      }
+
+      const employees = await Employee.find(filter).sort({ createdAt: -1 });
+      
+      // Add avatar URLs
+      const employeesWithAvatar = employees.map(emp => {
+        const obj = emp.toObject();
+        obj.avatar = getAvatarUrl(obj.avatar);
+        return obj;
+      });
+
+      res.json(employeesWithAvatar);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+      res.status(500).json({ error: 'Failed to fetch employees' });
+    }
+  }
+
+  /**
+   * Create employee for a specific company
+   */
+  static async createEmployeeForCompany(req, res) {
+    try {
+      const { companyId } = req.params;
+      const employeeData = req.body;
+
+      // Verify company exists
+      const company = await Company.findById(companyId);
+      if (!company) {
+        return res.status(404).json({ error: 'Company not found' });
+      }
+
+      // Create a User account for the employee
+      const User = require('../models/User');
+      const bcrypt = require('bcryptjs');
+      
+      // Generate a default password
+      const defaultPassword = 'defaultPassword123';
+      const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+      
+      // Create user account
+      const user = new User({
+        email: employeeData.email,
+        password: hashedPassword,
+        firstName: employeeData.firstName,
+        lastName: employeeData.lastName,
+        role: 'employee',
+        companyId: companyId,
+        isEmailVerified: false,
+        isProfileComplete: false,
+        isActive: true
+      });
+      
+      await user.save();
+
+      // Add companyId and userId to employee data
+      employeeData.companyId = companyId;
+      employeeData.userId = user._id;
+
+      const employee = new Employee(employeeData);
+      await employee.save();
+
+      const obj = employee.toObject();
+      obj.avatar = getAvatarUrl(obj.avatar);
+
+      res.status(201).json({
+        success: true,
+        message: 'Employee created successfully',
+        employee: obj,
+        user: {
+          _id: user._id,
+          email: user.email,
+          defaultPassword: defaultPassword
+        }
+      });
+    } catch (error) {
+      console.error('Error creating employee:', error);
+      res.status(500).json({ error: 'Failed to create employee: ' + error.message });
+    }
+  }
+
+  /**
+   * Update employee
+   */
+  static async updateEmployee(req, res) {
+    try {
+      const { employeeId } = req.params;
+      const updateData = req.body;
+
+      const employee = await Employee.findByIdAndUpdate(
+        employeeId,
+        updateData,
+        { new: true, runValidators: true }
+      );
+
+      if (!employee) {
+        return res.status(404).json({ error: 'Employee not found' });
+      }
+
+      const obj = employee.toObject();
+      obj.avatar = getAvatarUrl(obj.avatar);
+
+      res.json({
+        success: true,
+        message: 'Employee updated successfully',
+        employee: obj
+      });
+    } catch (error) {
+      console.error('Error updating employee:', error);
+      res.status(500).json({ error: 'Failed to update employee' });
+    }
+  }
+
+  /**
+   * Delete employee
+   */
+  static async deleteEmployee(req, res) {
+    try {
+      const { employeeId } = req.params;
+
+      const employee = await Employee.findById(employeeId);
+      if (!employee) {
+        return res.status(404).json({ error: 'Employee not found' });
+      }
+
+      await Employee.findByIdAndDelete(employeeId);
+
+      res.json({
+        success: true,
+        message: 'Employee deleted successfully'
+      });
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      res.status(500).json({ error: 'Failed to delete employee' });
+    }
+  }
+
+  /**
+   * Bulk create employees for a specific company
+   */
+  static async bulkCreateEmployees(req, res) {
+    try {
+      const { companyId } = req.params;
+      const { employees } = req.body;
+
+      // Verify company exists
+      const company = await Company.findById(companyId);
+      if (!company) {
+        return res.status(404).json({ error: 'Company not found' });
+      }
+
+      if (!employees || !Array.isArray(employees)) {
+        return res.status(400).json({ error: 'Employees array is required' });
+      }
+
+      const results = {
+        successful: [],
+        failed: [],
+        total: employees.length
+      };
+
+      for (const employeeData of employees) {
+        try {
+          // Create a User account for the employee
+          const User = require('../models/User');
+          const bcrypt = require('bcryptjs');
+          
+          // Generate a default password
+          const defaultPassword = employeeData.password || 'defaultPassword123';
+          const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+          
+          // Create user account
+          const user = new User({
+            email: employeeData.email,
+            password: hashedPassword,
+            firstName: employeeData.firstName,
+            lastName: employeeData.lastName,
+            role: 'employee',
+            companyId: companyId,
+            isEmailVerified: false,
+            isProfileComplete: false,
+            isActive: true
+          });
+          
+          await user.save();
+
+          // Add companyId and userId to employee data
+          employeeData.companyId = companyId;
+          employeeData.userId = user._id;
+          
+          const employee = new Employee(employeeData);
+          await employee.save();
+          
+          results.successful.push({
+            email: employeeData.email,
+            employeeId: employee._id,
+            userId: user._id
+          });
+        } catch (error) {
+          results.failed.push({
+            email: employeeData.email,
+            error: error.message
+          });
+        }
+      }
+
+      res.json({
+        message: `Bulk create completed. ${results.successful.length} successful, ${results.failed.length} failed.`,
+        results
+      });
+    } catch (error) {
+      console.error('Error in bulk create employees:', error);
+      res.status(500).json({ error: 'Failed to bulk create employees' });
+    }
+  }
+
+  /**
+   * Bulk update employees
+   */
+  static async bulkUpdateEmployees(req, res) {
+    try {
+      const { updates } = req.body;
+
+      if (!updates || !Array.isArray(updates)) {
+        return res.status(400).json({ error: 'Updates array is required' });
+      }
+
+      const results = {
+        successful: [],
+        failed: [],
+        total: updates.length
+      };
+
+      for (const update of updates) {
+        try {
+          const { employeeId, ...updateData } = update;
+          const employee = await Employee.findByIdAndUpdate(
+            employeeId,
+            updateData,
+            { new: true, runValidators: true }
+          );
+
+          if (employee) {
+            results.successful.push({
+              employeeId: employee._id,
+              email: employee.email
+            });
+          } else {
+            results.failed.push({
+              employeeId,
+              error: 'Employee not found'
+            });
+          }
+        } catch (error) {
+          results.failed.push({
+            employeeId: update.employeeId,
+            error: error.message
+          });
+        }
+      }
+
+      res.json({
+        message: `Bulk update completed. ${results.successful.length} successful, ${results.failed.length} failed.`,
+        results
+      });
+    } catch (error) {
+      console.error('Error in bulk update employees:', error);
+      res.status(500).json({ error: 'Failed to bulk update employees' });
+    }
+  }
+
+  /**
+   * Bulk delete employees
+   */
+  static async bulkDeleteEmployees(req, res) {
+    try {
+      const { employeeIds } = req.body;
+
+      if (!employeeIds || !Array.isArray(employeeIds)) {
+        return res.status(400).json({ error: 'Employee IDs array is required' });
+      }
+
+      const results = {
+        successful: [],
+        failed: [],
+        total: employeeIds.length
+      };
+
+      for (const employeeId of employeeIds) {
+        try {
+          const employee = await Employee.findById(employeeId);
+          if (employee) {
+            await Employee.findByIdAndDelete(employeeId);
+            results.successful.push({
+              employeeId,
+              email: employee.email
+            });
+          } else {
+            results.failed.push({
+              employeeId,
+              error: 'Employee not found'
+            });
+          }
+        } catch (error) {
+          results.failed.push({
+            employeeId,
+            error: error.message
+          });
+        }
+      }
+
+      res.json({
+        message: `Bulk delete completed. ${results.successful.length} successful, ${results.failed.length} failed.`,
+        results
+      });
+    } catch (error) {
+      console.error('Error in bulk delete employees:', error);
+      res.status(500).json({ error: 'Failed to bulk delete employees' });
     }
   }
 }
