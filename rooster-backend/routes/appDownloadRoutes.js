@@ -9,7 +9,7 @@ const APK_CONFIG = {
     latest_version: '1.0.13',
     latest_build_number: '13',
     download_url: 'https://sns-rooster.onrender.com/api/app/download/android/file',
-    file_path: `./uploads/apk/sns-rooster-v1.0.13.apk`, // Local APK file path with version
+    file_path: path.join(__dirname, '../uploads/apk/sns-rooster-v1.0.13.apk'), // Local APK file path with version
     file_size: 0, // Will be calculated dynamically
     checksum: '', // Will be calculated dynamically
   }
@@ -25,7 +25,7 @@ router.get('/android', async (req, res) => {
     const apkInfo = APK_CONFIG.android;
     
     // Check if APK file exists
-    const apkPath = path.resolve(apkInfo.file_path);
+    const apkPath = apkInfo.file_path;
     if (fs.existsSync(apkPath)) {
       const stats = fs.statSync(apkPath);
       apkInfo.file_size = stats.size;
@@ -56,7 +56,7 @@ router.get('/android', async (req, res) => {
  */
 router.get('/android/file', async (req, res) => {
   try {
-    const apkPath = path.resolve(APK_CONFIG.android.file_path);
+    const apkPath = APK_CONFIG.android.file_path;
     
     // Check if APK file exists
     if (!fs.existsSync(apkPath)) {
@@ -135,7 +135,7 @@ router.post('/upload', async (req, res) => {
 router.get('/status', async (req, res) => {
   try {
     const apkInfo = APK_CONFIG.android;
-    const apkPath = path.resolve(apkInfo.file_path);
+    const apkPath = apkInfo.file_path;
     
     let fileExists = false;
     let fileSize = 0;
