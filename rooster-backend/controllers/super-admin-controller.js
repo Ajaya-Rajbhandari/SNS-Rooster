@@ -499,19 +499,15 @@ class SuperAdminController {
   }
   
   /**
-   * Delete company (soft delete)
+   * Delete company (soft delete - archive)
    */
   static async deleteCompany(req, res) {
     try {
       const { companyId } = req.params;
       
-      console.log('Attempting to delete company:', companyId);
+      console.log('Attempting to delete (archive) company:', companyId);
       
-      const company = await Company.findByIdAndUpdate(
-        companyId,
-        { status: 'cancelled' },
-        { new: true, runValidators: false }
-      );
+      const company = await Company.findById(companyId);
       
       if (!company) {
         console.log('Company not found:', companyId);
@@ -521,18 +517,38 @@ class SuperAdminController {
         });
       }
       
-      console.log('Found company:', company.name, 'Current status:', company.status);
+      if (company.archived) {
+        return res.status(400).json({
+          error: 'Company already archived',
+          message: 'This company is already archived'
+        });
+      }
       
-      console.log('Company status updated to cancelled');
+      // Archive the company (preserve all data)
+      const archivedCompany = await Company.findByIdAndUpdate(
+        companyId,
+        {
+          status: 'archived',
+          archived: true,
+          archivedAt: new Date(),
+          archivedBy: req.user._id,
+          archiveReason: 'Deleted by super admin'
+        },
+        { new: true, runValidators: false }
+      );
+      
+      console.log('Company archived:', archivedCompany.name);
       
       res.json({
-        message: 'Company deleted successfully',
-        companyId: company._id
+        message: 'Company archived successfully',
+        companyId: archivedCompany._id,
+        companyName: archivedCompany.name,
+        archivedAt: archivedCompany.archivedAt
       });
     } catch (error) {
-      console.error('Error deleting company:', error);
+      console.error('Error archiving company:', error);
       res.status(500).json({ 
-        error: 'Failed to delete company',
+        error: 'Failed to archive company',
         details: error.message 
       });
     }
@@ -960,6 +976,64 @@ class SuperAdminController {
     } catch (error) {
       console.error('Error updating subscription plan:', error);
       res.status(500).json({ error: 'Failed to update subscription plan' });
+    }
+  }
+  
+  /**
+   * Delete subscription plan
+   */
+  static async deleteSubscriptionPlan(req, res) {
+    try {
+      const { planId } = req.params;
+      
+      console.log('Attempting to delete subscription plan:', planId);
+      
+      const plan = await SubscriptionPlan.findById(planId);
+      
+      if (!plan) {
+        console.log('Subscription plan not found:', planId);
+        return res.status(404).json({
+          error: 'Subscription plan not found',
+          message: 'The specified subscription plan does not exist'
+        });
+      }
+      
+      // Check if this plan is being used by any companies
+      const companiesUsingPlan = await Company.countDocuments({ 
+        subscriptionPlan: planId 
+      });
+      
+      if (companiesUsingPlan > 0) {
+        return res.status(400).json({
+          error: 'Cannot delete subscription plan',
+          message: `This plan is currently used by ${companiesUsingPlan} companies. Please reassign these companies to a different plan first.`
+        });
+      }
+      
+      // Check if this is the default plan
+      if (plan.isDefault) {
+        return res.status(400).json({
+          error: 'Cannot delete default plan',
+          message: 'Cannot delete the default subscription plan. Please set another plan as default first.'
+        });
+      }
+      
+      // Delete the subscription plan
+      await SubscriptionPlan.findByIdAndDelete(planId);
+      
+      console.log('Subscription plan deleted:', plan.name);
+      
+      res.json({
+        message: 'Subscription plan deleted successfully',
+        planId: plan._id,
+        planName: plan.name
+      });
+    } catch (error) {
+      console.error('Error deleting subscription plan:', error);
+      res.status(500).json({ 
+        error: 'Failed to delete subscription plan',
+        details: error.message 
+      });
     }
   }
   

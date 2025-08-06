@@ -101,6 +101,12 @@ router.put('/subscription-plans/:planId',
   SuperAdminController.updateSubscriptionPlan
 );
 
+// Delete subscription plan
+router.delete('/subscription-plans/:planId', 
+  requirePermission('manageSubscriptions'), 
+  SuperAdminController.deleteSubscriptionPlan
+);
+
 // ===== USER MANAGEMENT =====
 
 // Get all users with pagination and filters
