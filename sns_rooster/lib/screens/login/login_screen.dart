@@ -459,7 +459,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             'Forgot Password?',
                             style: TextStyle(
                               color: Colors.white,
-                              decoration: TextDecoration.underline,
                               fontSize: 14,
                             ),
                           ),
@@ -560,7 +559,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 }
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),

@@ -177,40 +177,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
         actions: [
-          // Feature refresh button
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () async {
-              final authProvider =
-                  Provider.of<AuthProvider>(context, listen: false);
-              if (authProvider.featureProvider != null) {
-                try {
-                  await authProvider.featureProvider!.forceRefreshFeatures();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Features refreshed successfully!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to refresh features: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Feature provider not available'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
-              }
-            },
-            tooltip: 'Refresh Features',
-          ),
           // Debug: Clear company ID button (only in debug mode)
           if (kDebugMode)
             IconButton(

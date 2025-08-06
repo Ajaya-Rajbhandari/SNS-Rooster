@@ -60,6 +60,7 @@ import 'package:sns_rooster/services/app_update_service.dart';
 import 'package:sns_rooster/services/connectivity_service.dart';
 import 'package:sns_rooster/widgets/global_notification_banner.dart';
 import 'package:sns_rooster/widgets/feature_initializer.dart';
+import 'package:sns_rooster/widgets/network_status_banner.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'web_url_strategy_stub.dart'
     if (dart.library.html) 'web_url_strategy.dart';
@@ -483,12 +484,14 @@ class MyApp extends StatelessWidget {
                   },
                   builder: (context, child) {
                     if (child == null) return const SizedBox.shrink();
-                    return Stack(
-                      children: [
-                        child,
-                        const GlobalNotificationBanner(),
-                        // UpdateAlertWidget will be shown via dialog when needed
-                      ],
+                    return NetworkStatusBanner(
+                      child: Stack(
+                        children: [
+                          child,
+                          const GlobalNotificationBanner(),
+                          // UpdateAlertWidget will be shown via dialog when needed
+                        ],
+                      ),
                     );
                   },
                 ),
