@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: sns-rooster-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=512
+    healthCheckPath: /health
+    autoDeploy: true
+    region: oregon 

@@ -124,22 +124,65 @@ class ErrorTrackingService {
   // Append data to log file
   appendToLog(logPath, data) {
     try {
-      let logs = [];
-      if (fs.existsSync(logPath)) {
-        const content = fs.readFileSync(logPath, 'utf8');
-        logs = content ? JSON.parse(content) : [];
+      // Use streaming approach for large log files
+      const logEntry = JSON.stringify(data) + '\n';
+      
+      // Append to file without loading entire content
+      fs.appendFileSync(logPath, logEntry);
+      
+      // Check file size and rotate if too large (10MB limit)
+      const stats = fs.statSync(logPath);
+      if (stats.size > 10 * 1024 * 1024) { // 10MB
+        this.rotateLogFile(logPath);
       }
-      
-      logs.push(data);
-      
-      // Keep only last 1000 entries
-      if (logs.length > 1000) {
-        logs = logs.slice(-1000);
-      }
-      
-      fs.writeFileSync(logPath, JSON.stringify(logs, null, 2));
     } catch (err) {
       Logger.error('ERROR_WRITING_LOG', { logPath, error: err.message });
+    }
+  }
+
+  // Rotate log file when it gets too large
+  rotateLogFile(logPath) {
+    try {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupPath = `${logPath}.${timestamp}`;
+      
+      // Rename current file to backup
+      fs.renameSync(logPath, backupPath);
+      
+      // Create new empty log file
+      fs.writeFileSync(logPath, '');
+      
+      // Keep only last 5 backup files
+      this.cleanupOldLogFiles(logPath);
+      
+      Logger.info('LOG_ROTATED', { originalPath: logPath, backupPath });
+    } catch (err) {
+      Logger.error('ERROR_ROTATING_LOG', { logPath, error: err.message });
+    }
+  }
+
+  // Cleanup old log files
+  cleanupOldLogFiles(logPath) {
+    try {
+      const logDir = path.dirname(logPath);
+      const baseName = path.basename(logPath);
+      const files = fs.readdirSync(logDir)
+        .filter(file => file.startsWith(baseName + '.'))
+        .sort()
+        .reverse();
+      
+      // Keep only last 5 backup files
+      if (files.length > 5) {
+        files.slice(5).forEach(file => {
+          try {
+            fs.unlinkSync(path.join(logDir, file));
+          } catch (err) {
+            Logger.error('ERROR_DELETING_OLD_LOG', { file, error: err.message });
+          }
+        });
+      }
+    } catch (err) {
+      Logger.error('ERROR_CLEANUP_LOGS', { error: err.message });
     }
   }
 
@@ -204,20 +247,47 @@ class ErrorTrackingService {
         return { total: 0, averageResponseTime: 0, recent: [] };
       }
 
-      const content = fs.readFileSync(this.performanceLogPath, 'utf8');
-      const logs = content ? JSON.parse(content) : [];
+      // Use streaming to read log file efficiently
+      const stats = {
+        total: 0,
+        responseTimes: [],
+        recent: []
+      };
+
+      const fileContent = fs.readFileSync(this.performanceLogPath, 'utf8');
+      const lines = fileContent.split('\n').filter(line => line.trim());
       
-      const recentLogs = logs.slice(-100); // Last 100 performance logs
-      const responseTimes = recentLogs
-        .filter(log => log.metrics.duration)
-        .map(log => parseInt(log.metrics.duration.replace('ms', '')));
+      // Process only last 1000 lines to prevent memory issues
+      const recentLines = lines.slice(-1000);
+      
+      for (const line of recentLines) {
+        try {
+          const logEntry = JSON.parse(line);
+          stats.total++;
+          
+          if (logEntry.metrics && logEntry.metrics.duration) {
+            const duration = parseInt(logEntry.metrics.duration.replace('ms', ''));
+            if (!isNaN(duration)) {
+              stats.responseTimes.push(duration);
+            }
+          }
+          
+          // Keep only last 10 entries for recent array
+          if (stats.recent.length < 10) {
+            stats.recent.push(logEntry);
+          }
+        } catch (parseError) {
+          // Skip invalid JSON lines
+          continue;
+        }
+      }
 
       return {
-        total: logs.length,
-        averageResponseTime: responseTimes.length > 0 
-          ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length)
+        total: stats.total,
+        averageResponseTime: stats.responseTimes.length > 0 
+          ? Math.round(stats.responseTimes.reduce((a, b) => a + b, 0) / stats.responseTimes.length)
           : 0,
-        recent: recentLogs.slice(-10)
+        recent: stats.recent
       };
     } catch (err) {
       Logger.error('ERROR_GETTING_PERFORMANCE_STATS', { error: err.message });

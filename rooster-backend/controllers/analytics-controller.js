@@ -1194,42 +1194,41 @@ exports.getLeaveApprovalStatus = async (req, res) => {
 // GET /analytics/admin/leave-export
 exports.exportLeaveData = async (req, res) => {
   try {
-    const { format = 'csv', startDate, endDate, status, leaveType, department } = req.query;
-    
-    // Build filters
-    const filters = {
-      companyId: req.companyId
-    };
+    const { format = 'csv', startDate, endDate, employeeId, limit = 1000 } = req.query;
+    const companyId = req.companyId;
 
-    if (startDate && endDate) {
-      filters.appliedAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
-    }
-
-    if (status && status !== 'all') {
-      filters.status = status;
-    }
-
-    if (leaveType && leaveType !== 'all') {
-      filters.leaveType = leaveType;
-    }
-
-    // Get leave data with employee/user information
-    let leaves = await Leave.find(filters)
-      .populate('employee', 'firstName lastName department')
-      .populate('user', 'firstName lastName')
-      .sort({ appliedAt: -1 });
-
-    // Apply department filter if specified
-    if (department && department !== 'all') {
-      leaves = leaves.filter(leave => {
-        if (leave.employee) {
-          return leave.employee.department === department;
-        }
-        return department === 'Administration'; // Admin leaves
+    // Validate format
+    const validFormats = ['csv', 'excel', 'json'];
+    if (!validFormats.includes(format.toLowerCase())) {
+      return res.status(400).json({ 
+        error: 'Invalid format. Supported formats: csv, excel, json' 
       });
+    }
+
+    // Build query with pagination to prevent memory issues
+    const query = { companyId };
+    if (startDate || endDate) {
+      query.startDate = {};
+      if (startDate) query.startDate.$gte = new Date(startDate);
+      if (endDate) query.startDate.$lte = new Date(endDate);
+    }
+    if (employeeId) query.employeeId = employeeId;
+
+    // For large datasets, use streaming approach
+    if (format.toLowerCase() === 'csv') {
+      return await streamLeaveDataAsCSV(query, res);
+    }
+
+    // For smaller datasets or other formats, use existing approach but with limits
+    const leaves = await Leave.find(query)
+      .populate('employee', 'firstName lastName department employeeId')
+      .populate('user', 'firstName lastName email')
+      .populate('approvedBy', 'firstName lastName')
+      .sort({ appliedAt: -1 })
+      .limit(parseInt(limit)); // Add limit to prevent memory issues
+
+    if (leaves.length === 0) {
+      return res.status(404).json({ message: 'No leave data found for the specified criteria' });
     }
 
     // Transform data for export
@@ -1326,11 +1325,90 @@ exports.exportLeaveData = async (req, res) => {
         res.status(400).json({ error: 'Unsupported format. Use csv, excel, or json.' });
     }
 
-  } catch (error) {
-    console.error('Error exporting leave data:', error);
-    res.status(500).json({ 
-      message: 'Error exporting leave data',
-      error: error.message 
-    });
+  } catch (err) {
+    console.error('Export leave data error:', err);
+    res.status(500).json({ message: 'Error exporting leave data', error: err.message });
   }
-}; 
+};
+
+// Streaming function for large CSV exports
+async function streamLeaveDataAsCSV(query, res) {
+  try {
+    const Leave = require('../models/Leave');
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="leave_export_${new Date().toISOString().split('T')[0]}.csv"`);
+    
+    // Write CSV header
+    const header = 'Employee Name,Department,Role,Leave Type,Start Date,End Date,Duration (Days),Half Day,Reason,Status,Applied Date,Approved Date,Approved By\n';
+    res.write(header);
+    
+    // Stream data in batches
+    const batchSize = 100;
+    let skip = 0;
+    let hasMore = true;
+    
+    while (hasMore) {
+      const leaves = await Leave.find(query)
+        .populate('employee', 'firstName lastName department employeeId')
+        .populate('user', 'firstName lastName email')
+        .populate('approvedBy', 'firstName lastName')
+        .sort({ appliedAt: -1 })
+        .skip(skip)
+        .limit(batchSize)
+        .lean(); // Use lean() for better memory performance
+      
+      if (leaves.length === 0) {
+        hasMore = false;
+        break;
+      }
+      
+      // Process batch
+      for (const leave of leaves) {
+        const employeeName = leave.employee 
+          ? `${leave.employee.firstName || ''} ${leave.employee.lastName || ''}`.trim()
+          : leave.user 
+            ? `${leave.user.firstName || ''} ${leave.user.lastName || ''}`.trim()
+            : 'Unknown';
+        
+        const department = leave.employee?.department || 'Administration';
+        const role = leave.employee ? 'Employee' : 'Admin';
+        
+        const startDate = new Date(leave.startDate);
+        const endDate = new Date(leave.endDate);
+        const duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
+        const row = [
+          `"${employeeName}"`,
+          `"${department}"`,
+          `"${role}"`,
+          `"${leave.leaveType}"`,
+          `"${startDate.toLocaleDateString()}"`,
+          `"${endDate.toLocaleDateString()}"`,
+          duration,
+          leave.isHalfDay ? 'Yes' : 'No',
+          `"${(leave.reason || '').replace(/"/g, '""')}"`,
+          `"${leave.status}"`,
+          `"${new Date(leave.appliedAt).toLocaleDateString()}"`,
+          leave.approvedAt ? `"${new Date(leave.approvedAt).toLocaleDateString()}"` : '',
+          `"${leave.approvedBy || ''}"`
+        ].join(',');
+        
+        res.write(row + '\n');
+      }
+      
+      skip += batchSize;
+      
+      // Check if we have more data
+      if (leaves.length < batchSize) {
+        hasMore = false;
+      }
+    }
+    
+    res.end();
+    
+  } catch (error) {
+    console.error('Error streaming leave data:', error);
+    res.status(500).json({ message: 'Error streaming leave data', error: error.message });
+  }
+} 

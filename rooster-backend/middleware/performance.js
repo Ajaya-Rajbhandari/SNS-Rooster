@@ -107,6 +107,73 @@ const performanceMonitor = (req, res, next) => {
   next();
 };
 
+// Memory monitoring middleware
+const memoryMonitor = (req, res, next) => {
+  const startMemory = process.memoryUsage();
+  
+  res.on('finish', () => {
+    const endMemory = process.memoryUsage();
+    const memoryDiff = {
+      rss: endMemory.rss - startMemory.rss,
+      heapUsed: endMemory.heapUsed - startMemory.heapUsed,
+      heapTotal: endMemory.heapTotal - startMemory.heapTotal,
+      external: endMemory.external - startMemory.external
+    };
+    
+    // Log if memory usage increased significantly
+    if (memoryDiff.heapUsed > 50 * 1024 * 1024) { // 50MB increase
+      console.warn(`MEMORY_WARNING: ${req.method} ${req.originalUrl} - Heap used increased by ${Math.round(memoryDiff.heapUsed / 1024 / 1024)}MB`);
+    }
+    
+    // Log if total memory usage is high
+    if (endMemory.heapUsed > 500 * 1024 * 1024) { // 500MB threshold
+      console.error(`MEMORY_CRITICAL: ${req.method} ${req.originalUrl} - Heap used: ${Math.round(endMemory.heapUsed / 1024 / 1024)}MB`);
+    }
+  });
+  
+  next();
+};
+
+// Response size limiter middleware
+const responseSizeLimiter = (maxSizeMB = 50) => {
+  return (req, res, next) => {
+    const originalSend = res.send;
+    const originalJson = res.json;
+    
+    res.send = function(data) {
+      const dataSize = Buffer.byteLength(data, 'utf8');
+      const sizeMB = dataSize / 1024 / 1024;
+      
+      if (sizeMB > maxSizeMB) {
+        console.error(`RESPONSE_SIZE_WARNING: ${req.method} ${req.originalUrl} - Response size: ${sizeMB.toFixed(2)}MB (limit: ${maxSizeMB}MB)`);
+        return res.status(413).json({ 
+          error: 'Response too large', 
+          message: `Response size (${sizeMB.toFixed(2)}MB) exceeds limit (${maxSizeMB}MB)` 
+        });
+      }
+      
+      return originalSend.call(this, data);
+    };
+    
+    res.json = function(data) {
+      const dataSize = Buffer.byteLength(JSON.stringify(data), 'utf8');
+      const sizeMB = dataSize / 1024 / 1024;
+      
+      if (sizeMB > maxSizeMB) {
+        console.error(`RESPONSE_SIZE_WARNING: ${req.method} ${req.originalUrl} - JSON response size: ${sizeMB.toFixed(2)}MB (limit: ${maxSizeMB}MB)`);
+        return res.status(413).json({ 
+          error: 'Response too large', 
+          message: `Response size (${sizeMB.toFixed(2)}MB) exceeds limit (${maxSizeMB}MB)` 
+        });
+      }
+      
+      return originalJson.call(this, data);
+    };
+    
+    next();
+  };
+};
+
 // Database query optimization helper
 const optimizeQuery = (query, options = {}) => {
   const {
@@ -181,6 +248,8 @@ module.exports = {
   cacheMiddleware,
   invalidateCache,
   performanceMonitor,
+  memoryMonitor,
+  responseSizeLimiter,
   optimizeQuery,
   lazyLoad,
   getCacheStats,

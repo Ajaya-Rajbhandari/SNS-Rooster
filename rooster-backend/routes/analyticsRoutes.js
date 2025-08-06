@@ -49,40 +49,20 @@ router.get('/admin/active-users', authenticateToken, validateCompanyContext, val
 // Advanced Reporting endpoints
 router.get('/advanced-report', authenticateToken, validateCompanyContext, validateUserCompanyAccess, async (req, res) => {
   try {
-    const { type, start, end, format = 'pdf', customFields } = req.query;
-    
-    // Check if advanced reporting is enabled for this company
-    const company = await Company.findById(req.companyId);
-    if (!company.features.advancedReporting) {
-      return res.status(403).json({ 
-        error: 'Advanced Reporting not available in your plan',
-        message: 'Upgrade to Professional or Enterprise plan to access Advanced Reporting'
-      });
+    const { type, start, end, format = 'json' } = req.query;
+
+    if (!type || !start || !end) {
+      return res.status(400).json({ error: 'Type, start, and end parameters are required' });
     }
 
-    // Generate advanced report based on type
-    let reportData;
-    switch (type) {
-      case 'attendance':
-        reportData = await generateAttendanceReport(start, end, req.companyId);
-        break;
-      case 'payroll':
-        reportData = await generatePayrollReport(start, end, req.companyId);
-        break;
-      case 'leave':
-        reportData = await generateLeaveReport(start, end, req.companyId);
-        break;
-      case 'performance':
-        reportData = await generatePerformanceReport(start, end, req.companyId);
-        break;
-      case 'custom':
-        reportData = await generateCustomReport(start, end, customFields, req.companyId);
-        break;
-      default:
-        return res.status(400).json({ error: 'Invalid report type' });
+    // Get report data
+    const reportData = await generateAdvancedReport(type, start, end, req.companyId);
+
+    // For large datasets, use streaming for CSV format
+    if (format.toLowerCase() === 'csv' && reportData.length > 1000) {
+      return await streamReportAsCSV(reportData, type, start, end, res);
     }
 
-    // Generate file based on format
     let fileBuffer;
     let fileName;
     let contentType;
@@ -121,6 +101,52 @@ router.get('/advanced-report', authenticateToken, validateCompanyContext, valida
     res.status(500).json({ error: 'Failed to generate report' });
   }
 });
+
+// Streaming function for large CSV reports
+async function streamReportAsCSV(reportData, type, start, end, res) {
+  try {
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${type}_report_${start}_${end}.csv"`);
+    
+    if (reportData.length === 0) {
+      res.write('No data available\n');
+      return res.end();
+    }
+    
+    // Write CSV header
+    const headers = Object.keys(reportData[0]);
+    res.write(headers.join(',') + '\n');
+    
+    // Stream data in chunks
+    const chunkSize = 100;
+    for (let i = 0; i < reportData.length; i += chunkSize) {
+      const chunk = reportData.slice(i, i + chunkSize);
+      
+      for (const row of chunk) {
+        const csvRow = headers.map(header => {
+          const value = row[header];
+          if (typeof value === 'string' && value.includes(',')) {
+            return `"${value.replace(/"/g, '""')}"`;
+          }
+          return value || '';
+        }).join(',');
+        
+        res.write(csvRow + '\n');
+      }
+      
+      // Small delay to prevent overwhelming the response
+      if (i + chunkSize < reportData.length) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+    }
+    
+    res.end();
+    
+  } catch (error) {
+    console.error('Error streaming CSV report:', error);
+    res.status(500).json({ error: 'Failed to stream CSV report' });
+  }
+}
 
 // Helper functions for report generation
 async function generateAttendanceReport(start, end, companyId) {

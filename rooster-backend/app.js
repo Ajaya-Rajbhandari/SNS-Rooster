@@ -26,7 +26,9 @@ const {
 const {
   compressionMiddleware,
   performanceMonitor,
-  cacheMiddleware
+  cacheMiddleware,
+  memoryMonitor,
+  responseSizeLimiter
 } = require('./middleware/performance');
 const authRoutes = require('./routes/authRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
@@ -183,6 +185,8 @@ app.use('/api/analytics', dashboardLimiter);
 // Performance optimization middleware
 app.use(compressionMiddleware);
 app.use(performanceMonitor);
+app.use(memoryMonitor);
+app.use(responseSizeLimiter(50)); // Limit responses to 50MB
 app.use(performanceTrackingMiddleware);
 app.use(express.json()); // For parsing application/json
 app.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded

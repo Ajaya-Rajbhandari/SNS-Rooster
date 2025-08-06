@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "start": "nodemon server.js",
+    "start": "node server.js",
     "dev": "nodemon server.js",
     "stable": "node start-stable.js",
     "test": "jest",
@@ -17,7 +17,9 @@
     "test-phase2": "node test/phase2-test.js",
     "test-phase2-basic": "node test/phase2-basic-test.js",
     "test-phase3": "node test/phase3-test.js",
-    "test-phase3-basic": "node test/phase3-basic-test.js"
+    "test-phase3-basic": "node test/phase3-basic-test.js",
+    "memory-monitor": "node scripts/memory-monitor.js",
+    "memory-monitor-30s": "node scripts/memory-monitor.js 30"
   },
   "keywords": [],
   "author": "",
