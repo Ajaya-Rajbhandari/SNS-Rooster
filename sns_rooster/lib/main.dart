@@ -158,13 +158,17 @@ void main() async {
     // Continue without FCM for iOS Safari compatibility
   }
 
-  // Initialize Connectivity Service
-  try {
-    await ConnectivityService().initialize();
-    Logger.info('ConnectivityService initialized successfully');
-  } catch (e) {
-    Logger.warning('ConnectivityService initialization failed: $e');
-    // Continue without connectivity monitoring
+  // Initialize Connectivity Service (only on mobile platforms)
+  if (!kIsWeb) {
+    try {
+      await ConnectivityService().initialize();
+      Logger.info('ConnectivityService initialized successfully');
+    } catch (e) {
+      Logger.warning('ConnectivityService initialization failed: $e');
+      // Continue without connectivity monitoring
+    }
+  } else {
+    Logger.info('Skipping ConnectivityService initialization on web platform');
   }
 
   setWebUrlStrategy();
@@ -175,10 +179,14 @@ void main() async {
   Logger.info('Starting SNS Rooster application');
   runApp(const MyApp());
 
-  // Check for app updates after app starts
-  Future.delayed(const Duration(seconds: 3), () {
-    AppUpdateService.checkForUpdates(showAlert: true);
-  });
+  // Check for app updates after app starts (only on mobile platforms)
+  if (!kIsWeb) {
+    Future.delayed(const Duration(seconds: 3), () {
+      AppUpdateService.checkForUpdates(showAlert: true);
+    });
+  } else {
+    Logger.info('Skipping app update check on web platform');
+  }
 }
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalNavigator.navigatorKey;
@@ -484,15 +492,27 @@ class MyApp extends StatelessWidget {
                   },
                   builder: (context, child) {
                     if (child == null) return const SizedBox.shrink();
-                    return NetworkStatusBanner(
-                      child: Stack(
+
+                    // Only show NetworkStatusBanner on mobile platforms, not on web
+                    if (kIsWeb) {
+                      return Stack(
                         children: [
                           child,
                           const GlobalNotificationBanner(),
                           // UpdateAlertWidget will be shown via dialog when needed
                         ],
-                      ),
-                    );
+                      );
+                    } else {
+                      return NetworkStatusBanner(
+                        child: Stack(
+                          children: [
+                            child,
+                            const GlobalNotificationBanner(),
+                            // UpdateAlertWidget will be shown via dialog when needed
+                          ],
+                        ),
+                      );
+                    }
                   },
                 ),
               );

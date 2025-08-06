@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -18,15 +19,20 @@ class AppUpdateService {
   static const String _updateCheckEndpoint = '/app/version/check';
   static const String _playStoreUrl =
       'https://play.google.com/store/apps/details?id=com.snstech.sns_rooster';
-  static const String _webAppUrl = 'https://your-production-domain.com';
+  static const String _webAppUrl = 'https://sns-rooster-8ccz5.web.app';
   static const String _directDownloadUrl =
-      'https://your-server.com/downloads/sns-rooster.apk';
+      'https://sns-rooster.com/downloads/sns-rooster.apk';
 
   /// Check if app update is available
   static Future<AppUpdateInfo?> checkForUpdates({
     bool forceCheck = false,
     bool showAlert = true,
   }) async {
+    // Skip update checks on web platform
+    if (kIsWeb) {
+      print('🌐 Skipping app update check on web platform');
+      return null;
+    }
     try {
       // Get current app version
       final packageInfo = await PackageInfo.fromPlatform();
@@ -37,18 +43,20 @@ class AppUpdateService {
       print('📱 Current version: $currentVersion (build: $buildNumber)');
 
       // Check with backend for latest version
-      final uri = Uri.parse('${ApiConfig.baseUrl}$_updateCheckEndpoint').replace(
+      final uri =
+          Uri.parse('${ApiConfig.baseUrl}$_updateCheckEndpoint').replace(
         queryParameters: {
           'version': currentVersion,
           'build': buildNumber,
         },
       );
-      
+
       final response = await http.get(
         uri,
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'SNS-Rooster/$currentVersion',
+          'User-Agent':
+              'SNS-Rooster/$currentVersion (${Platform.isAndroid ? 'Android' : Platform.isIOS ? 'iOS' : 'Web'})',
         },
       );
 
@@ -57,6 +65,7 @@ class AppUpdateService {
         final latestVersion = data['latest_version'];
         final latestBuildNumber = data['latest_build_number'];
         final updateRequired = data['update_required'] ?? false;
+        // Get platform-appropriate update message from backend
         final updateMessage =
             data['update_message'] ?? 'A new version is available';
         final downloadUrl = data['download_url'];

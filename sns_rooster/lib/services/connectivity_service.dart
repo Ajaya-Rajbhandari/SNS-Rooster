@@ -118,7 +118,7 @@ class ConnectivityService {
 
       // Try to reach the health endpoint
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/health'),
+        Uri.parse('${ApiConfig.baseUrl.replaceAll('/api', '')}/health'),
         headers: {'User-Agent': 'SNS-Rooster-Connectivity-Check'},
       ).timeout(const Duration(seconds: 10));
 

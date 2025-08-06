@@ -4,19 +4,19 @@ const router = express.Router();
 // App version configuration
 const APP_VERSIONS = {
   android: {
-    latest_version: '1.0.12',
-    latest_build_number: '12',
+    latest_version: '1.0.13',
+    latest_build_number: '13',
     update_required: false,
-    update_message: 'A new version of SNS Rooster is available with network connectivity monitoring and UI improvements!',
+    update_message: 'A new version of SNS Rooster is available with improved platform detection and better update messages!',
     download_url: 'https://sns-rooster.onrender.com/api/app/download/android/file',
     min_required_version: '1.0.0',
     min_required_build: '1',
   },
   web: {
-    latest_version: '1.0.12',
-    latest_build_number: '12',
+    latest_version: '1.0.13',
+    latest_build_number: '13',
     update_required: false,
-    update_message: 'A new version of SNS Rooster is available with network connectivity monitoring and UI improvements. Please refresh your browser.',
+    update_message: 'A new version of SNS Rooster is available with improved platform detection and better update messages. Please refresh your browser.',
     download_url: 'https://sns-rooster.onrender.com/api/app/download/android/file',
     min_required_version: '1.0.0',
     min_required_build: '1',
@@ -166,12 +166,28 @@ router.get('/info', async (req, res) => {
 function _detectPlatform(userAgent) {
   const ua = userAgent.toLowerCase();
   
+  // Check for SNS-Rooster app with platform info first
+  if (ua.includes('sns-rooster') && ua.includes('(android)')) {
+    return 'android';
+  } else if (ua.includes('sns-rooster') && ua.includes('(ios)')) {
+    return 'ios';
+  } else if (ua.includes('sns-rooster') && ua.includes('(web)')) {
+    return 'web';
+  }
+  
+  // Fallback to general platform detection
   if (ua.includes('android')) {
     return 'android';
   } else if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ipod')) {
     return 'ios';
-  } else if (ua.includes('flutter') || ua.includes('chrome') || ua.includes('firefox') || ua.includes('safari') || ua.includes('edge')) {
-    // Flutter web app or any browser
+  } else if (ua.includes('flutter') && (ua.includes('android') || ua.includes('mobile'))) {
+    // Flutter mobile app
+    return 'android';
+  } else if (ua.includes('flutter') && ua.includes('web')) {
+    // Flutter web app
+    return 'web';
+  } else if (ua.includes('chrome') || ua.includes('firefox') || ua.includes('safari') || ua.includes('edge')) {
+    // Browser-based apps
     return 'web';
   } else {
     // Default to web for browser-based apps
