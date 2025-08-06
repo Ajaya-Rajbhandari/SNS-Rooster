@@ -26,6 +26,21 @@ const notificationSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  status: {
+    type: String,
+    enum: ['pending', 'sent', 'failed', 'retrying'],
+    default: 'pending',
+  },
+  attempts: {
+    type: Number,
+    default: 0,
+  },
+  lastAttempt: {
+    type: Date,
+  },
+  error: {
+    type: String,
+  },
 });
 
 // Add an index for efficient querying by user and creation time

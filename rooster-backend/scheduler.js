@@ -371,7 +371,8 @@ async function sendBreakTimeViolationNotification(userId, breakTypeConfig, actua
           actualDuration: actualMinutes,
           maxDuration: maxMinutes,
           overMinutes: overMinutes
-        }
+        },
+        userId  // Pass the userId parameter
       );
     }
   } catch (error) {
@@ -427,7 +428,8 @@ async function sendBreakTimeWarningNotification(userId, breakTypeConfig, current
           currentDuration: currentMinutes,
           maxDuration: maxMinutes,
           remainingMinutes: remainingMinutes
-        }
+        },
+        userId  // Pass the userId parameter
       );
     }
   } catch (error) {

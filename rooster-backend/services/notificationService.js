@@ -38,6 +38,15 @@ if (!admin.apps.length) {
 
 async function sendNotificationToUser(fcmToken, title, body, data = {}, userId = null) {
   try {
+    // Input validation
+    if (!title || !body) {
+      throw new Error('Title and body are required for notifications');
+    }
+
+    if (!fcmToken) {
+      throw new Error('FCM token is required for sending notifications');
+    }
+
     // Save notification to database if userId is provided
     if (userId) {
       try {
@@ -46,11 +55,20 @@ async function sendNotificationToUser(fcmToken, title, body, data = {}, userId =
           title,
           body,
           data,
+          status: 'pending', // Track notification status
+          attempts: 0, // Track retry attempts
+          createdAt: new Date(),
         });
         await notification.save();
         console.log('DEBUG: FCM - Notification saved to database for user:', userId);
       } catch (dbError) {
-        console.error('Error saving notification to database:', dbError);
+        console.error('Error saving notification to database:', {
+          error: dbError.message,
+          stack: dbError.stack,
+          userId,
+          title,
+          type: data.type || 'unknown'
+        });
         // Continue with FCM even if DB save fails
       }
     }
