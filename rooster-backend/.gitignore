@@ -101,6 +101,8 @@ Thumbs.db
 
 # Uploads and user content
 uploads/
+!uploads/apk/
+!uploads/apk/*.apk
 exports/
 backups/
 
