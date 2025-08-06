@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../utils/logger.dart';
@@ -375,33 +376,35 @@ class _AboutScreenState extends State<AboutScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          ListTile(
-                            leading:
-                                const Icon(Icons.android, color: Colors.green),
-                            title: const Text('Android App'),
-                            subtitle:
-                                const Text('Download for Android devices'),
-                            onTap: () => _launchUrl(
-                                'https://sns-rooster.onrender.com/api/app/download/android/file'),
-                            trailing: const Icon(Icons.download),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'iOS version coming soon!',
-                            style: TextStyle(
-                              fontStyle: FontStyle.italic,
-                              color: Colors.grey,
+                  // Android App Download (Web Only)
+                  if (kIsWeb)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            ListTile(
+                              leading:
+                                  const Icon(Icons.android, color: Colors.green),
+                              title: const Text('Android App'),
+                              subtitle:
+                                  const Text('Download for Android devices'),
+                              onTap: () => _launchUrl(
+                                  'https://sns-rooster.onrender.com/api/app/download/android/file'),
+                              trailing: const Icon(Icons.download),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 8),
+                            const Text(
+                              'iOS version coming soon!',
+                              style: TextStyle(
+                                fontStyle: FontStyle.italic,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),

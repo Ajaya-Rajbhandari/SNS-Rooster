@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sns_rooster/utils/logger.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -367,27 +368,28 @@ class AdminSideNavigation extends StatelessWidget {
             ),
           ),
           const Divider(),
-          // Android App Download Link
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
-            child: _buildDrawerItem(
-              context,
-              icon: Icons.android,
-              title: 'Download Android App',
-              route: '/download_app',
-              onTap: () async {
-                Navigator.pop(context); // Close the drawer
-                const downloadUrl =
-                    'https://sns-rooster.onrender.com/api/app/download/android/file';
-                final uri = Uri.parse(downloadUrl);
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
-              },
-              colorScheme: colorScheme,
+          // Android App Download Link (Web Only)
+          if (kIsWeb)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+              child: _buildDrawerItem(
+                context,
+                icon: Icons.android,
+                title: 'Download Android App',
+                route: '/download_app',
+                onTap: () async {
+                  Navigator.pop(context); // Close the drawer
+                  const downloadUrl =
+                      'https://sns-rooster.onrender.com/api/app/download/android/file';
+                  final uri = Uri.parse(downloadUrl);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                colorScheme: colorScheme,
+              ),
             ),
-          ),
-          const Divider(),
+          if (kIsWeb) const Divider(),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
             child: _buildDrawerItem(

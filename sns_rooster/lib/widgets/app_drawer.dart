@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sns_rooster/utils/logger.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -178,31 +179,33 @@ class AppDrawer extends StatelessWidget {
                   },
                 ),
                 const Divider(),
-                // Android App Download Link
-                ListTile(
-                  leading:
-                      Icon(Icons.android, color: theme.colorScheme.onSurface),
-                  title: Text(
-                    'Download Android App',
-                    style: theme.textTheme.bodyLarge,
+                // Android App Download Link (Web Only)
+                if (kIsWeb) ...[
+                  ListTile(
+                    leading:
+                        Icon(Icons.android, color: theme.colorScheme.onSurface),
+                    title: Text(
+                      'Download Android App',
+                      style: theme.textTheme.bodyLarge,
+                    ),
+                    subtitle: const Text(
+                      'Get the mobile app for better experience',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    trailing: const Icon(Icons.download, size: 16),
+                    onTap: () async {
+                      Navigator.pop(context); // Close the drawer
+                      const downloadUrl =
+                          'https://sns-rooster.onrender.com/api/app/download/android/file';
+                      final uri = Uri.parse(downloadUrl);
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri,
+                            mode: LaunchMode.externalApplication);
+                      }
+                    },
                   ),
-                  subtitle: const Text(
-                    'Get the mobile app for better experience',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  trailing: const Icon(Icons.download, size: 16),
-                  onTap: () async {
-                    Navigator.pop(context); // Close the drawer
-                    const downloadUrl =
-                        'https://sns-rooster.onrender.com/api/app/download/android/file';
-                    final uri = Uri.parse(downloadUrl);
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(uri,
-                          mode: LaunchMode.externalApplication);
-                    }
-                  },
-                ),
-                const Divider(),
+                  const Divider(),
+                ],
                 ListTile(
                   leading: Icon(Icons.privacy_tip,
                       color: theme.colorScheme.onSurface),
