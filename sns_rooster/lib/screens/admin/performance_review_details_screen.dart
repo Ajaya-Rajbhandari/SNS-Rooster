@@ -123,11 +123,18 @@ class _PerformanceReviewDetailsScreenState
     _commentsController.dispose();
     _employeeCommentsController.dispose();
     _overallRatingController.dispose();
-    _scoreControllers.values.forEach((controller) => controller.dispose());
-    _goalsControllers.forEach((controller) => controller.dispose());
-    _achievementsControllers.forEach((controller) => controller.dispose());
-    _areasOfImprovementControllers
-        .forEach((controller) => controller.dispose());
+    for (var controller in _scoreControllers.values) {
+      controller.dispose();
+    }
+    for (var controller in _goalsControllers) {
+      controller.dispose();
+    }
+    for (var controller in _achievementsControllers) {
+      controller.dispose();
+    }
+    for (var controller in _areasOfImprovementControllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 

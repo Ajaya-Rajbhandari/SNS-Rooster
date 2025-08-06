@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/notification_provider.dart';
-import '../utils/logger.dart';
 import 'dart:async';
 
 class NotificationScreen extends StatefulWidget {

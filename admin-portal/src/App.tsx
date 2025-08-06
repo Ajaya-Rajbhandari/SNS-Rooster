@@ -17,6 +17,7 @@ import SettingsPage from './pages/SettingsPage';
 import MonitoringPage from './pages/MonitoringPage';
 import TestConnectionPage from './pages/TestConnectionPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
+import ProfilePage from './pages/ProfilePage';
 import BillingPage from './pages/BillingPage';
 import SuperAdminRoute from './components/SuperAdminRoute';
 import AdminRoute from './components/AdminRoute';
@@ -123,6 +124,14 @@ function App() {
                 <SuperAdminRoute>
                   <Layout>
                     <MonitoringPage />
+                  </Layout>
+                </SuperAdminRoute>
+              } />
+              
+              <Route path="/profile" element={
+                <SuperAdminRoute>
+                  <Layout>
+                    <ProfilePage />
                   </Layout>
                 </SuperAdminRoute>
               } />

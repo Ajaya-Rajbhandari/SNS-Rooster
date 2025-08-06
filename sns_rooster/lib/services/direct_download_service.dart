@@ -171,7 +171,7 @@ class _DirectDownloadWidgetState extends State<DirectDownloadWidget> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.blue.shade50,
-        border: Border(
+        border: const Border(
           left: BorderSide(
             color: Colors.blue,
             width: 4,
@@ -184,12 +184,12 @@ class _DirectDownloadWidgetState extends State<DirectDownloadWidget> {
         children: [
           Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.download,
                 color: Colors.blue,
               ),
               const SizedBox(width: 8),
-              Expanded(
+              const Expanded(
                 child: Text(
                   'Direct APK Download',
                   style: TextStyle(
@@ -207,15 +207,15 @@ class _DirectDownloadWidgetState extends State<DirectDownloadWidget> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Download and install the latest version directly',
-            style: const TextStyle(fontSize: 14),
+            style: TextStyle(fontSize: 14),
           ),
           if (_error != null) ...[
             const SizedBox(height: 8),
             Text(
               _error!,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
                 color: Colors.red,
               ),
@@ -226,7 +226,7 @@ class _DirectDownloadWidgetState extends State<DirectDownloadWidget> {
             LinearProgressIndicator(
               value: _progress,
               backgroundColor: Colors.grey.shade300,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
             ),
             const SizedBox(height: 8),
             Text(

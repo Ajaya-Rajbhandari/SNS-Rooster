@@ -57,6 +57,7 @@ import 'package:sns_rooster/services/global_notification_service.dart';
 import 'package:sns_rooster/services/fcm_service.dart';
 import 'package:sns_rooster/services/certificate_pinning_service.dart';
 import 'package:sns_rooster/services/app_update_service.dart';
+import 'package:sns_rooster/services/connectivity_service.dart';
 import 'package:sns_rooster/widgets/global_notification_banner.dart';
 import 'package:sns_rooster/widgets/feature_initializer.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -154,6 +155,15 @@ void main() async {
   } catch (e) {
     Logger.warning('FCM Service initialization failed: $e');
     // Continue without FCM for iOS Safari compatibility
+  }
+
+  // Initialize Connectivity Service
+  try {
+    await ConnectivityService().initialize();
+    Logger.info('ConnectivityService initialized successfully');
+  } catch (e) {
+    Logger.warning('ConnectivityService initialization failed: $e');
+    // Continue without connectivity monitoring
   }
 
   setWebUrlStrategy();
