@@ -69,17 +69,33 @@ Write-Host "✅ Updated backend to expect version $nextVersion+$nextBuildNumber"
 
 Write-Host ""
 Write-Host "Step 4: Deploying APK to backend..." -ForegroundColor Green
-# Copy APK to backend
-Copy-Item "build\app\outputs\flutter-apk\app-release.apk" "..\rooster-backend\downloads\sns-rooster.apk" -Force
-Write-Host "✅ Copied APK to backend downloads folder" -ForegroundColor Green
+# Copy APK to backend with versioned filename
+$versionedApkName = "sns-rooster-v$NewVersion.apk"
+Copy-Item "build\app\outputs\flutter-apk\app-release.apk" "..\rooster-backend\downloads\$versionedApkName" -Force
+Write-Host "✅ Copied APK to backend downloads folder as $versionedApkName" -ForegroundColor Green
 
 Write-Host ""
-Write-Host "Step 5: Deploying to backend repository..." -ForegroundColor Green
+Write-Host "Step 5: Updating download routes configuration..." -ForegroundColor Green
+# Update download routes to use versioned filename
+$downloadRoutesPath = "..\rooster-backend\routes\appDownloadRoutes.js"
+$downloadRoutesContent = Get-Content $downloadRoutesPath -Raw
+
+# Update APK configuration
+$apkConfigPattern = "latest_version: '[^']+',\s+latest_build_number: '[^']+',\s+download_url: '[^']+',\s+file_path: '[^']+',"
+$apkConfigReplacement = "latest_version: '$NewVersion',`n    latest_build_number: '$NewBuildNumber',`n    download_url: 'https://sns-rooster.onrender.com/api/app/download/android/file',`n    file_path: `"./downloads/$versionedApkName`,"
+$downloadRoutesContent = $downloadRoutesContent -replace $apkConfigPattern, $apkConfigReplacement
+
+Set-Content $downloadRoutesPath $downloadRoutesContent
+Write-Host "✅ Updated download routes to use $versionedApkName" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "Step 6: Deploying to backend repository..." -ForegroundColor Green
 Set-Location "..\rooster-backend"
 
-# Add and commit APK
-git add downloads/sns-rooster.apk
-git commit -m "Deploy version $NewVersion+$NewBuildNumber APK with $FeatureDescription"
+# Add and commit APK and download routes
+git add downloads/$versionedApkName
+git add routes/appDownloadRoutes.js
+git commit -m "Deploy version $NewVersion+$NewBuildNumber APK with $FeatureDescription - Versioned filename: $versionedApkName"
 git push origin main
 
 # Add and commit backend config
@@ -90,7 +106,7 @@ git push origin main
 Write-Host "✅ Backend changes deployed successfully" -ForegroundColor Green
 
 Write-Host ""
-Write-Host "Step 6: Testing deployment..." -ForegroundColor Green
+Write-Host "Step 7: Testing deployment..." -ForegroundColor Green
 Set-Location "..\sns_rooster"
 
 # Wait for deployment
@@ -110,7 +126,7 @@ try {
 }
 
 Write-Host ""
-Write-Host "Step 7: Installing new APK..." -ForegroundColor Green
+Write-Host "Step 8: Installing new APK..." -ForegroundColor Green
 flutter install --release
 Write-Host "✅ New APK installed successfully" -ForegroundColor Green
 
@@ -123,7 +139,8 @@ Write-Host "========" -ForegroundColor Yellow
 Write-Host "✅ Updated pubspec.yaml to $NewVersion+$NewBuildNumber" -ForegroundColor Green
 Write-Host "✅ Built new APK" -ForegroundColor Green
 Write-Host "✅ Updated backend to expect $nextVersion+$nextBuildNumber" -ForegroundColor Green
-Write-Host "✅ Deployed APK to backend" -ForegroundColor Green
+Write-Host "✅ Deployed APK to backend as $versionedApkName" -ForegroundColor Green
+Write-Host "✅ Updated download routes with versioned filename" -ForegroundColor Green
 Write-Host "✅ Deployed backend changes" -ForegroundColor Green
 Write-Host "✅ Installed new APK on device" -ForegroundColor Green
 Write-Host ""
