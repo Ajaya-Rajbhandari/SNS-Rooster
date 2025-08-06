@@ -6,10 +6,10 @@ const fs = require('fs');
 // APK file configuration
 const APK_CONFIG = {
   android: {
-    latest_version: '1.0.0',
-    latest_build_number: '1',
+    latest_version: '1.0.8',
+    latest_build_number: '8',
     download_url: 'https://sns-rooster.onrender.com/api/app/download/android/file',
-    file_path: './downloads/sns-rooster.apk', // Local APK file path
+    file_path: `./downloads/sns-rooster-v1.0.8.apk`, // Local APK file path with version
     file_size: 0, // Will be calculated dynamically
     checksum: '', // Will be calculated dynamically
   }
@@ -71,7 +71,7 @@ router.get('/android/file', async (req, res) => {
     
     // Set headers for file download
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-    res.setHeader('Content-Disposition', 'attachment; filename="sns-rooster.apk"');
+    res.setHeader('Content-Disposition', `attachment; filename="sns-rooster-v${APK_CONFIG.android.latest_version}.apk"`);
     res.setHeader('Content-Length', stats.size);
     res.setHeader('Cache-Control', 'no-cache');
     
@@ -166,6 +166,13 @@ router.get('/status', async (req, res) => {
     });
   }
 });
+
+/**
+ * Generate APK filename with version
+ */
+function _getApkFilename(version) {
+  return `sns-rooster-v${version}.apk`;
+}
 
 /**
  * Calculate file checksum (MD5)
