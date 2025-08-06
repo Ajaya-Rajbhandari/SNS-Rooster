@@ -95,8 +95,17 @@ router.get('/:id', authenticateToken, validateCompanyContext, validateUserCompan
 // Create a new employee (admin only)
 router.post('/', authenticateToken, validateCompanyContext, validateUserCompanyAccess, employeeController.createEmployee);
 
+// Bulk create employees (admin only)
+router.post('/bulk-create', authenticateToken, validateCompanyContext, validateUserCompanyAccess, employeeController.bulkCreateEmployees);
+
 // Update an employee (admin/manager or self)
 router.put('/:id', authenticateToken, validateCompanyContext, validateUserCompanyAccess, employeeController.updateEmployee);
+
+// Bulk update employees (admin only)
+router.put('/bulk-update', authenticateToken, validateCompanyContext, validateUserCompanyAccess, employeeController.bulkUpdateEmployees);
+
+// Bulk delete employees (admin only)
+router.delete('/bulk-delete', authenticateToken, validateCompanyContext, validateUserCompanyAccess, employeeController.bulkDeleteEmployees);
 
 // Delete an employee (admin only)
 router.delete('/:id', authenticateToken, validateCompanyContext, validateUserCompanyAccess, employeeController.deleteEmployee);

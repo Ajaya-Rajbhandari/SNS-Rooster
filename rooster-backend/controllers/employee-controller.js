@@ -532,3 +532,279 @@ exports.removeEmployeeFromLocation = async (req, res) => {
     });
   }
 };
+
+// Bulk operations for employee management
+exports.bulkCreateEmployees = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only admins can perform bulk operations' });
+    }
+
+    const { employees } = req.body;
+    
+    if (!employees || !Array.isArray(employees) || employees.length === 0) {
+      return res.status(400).json({ message: 'Employees array is required and must not be empty' });
+    }
+
+    if (employees.length > 100) {
+      return res.status(400).json({ message: 'Cannot create more than 100 employees at once' });
+    }
+
+    const results = {
+      successful: [],
+      failed: [],
+      total: employees.length
+    };
+
+    for (const employeeData of employees) {
+      try {
+        // Validate required fields
+        if (!employeeData.email || !employeeData.firstName || !employeeData.lastName) {
+          results.failed.push({
+            email: employeeData.email,
+            error: 'Missing required fields: email, firstName, lastName'
+          });
+          continue;
+        }
+
+        // Check if user already exists
+        let user = await User.findOne({ 
+          email: employeeData.email, 
+          companyId: req.companyId 
+        });
+
+        if (!user) {
+          // Create new user
+          user = new User({
+            email: employeeData.email,
+            password: employeeData.password || 'defaultPassword123', // Will be changed on first login
+            firstName: employeeData.firstName,
+            lastName: employeeData.lastName,
+            role: 'employee',
+            companyId: req.companyId,
+            position: employeeData.position,
+            department: employeeData.department,
+            isActive: true
+          });
+          await user.save();
+        } else if (user.role !== 'employee') {
+          results.failed.push({
+            email: employeeData.email,
+            error: 'User exists but is not an employee'
+          });
+          continue;
+        }
+
+        // Check if employee record already exists
+        const existingEmployee = await Employee.findOne({ 
+          userId: user._id, 
+          companyId: req.companyId 
+        });
+
+        if (existingEmployee) {
+          results.failed.push({
+            email: employeeData.email,
+            error: 'Employee already exists'
+          });
+          continue;
+        }
+
+        // Create employee record
+        const employee = new Employee({
+          userId: user._id,
+          companyId: req.companyId,
+          firstName: employeeData.firstName,
+          lastName: employeeData.lastName,
+          email: employeeData.email,
+          employeeId: employeeData.employeeId,
+          hireDate: employeeData.hireDate || new Date(),
+          position: employeeData.position,
+          department: employeeData.department,
+          hourlyRate: employeeData.hourlyRate,
+          monthlySalary: employeeData.monthlySalary,
+          employeeType: employeeData.employeeType || 'Full-time',
+          employeeSubType: employeeData.employeeSubType,
+          isActive: true
+        });
+
+        const newEmployee = await employee.save();
+        
+        results.successful.push({
+          email: employeeData.email,
+          employeeId: newEmployee._id,
+          userId: user._id
+        });
+
+      } catch (error) {
+        results.failed.push({
+          email: employeeData.email,
+          error: error.message
+        });
+      }
+    }
+
+    res.status(200).json({
+      message: `Bulk employee creation completed. ${results.successful.length} successful, ${results.failed.length} failed`,
+      results
+    });
+
+  } catch (error) {
+    console.error('Bulk create employees error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.bulkUpdateEmployees = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only admins can perform bulk operations' });
+    }
+
+    const { updates } = req.body;
+    
+    if (!updates || !Array.isArray(updates) || updates.length === 0) {
+      return res.status(400).json({ message: 'Updates array is required and must not be empty' });
+    }
+
+    if (updates.length > 100) {
+      return res.status(400).json({ message: 'Cannot update more than 100 employees at once' });
+    }
+
+    const results = {
+      successful: [],
+      failed: [],
+      total: updates.length
+    };
+
+    for (const updateData of updates) {
+      try {
+        const { employeeId, updates: employeeUpdates } = updateData;
+
+        if (!employeeId) {
+          results.failed.push({
+            employeeId: 'unknown',
+            error: 'Employee ID is required'
+          });
+          continue;
+        }
+
+        // Validate employee exists and belongs to company
+        const employee = await Employee.findOne({ 
+          _id: employeeId, 
+          companyId: req.companyId 
+        });
+
+        if (!employee) {
+          results.failed.push({
+            employeeId,
+            error: 'Employee not found'
+          });
+          continue;
+        }
+
+        // Update employee
+        const updatedEmployee = await Employee.findByIdAndUpdate(
+          employeeId,
+          employeeUpdates,
+          { new: true, runValidators: true }
+        );
+
+        // Also update corresponding user if position/department changed
+        if (employeeUpdates.position || employeeUpdates.department) {
+          await User.findByIdAndUpdate(employee.userId, {
+            position: employeeUpdates.position,
+            department: employeeUpdates.department
+          });
+        }
+
+        results.successful.push({
+          employeeId,
+          email: updatedEmployee.email
+        });
+
+      } catch (error) {
+        results.failed.push({
+          employeeId: updateData.employeeId || 'unknown',
+          error: error.message
+        });
+      }
+    }
+
+    res.status(200).json({
+      message: `Bulk employee update completed. ${results.successful.length} successful, ${results.failed.length} failed`,
+      results
+    });
+
+  } catch (error) {
+    console.error('Bulk update employees error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.bulkDeleteEmployees = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only admins can perform bulk operations' });
+    }
+
+    const { employeeIds } = req.body;
+    
+    if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
+      return res.status(400).json({ message: 'Employee IDs array is required and must not be empty' });
+    }
+
+    if (employeeIds.length > 100) {
+      return res.status(400).json({ message: 'Cannot delete more than 100 employees at once' });
+    }
+
+    const results = {
+      successful: [],
+      failed: [],
+      total: employeeIds.length
+    };
+
+    for (const employeeId of employeeIds) {
+      try {
+        // Validate employee exists and belongs to company
+        const employee = await Employee.findOne({ 
+          _id: employeeId, 
+          companyId: req.companyId 
+        });
+
+        if (!employee) {
+          results.failed.push({
+            employeeId,
+            error: 'Employee not found'
+          });
+          continue;
+        }
+
+        // Delete employee
+        await Employee.findByIdAndDelete(employeeId);
+
+        // Optionally deactivate user (soft delete)
+        await User.findByIdAndUpdate(employee.userId, { isActive: false });
+
+        results.successful.push({
+          employeeId,
+          email: employee.email
+        });
+
+      } catch (error) {
+        results.failed.push({
+          employeeId,
+          error: error.message
+        });
+      }
+    }
+
+    res.status(200).json({
+      message: `Bulk employee deletion completed. ${results.successful.length} successful, ${results.failed.length} failed`,
+      results
+    });
+
+  } catch (error) {
+    console.error('Bulk delete employees error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
