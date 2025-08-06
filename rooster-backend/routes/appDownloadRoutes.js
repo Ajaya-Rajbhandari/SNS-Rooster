@@ -7,7 +7,7 @@ const fs = require('fs');
 const APK_CONFIG = {
   android: {
     latest_version: '1.0.8',
-    latest_build_number: '8',
+    latest_build_number: '8.1',
     download_url: 'https://sns-rooster.onrender.com/api/app/download/android/file',
     file_path: `./downloads/sns-rooster-v1.0.8.apk`, // Local APK file path with version
     file_size: 0, // Will be calculated dynamically
