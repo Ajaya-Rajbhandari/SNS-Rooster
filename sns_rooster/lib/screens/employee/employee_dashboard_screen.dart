@@ -873,16 +873,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
               },
             ),
             const SizedBox(height: 28),
-            const StatusCard(),
-            const SizedBox(height: 28),
-            // Location Information Card
-            _buildLocationInfoCard(),
-            const SizedBox(height: 28),
-            // Leave Status Widget
-            if (_isOnLeave && _leaveInfo != null) ...[
-              _buildLeaveStatusWidget(),
-              const SizedBox(height: 28),
-            ],
             Text(
               'Quick Actions',
               style: Theme.of(context)
@@ -905,6 +895,16 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
               openCompanyInfo: (ctx) => _openCompanyInfo(ctx),
             ),
             const SizedBox(height: 28),
+            const StatusCard(),
+            const SizedBox(height: 28),
+            // Location Information Card
+            _buildLocationInfoCard(),
+            const SizedBox(height: 28),
+            // Leave Status Widget
+            if (_isOnLeave && _leaveInfo != null) ...[
+              _buildLeaveStatusWidget(),
+              const SizedBox(height: 28),
+            ],
             // Upcoming Events Section
             if (_upcomingEvents.isNotEmpty || _eventsLoading) ...[
               Row(
@@ -2088,21 +2088,6 @@ class StatusCard extends StatelessWidget {
                           ],
                         ),
                       ],
-                    ),
-                  ),
-                  Semantics(
-                    label: 'Refresh Status',
-                    button: true,
-                    child: IconButton(
-                      icon: const Icon(Icons.refresh, size: 30),
-                      onPressed: () {
-                        final authProvider =
-                            Provider.of<AuthProvider>(context, listen: false);
-                        final userId = authProvider.user?['_id'];
-                        if (userId != null) {
-                          attendanceProvider.fetchTodayStatus(userId);
-                        }
-                      },
                     ),
                   ),
                 ],

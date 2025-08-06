@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:sns_rooster/providers/auth_provider.dart';
 import 'package:sns_rooster/providers/feature_provider.dart';
 import 'package:sns_rooster/config/api_config.dart';
-import 'package:sns_rooster/screens/admin/employee_management_screen.dart';
+
 import 'package:sns_rooster/screens/admin/payroll_management_screen.dart';
 import 'package:sns_rooster/screens/admin/leave_management_screen.dart';
 import 'package:sns_rooster/screens/admin/notification_alert_screen.dart';
@@ -15,6 +15,7 @@ import 'package:sns_rooster/screens/admin/help_support_screen.dart';
 import 'package:sns_rooster/screens/admin/attendance_management_screen.dart';
 import 'package:sns_rooster/screens/admin/break_management_screen.dart';
 import 'package:sns_rooster/screens/admin/event_management_screen.dart';
+import 'package:sns_rooster/screens/admin/employee_management_screen.dart';
 import 'package:sns_rooster/widgets/admin_side_navigation.dart';
 import '../../services/employee_service.dart';
 import '../../services/api_service.dart';
@@ -22,8 +23,7 @@ import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../widgets/notification_bell.dart';
 import '../../providers/notification_provider.dart';
-import '../../providers/payroll_analytics_provider.dart';
-import '../../providers/payroll_cycle_settings_provider.dart';
+
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:sns_rooster/services/secure_storage_service.dart';
 
@@ -300,6 +300,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 // Modern Stat Card Row
                 _buildStatCardRow(),
                 const SizedBox(height: 24),
+                // Quick Actions & Shortcuts
+                Text(
+                  'Quick Actions & Shortcuts',
+                  style: theme.textTheme.titleLarge,
+                ),
+                const SizedBox(height: 16),
+                _buildPaginatedQuickActions(context),
+                const SizedBox(height: 24),
                 // Attendance Pie Chart
                 Card(
                   elevation: 2,
@@ -343,13 +351,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
             const SizedBox(height: 24),
           ],
-          Text(
-            'Quick Actions & Shortcuts',
-            style: theme.textTheme.titleLarge,
-          ),
-          const SizedBox(height: 16),
-          _buildPaginatedQuickActions(context),
-          const SizedBox(height: 24),
           Text(
             'Real-Time Data & Analytics',
             style: theme.textTheme.titleLarge,
@@ -412,97 +413,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
-          Text(
-            'Notifications & Alerts',
-            style: theme.textTheme.titleLarge,
-          ),
-          const SizedBox(height: 16),
-          _buildAlertsSection(context),
-          const SizedBox(height: 24),
-          Text(
-            'Employee Management',
-            style: theme.textTheme.titleLarge,
-          ),
-          const SizedBox(height: 16),
-          Card(
-            elevation: 4,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Employee Directory',
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 16),
-                  FutureBuilder<List<Map<String, dynamic>>>(
-                    future:
-                        EmployeeService(ApiService(baseUrl: ApiConfig.baseUrl))
-                            .getEmployees(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError) {
-                        return Center(
-                            child: Text(
-                                'Failed to load employees: \\${snapshot.error}'));
-                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                        return const Center(child: Text('No employees found.'));
-                      }
-                      final employees = snapshot.data!;
-                      return SizedBox(
-                        height: 200,
-                        child: ListView.separated(
-                          itemCount: employees.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (context, i) {
-                            final emp = employees[i];
-                            return ListTile(
-                              leading: emp['role'] == 'admin'
-                                  ? const Icon(Icons.admin_panel_settings,
-                                      color: Colors.purple)
-                                  : const Icon(Icons.person),
-                              title: Text(
-                                  '${emp['firstName'] ?? ''} ${emp['lastName'] ?? ''}'
-                                          .trim()
-                                          .isEmpty
-                                      ? 'Unknown'
-                                      : '${emp['firstName'] ?? ''} ${emp['lastName'] ?? ''}'
-                                          .trim()),
-                              subtitle: Text(emp['email'] ?? 'No email'),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      // Navigate to Add Employee screen
-                    },
-                    icon: const Icon(Icons.person_add),
-                    label: const Text('Add New Employee'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Only show Payroll Insights if the feature is enabled
-          if (featureProvider.hasPayroll) ...[
-            const SizedBox(height: 24),
-            Text(
-              'Payroll Insights',
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            // --- Payroll Insights Section ---
-            const _PayrollInsightsSection(),
-          ],
+
           const SizedBox(height: 24),
           // Placeholder sections removed (Help & Support, Security & Compliance, Integration)
         ],
@@ -889,31 +800,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // Restore the original _buildPaginatedQuickActions function to show action cards
+  // Optimized Quick Actions based on frequency of use
   Widget _buildPaginatedQuickActions(BuildContext context) {
     final actions = [
-      {
-        'icon': Icons.settings,
-        'title': 'Settings',
-        'onTap': () => Navigator.push(context,
-            MaterialPageRoute(builder: (context) => const SettingsScreen())),
-      },
-      {
-        'icon': Icons.access_time,
-        'title': 'Attendance',
-        'onTap': () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const AttendanceManagementScreen())),
-      },
-      {
-        'icon': Icons.free_breakfast,
-        'title': 'Break Management',
-        'onTap': () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const BreakManagementScreen())),
-      },
+      // 🔥 Most Frequently Used (Daily)
       {
         'icon': Icons.people,
         'title': 'Employee Management',
@@ -924,7 +814,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       },
       {
         'icon': Icons.beach_access,
-        'title': 'Leave',
+        'title': 'Leave Management',
         'onTap': () => Navigator.push(
             context,
             MaterialPageRoute(
@@ -939,6 +829,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 builder: (context) => const PayrollManagementScreen())),
       },
       {
+        'icon': Icons.access_time,
+        'title': 'Attendance',
+        'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const AttendanceManagementScreen())),
+      },
+      // 📊 Medium Frequency (Weekly/Monthly)
+      {
+        'icon': Icons.free_breakfast,
+        'title': 'Break Management',
+        'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const BreakManagementScreen())),
+      },
+      {
         'icon': Icons.notifications,
         'title': 'Notifications',
         'onTap': () => Navigator.push(
@@ -947,18 +854,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 builder: (context) => const NotificationAlertScreen())),
       },
       {
+        'icon': Icons.settings,
+        'title': 'Settings',
+        'onTap': () => Navigator.push(context,
+            MaterialPageRoute(builder: (context) => const SettingsScreen())),
+      },
+      {
         'icon': Icons.help_outline,
         'title': 'Help',
         'onTap': () => Navigator.push(context,
             MaterialPageRoute(builder: (context) => const HelpSupportScreen())),
-      },
-      {
-        'icon': Icons.event,
-        'title': 'Create Event',
-        'onTap': () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const EventManagementScreen())),
       },
     ];
 
@@ -1088,84 +993,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
     );
   }
-
-  Widget _buildAlertsSection(BuildContext context) {
-    final notificationProvider = Provider.of<NotificationProvider>(context);
-    // Filter notifications: show only alerts or broadcasts for admin
-    final rawAlerts = notificationProvider.notifications;
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.user?['_id'];
-    final alerts = rawAlerts
-        .where((n) {
-          final isAlertType = n['type'] == 'alert' ||
-              n['type'] == 'payroll'; // extend as needed
-          final isForAdminRole = n['role'] == 'admin';
-          final isBroadcast = n['role'] == 'all';
-          final isForThisAdmin = n['user'] == userId;
-          return isAlertType &&
-              (isForAdminRole || isBroadcast || isForThisAdmin);
-        })
-        .take(3)
-        .toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Recent Alerts',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 12),
-        if (alerts.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Center(child: Text('No critical alerts.')),
-          )
-        else
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              children: alerts.map((alert) {
-                return ListTile(
-                  leading: Icon(
-                    alert['type'] == 'alert'
-                        ? Icons.warning
-                        : Icons.notifications,
-                    color: alert['type'] == 'alert'
-                        ? Colors.red
-                        : Theme.of(context).colorScheme.primary,
-                  ),
-                  title: Text(alert['title'] ?? 'Untitled Alert'),
-                  subtitle: Text(alert['message'] ?? 'No description'),
-                );
-              }).toList(),
-            ),
-          ),
-        const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const NotificationAlertScreen(),
-                ),
-              );
-            },
-            child: const Text('View All Alerts'),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class _EmployeeModalContent extends StatefulWidget {
@@ -1289,283 +1116,6 @@ class _EmployeeModalContentState extends State<_EmployeeModalContent> {
           child: const Text('Close'),
         ),
       ],
-    );
-  }
-}
-
-class _PayrollInsightsSection extends StatefulWidget {
-  const _PayrollInsightsSection({Key? key}) : super(key: key);
-
-  @override
-  State<_PayrollInsightsSection> createState() =>
-      _PayrollInsightsSectionState();
-}
-
-class _PayrollInsightsSectionState extends State<_PayrollInsightsSection> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider =
-          Provider.of<PayrollAnalyticsProvider>(context, listen: false);
-      final cycleProv =
-          Provider.of<PayrollCycleSettingsProvider>(context, listen: false);
-      final freq = (cycleProv.settings?['frequency'] ?? 'Monthly')
-          .toString()
-          .toLowerCase();
-      provider.fetchTrend(freq: freq);
-      provider.fetchDeductionBreakdown();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final provider = Provider.of<PayrollAnalyticsProvider>(context);
-
-    if (provider.isLoading && provider.trend.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (provider.error != null) {
-      return Text('Error: ${provider.error}',
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(color: theme.colorScheme.error));
-    }
-
-    final trend = provider.trend;
-    final breakdown = provider.deductionBreakdown;
-
-    // Compute summary stats from trend (use latest month if available)
-    double totalPayroll = 0;
-    double latestGross = 0;
-    double latestDeductions = 0;
-    DateTime? nextPayDate;
-    if (trend.isNotEmpty) {
-      final latest = trend.last; // latest month
-      totalPayroll = (latest['totalNet'] ?? 0).toDouble();
-      latestGross = (latest['totalGross'] ?? 0).toDouble();
-      latestDeductions = (latest['totalDeductions'] ?? 0).toDouble();
-    }
-
-    // Compute next pay date using payroll cycle settings
-    final cycleProvider = Provider.of<PayrollCycleSettingsProvider>(context);
-    final cycle = cycleProvider.settings;
-    if (cycle != null) {
-      final String freq = cycle['frequency'] ?? 'Monthly';
-      if (freq == 'Monthly') {
-        final int payDay = (cycle['payDay'] ?? 30) as int;
-        DateTime now = DateTime.now();
-        DateTime tentative = DateTime(now.year, now.month, payDay);
-        if (now.isAfter(tentative)) {
-          tentative = DateTime(now.year, now.month + 1, payDay);
-        }
-        final int offset = (cycle['payOffset'] ?? 0) as int;
-        nextPayDate = tentative.add(Duration(days: offset));
-      }
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Payroll Trend (Last 6 Months)',
-            style: theme.textTheme.titleMedium),
-        const SizedBox(height: 12),
-        Container(
-          height: 180,
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: trend.isEmpty
-              ? const Center(child: Text('No data'))
-              : Builder(builder: (context) {
-                  final maxY = trend
-                      .map<double>((e) => (e['totalNet'] ?? 0).toDouble())
-                      .fold<double>(0, (prev, v) => v > prev ? v : prev);
-                  return BarChart(
-                    BarChartData(
-                      maxY: maxY * 1.2,
-                      barTouchData: BarTouchData(
-                        enabled: true,
-                        touchTooltipData: BarTouchTooltipData(
-                          getTooltipItem: (group, _, rod, __) {
-                            final month = trend[group.x.toInt()]['month'];
-                            return BarTooltipItem(
-                              '$month\n₹${rod.toY.toStringAsFixed(0)}',
-                              const TextStyle(color: Colors.white),
-                            );
-                          },
-                        ),
-                      ),
-                      titlesData: FlTitlesData(
-                        leftTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false)),
-                        topTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false)),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            interval: 1,
-                            getTitlesWidget: (value, meta) {
-                              final idx = value.toInt();
-                              if (idx < 0 || idx >= trend.length) {
-                                return const SizedBox.shrink();
-                              }
-                              final mStr =
-                                  (trend[idx]['month'] as String).substring(5);
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 4.0),
-                                child: Text(mStr,
-                                    style: const TextStyle(fontSize: 10)),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      gridData:
-                          FlGridData(show: true, horizontalInterval: maxY / 4),
-                      borderData: FlBorderData(show: false),
-                      barGroups: [
-                        for (int i = 0; i < trend.length; i++)
-                          BarChartGroupData(x: i, barRods: [
-                            BarChartRodData(
-                              toY: (trend[i]['totalNet'] ?? 0).toDouble(),
-                              color: Theme.of(context).colorScheme.primary,
-                              width: 18,
-                              borderRadius: BorderRadius.circular(4),
-                            )
-                          ])
-                      ],
-                    ),
-                  );
-                }),
-        ),
-        const SizedBox(height: 24),
-        Text('Deduction Breakdown', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 12),
-        Container(
-          height: 180,
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: breakdown.isEmpty
-              ? const Center(child: Text('No breakdown data'))
-              : PieChart(
-                  PieChartData(
-                    sectionsSpace: 2,
-                    centerSpaceRadius: 30,
-                    sections: breakdown.entries.map((e) {
-                      final idx = breakdown.keys.toList().indexOf(e.key);
-                      final color =
-                          Colors.primaries[idx % Colors.primaries.length];
-                      final percent =
-                          (e.value / breakdown.values.reduce((a, b) => a + b)) *
-                              100;
-                      return PieChartSectionData(
-                        value: e.value,
-                        title: '${percent.toStringAsFixed(0)}%',
-                        color: color,
-                        radius: 60,
-                        titleStyle: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold),
-                      );
-                    }).toList(),
-                  ),
-                ),
-        ),
-        const SizedBox(height: 8),
-        if (breakdown.isNotEmpty)
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              for (final entry in breakdown.entries)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: Colors.primaries[
-                            breakdown.keys.toList().indexOf(entry.key) %
-                                Colors.primaries.length],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text('${entry.key}: ₹${entry.value.toStringAsFixed(0)}',
-                        style: theme.textTheme.bodySmall),
-                  ],
-                ),
-            ],
-          ),
-        const SizedBox(height: 24),
-        Text('Payroll Summary', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            _buildSummaryCard(
-                context,
-                'Latest Net Payroll',
-                '₹${totalPayroll.toStringAsFixed(2)}',
-                Icons.payments,
-                Colors.blue),
-            _buildSummaryCard(
-                context,
-                'Latest Gross Payroll',
-                '₹${latestGross.toStringAsFixed(2)}',
-                Icons.account_balance_wallet,
-                Colors.green),
-            _buildSummaryCard(
-                context,
-                'Latest Deductions',
-                '₹${latestDeductions.toStringAsFixed(2)}',
-                Icons.remove_circle,
-                Colors.red),
-            if (nextPayDate != null)
-              _buildSummaryCard(
-                  context,
-                  'Next Pay Run',
-                  DateFormat('d MMM').format(nextPayDate),
-                  Icons.calendar_today,
-                  Colors.purple),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSummaryCard(BuildContext context, String title, String value,
-      IconData icon, Color color) {
-    final theme = Theme.of(context);
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Container(
-        width: 120,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 8),
-            Text(title, style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 4),
-            Text(value,
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ),
     );
   }
 }

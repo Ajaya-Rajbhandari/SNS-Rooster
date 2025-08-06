@@ -97,8 +97,8 @@ class AdminSideNavigation extends StatelessWidget {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                // 🔥 HIGH FREQUENCY - Daily/Weekly Use
-                _SidebarSectionHeader('Frequently Used'),
+                // 🔥 Most Frequently Used (Daily)
+                _SidebarSectionHeader('Most Used'),
                 _buildDrawerItem(
                   context,
                   icon: Icons.dashboard,
@@ -135,19 +135,6 @@ class AdminSideNavigation extends StatelessWidget {
                     screen: const PayrollManagementScreen(),
                     colorScheme: colorScheme,
                   ),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.access_time,
-                  title: 'Timesheet Management',
-                  route: '/admin_timesheet',
-                  screen: const AdminTimesheetScreen(),
-                  colorScheme: colorScheme,
-                ),
-
-                const SizedBox(height: 8),
-
-                // 📊 MEDIUM FREQUENCY - Weekly/Monthly Use
-                _SidebarSectionHeader('Monitoring & Reports'),
                 // Only show Attendance Management if the feature is enabled
                 if (featureProvider.hasAttendanceManagement)
                   _buildDrawerItem(
@@ -156,6 +143,21 @@ class AdminSideNavigation extends StatelessWidget {
                     title: 'Attendance Management',
                     route: '/attendance_management',
                     screen: const AttendanceManagementScreen(),
+                    colorScheme: colorScheme,
+                  ),
+
+                const SizedBox(height: 8),
+
+                // 📊 Medium Frequency (Weekly/Monthly)
+                _SidebarSectionHeader('Monitoring & Reports'),
+                // Only show Break Management if the feature is enabled
+                if (featureProvider.hasBreakManagement)
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.coffee,
+                    title: 'Break Management',
+                    route: '/break_management',
+                    screen: const BreakManagementScreen(),
                     colorScheme: colorScheme,
                   ),
                 // Only show Notifications & Alerts if the feature is enabled
@@ -178,6 +180,14 @@ class AdminSideNavigation extends StatelessWidget {
                     screen: const AdminAnalyticsScreen(),
                     colorScheme: colorScheme,
                   ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.access_time,
+                  title: 'Timesheet Management',
+                  route: '/admin_timesheet',
+                  screen: const AdminTimesheetScreen(),
+                  colorScheme: colorScheme,
+                ),
                 // Only show Event Management if the feature is enabled
                 if (featureProvider.hasEvents)
                   _buildDrawerItem(
@@ -211,18 +221,8 @@ class AdminSideNavigation extends StatelessWidget {
 
                 const SizedBox(height: 8),
 
-                // ⚙️ LOW FREQUENCY - Monthly/As Needed
+                // ⚙️ Configuration (Monthly/As Needed)
                 _SidebarSectionHeader('Configuration'),
-                // Only show Break Management if the feature is enabled
-                if (featureProvider.hasBreakManagement)
-                  _buildDrawerItem(
-                    context,
-                    icon: Icons.coffee,
-                    title: 'Break Management',
-                    route: '/break_management',
-                    screen: const BreakManagementScreen(),
-                    colorScheme: colorScheme,
-                  ),
                 // Only show Break Types if the feature is enabled
                 if (featureProvider.hasBreakTypes)
                   _buildDrawerItem(
@@ -284,7 +284,7 @@ class AdminSideNavigation extends StatelessWidget {
                     colorScheme: colorScheme,
                   ),
 
-                // 🏢 ENTERPRISE FEATURES
+                // 🏢 Enterprise Features (As Needed)
                 if (featureProvider.hasMultiLocation)
                   _buildDrawerItem(
                     context,
