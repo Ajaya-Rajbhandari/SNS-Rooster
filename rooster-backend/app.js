@@ -74,9 +74,9 @@ const healthRoutes = require('./routes/healthRoutes');
 // Import middleware
 const { authenticateToken } = require('./middleware/auth');
 const { requireSuperAdmin } = require('./middleware/superAdmin');
-const { performanceMonitor, memoryMonitor, responseSizeLimiter, performanceTrackingMiddleware } = require('./middleware/monitoring');
+const { performanceMonitor } = require('./middleware/monitoring');
 const { errorTrackingMiddleware } = require('./middleware/errorTracking');
-const { cacheMiddleware } = require('./middleware/performance');
+const { cacheMiddleware, responseSizeLimiter } = require('./middleware/performance');
 
 // Security headers
 app.use(helmet({
@@ -173,9 +173,7 @@ app.use('/api/analytics', dashboardLimiter);
 // Performance optimization middleware
 app.use(compressionMiddleware);
 app.use(performanceMonitor);
-app.use(memoryMonitor);
 app.use(responseSizeLimiter(50)); // Limit responses to 50MB
-app.use(performanceTrackingMiddleware);
 app.use(express.json()); // For parsing application/json
 app.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
 
