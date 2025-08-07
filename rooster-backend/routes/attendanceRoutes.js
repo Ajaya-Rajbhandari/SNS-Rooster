@@ -97,6 +97,8 @@ router.post("/start-break", attendanceController.startBreak);
 
 // End break
 router.patch("/end-break", attendanceController.endBreak);
+// Also support POST for end-break (fallback for web environments)
+router.post("/end-break", attendanceController.endBreak);
 
 // Get current user's own attendance data
 router.get("/my-attendance", attendanceController.getMyAttendance);

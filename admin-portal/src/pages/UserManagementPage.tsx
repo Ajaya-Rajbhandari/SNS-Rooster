@@ -21,7 +21,13 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  IconButton
+  IconButton,
+  Checkbox,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Tooltip
 } from '@mui/material';
 import { 
   Add as AddIcon, 
@@ -32,11 +38,15 @@ import {
   Lock as LockIcon,
   ExpandMore as ExpandMoreIcon,
   Business as BusinessIcon,
-  People as PeopleIcon
+  People as PeopleIcon,
+  MoreVert as MoreVertIcon,
+  SelectAll as SelectAllIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import apiService from '../services/apiService';
 // import { unlockUser } from '../api/superAdminUnlockUser';
 import UserForm from '../components/UserForm';
+import BulkUserOperations from '../components/BulkUserOperations';
 
 interface User {
   _id: string;
@@ -79,6 +89,7 @@ const UserManagementPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
   const [companyGroups, setCompanyGroups] = useState<CompanyGroup[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
@@ -91,6 +102,12 @@ const UserManagementPage: React.FC = () => {
     password: '',
     userEmail: ''
   });
+  
+  // Multi-select state
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [bulkActionAnchorEl, setBulkActionAnchorEl] = useState<null | HTMLElement>(null);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [bulkOperationsOpen, setBulkOperationsOpen] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -379,6 +396,112 @@ const UserManagementPage: React.FC = () => {
     return isActive ? '#4caf50' : '#f44336';
   };
 
+  // Multi-select helper functions
+  const handleSelectUser = (userId: string) => {
+    setSelectedUsers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const handleSelectAllUsers = (companyUsers: User[]) => {
+    const companyUserIds = companyUsers.map(user => user._id);
+    setSelectedUsers(prev => {
+      const allSelected = companyUserIds.every(id => prev.includes(id));
+      if (allSelected) {
+        return prev.filter(id => !companyUserIds.includes(id));
+      } else {
+        return Array.from(new Set([...prev, ...companyUserIds]));
+      }
+    });
+  };
+
+  const handleClearSelection = () => {
+    setSelectedUsers([]);
+  };
+
+  const isUserSelected = (userId: string) => selectedUsers.includes(userId);
+
+  const getSelectedUsers = () => {
+    return users.filter(user => selectedUsers.includes(user._id));
+  };
+
+  const getSelectedUsersByCompany = (companyUsers: User[]) => {
+    return companyUsers.filter(user => selectedUsers.includes(user._id));
+  };
+
+  const isAllSelected = (companyUsers: User[]) => {
+    return companyUsers.length > 0 && companyUsers.every(user => selectedUsers.includes(user._id));
+  };
+
+  const isIndeterminate = (companyUsers: User[]) => {
+    const selectedCount = companyUsers.filter(user => selectedUsers.includes(user._id)).length;
+    return selectedCount > 0 && selectedCount < companyUsers.length;
+  };
+
+  // Bulk action functions
+  const handleBulkAction = async (action: 'activate' | 'deactivate' | 'delete' | 'resetPassword') => {
+    if (selectedUsers.length === 0) return;
+
+    setBulkActionLoading(true);
+    setBulkActionAnchorEl(null);
+
+    try {
+      const selectedUserObjects = getSelectedUsers();
+      
+      switch (action) {
+        case 'activate':
+          await Promise.all(selectedUserObjects.map(user => 
+            apiService.patch(`/api/super-admin/users/${user._id}`, { isActive: true })
+          ));
+          setSuccessMessage(`Successfully activated ${selectedUsers.length} user(s)`);
+          break;
+        
+        case 'deactivate':
+          await Promise.all(selectedUserObjects.map(user => 
+            apiService.patch(`/api/super-admin/users/${user._id}`, { isActive: false })
+          ));
+          setSuccessMessage(`Successfully deactivated ${selectedUsers.length} user(s)`);
+          break;
+        
+        case 'delete':
+          const confirmed = window.confirm(`Are you sure you want to delete ${selectedUsers.length} user(s)? This action cannot be undone.`);
+          if (confirmed) {
+            await Promise.all(selectedUsers.map(id => 
+              apiService.delete(`/api/super-admin/users/${id}`)
+            ));
+            setSuccessMessage(`Successfully deleted ${selectedUsers.length} user(s)`);
+          }
+          break;
+        
+        case 'resetPassword':
+          const resetConfirmed = window.confirm(`Are you sure you want to reset passwords for ${selectedUsers.length} user(s)?`);
+          if (resetConfirmed) {
+            await Promise.all(selectedUserObjects.map(user => 
+              apiService.post(`/api/super-admin/users/${user._id}/reset-password`)
+            ));
+            setSuccessMessage(`Successfully reset passwords for ${selectedUsers.length} user(s)`);
+          }
+          break;
+      }
+      
+      setSelectedUsers([]);
+      fetchUsers();
+    } catch (error) {
+      console.error('Bulk action error:', error);
+      setError(`Failed to perform bulk action: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkOperationsSuccess = () => {
+    setBulkOperationsOpen(false);
+    setSuccessMessage('Bulk operations completed successfully');
+    fetchUsers();
+  };
+
   if (loading && users.length === 0) {
     return (
       <Container maxWidth="lg">
@@ -395,7 +518,61 @@ const UserManagementPage: React.FC = () => {
         <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }} component="div">
           Manage users across all companies. Super admin users are not shown in this interface.
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+          {selectedUsers.length > 0 && (
+            <>
+              <Typography variant="body2" color="textSecondary">
+                {selectedUsers.length} user(s) selected
+              </Typography>
+              <Button
+                variant="outlined"
+                startIcon={<ClearIcon />}
+                size="small"
+                onClick={handleClearSelection}
+              >
+                Clear
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<MoreVertIcon />}
+                size="small"
+                onClick={(e) => setBulkActionAnchorEl(e.currentTarget)}
+                disabled={bulkActionLoading}
+              >
+                Bulk Actions
+              </Button>
+              <Menu
+                anchorEl={bulkActionAnchorEl}
+                open={Boolean(bulkActionAnchorEl)}
+                onClose={() => setBulkActionAnchorEl(null)}
+              >
+                <MenuItem onClick={() => handleBulkAction('activate')}>
+                  <ListItemIcon>
+                    <UnlockIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>Activate Selected</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={() => handleBulkAction('deactivate')}>
+                  <ListItemIcon>
+                    <LockIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>Deactivate Selected</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={() => handleBulkAction('resetPassword')}>
+                  <ListItemIcon>
+                    <ResetIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>Reset Passwords</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={() => handleBulkAction('delete')}>
+                  <ListItemIcon>
+                    <DeleteIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>Delete Selected</ListItemText>
+                </MenuItem>
+              </Menu>
+            </>
+          )}
           <Button 
             variant="contained" 
             startIcon={<AddIcon />}
@@ -403,6 +580,14 @@ const UserManagementPage: React.FC = () => {
             onClick={() => { setSelectedUser(null); setOpenDialog(true); }}
           >
             Add User
+          </Button>
+          <Button 
+            variant="contained" 
+            startIcon={<PeopleIcon />}
+            size="small"
+            onClick={() => setBulkOperationsOpen(true)}
+          >
+            Bulk Operations
           </Button>
         </Box>
       </Box>
@@ -478,6 +663,14 @@ const UserManagementPage: React.FC = () => {
                     <Table>
                       <TableHead>
                         <TableRow sx={{ backgroundColor: '#fafafa' }}>
+                          <TableCell padding="checkbox">
+                            <Checkbox
+                              checked={isAllSelected(group.users)}
+                              indeterminate={isIndeterminate(group.users)}
+                              onChange={() => handleSelectAllUsers(group.users)}
+                              disabled={group.users.length === 0}
+                            />
+                          </TableCell>
                           <TableCell><strong>Full Name</strong></TableCell>
                           <TableCell><strong>Email</strong></TableCell>
                           <TableCell><strong>Role</strong></TableCell>
@@ -488,7 +681,25 @@ const UserManagementPage: React.FC = () => {
                       </TableHead>
                       <TableBody>
                         {group.users.map((user) => (
-                          <TableRow key={user._id} hover>
+                          <TableRow 
+                            key={user._id} 
+                            hover
+                            sx={{
+                              backgroundColor: isUserSelected(user._id) ? 'rgba(25, 118, 210, 0.08)' : 'inherit',
+                              '&:hover': {
+                                backgroundColor: isUserSelected(user._id) 
+                                  ? 'rgba(25, 118, 210, 0.12)' 
+                                  : 'rgba(0, 0, 0, 0.04)'
+                              }
+                            }}
+                          >
+                            <TableCell padding="checkbox">
+                              <Checkbox
+                                checked={isUserSelected(user._id)}
+                                onChange={() => handleSelectUser(user._id)}
+                                disabled={user.role === 'super_admin'}
+                              />
+                            </TableCell>
                             <TableCell>
                               <Box>
                                 <Typography variant="body2" fontWeight="medium" component="div">
@@ -628,6 +839,15 @@ const UserManagementPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Bulk Operations Dialog */}
+      <BulkUserOperations
+        open={bulkOperationsOpen}
+        onClose={() => setBulkOperationsOpen(false)}
+        onSuccess={handleBulkOperationsSuccess}
+        users={users}
+        companies={companies}
+        selectedCompanyId={selectedCompanyId}
+      />
 
     </Box>
   );

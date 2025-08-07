@@ -32,6 +32,8 @@ import '../../widgets/real_time_break_timer.dart';
 
 import 'package:sns_rooster/services/feature_service.dart';
 import '../../widgets/employee_location_map_widget.dart';
+import '../../services/privacy_service.dart';
+import 'package:sns_rooster/utils/logger.dart';
 
 /// Helper function to format duration in a human-readable format
 /// Shows hours and minutes when duration is over 60 minutes
@@ -675,17 +677,53 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     final userId = authProvider.user?['_id'];
     if (userId != null) {
       try {
+        Logger.info('DEBUG: _endBreak called for user: $userId');
+
+        // Check if location access is allowed for break end
+        final privacyService = PrivacyService.instance;
+        final locationAllowed =
+            await privacyService.shouldAllowLocationAccess();
+        Logger.info('DEBUG: Location access allowed: $locationAllowed');
+
+        if (!locationAllowed) {
+          Logger.info('DEBUG: Location access blocked by privacy settings');
+          final notificationService =
+              Provider.of<GlobalNotificationService>(context, listen: false);
+          notificationService.showError(
+              'Cannot end break: Location access is disabled in privacy settings. Please enable location services to end your break.');
+          return;
+        }
+
         final attendanceProvider =
             Provider.of<AttendanceProvider>(context, listen: false);
-        await attendanceProvider.endBreak(userId);
-        await attendanceProvider.fetchTodayStatus(userId);
-        setState(() {
-          _isOnBreak = false;
-        });
-        final notificationService =
-            Provider.of<GlobalNotificationService>(context, listen: false);
-        notificationService.showSuccess('Break ended successfully!');
+
+        // Call endBreak and check if it was successful
+        Logger.info('DEBUG: Calling attendanceProvider.endBreak');
+        final success = await attendanceProvider.endBreak(userId);
+        Logger.info('DEBUG: endBreak result: $success');
+
+        if (success) {
+          Logger.info('DEBUG: Break ended successfully, updating UI');
+          // Only update UI and show success if break actually ended
+          await attendanceProvider.fetchTodayStatus(userId);
+          setState(() {
+            _isOnBreak = false;
+          });
+          final notificationService =
+              Provider.of<GlobalNotificationService>(context, listen: false);
+          notificationService.showSuccess('Break ended successfully!');
+        } else {
+          Logger.info('DEBUG: Break end failed, showing error');
+          // Show error message from the provider
+          final errorMessage = attendanceProvider.error ??
+              'Failed to end break. Please try again.';
+          Logger.info('DEBUG: Error message: $errorMessage');
+          final notificationService =
+              Provider.of<GlobalNotificationService>(context, listen: false);
+          notificationService.showError(errorMessage);
+        }
       } catch (e) {
+        Logger.error('DEBUG: Exception in _endBreak: $e');
         final notificationService =
             Provider.of<GlobalNotificationService>(context, listen: false);
         notificationService.showError('Failed to end break. Please try again.');
@@ -859,6 +897,21 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
     );
   }
 
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Colors.grey[600],
+          fontSize: 13,
+          letterSpacing: 1.1,
+        ),
+      ),
+    );
+  }
+
   Widget _buildMainContent(Map<String, dynamic> profile) {
     return SingleChildScrollView(
       child: Padding(
@@ -873,13 +926,21 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
               },
             ),
             const SizedBox(height: 28),
-            Text(
-              'Quick Actions',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
+
+            // Today's Status Section
+            _buildSectionHeader('TODAY\'S STATUS'),
+            const SizedBox(height: 16),
+            const StatusCard(),
+            const SizedBox(height: 28),
+
+            // Location Information Section
+            _buildSectionHeader('LOCATION INFORMATION'),
+            const SizedBox(height: 16),
+            _buildLocationInfoCard(),
+            const SizedBox(height: 28),
+
+            // Quick Actions Section
+            _buildSectionHeader('QUICK ACTIONS'),
             const SizedBox(height: 16),
             _QuickActions(
               isOnBreak: _isOnBreak,
@@ -895,13 +956,10 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
               openCompanyInfo: (ctx) => _openCompanyInfo(ctx),
             ),
             const SizedBox(height: 28),
-            const StatusCard(),
-            const SizedBox(height: 28),
-            // Location Information Card
-            _buildLocationInfoCard(),
-            const SizedBox(height: 28),
-            // Leave Status Widget
+            // Leave Status Section
             if (_isOnLeave && _leaveInfo != null) ...[
+              _buildSectionHeader('LEAVE STATUS'),
+              const SizedBox(height: 16),
               _buildLeaveStatusWidget(),
               const SizedBox(height: 28),
             ],
@@ -910,13 +968,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Upcoming Events',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
+                  _buildSectionHeader('UPCOMING EVENTS'),
                   TextButton(
                     onPressed: () => Navigator.pushNamed(context, '/events'),
                     child: const Text('View All'),

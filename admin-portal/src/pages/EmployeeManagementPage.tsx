@@ -42,6 +42,7 @@ import {
 } from '@mui/icons-material';
 import apiService from '../services/apiService';
 import BulkEmployeeOperations from '../components/BulkEmployeeOperations';
+import UserSelectionDialog from '../components/UserSelectionDialog';
 
 interface Employee {
   _id: string;
@@ -90,6 +91,7 @@ const EmployeeManagementPage: React.FC = () => {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [showInactive, setShowInactive] = useState(false); // Add this state
   const [allEmployees, setAllEmployees] = useState<any[]>([]); // For stats calculation
+  const [userSelectionOpen, setUserSelectionOpen] = useState(false);
 
   useEffect(() => {
     fetchCompanies();
@@ -186,19 +188,7 @@ const EmployeeManagementPage: React.FC = () => {
       return;
     }
     
-    setNewEmployee({
-      firstName: '',
-      lastName: '',
-      email: '',
-      position: '',
-      department: '',
-      employeeType: 'Permanent',
-      employeeId: '',
-      hourlyRate: 0,
-      monthlySalary: 0,
-      isActive: true
-    });
-    setAddDialogOpen(true);
+    setUserSelectionOpen(true);
   };
 
   const handleSaveNewEmployee = async () => {
@@ -238,6 +228,36 @@ const EmployeeManagementPage: React.FC = () => {
     setBulkOperationsOpen(false);
     setSuccessMessage('Bulk operation completed successfully');
     fetchEmployees();
+  };
+
+  const handleUserSelected = async (user: any) => {
+    try {
+      console.log('DEBUG: Creating employee for user:', user);
+      console.log('DEBUG: Company ID:', selectedCompanyId);
+      
+      const employeeData = {
+        userId: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        position: user.position || '',
+        department: user.department || '',
+        employeeType: 'Permanent',
+        employeeId: '',
+        hourlyRate: 0,
+        monthlySalary: 0,
+        isActive: true
+      };
+      
+      const response = await apiService.post(`/api/super-admin/employees/${selectedCompanyId}`, employeeData);
+      console.log('DEBUG: Create employee response:', response);
+      
+      setSuccessMessage('Employee created successfully');
+      fetchEmployees();
+    } catch (err: any) {
+      console.error('DEBUG: Create employee error:', err);
+      setError(err.response?.data?.message || 'Failed to create employee');
+    }
   };
 
   const filteredEmployees = employees.filter(employee =>
@@ -788,6 +808,15 @@ const EmployeeManagementPage: React.FC = () => {
              </Button>
           </DialogActions>
         </Dialog>
+
+        {/* User Selection Dialog */}
+        <UserSelectionDialog
+          open={userSelectionOpen}
+          onClose={() => setUserSelectionOpen(false)}
+          onSelect={handleUserSelected}
+          companyId={selectedCompanyId}
+          excludeUserIds={employees.map(emp => emp.userId).filter(Boolean)}
+        />
      </Box>
    );
  };

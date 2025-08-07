@@ -195,6 +195,26 @@ router.post('/users/:userId/unlock',
   SuperAdminController.unlockUserAccount
 );
 
+// ===== BULK USER OPERATIONS =====
+
+// Bulk create users
+router.post('/users/bulk-create', 
+  requirePermission('manageUsers'), 
+  SuperAdminController.bulkCreateUsers
+);
+
+// Bulk update users
+router.put('/users/bulk-update', 
+  requirePermission('manageUsers'), 
+  SuperAdminController.bulkUpdateUsers
+);
+
+// Bulk delete users
+router.delete('/users/bulk-delete', 
+  requirePermission('manageUsers'), 
+  SuperAdminController.bulkDeleteUsers
+);
+
 // ===== SYSTEM ANALYTICS =====
 
 // Get system overview

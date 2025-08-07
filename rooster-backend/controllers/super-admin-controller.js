@@ -4,6 +4,7 @@ const Employee = require('../models/Employee');
 const SuperAdmin = require('../models/SuperAdmin');
 const SubscriptionPlan = require('../models/SubscriptionPlan');
 const bcrypt = require('bcrypt');
+const emailService = require('../services/emailService');
 
 // Helper function to get avatar URL
 const getAvatarUrl = (avatar) => {
@@ -700,8 +701,11 @@ class SuperAdminController {
         });
       }
       
-      // Check if company has any users
-      const userCount = await User.countDocuments({ companyId });
+      // Check if company has any users (excluding super admin users)
+      const userCount = await User.countDocuments({ 
+        companyId,
+        role: { $ne: 'super_admin' }
+      });
       if (userCount > 0) {
         return res.status(400).json({
           error: 'Cannot delete company with existing users',
@@ -737,8 +741,11 @@ class SuperAdminController {
       
       console.log('Attempting to hard delete company:', companyId);
       
-      // Check if company has any users
-      const userCount = await User.countDocuments({ companyId });
+      // Check if company has any users (excluding super admin users)
+      const userCount = await User.countDocuments({ 
+        companyId,
+        role: { $ne: 'super_admin' }
+      });
       if (userCount > 0) {
         return res.status(400).json({
           error: 'Cannot delete company with existing users',
@@ -1061,7 +1068,7 @@ class SuperAdminController {
       ] = await Promise.all([
         Company.countDocuments(),
         Company.countDocuments({ status: 'active' }),
-        User.countDocuments(),
+        User.countDocuments({ role: { $ne: 'super_admin' } }), // Exclude super admin users
         User.countDocuments({ role: 'employee' }),
         SubscriptionPlan.countDocuments({ isActive: true })
       ]);
@@ -1096,7 +1103,7 @@ class SuperAdminController {
       ] = await Promise.all([
         Company.countDocuments(),
         Company.countDocuments({ status: 'active' }),
-        User.countDocuments(),
+        User.countDocuments({ role: { $ne: 'super_admin' } }), // Exclude super admin users
         User.countDocuments({ role: 'employee' }),
         SubscriptionPlan.countDocuments({ isActive: true }),
         // Calculate monthly revenue (placeholder for now)
@@ -1154,7 +1161,7 @@ class SuperAdminController {
       ] = await Promise.all([
         Company.countDocuments(),
         Company.countDocuments({ status: 'active' }),
-        User.countDocuments(),
+        User.countDocuments({ role: { $ne: 'super_admin' } }), // Exclude super admin users
         User.countDocuments({ role: 'employee' }),
         SubscriptionPlan.find({ isActive: true })
       ]);
@@ -1335,7 +1342,10 @@ class SuperAdminController {
       }
 
       // Build query
-      const query = { createdAt: { $gte: startDate } };
+      const query = { 
+        createdAt: { $gte: startDate },
+        role: { $ne: 'super_admin' } // Exclude super admin users
+      };
       if (companyId) {
         query.companyId = companyId;
       }
@@ -1694,9 +1704,9 @@ class SuperAdminController {
   static async generateSystemOverviewReport(startDate) {
     const [totalCompanies, totalUsers, activeCompanies, activeUsers] = await Promise.all([
       Company.countDocuments({ createdAt: { $gte: startDate } }),
-      User.countDocuments({ createdAt: { $gte: startDate } }),
+      User.countDocuments({ createdAt: { $gte: startDate }, role: { $ne: 'super_admin' } }), // Exclude super admin users
       Company.countDocuments({ createdAt: { $gte: startDate }, status: 'active' }),
-      User.countDocuments({ createdAt: { $gte: startDate }, isActive: true })
+      User.countDocuments({ createdAt: { $gte: startDate }, isActive: true, role: { $ne: 'super_admin' } }) // Exclude super admin users
     ]);
     
     return {
@@ -1875,7 +1885,8 @@ class SuperAdminController {
         role,
         isActive: true,
         department: department?.trim(),
-        position: position?.trim()
+        position: position?.trim(),
+        isEmailVerified: false // Set to false for email verification
       };
 
       // Add companyId if provided and role is not super_admin
@@ -1886,17 +1897,32 @@ class SuperAdminController {
       const newUser = new User(userData);
       await newUser.save();
 
+      // Generate email verification token and send verification email
+      if (role !== 'super_admin') {
+        try {
+          const verificationToken = newUser.generateEmailVerificationToken();
+          await newUser.save();
+          
+          await emailService.sendVerificationEmail(newUser, verificationToken);
+          console.log(`✅ Verification email sent to ${newUser.email}`);
+        } catch (emailError) {
+          console.error('Failed to send verification email:', emailError);
+          // Don't fail the user creation if email fails
+        }
+      }
+
       // Populate company info for response
       await newUser.populate('companyId', 'name domain');
 
       res.status(201).json({
         success: true,
-        message: 'User created successfully',
+        message: role !== 'super_admin' ? 'User created successfully. Verification email sent.' : 'User created successfully',
         user: {
           ...newUser.toObject(),
           password: undefined // Don't send password in response
         },
-        generatedPassword: !password ? userPassword : undefined // Only send if auto-generated
+        generatedPassword: !password ? userPassword : undefined, // Only send if auto-generated
+        requiresEmailVerification: role !== 'super_admin'
       });
     } catch (error) {
       console.error('Error creating user:', error);
@@ -2194,6 +2220,18 @@ class SuperAdminController {
       
       await user.save();
 
+      // Generate email verification token and send verification email
+      try {
+        const verificationToken = user.generateEmailVerificationToken();
+        await user.save();
+        
+        await emailService.sendVerificationEmail(user, verificationToken);
+        console.log(`✅ Verification email sent to ${user.email}`);
+      } catch (emailError) {
+        console.error('Failed to send verification email:', emailError);
+        // Don't fail the employee creation if email fails
+      }
+
       // Add companyId and userId to employee data
       employeeData.companyId = companyId;
       employeeData.userId = user._id;
@@ -2206,13 +2244,14 @@ class SuperAdminController {
 
       res.status(201).json({
         success: true,
-        message: 'Employee created successfully',
+        message: 'Employee created successfully. Verification email sent.',
         employee: obj,
         user: {
           _id: user._id,
           email: user.email,
           defaultPassword: defaultPassword
-        }
+        },
+        requiresEmailVerification: true
       });
     } catch (error) {
       console.error('Error creating employee:', error);
@@ -2345,6 +2384,18 @@ class SuperAdminController {
           
           await user.save();
 
+          // Generate email verification token and send verification email
+          try {
+            const verificationToken = user.generateEmailVerificationToken();
+            await user.save();
+            
+            await emailService.sendVerificationEmail(user, verificationToken);
+            console.log(`✅ Verification email sent to ${user.email}`);
+          } catch (emailError) {
+            console.error(`Failed to send verification email to ${user.email}:`, emailError);
+            // Don't fail the employee creation if email fails
+          }
+
           // Add companyId and userId to employee data
           employeeData.companyId = companyId;
           employeeData.userId = user._id;
@@ -2355,7 +2406,8 @@ class SuperAdminController {
           results.successful.push({
             email: employeeData.email,
             employeeId: employee._id,
-            userId: user._id
+            userId: user._id,
+            verificationEmailSent: true
           });
         } catch (error) {
           results.failed.push({
@@ -2477,6 +2529,263 @@ class SuperAdminController {
     } catch (error) {
       console.error('Error in bulk delete employees:', error);
       res.status(500).json({ error: 'Failed to bulk delete employees' });
+    }
+  }
+
+  /**
+   * Bulk create users
+   */
+  static async bulkCreateUsers(req, res) {
+    try {
+      const { users } = req.body;
+
+      if (!users || !Array.isArray(users) || users.length === 0) {
+        return res.status(400).json({ message: 'Users array is required and must not be empty' });
+      }
+
+      if (users.length > 100) {
+        return res.status(400).json({ message: 'Cannot create more than 100 users at once' });
+      }
+
+      const results = {
+        successful: [],
+        failed: [],
+        total: users.length
+      };
+
+      for (const userData of users) {
+        try {
+          // Validate required fields
+          if (!userData.email || !userData.firstName || !userData.lastName || !userData.companyId) {
+            results.failed.push({
+              email: userData.email,
+              error: 'Missing required fields: email, firstName, lastName, companyId'
+            });
+            continue;
+          }
+
+          // Check if user already exists
+          const existingUser = await User.findOne({ 
+            email: userData.email,
+            companyId: userData.companyId
+          });
+
+          if (existingUser) {
+            results.failed.push({
+              email: userData.email,
+              error: 'User already exists with this email'
+            });
+            continue;
+          }
+
+          // Validate company exists
+          const company = await Company.findById(userData.companyId);
+          if (!company) {
+            results.failed.push({
+              email: userData.email,
+              error: 'Company not found'
+            });
+            continue;
+          }
+
+          // Generate password if not provided
+          const password = userData.password || 'defaultPassword123';
+
+          // Create user
+          const newUser = new User({
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            email: userData.email,
+            password: password,
+            role: userData.role || 'employee',
+            companyId: userData.companyId,
+            department: userData.department,
+            position: userData.position,
+            isActive: true,
+            isEmailVerified: false
+          });
+
+          await newUser.save();
+
+          // Generate email verification token and send verification email
+          try {
+            const verificationToken = newUser.generateEmailVerificationToken();
+            await newUser.save();
+            
+            await emailService.sendVerificationEmail(newUser, verificationToken);
+            console.log(`✅ Verification email sent to ${newUser.email}`);
+          } catch (emailError) {
+            console.error(`Failed to send verification email to ${newUser.email}:`, emailError);
+            // Don't fail the user creation if email fails
+          }
+
+          results.successful.push({
+            email: userData.email,
+            userId: newUser._id,
+            verificationEmailSent: true
+          });
+
+        } catch (error) {
+          results.failed.push({
+            email: userData.email,
+            error: error.message
+          });
+        }
+      }
+
+      res.status(200).json({
+        message: `Bulk user creation completed. ${results.successful.length} successful, ${results.failed.length} failed`,
+        results
+      });
+
+    } catch (error) {
+      console.error('Bulk create users error:', error);
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  /**
+   * Bulk update users
+   */
+  static async bulkUpdateUsers(req, res) {
+    try {
+      const { updates } = req.body;
+
+      if (!updates || !Array.isArray(updates) || updates.length === 0) {
+        return res.status(400).json({ message: 'Updates array is required and must not be empty' });
+      }
+
+      if (updates.length > 100) {
+        return res.status(400).json({ message: 'Cannot update more than 100 users at once' });
+      }
+
+      const results = {
+        successful: [],
+        failed: [],
+        total: updates.length
+      };
+
+      for (const updateData of updates) {
+        try {
+          const { userId, ...userUpdates } = updateData;
+
+          if (!userId) {
+            results.failed.push({
+              userId: 'unknown',
+              error: 'User ID is required'
+            });
+            continue;
+          }
+
+          // Validate user exists
+          const user = await User.findById(userId);
+
+          if (!user) {
+            results.failed.push({
+              userId,
+              error: 'User not found'
+            });
+            continue;
+          }
+
+          // Update user
+          const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            userUpdates,
+            { new: true, runValidators: true }
+          );
+
+          results.successful.push({
+            userId: updatedUser._id,
+            email: updatedUser.email
+          });
+
+        } catch (error) {
+          results.failed.push({
+            userId: updateData.userId || 'unknown',
+            error: error.message
+          });
+        }
+      }
+
+      res.status(200).json({
+        message: `Bulk user update completed. ${results.successful.length} successful, ${results.failed.length} failed`,
+        results
+      });
+
+    } catch (error) {
+      console.error('Bulk update users error:', error);
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  /**
+   * Bulk delete users
+   */
+  static async bulkDeleteUsers(req, res) {
+    try {
+      const { userIds } = req.body;
+
+      if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+        return res.status(400).json({ message: 'User IDs array is required and must not be empty' });
+      }
+
+      if (userIds.length > 100) {
+        return res.status(400).json({ message: 'Cannot delete more than 100 users at once' });
+      }
+
+      const results = {
+        successful: [],
+        failed: [],
+        total: userIds.length
+      };
+
+      for (const userId of userIds) {
+        try {
+          // Validate user exists
+          const user = await User.findById(userId);
+
+          if (!user) {
+            results.failed.push({
+              userId,
+              error: 'User not found'
+            });
+            continue;
+          }
+
+          // Don't allow deletion of super admin users
+          if (user.role === 'super_admin') {
+            results.failed.push({
+              userId,
+              error: 'Cannot delete super admin users'
+            });
+            continue;
+          }
+
+          // Delete user
+          await User.findByIdAndDelete(userId);
+
+          results.successful.push({
+            userId,
+            email: user.email
+          });
+
+        } catch (error) {
+          results.failed.push({
+            userId,
+            error: error.message
+          });
+        }
+      }
+
+      res.status(200).json({
+        message: `Bulk user deletion completed. ${results.successful.length} successful, ${results.failed.length} failed`,
+        results
+      });
+
+    } catch (error) {
+      console.error('Bulk delete users error:', error);
+      res.status(500).json({ message: error.message });
     }
   }
 }

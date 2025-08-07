@@ -81,22 +81,59 @@ class _AboutScreenState extends State<AboutScreen> {
                 children: [
                   // App Header
                   Card(
+                    elevation: 2,
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // App Icon
+                          // App Logo
                           Container(
                             width: 80,
                             height: 80,
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.primary,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: const Icon(
-                              Icons.schedule,
-                              size: 40,
                               color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Image.asset(
+                                'assets/images/app_logo.png',
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) {
+                                  // Fallback to logo.png if app_logo.png doesn't exist
+                                  return Image.asset(
+                                    'assets/images/logo.png',
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      // Final fallback to icon
+                                      return Container(
+                                        decoration: BoxDecoration(
+                                          color: theme.colorScheme.primary,
+                                          borderRadius:
+                                              BorderRadius.circular(16),
+                                        ),
+                                        child: const Icon(
+                                          Icons.schedule,
+                                          size: 40,
+                                          color: Colors.white,
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -107,6 +144,7 @@ class _AboutScreenState extends State<AboutScreen> {
                             style: theme.textTheme.headlineSmall?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
+                            textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 8),
 
@@ -116,6 +154,7 @@ class _AboutScreenState extends State<AboutScreen> {
                             style: theme.textTheme.bodyLarge?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
+                            textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 16),
 
@@ -126,6 +165,7 @@ class _AboutScreenState extends State<AboutScreen> {
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
                             Text(
@@ -133,6 +173,7 @@ class _AboutScreenState extends State<AboutScreen> {
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                           ],
                         ],
@@ -152,16 +193,26 @@ class _AboutScreenState extends State<AboutScreen> {
                   const SizedBox(height: 12),
 
                   Card(
+                    elevation: 2,
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.business,
-                                  color: theme.colorScheme.primary),
-                              const SizedBox(width: 12),
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary
+                                      .withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(Icons.business,
+                                    color: theme.colorScheme.primary, size: 24),
+                              ),
+                              const SizedBox(width: 16),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,7 +224,15 @@ class _AboutScreenState extends State<AboutScreen> {
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    const Text('Professional HR Solutions'),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Professional HR Solutions',
+                                      style:
+                                          theme.textTheme.bodyMedium?.copyWith(
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -182,15 +241,18 @@ class _AboutScreenState extends State<AboutScreen> {
                           const SizedBox(height: 16),
 
                           // Company Details
+                          const SizedBox(height: 8),
                           _buildInfoRow('Website', 'snstechservices.com.au',
                               () {
                             _launchUrl('https://snstechservices.com.au');
                           }),
+                          const SizedBox(height: 8),
                           _buildInfoRow(
                               'Email', 'support@snstechservices.com.au', () {
                             _launchEmail('support@snstechservices.com.au',
                                 'SNS Rooster HR Support');
                           }),
+                          const SizedBox(height: 8),
                           _buildInfoRow(
                               'Privacy', 'privacy@snstechservices.com.au', () {
                             _launchEmail('privacy@snstechservices.com.au',
@@ -213,6 +275,7 @@ class _AboutScreenState extends State<AboutScreen> {
                   const SizedBox(height: 12),
 
                   Card(
+                    elevation: 2,
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -412,43 +475,110 @@ class _AboutScreenState extends State<AboutScreen> {
   }
 
   Widget _buildInfoRow(String label, String value, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.outline.withOpacity(0.2),
+        ),
+      ),
       child: Row(
         children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.w500),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              _getIconForLabel(label),
+              size: 16,
+              color: theme.colorScheme.primary,
             ),
           ),
+          const SizedBox(width: 12),
           Expanded(
-            child: GestureDetector(
-              onTap: onTap,
-              child: Text(
-                value,
-                style: const TextStyle(
-                  color: Colors.blue,
-                  decoration: TextDecoration.underline,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 2),
+                GestureDetector(
+                  onTap: onTap,
+                  child: Text(
+                    value,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                      decoration: TextDecoration.underline,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
+          ),
+          Icon(
+            Icons.open_in_new,
+            size: 16,
+            color: theme.colorScheme.primary,
           ),
         ],
       ),
     );
   }
 
+  IconData _getIconForLabel(String label) {
+    switch (label.toLowerCase()) {
+      case 'website':
+        return Icons.language;
+      case 'email':
+        return Icons.email;
+      case 'privacy':
+        return Icons.privacy_tip;
+      default:
+        return Icons.info;
+    }
+  }
+
   Widget _buildFeatureRow(IconData icon, String feature) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.outline.withOpacity(0.2),
+        ),
+      ),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: Colors.green),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icon, size: 18, color: Colors.green),
+          ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(feature),
+            child: Text(
+              feature,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),

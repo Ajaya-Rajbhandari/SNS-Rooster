@@ -44,6 +44,21 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 0, 6),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Colors.grey[600],
+          fontSize: 13,
+          letterSpacing: 1.1,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -99,51 +114,64 @@ class AppDrawer extends StatelessWidget {
                     ],
                   ),
                 ),
+
+                // MAIN NAVIGATION SECTION
+                _buildSectionHeader('MAIN NAVIGATION'),
                 _buildNavTile(context,
                     icon: Icons.dashboard,
                     label: 'Dashboard',
                     route: '/',
                     isAdmin: isAdmin),
+
+                // WORK MANAGEMENT SECTION
+                _buildSectionHeader('WORK MANAGEMENT'),
                 _buildNavTile(context,
                     icon: Icons.access_time,
                     label: 'Timesheet',
                     route: '/timesheet'),
                 _buildNavTile(context,
-                    icon: Icons.calendar_today,
-                    label: 'Leave',
-                    route: '/leave_request'),
-                _buildNavTile(context,
                     icon: Icons.check_circle_outline,
                     label: 'Attendance',
                     route: '/attendance'),
-                // Only show Payroll if the feature is enabled
-                if (featureProvider.hasPayroll)
-                  _buildNavTile(context,
-                      icon: Icons.monetization_on,
-                      label: 'Payroll',
-                      route: '/payroll'),
-                // Only show Analytics & Reports if the feature is enabled
-                if (featureProvider.hasAnalytics)
-                  _buildNavTile(context,
-                      icon: Icons.analytics,
-                      label: 'Analytics & Reports',
-                      route: '/analytics'),
-                // Only show Events if the feature is enabled
-                if (featureProvider.hasEvents)
-                  _buildNavTile(context,
-                      icon: Icons.event, label: 'Events', route: '/events'),
-                // Only show Performance Reviews if the feature is enabled
-                if (featureProvider.hasPerformanceReviews)
-                  _buildNavTile(context,
-                      icon: Icons.assessment,
-                      label: 'Performance Reviews',
-                      route: '/performance_reviews'),
-                // Only show Training Programs if the feature is enabled
-                if (featureProvider.hasTrainingManagement)
-                  _buildNavTile(context,
-                      icon: Icons.school,
-                      label: 'Training Programs',
-                      route: '/training'),
+                _buildNavTile(context,
+                    icon: Icons.calendar_today,
+                    label: 'Leave',
+                    route: '/leave_request'),
+
+                // FEATURES SECTION
+                if (featureProvider.hasPayroll ||
+                    featureProvider.hasAnalytics ||
+                    featureProvider.hasEvents ||
+                    featureProvider.hasPerformanceReviews ||
+                    featureProvider.hasTrainingManagement) ...[
+                  _buildSectionHeader('FEATURES'),
+                  if (featureProvider.hasPayroll)
+                    _buildNavTile(context,
+                        icon: Icons.monetization_on,
+                        label: 'Payroll',
+                        route: '/payroll'),
+                  if (featureProvider.hasAnalytics)
+                    _buildNavTile(context,
+                        icon: Icons.analytics,
+                        label: 'Analytics & Reports',
+                        route: '/analytics'),
+                  if (featureProvider.hasEvents)
+                    _buildNavTile(context,
+                        icon: Icons.event, label: 'Events', route: '/events'),
+                  if (featureProvider.hasPerformanceReviews)
+                    _buildNavTile(context,
+                        icon: Icons.assessment,
+                        label: 'Performance Reviews',
+                        route: '/performance_reviews'),
+                  if (featureProvider.hasTrainingManagement)
+                    _buildNavTile(context,
+                        icon: Icons.school,
+                        label: 'Training Programs',
+                        route: '/training'),
+                ],
+
+                // ACCOUNT SECTION
+                _buildSectionHeader('ACCOUNT'),
                 _buildNavTile(context,
                     icon: Icons.person_outline,
                     label: 'Profile',
@@ -178,9 +206,12 @@ class AppDrawer extends StatelessWidget {
                     );
                   },
                 ),
+
                 const Divider(),
-                // Android App Download Link (Web Only)
+
+                // DOWNLOAD SECTION (Web Only)
                 if (kIsWeb) ...[
+                  _buildSectionHeader('DOWNLOAD'),
                   ListTile(
                     leading:
                         Icon(Icons.android, color: theme.colorScheme.onSurface),
@@ -207,6 +238,9 @@ class AppDrawer extends StatelessWidget {
                   ),
                   const Divider(),
                 ],
+
+                // SETTINGS SECTION
+                _buildSectionHeader('SETTINGS'),
                 ListTile(
                   leading: Icon(Icons.privacy_tip,
                       color: theme.colorScheme.onSurface),
@@ -231,7 +265,11 @@ class AppDrawer extends StatelessWidget {
                     Navigator.pushNamed(context, '/about');
                   },
                 ),
+
                 const Divider(),
+
+                // LOGOUT SECTION
+                _buildSectionHeader('SESSION'),
                 ListTile(
                   leading:
                       Icon(Icons.logout, color: theme.colorScheme.onSurface),

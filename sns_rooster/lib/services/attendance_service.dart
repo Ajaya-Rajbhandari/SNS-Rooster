@@ -211,17 +211,53 @@ class AttendanceService {
       'userId': userId,
     });
     log('DEBUG: Sending break end API call for userId: $userId');
-    final response =
-        await http.patch(Uri.parse(url), headers: headers, body: body);
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return json.decode(response.body);
-    } else {
-      // Try to return the error message from the backend if available
-      try {
+    log('DEBUG: URL: $url');
+    log('DEBUG: Headers: $headers');
+    log('DEBUG: Body: $body');
+
+    try {
+      // Try PATCH first
+      log('DEBUG: Trying PATCH request...');
+      final response =
+          await http.patch(Uri.parse(url), headers: headers, body: body);
+      log('DEBUG: Break end response status: ${response.statusCode}');
+      log('DEBUG: Break end response body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return json.decode(response.body);
-      } catch (_) {
+      } else {
+        // Try to return the error message from the backend if available
+        try {
+          return json.decode(response.body);
+        } catch (_) {
+          throw Exception(
+              'Failed to end break: ${response.statusCode} ${response.body}');
+        }
+      }
+    } catch (e) {
+      log('DEBUG: PATCH failed, trying POST as fallback: $e');
+      try {
+        // Fallback to POST if PATCH fails
+        log('DEBUG: Trying POST request as fallback...');
+        final response =
+            await http.post(Uri.parse(url), headers: headers, body: body);
+        log('DEBUG: Break end POST response status: ${response.statusCode}');
+        log('DEBUG: Break end POST response body: ${response.body}');
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          return json.decode(response.body);
+        } else {
+          try {
+            return json.decode(response.body);
+          } catch (_) {
+            throw Exception(
+                'Failed to end break: ${response.statusCode} ${response.body}');
+          }
+        }
+      } catch (postError) {
+        log('DEBUG: POST also failed: $postError');
         throw Exception(
-            'Failed to end break:  {response.statusCode}  {response.body}');
+            'Failed to end break: $e (PATCH failed), $postError (POST failed)');
       }
     }
   }
