@@ -9,6 +9,11 @@ const APP_VERSIONS = {
     update_required: false,
     update_message: 'A new version of SNS Rooster is available with enhanced user experience and performance improvements!',
     download_url: 'https://sns-rooster.onrender.com/api/app/download/android/file',
+    alternative_downloads: [
+      'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest/download/sns-rooster.apk',
+      'https://play.google.com/store/apps/details?id=com.snstech.sns_rooster',
+      'https://sns-rooster.com/downloads/sns-rooster.apk'
+    ],
     min_required_version: '1.0.0',
     min_required_build: '1',
   },
@@ -17,7 +22,11 @@ const APP_VERSIONS = {
     latest_build_number: '13',
     update_required: false,
     update_message: 'A new version of SNS Rooster is available with enhanced user experience and performance improvements. Please refresh your browser.',
-    download_url: 'https://sns-rooster.onrender.com/api/app/download/android/file',
+    download_url: 'https://sns-rooster-8ccz5.web.app',
+    alternative_downloads: [
+      'https://sns-rooster.com',
+      'https://sns-rooster.onrender.com'
+    ],
     min_required_version: '1.0.0',
     min_required_build: '1',
   },
@@ -27,6 +36,9 @@ const APP_VERSIONS = {
     update_required: false,
     update_message: 'A new version of SNS Rooster is available on the App Store.',
     download_url: 'https://apps.apple.com/app/sns-rooster/id123456789',
+    alternative_downloads: [
+      'https://apps.apple.com/app/sns-rooster/id123456789'
+    ],
     min_required_version: '1.0.0',
     min_required_build: '1',
   }
@@ -76,6 +88,7 @@ router.get('/check', async (req, res) => {
       update_required: isUpdateRequired,
       update_message: versionInfo.update_message,
       download_url: versionInfo.download_url,
+      alternative_downloads: versionInfo.alternative_downloads || [],
       platform: platform,
       timestamp: new Date().toISOString(),
     };
