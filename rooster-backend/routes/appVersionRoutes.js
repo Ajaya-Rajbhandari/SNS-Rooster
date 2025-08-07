@@ -18,8 +18,8 @@ const APP_VERSIONS = {
     min_required_build: '1',
   },
   web: {
-    latest_version: '1.0.13',
-    latest_build_number: '13',
+    latest_version: '1.0.14',
+    latest_build_number: '14',
     update_required: false,
     update_message: 'A new version of SNS Rooster is available with enhanced user experience and performance improvements. Please refresh your browser.',
     download_url: 'https://sns-rooster-8ccz5.web.app',
