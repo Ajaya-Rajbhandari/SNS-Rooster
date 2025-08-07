@@ -5,11 +5,6 @@ test/
 jest.config.js
 test-setup.js
 
-# Exclude development dependencies that might cause issues
-node_modules/.cache/
-node_modules/.bin/
-node_modules/semver/
-
 # Exclude documentation
 docs/
 *.md 
