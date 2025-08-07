@@ -76,7 +76,7 @@ const { authenticateToken } = require('./middleware/auth');
 const { requireSuperAdmin } = require('./middleware/superAdmin');
 const { performanceMonitor, memoryMonitor, responseSizeLimiter, performanceTrackingMiddleware } = require('./middleware/monitoring');
 const { errorTrackingMiddleware } = require('./middleware/errorTracking');
-const { cacheMiddleware } = require('./middleware/cache');
+const { cacheMiddleware } = require('./middleware/performance');
 
 // Security headers
 app.use(helmet({
