@@ -4,6 +4,9 @@
 const express = require('express');
 const app = express();
 
+// Trust proxy for rate limiting (fixes X-Forwarded-For header issues)
+app.set('trust proxy', 1);
+
 // CRITICAL: Fast health check endpoints - MUST be first, before any other imports or middleware
 app.get('/api/monitoring/health', (req, res) => {
   // Respond immediately with healthy status to pass Render's health check
