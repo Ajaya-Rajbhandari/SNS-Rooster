@@ -2,6 +2,36 @@
 // Do NOT run this file directly. Use server.js as the entry point for the backend.
 
 const express = require('express');
+const app = express();
+
+// CRITICAL: Fast health check endpoints - MUST be first, before any other imports or middleware
+app.get('/api/monitoring/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    version: process.env.npm_package_version || '1.0.0',
+    message: 'Server is running and ready',
+    deployment: 'successful'
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    message: 'Server is running'
+  });
+});
+
+// Basic route for testing
+app.get('/', (req, res) => {
+  res.json({ message: 'Welcome to SNS Rooster API' });
+});
+
+// Now import all other dependencies (after health checks are set up)
 const cors = require('cors');
 const mongoose = require('mongoose');
 const path = require('path');
@@ -47,32 +77,6 @@ const { requireSuperAdmin } = require('./middleware/superAdmin');
 const { performanceMonitor, memoryMonitor, responseSizeLimiter, performanceTrackingMiddleware } = require('./middleware/monitoring');
 const { errorTrackingMiddleware } = require('./middleware/errorTracking');
 const { cacheMiddleware } = require('./middleware/cache');
-
-const app = express();
-
-// Simple, fast health check for Render deployment (no middleware, no dependencies)
-app.get('/api/monitoring/health', (req, res) => {
-  // Return immediately without any database checks or complex logic
-  res.status(200).json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development',
-    version: process.env.npm_package_version || '1.0.0',
-    message: 'Server is running and ready',
-    deployment: 'successful'
-  });
-});
-
-// Additional simple health check at root level for maximum compatibility
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    message: 'Server is running'
-  });
-});
 
 // Security headers
 app.use(helmet({
@@ -231,11 +235,6 @@ app.use('/api/app/download', appDownloadRoutes);
 
 // Google Maps API routes (server-side proxy)
 app.use('/api', googleMapsRoutes);
-
-// Basic route for testing
-app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to SNS Rooster API' });
-});
 
 // Error tracking middleware (must be before error handling)
 app.use(errorTrackingMiddleware);
