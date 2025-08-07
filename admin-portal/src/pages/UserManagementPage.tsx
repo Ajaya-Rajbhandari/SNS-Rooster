@@ -29,6 +29,7 @@ import {
   Delete as DeleteIcon, 
   LockReset as ResetIcon,
   LockOpen as UnlockIcon,
+  Lock as LockIcon,
   ExpandMore as ExpandMoreIcon,
   Business as BusinessIcon,
   People as PeopleIcon
@@ -256,6 +257,32 @@ const UserManagementPage: React.FC = () => {
       }, 3000);
     } catch (err: any) {
       setError(`Failed to unlock user: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleUserStatus = async (user: User) => {
+    const action = user.isActive ? 'deactivate' : 'activate';
+    if (!window.confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} account for ${user.firstName} ${user.lastName}?`)) return;
+    
+    setLoading(true);
+    try {
+      await apiService.put(`/api/super-admin/users/${user._id}`, {
+        ...user,
+        isActive: !user.isActive
+      });
+      setSuccessMessage(`User ${action}d successfully!`);
+      
+      // Refresh the user list
+      await fetchUsers();
+      
+      // Clear success message after a delay
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 3000);
+    } catch (err: any) {
+      setError(`Failed to ${action} user: ${err.response?.data?.error || err.message}`);
     } finally {
       setLoading(false);
     }
@@ -543,10 +570,10 @@ const UserManagementPage: React.FC = () => {
                                 </IconButton>
                                 <IconButton
                                   size="small"
-                                  onClick={() => handleUnlockUser(user)}
-                                  disabled={user.isActive}
+                                  onClick={() => handleToggleUserStatus(user)}
+                                  title={user.isActive ? 'Deactivate User' : 'Activate User'}
                                 >
-                                  <UnlockIcon fontSize="small" />
+                                  {user.isActive ? <LockIcon fontSize="small" /> : <UnlockIcon fontSize="small" />}
                                 </IconButton>
                               </Box>
                             </TableCell>

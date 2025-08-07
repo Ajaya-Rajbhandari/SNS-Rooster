@@ -6,7 +6,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const User = require('../models/User');
 const Employee = require('../models/Employee');
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/rooster';
+const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/rooster';
 
 async function syncEmployeeActiveStatus() {
   await mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });

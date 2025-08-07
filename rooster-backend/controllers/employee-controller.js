@@ -127,18 +127,24 @@ exports.updateEmployee = async (req, res) => {
     employee.userId = req.body.userId || employee.userId;
     if (req.body.hourlyRate !== undefined) employee.hourlyRate = req.body.hourlyRate;
     if (req.body.monthlySalary !== undefined) employee.monthlySalary = req.body.monthlySalary;
+    if (req.body.isActive !== undefined) employee.isActive = req.body.isActive;
 
-    // Sync position & department changes to User model if this employee is linked
+    // Sync changes to User model if this employee is linked
     if (employee.userId) {
       try {
         const linkedUser = await User.findOne({ _id: employee.userId, companyId: req.companyId });
         if (linkedUser) {
+          // Sync position & department changes
           if (req.body.position !== undefined) linkedUser.position = req.body.position;
           if (req.body.department !== undefined) linkedUser.department = req.body.department;
+          
+          // Note: Employee status changes do NOT sync to User status
+          // User status is the master record that controls login access
+          
           await linkedUser.save();
         }
       } catch (err) {
-        console.error('Warning: Failed to sync position/department to User on update:', err);
+        console.error('Warning: Failed to sync changes to User on employee update:', err);
       }
     }
 

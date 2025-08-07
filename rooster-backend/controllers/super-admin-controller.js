@@ -1829,10 +1829,21 @@ class SuperAdminController {
         return res.status(400).json({ error: 'First name, last name, email, and role are required' });
       }
 
-      // Check if email already exists
-      const existingUser = await User.findOne({ email: email.toLowerCase() });
-      if (existingUser) {
-        return res.status(400).json({ error: 'Email already exists' });
+      // Check if email already exists within the company (for non-super_admin users)
+      if (companyId && role !== 'super_admin') {
+        const existingUser = await User.findOne({ 
+          email: email.toLowerCase(), 
+          companyId: companyId 
+        });
+        if (existingUser) {
+          return res.status(400).json({ error: 'Email already exists in this company' });
+        }
+      } else if (role === 'super_admin') {
+        // For super_admin users, check globally since they don't belong to a company
+        const existingUser = await User.findOne({ email: email.toLowerCase() });
+        if (existingUser) {
+          return res.status(400).json({ error: 'Email already exists' });
+        }
       }
 
       // Validate company exists if provided
@@ -1956,6 +1967,24 @@ class SuperAdminController {
       
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Sync status changes to Employee model if this user is linked to an employee
+      if (updateData.isActive !== undefined) {
+        try {
+          const Employee = require('../models/Employee');
+          const linkedEmployee = await Employee.findOne({ 
+            userId: user._id,
+            companyId: user.companyId 
+          });
+          if (linkedEmployee && linkedEmployee.isActive !== updateData.isActive) {
+            linkedEmployee.isActive = updateData.isActive;
+            await linkedEmployee.save();
+            console.log(`Synced Employee status for user ${user.firstName} ${user.lastName}: ${linkedEmployee.isActive}`);
+          }
+        } catch (err) {
+          console.error('Warning: Failed to sync status to Employee on user update:', err);
+        }
       }
       
       res.json({
@@ -2207,6 +2236,26 @@ class SuperAdminController {
 
       if (!employee) {
         return res.status(404).json({ error: 'Employee not found' });
+      }
+
+      // Note: Employee status changes do NOT sync to User status
+      // User status is the master record that controls login access
+      // Employee status is subordinate and should follow User status
+
+      // Sync position & department changes to User model if this employee is linked
+      if (employee.userId && (updateData.position || updateData.department)) {
+        try {
+          const User = require('../models/User');
+          const linkedUser = await User.findById(employee.userId);
+          if (linkedUser) {
+            if (updateData.position !== undefined) linkedUser.position = updateData.position;
+            if (updateData.department !== undefined) linkedUser.department = updateData.department;
+            await linkedUser.save();
+            console.log(`Synced position/department for employee ${employee.firstName} ${employee.lastName}`);
+          }
+        } catch (err) {
+          console.error('Warning: Failed to sync position/department to User on employee update:', err);
+        }
       }
 
       const obj = employee.toObject();

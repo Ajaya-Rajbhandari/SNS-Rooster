@@ -88,6 +88,8 @@ const EmployeeManagementPage: React.FC = () => {
   const [newEmployee, setNewEmployee] = useState<any>({});
   const [companies, setCompanies] = useState<any[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+  const [showInactive, setShowInactive] = useState(false); // Add this state
+  const [allEmployees, setAllEmployees] = useState<any[]>([]); // For stats calculation
 
   useEffect(() => {
     fetchCompanies();
@@ -97,7 +99,7 @@ const EmployeeManagementPage: React.FC = () => {
     if (selectedCompanyId) {
       fetchEmployees();
     }
-  }, [selectedCompanyId]);
+  }, [selectedCompanyId, showInactive]);
 
   const fetchCompanies = async () => {
     try {
@@ -129,9 +131,13 @@ const EmployeeManagementPage: React.FC = () => {
         return;
       }
       
-                    // Use super admin endpoint for employees
-        const response = await apiService.get<any[]>(`/api/super-admin/employees/${companyId}`);
-        setEmployees(response);
+      // Use super admin endpoint for employees with showInactive parameter
+      const response = await apiService.get<any[]>(`/api/super-admin/employees/${companyId}?showInactive=${showInactive}`);
+      setEmployees(response);
+      
+      // Also fetch all employees for stats calculation
+      const allEmployeesResponse = await apiService.get<any[]>(`/api/super-admin/employees/${companyId}?showInactive=true`);
+      setAllEmployees(allEmployeesResponse);
          } catch (err: any) {
        console.error('Error fetching employees:', err);
        setError(err.response?.data?.message || 'Failed to fetch employees');
@@ -344,10 +350,11 @@ const EmployeeManagementPage: React.FC = () => {
     },
   ];
 
+  // Calculate stats based on all employees (not just filtered ones)
   const stats = {
-    total: employees.length,
-    active: employees.filter(emp => emp.isActive !== false).length,
-    inactive: employees.filter(emp => emp.isActive === false).length,
+    total: allEmployees.length,
+    active: allEmployees.filter(emp => emp.isActive !== false).length,
+    inactive: allEmployees.filter(emp => emp.isActive === false).length,
   };
 
   return (
@@ -462,6 +469,17 @@ const EmployeeManagementPage: React.FC = () => {
                startAdornment: <BusinessIcon sx={{ mr: 1, color: 'action.active' }} />,
              }}
            />
+           <FormControl sx={{ minWidth: 150 }}>
+             <InputLabel>Status Filter</InputLabel>
+             <Select
+               value={showInactive ? 'all' : 'active'}
+               onChange={(e) => setShowInactive(e.target.value === 'all')}
+               label="Status Filter"
+             >
+               <MenuItem value="active">Active Only</MenuItem>
+               <MenuItem value="all">All Employees</MenuItem>
+             </Select>
+           </FormControl>
          </Box>
        </Paper>
 
