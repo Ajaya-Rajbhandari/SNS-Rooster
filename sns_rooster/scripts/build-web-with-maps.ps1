@@ -11,7 +11,7 @@ Write-Host "API Key: $($ApiKey.Substring(0, 10))..." -ForegroundColor Cyan
 
 # Step 1: Build the Flutter web app with API key
 Write-Host "`n📦 Step 1: Building Flutter web app..." -ForegroundColor Green
-$buildCommand = "flutter build web --release --dart-define=GOOGLE_MAPS_API_KEY=$ApiKey"
+$buildCommand = "flutter build web --release --dart-define=GOOGLE_MAPS_API_KEY=$ApiKey --dart-define=ENVIRONMENT=production"
 Write-Host "Command: $buildCommand" -ForegroundColor Gray
 
 try {

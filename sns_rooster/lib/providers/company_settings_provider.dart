@@ -21,15 +21,15 @@ class CompanySettingsProvider with ChangeNotifier {
 
   /// Auto-load company settings when user logs in
   Future<void> autoLoad() async {
-    print('DEBUG: CompanySettingsProvider.autoLoad() called');
-    print('DEBUG: isAuthenticated: ${_authProvider.isAuthenticated}');
-    print('DEBUG: _settings is null: ${_settings == null}');
+    Logger.debug('CompanySettingsProvider.autoLoad() called');
+    Logger.debug('isAuthenticated: ${_authProvider.isAuthenticated}');
+    Logger.debug('_settings is null: ${_settings == null}');
 
     if (_authProvider.isAuthenticated && _settings == null) {
-      print('DEBUG: Calling load() from autoLoad()');
+      Logger.debug('Calling load() from autoLoad()');
       await load();
     } else {
-      print('DEBUG: Skipping load() - conditions not met');
+      Logger.debug('Skipping load() - conditions not met');
     }
   }
 
@@ -38,21 +38,22 @@ class CompanySettingsProvider with ChangeNotifier {
     error = null;
     notifyListeners();
 
-    print('DEBUG: CompanySettingsProvider.load() called');
+    Logger.debug('CompanySettingsProvider.load() called');
 
     try {
       final settings = await _service.fetchSettings();
-      print('DEBUG: fetchSettings() returned: $settings');
+      Logger.debug(
+          'fetchSettings() returned: ${settings != null ? 'success' : 'null'}');
 
       if (settings != null) {
         _settings = settings;
-        print('DEBUG: Settings loaded successfully');
+        Logger.debug('Settings loaded successfully');
       } else {
-        print('DEBUG: Settings is null');
+        Logger.debug('Settings is null');
         error = 'Failed to load company settings';
       }
     } catch (e) {
-      print('DEBUG: Error loading settings: $e');
+      Logger.debug('Error loading settings: $e');
       error = e.toString();
     } finally {
       isLoading = false;
@@ -62,7 +63,7 @@ class CompanySettingsProvider with ChangeNotifier {
 
   /// Force refresh - clear cache and reload from server
   Future<void> forceRefresh() async {
-    print('DEBUG: CompanySettingsProvider.forceRefresh() called');
+    Logger.debug('CompanySettingsProvider.forceRefresh() called');
 
     // Clear current settings to force reload
     _settings = null;
@@ -75,17 +76,18 @@ class CompanySettingsProvider with ChangeNotifier {
       await Future.delayed(const Duration(milliseconds: 100));
 
       final settings = await _service.fetchSettings();
-      print('DEBUG: forceRefresh() fetchSettings() returned: $settings');
+      Logger.debug(
+          'forceRefresh() fetchSettings() returned: ${settings != null ? 'success' : 'null'}');
 
       if (settings != null) {
         _settings = settings;
-        print('DEBUG: Settings force refreshed successfully');
+        Logger.debug('Settings force refreshed successfully');
       } else {
-        print('DEBUG: Settings is null after force refresh');
+        Logger.debug('Settings is null after force refresh');
         error = 'Failed to load company settings';
       }
     } catch (e) {
-      print('DEBUG: Error force refreshing settings: $e');
+      Logger.debug('Error force refreshing settings: $e');
       error = e.toString();
     } finally {
       isLoading = false;
@@ -104,7 +106,7 @@ class CompanySettingsProvider with ChangeNotifier {
       return true;
     } catch (e) {
       error = e.toString();
-      log('CompanySettingsProvider save error: $e');
+      Logger.debug('CompanySettingsProvider save error: $e');
       return false;
     } finally {
       isLoading = false;
@@ -130,7 +132,7 @@ class CompanySettingsProvider with ChangeNotifier {
       return true;
     } catch (e) {
       error = e.toString();
-      log('CompanySettingsProvider uploadLogo error: $e');
+      Logger.debug('CompanySettingsProvider uploadLogo error: $e');
       return false;
     } finally {
       isUploading = false;

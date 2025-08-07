@@ -13,6 +13,7 @@ import 'package:sns_rooster/services/firebase_storage_service.dart';
 import 'package:sns_rooster/config/api_config.dart';
 import 'package:sns_rooster/widgets/admin_side_navigation.dart';
 import 'package:sns_rooster/providers/feature_provider.dart';
+import 'package:sns_rooster/utils/logger.dart';
 
 class EditCompanyFormScreen extends StatefulWidget {
   const EditCompanyFormScreen({Key? key}) : super(key: key);
@@ -90,10 +91,10 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
         _logoUrl = settings['logoUrl'] ?? '';
 
         // Debug log for logo URL
-        print('DEBUG: Logo URL from settings: $_logoUrl');
+        Logger.debug('Logo URL from settings: $_logoUrl');
         if (_logoUrl.isNotEmpty) {
           final fullLogoUrl = CompanySettingsService.getLogoUrl(_logoUrl);
-          print('DEBUG: Full logo URL: $fullLogoUrl');
+          Logger.debug('Full logo URL: $fullLogoUrl');
         }
 
         setState(() {
@@ -267,12 +268,11 @@ class _EditCompanyFormScreenState extends State<EditCompanyFormScreen> {
             );
           }
 
-          print('DEBUG: Sending multipart request to local backend');
+          Logger.debug('Sending multipart request to local backend');
           final streamedResponse = await request.send();
           final response = await http.Response.fromStream(streamedResponse);
 
-          print('DEBUG: Local backend response status: ${response.statusCode}');
-          print('DEBUG: Local backend response body: ${response.body}');
+          Logger.debug('Local backend response status: ${response.statusCode}');
 
           if (response.statusCode == 200) {
             final responseData = json.decode(response.body);

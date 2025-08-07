@@ -100,10 +100,10 @@
     window.addEventListener('load', initializeFirebaseSecurely);
   </script>
 
-  <!-- Google Maps API - SECURE LOADING -->
+  <!-- Google Maps API - DIRECT LOADING -->
   <script>
-    // SECURE: Load Google Maps API through backend proxy to avoid exposing API key
-    function loadGoogleMapsAPISecurely() {
+    // Load Google Maps API directly from Google's servers
+    function loadGoogleMapsAPI() {
       // Check if Google Maps is already loaded
       if (window.google && window.google.maps) {
         console.log('🗺️ Google Maps already loaded, skipping...');
@@ -113,21 +113,9 @@
       
       const script = document.createElement('script');
       
-      // Check if we're in development or production
-      const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      
-      if (isDevelopment) {
-        // Development: Use environment variable or detect automatically
-        const devBackendUrl = window.location.hostname === 'localhost' ? 
-          'http://localhost:5000/api/google-maps/script' : 
-          `http://${window.location.hostname}:5000/api/google-maps/script`;
-        script.src = devBackendUrl;
-        console.log('🗺️ Loading Google Maps from development backend:', script.src);
-      } else {
-        // Production: Use full backend URL
-        script.src = 'https://sns-rooster.onrender.com/api/google-maps/script';
-        console.log('🗺️ Loading Google Maps from production backend:', script.src);
-      }
+      // Load directly from Google's servers with API key
+      const apiKey = 'AIzaSyDrqjkWAfQqSWBPmKCAxYxs6cjuDEbPZGc';
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initMap&loading=async`;
       
       script.async = true;
       script.defer = true;
@@ -136,7 +124,7 @@
         window.googleMapsLoaded = true;
       };
       script.onerror = function() {
-        console.error('🗺️ Failed to load Google Maps API script securely');
+        console.error('🗺️ Failed to load Google Maps API script');
         window.googleMapsLoaded = false;
       };
       document.head.appendChild(script);
@@ -144,9 +132,9 @@
     
     // Load Google Maps when DOM is ready
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', loadGoogleMapsAPISecurely);
+      document.addEventListener('DOMContentLoaded', loadGoogleMapsAPI);
     } else {
-      loadGoogleMapsAPISecurely();
+      loadGoogleMapsAPI();
     }
   </script>
 

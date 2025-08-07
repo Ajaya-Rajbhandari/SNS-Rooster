@@ -6,6 +6,7 @@ import '../../config/api_config.dart';
 import '../providers/auth_provider.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:typed_data';
+import '../utils/logger.dart';
 
 class CompanySettingsService {
   final AuthProvider _authProvider;
@@ -15,22 +16,21 @@ class CompanySettingsService {
   Future<Map<String, dynamic>?> fetchSettings() async {
     if (!_authProvider.isAuthenticated) return null;
     final uri = Uri.parse('${ApiConfig.baseUrl}/admin/settings/company');
-    print('DEBUG: CompanySettingsService.fetchSettings() - Calling API: $uri');
+    Logger.debug(
+        'CompanySettingsService.fetchSettings() - Calling API: ${uri.path}');
 
     final res = await http.get(uri, headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ${_authProvider.token}',
     });
 
-    print(
-        'DEBUG: CompanySettingsService.fetchSettings() - Response status: ${res.statusCode}');
-    print(
-        'DEBUG: CompanySettingsService.fetchSettings() - Response body: ${res.body}');
+    Logger.debug(
+        'CompanySettingsService.fetchSettings() - Response status: ${res.statusCode}');
 
     if (res.statusCode == 200) {
       final data = json.decode(res.body);
-      print(
-          'DEBUG: CompanySettingsService.fetchSettings() - Parsed data: $data');
+      Logger.debug(
+          'CompanySettingsService.fetchSettings() - Parsed data: success');
       return data;
     }
     throw Exception('Failed to load company settings');
