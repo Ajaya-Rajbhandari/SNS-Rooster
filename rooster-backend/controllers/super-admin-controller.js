@@ -1897,16 +1897,21 @@ class SuperAdminController {
       const newUser = new User(userData);
       await newUser.save();
 
-      // Generate email verification token and send verification email
+      // Generate email verification token and send emails
       if (role !== 'super_admin') {
         try {
           const verificationToken = newUser.generateEmailVerificationToken();
           await newUser.save();
           
+          // Send welcome email with password
+          await emailService.sendWelcomeEmail(newUser, userPassword);
+          console.log(`✅ Welcome email sent to ${newUser.email}`);
+          
+          // Send verification email
           await emailService.sendVerificationEmail(newUser, verificationToken);
           console.log(`✅ Verification email sent to ${newUser.email}`);
         } catch (emailError) {
-          console.error('Failed to send verification email:', emailError);
+          console.error('Failed to send emails:', emailError);
           // Don't fail the user creation if email fails
         }
       }
@@ -1916,7 +1921,7 @@ class SuperAdminController {
 
       res.status(201).json({
         success: true,
-        message: role !== 'super_admin' ? 'User created successfully. Verification email sent.' : 'User created successfully',
+        message: role !== 'super_admin' ? 'User created successfully. Welcome and verification emails sent.' : 'User created successfully',
         user: {
           ...newUser.toObject(),
           password: undefined // Don't send password in response
@@ -2220,15 +2225,20 @@ class SuperAdminController {
       
       await user.save();
 
-      // Generate email verification token and send verification email
+      // Generate email verification token and send emails
       try {
         const verificationToken = user.generateEmailVerificationToken();
         await user.save();
         
+        // Send welcome email with password
+        await emailService.sendWelcomeEmail(user, defaultPassword);
+        console.log(`✅ Welcome email sent to ${user.email}`);
+        
+        // Send verification email
         await emailService.sendVerificationEmail(user, verificationToken);
         console.log(`✅ Verification email sent to ${user.email}`);
       } catch (emailError) {
-        console.error('Failed to send verification email:', emailError);
+        console.error('Failed to send emails:', emailError);
         // Don't fail the employee creation if email fails
       }
 
@@ -2244,7 +2254,7 @@ class SuperAdminController {
 
       res.status(201).json({
         success: true,
-        message: 'Employee created successfully. Verification email sent.',
+        message: 'Employee created successfully. Welcome and verification emails sent.',
         employee: obj,
         user: {
           _id: user._id,
@@ -2384,15 +2394,20 @@ class SuperAdminController {
           
           await user.save();
 
-          // Generate email verification token and send verification email
+          // Generate email verification token and send emails
           try {
             const verificationToken = user.generateEmailVerificationToken();
             await user.save();
             
+            // Send welcome email with password
+            await emailService.sendWelcomeEmail(user, defaultPassword);
+            console.log(`✅ Welcome email sent to ${user.email}`);
+            
+            // Send verification email
             await emailService.sendVerificationEmail(user, verificationToken);
             console.log(`✅ Verification email sent to ${user.email}`);
           } catch (emailError) {
-            console.error(`Failed to send verification email to ${user.email}:`, emailError);
+            console.error(`Failed to send emails to ${user.email}:`, emailError);
             // Don't fail the employee creation if email fails
           }
 
@@ -2407,6 +2422,7 @@ class SuperAdminController {
             email: employeeData.email,
             employeeId: employee._id,
             userId: user._id,
+            welcomeEmailSent: true,
             verificationEmailSent: true
           });
         } catch (error) {
@@ -2607,21 +2623,27 @@ class SuperAdminController {
 
           await newUser.save();
 
-          // Generate email verification token and send verification email
+          // Generate email verification token and send emails
           try {
             const verificationToken = newUser.generateEmailVerificationToken();
             await newUser.save();
             
+            // Send welcome email with password
+            await emailService.sendWelcomeEmail(newUser, password);
+            console.log(`✅ Welcome email sent to ${newUser.email}`);
+            
+            // Send verification email
             await emailService.sendVerificationEmail(newUser, verificationToken);
             console.log(`✅ Verification email sent to ${newUser.email}`);
           } catch (emailError) {
-            console.error(`Failed to send verification email to ${newUser.email}:`, emailError);
+            console.error(`Failed to send emails to ${newUser.email}:`, emailError);
             // Don't fail the user creation if email fails
           }
 
           results.successful.push({
             email: userData.email,
             userId: newUser._id,
+            welcomeEmailSent: true,
             verificationEmailSent: true
           });
 
