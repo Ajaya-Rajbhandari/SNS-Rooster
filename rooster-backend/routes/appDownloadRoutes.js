@@ -8,12 +8,12 @@ const APK_CONFIG = {
   android: {
     latest_version: '1.0.14',
     latest_build_number: '14',
-    // Primary download URL (GitHub Releases)
-    download_url: 'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest/download/sns-rooster.apk',
+    // Primary download URL (GitHub Releases) - Updated with correct filename
+    download_url: 'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest/download/sns-rooster-v1.0.14.apk',
     // Alternative download URLs (fallback options)
     alternative_downloads: [
       'https://play.google.com/store/apps/details?id=com.snstech.sns_rooster',
-      'https://sns-rooster.com/downloads/sns-rooster.apk'
+      'https://sns-rooster.com/downloads/sns-rooster-v1.0.14.apk'
     ],
     // Server file path (for admin uploads only)
     file_path: path.join(__dirname, '../uploads/apk/sns-rooster-v1.0.14.apk'),
@@ -64,8 +64,8 @@ router.get('/android', async (req, res) => {
  */
 router.get('/android/file', async (req, res) => {
   try {
-    // Redirect to GitHub Releases (primary download source)
-    const githubUrl = 'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest/download/sns-rooster.apk';
+    // Redirect to GitHub Releases (primary download source) - Updated with correct filename
+    const githubUrl = 'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest/download/sns-rooster-v1.0.14.apk';
     
     console.log(`📱 Redirecting APK download to GitHub: ${githubUrl}`);
     

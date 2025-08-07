@@ -10,9 +10,9 @@ const APP_VERSIONS = {
     update_message: 'A new version of SNS Rooster is available with enhanced user experience and performance improvements!',
     download_url: 'https://sns-rooster.onrender.com/api/app/download/android/file',
     alternative_downloads: [
-      'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest/download/sns-rooster.apk',
+      'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest/download/sns-rooster-v1.0.14.apk',
       'https://play.google.com/store/apps/details?id=com.snstech.sns_rooster',
-      'https://sns-rooster.com/downloads/sns-rooster.apk'
+      'https://sns-rooster.com/downloads/sns-rooster-v1.0.14.apk'
     ],
     min_required_version: '1.0.0',
     min_required_build: '1',
