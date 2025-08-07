@@ -3,15 +3,22 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 
-// APK file configuration
+// APK file configuration - Updated for GitHub-first approach
 const APK_CONFIG = {
   android: {
-    latest_version: '1.0.13',
-    latest_build_number: '13',
-    download_url: 'https://sns-rooster.onrender.com/api/app/download/android/file',
-    file_path: path.join(__dirname, '../uploads/apk/sns-rooster-v1.0.13.apk'), // Local APK file path with version
-    file_size: 0, // Will be calculated dynamically
-    checksum: '', // Will be calculated dynamically
+    latest_version: '1.0.14',
+    latest_build_number: '14',
+    // Primary download URL (GitHub Releases)
+    download_url: 'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest/download/sns-rooster.apk',
+    // Alternative download URLs (fallback options)
+    alternative_downloads: [
+      'https://play.google.com/store/apps/details?id=com.snstech.sns_rooster',
+      'https://sns-rooster.com/downloads/sns-rooster.apk'
+    ],
+    // Server file path (for admin uploads only)
+    file_path: path.join(__dirname, '../uploads/apk/sns-rooster-v1.0.14.apk'),
+    file_size: 0,
+    checksum: '',
   }
 };
 
@@ -35,7 +42,8 @@ router.get('/android', async (req, res) => {
     res.json({
       version: apkInfo.latest_version,
       build_number: apkInfo.latest_build_number,
-      download_url: apkInfo.download_url,
+      download_url: apkInfo.download_url, // GitHub URL as primary
+      alternative_downloads: apkInfo.alternative_downloads || [],
       file_size: apkInfo.file_size,
       checksum: apkInfo.checksum,
       timestamp: new Date().toISOString(),
@@ -51,40 +59,29 @@ router.get('/android', async (req, res) => {
 
 /**
  * @route   GET /api/app/download/android/file
- * @desc    Download Android APK file directly
+ * @desc    Redirect to GitHub Releases for APK download
  * @access  Public
  */
 router.get('/android/file', async (req, res) => {
   try {
-    const apkPath = APK_CONFIG.android.file_path;
+    // Redirect to GitHub Releases (primary download source)
+    const githubUrl = 'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest/download/sns-rooster.apk';
     
-    // Check if APK file exists
-    if (!fs.existsSync(apkPath)) {
-      return res.status(404).json({
-        error: 'APK file not found',
-        message: 'The requested APK file is not available'
-      });
-    }
+    console.log(`📱 Redirecting APK download to GitHub: ${githubUrl}`);
     
-    // Get file stats
-    const stats = fs.statSync(apkPath);
-    
-    // Set headers for file download
-    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-    res.setHeader('Content-Disposition', `attachment; filename="sns-rooster-v${APK_CONFIG.android.latest_version}.apk"`);
-    res.setHeader('Content-Length', stats.size);
-    res.setHeader('Cache-Control', 'no-cache');
-    
-    // Stream the file
-    const fileStream = fs.createReadStream(apkPath);
-    fileStream.pipe(res);
-    
-    console.log(`📱 APK download started: ${stats.size} bytes`);
+    // Return redirect response
+    res.status(302).json({
+      redirect: true,
+      download_url: githubUrl,
+      message: 'Redirecting to GitHub Releases for download',
+      alternative_downloads: APK_CONFIG.android.alternative_downloads,
+      timestamp: new Date().toISOString(),
+    });
     
   } catch (error) {
-    console.error('❌ Error downloading APK:', error);
+    console.error('❌ Error redirecting APK download:', error);
     res.status(500).json({
-      error: 'Failed to download APK',
+      error: 'Failed to redirect APK download',
       message: error.message
     });
   }

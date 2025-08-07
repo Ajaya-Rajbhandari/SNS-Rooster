@@ -100,7 +100,7 @@ class DirectDownloadService {
     }
   }
 
-  /// Get download URL from server
+  /// Get download URL from server (prioritizes GitHub)
   static Future<String?> getDownloadUrl() async {
     try {
       final response = await http.get(
@@ -112,7 +112,39 @@ class DirectDownloadService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return data['download_url'];
+        
+        // Prioritize GitHub URL if available
+        final downloadUrl = data['download_url'];
+        if (downloadUrl != null && downloadUrl.contains('github.com')) {
+          print('📱 Using GitHub download URL: $downloadUrl');
+          return downloadUrl;
+        }
+        
+        // Fallback to alternative downloads
+        final alternativeDownloads = data['alternative_downloads'] as List?;
+        if (alternativeDownloads != null && alternativeDownloads.isNotEmpty) {
+          // Try GitHub first, then Play Store, then others
+          for (final url in alternativeDownloads) {
+            if (url.contains('github.com')) {
+              print('📱 Using GitHub alternative URL: $url');
+              return url;
+            }
+          }
+          
+          // If no GitHub, try Play Store
+          for (final url in alternativeDownloads) {
+            if (url.contains('play.google.com')) {
+              print('📱 Using Play Store URL: $url');
+              return url;
+            }
+          }
+          
+          // Use first available alternative
+          print('📱 Using alternative download URL: ${alternativeDownloads.first}');
+          return alternativeDownloads.first;
+        }
+        
+        return downloadUrl;
       }
 
       return null;
