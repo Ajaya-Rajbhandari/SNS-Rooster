@@ -21,6 +21,19 @@ New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
 
 Write-Host "📁 Created release directory: $releaseDir" -ForegroundColor Green
 
+# Ensure .gitignore excludes APK files
+$gitignorePath = ".gitignore"
+if (Test-Path $gitignorePath) {
+    $gitignoreContent = Get-Content $gitignorePath -Raw
+    if ($gitignoreContent -notmatch "\.apk") {
+        Add-Content $gitignorePath "`n# APK files`n*.apk"
+        Write-Host "✅ Added *.apk to .gitignore" -ForegroundColor Green
+    }
+} else {
+    Set-Content $gitignorePath "# APK files`n*.apk"
+    Write-Host "✅ Created .gitignore with *.apk exclusion" -ForegroundColor Green
+}
+
 # Update pubspec.yaml
 $pubspecPath = "sns_rooster/pubspec.yaml"
 if (Test-Path $pubspecPath) {
@@ -57,8 +70,9 @@ $releaseNotesPath = "$releaseDir/RELEASE_NOTES.md"
 Set-Content $releaseNotesPath $releaseNotesContent
 Write-Host "✅ Release notes created" -ForegroundColor Green
 
-# Create Git tag
+# Create Git tag (excluding APK files)
 git add .
+git reset releases/v$Version/*.apk  # Exclude APK files from commit
 git commit -m "Release v$Version (Build $BuildNumber) - $ReleaseNotes"
 git tag -a "v$Version" -m "Release v$Version (Build $BuildNumber)"
 
@@ -87,4 +101,7 @@ Write-Host "🏷️ Git tag: v$Version" -ForegroundColor Cyan
 Write-Host "`n📋 Next steps:" -ForegroundColor Yellow
 Write-Host "1. git push origin main --tags" -ForegroundColor White
 Write-Host "2. Build APK and upload to GitHub Releases" -ForegroundColor White
-Write-Host "3. Test the release" -ForegroundColor White 
+Write-Host "3. Test the release" -ForegroundColor White
+Write-Host "`n⚠️ Important:" -ForegroundColor Red
+Write-Host "- APK files are excluded from Git commits to prevent LFS issues" -ForegroundColor White
+Write-Host "- Upload APK manually to GitHub Releases" -ForegroundColor White 

@@ -21,6 +21,19 @@ New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
 
 Write-Host "📁 Created release directory: $releaseDir" -ForegroundColor Green
 
+# Ensure .gitignore excludes APK files
+$gitignorePath = ".gitignore"
+if (Test-Path $gitignorePath) {
+    $gitignoreContent = Get-Content $gitignorePath -Raw
+    if ($gitignoreContent -notmatch "\.apk") {
+        Add-Content $gitignorePath "`n# APK files`n*.apk"
+        Write-Host "✅ Added *.apk to .gitignore" -ForegroundColor Green
+    }
+} else {
+    Set-Content $gitignorePath "# APK files`n*.apk"
+    Write-Host "✅ Created .gitignore with *.apk exclusion" -ForegroundColor Green
+}
+
 # Update pubspec.yaml
 $pubspecPath = "sns_rooster/pubspec.yaml"
 if (Test-Path $pubspecPath) {
@@ -69,8 +82,9 @@ $releaseNotesPath = "$releaseDir/RELEASE_NOTES.md"
 Set-Content $releaseNotesPath $releaseNotesContent
 Write-Host "✅ Release notes created" -ForegroundColor Green
 
-# Create Git tag
+# Create Git tag (excluding APK files)
 git add .
+git reset releases/v$Version/*.apk  # Exclude APK files from commit
 git commit -m "Release v$Version (Build $BuildNumber) - $ReleaseNotes"
 git tag -a "v$Version" -m "Release v$Version (Build $BuildNumber)"
 
@@ -96,7 +110,27 @@ try {
 Write-Host "`n🎉 Release v$Version created successfully!" -ForegroundColor Green
 Write-Host "📁 Release files in: $releaseDir" -ForegroundColor Cyan
 Write-Host "🏷️ Git tag: v$Version" -ForegroundColor Cyan
-Write-Host "`n📋 Next steps:" -ForegroundColor Yellow
-Write-Host "1. git push origin main --tags" -ForegroundColor White
-Write-Host "2. Build APK and upload to GitHub Releases" -ForegroundColor White
-Write-Host "3. Test the release" -ForegroundColor White 
+
+Write-Host "`n📋 MANUAL UPLOAD WORKFLOW:" -ForegroundColor Yellow
+Write-Host "================================================" -ForegroundColor Yellow
+Write-Host "1️⃣ Push to GitHub:" -ForegroundColor White
+Write-Host "   git push origin main --tags" -ForegroundColor Cyan
+Write-Host "`n2️⃣ Build APK:" -ForegroundColor White
+Write-Host "   cd sns_rooster" -ForegroundColor Cyan
+Write-Host "   flutter build apk --release" -ForegroundColor Cyan
+Write-Host "   # APK will be in: build/app/outputs/flutter-apk/app-release.apk" -ForegroundColor Gray
+Write-Host "`n3️⃣ Upload to GitHub Releases:" -ForegroundColor White
+Write-Host "   • Go to: https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases" -ForegroundColor Cyan
+Write-Host "   • Click 'Edit' on release v$Version" -ForegroundColor Cyan
+Write-Host "   • Drag & drop the APK file to 'Attach binaries'" -ForegroundColor Cyan
+Write-Host "   • Click 'Update release'" -ForegroundColor Cyan
+Write-Host "`n4️⃣ Test the release:" -ForegroundColor White
+Write-Host "   • Download APK from GitHub release" -ForegroundColor Cyan
+Write-Host "   • Install on test device" -ForegroundColor Cyan
+Write-Host "   • Verify app shows v$Version" -ForegroundColor Cyan
+
+Write-Host "`n⚠️ IMPORTANT NOTES:" -ForegroundColor Red
+Write-Host "• APK files are excluded from Git to prevent LFS budget issues" -ForegroundColor White
+Write-Host "• Manual upload to GitHub Releases is required" -ForegroundColor White
+Write-Host "• This prevents deployment failures due to large files" -ForegroundColor White
+Write-Host "• Users can download from GitHub, Play Store, or your server" -ForegroundColor White 

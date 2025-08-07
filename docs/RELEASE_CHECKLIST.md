@@ -35,14 +35,15 @@
 - [ ] Clean previous builds
 - [ ] Update dependencies
 - [ ] Build release APK
-- [ ] Verify APK size is reasonable
+- [ ] Verify APK size is reasonable (<100MB for GitHub)
 - [ ] Test APK installation
 - [ ] Verify APK signature
+- [ ] **MANUAL STEP:** Upload APK to GitHub Releases
 
 ### Release Files
 - [ ] Create release directory
-- [ ] Copy APK to release directory
-- [ ] Generate SHA256 hash
+- [ ] **NOTE:** APK files are excluded from Git (LFS budget protection)
+- [ ] Generate SHA256 hash (optional)
 - [ ] Create release notes
 - [ ] Create release summary
 
@@ -77,12 +78,13 @@
 
 ## 📱 Distribution
 
-### GitHub Releases
+### GitHub Releases (Manual Upload)
 - [ ] Create new release on GitHub
-- [ ] Upload APK file
+- [ ] **MANUAL STEP:** Upload APK file to GitHub Releases
 - [ ] Add release notes
 - [ ] Mark as latest release
 - [ ] Verify download links work
+- [ ] Test APK download from GitHub
 
 ### Alternative Sources
 - [ ] Update website download links

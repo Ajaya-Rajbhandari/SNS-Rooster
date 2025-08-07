@@ -9,6 +9,8 @@
     "test": "jest",
     "cleanup-logs": "node scripts/cleanup-debug-logs.js",
     "start-prod": "NODE_ENV=production node server.js",
+    "start-render": "NODE_ENV=production node server.js",
+    "startup-health": "node startup-health-check.js",
     "dev-debug": "NODE_ENV=development nodemon server.js",
     "backup": "node scripts/backup-database.js",
     "backup-test": "TEST_RESTORE=true node scripts/backup-database.js",

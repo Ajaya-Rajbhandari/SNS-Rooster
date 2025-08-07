@@ -43,13 +43,15 @@ This release includes notification system improvements and deployment fixes. Use
 
 ## 📊 File Information
 
+- **File Size:** 77.1 MB
+- **SHA256:** D71A0E6D5BD2D5D8500D26F1FEE6BE30B150FBB7E3ED3E78EE719E15224A9577
 - **Minimum Android Version:** Android 5.0 (API 21)
 - **Target Android Version:** Android 13 (API 33)
 
 ## 🐛 Bug Reports
 
 If you encounter any issues, please report them:
-- **Email:** support@snstechservices.com.au
+- **Email:** admin@snstechservices.com.au
 - **GitHub:** [Create an issue](https://github.com/Ajaya-Rajbhandari/SNS-Rooster/issues)
 
 ## 🔄 Update Instructions

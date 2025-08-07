@@ -2,34 +2,14 @@
 // Do NOT run this file directly. Use server.js as the entry point for the backend.
 
 const express = require('express');
-const mongoose = require('mongoose');
-const dotenv = require('dotenv');
 const cors = require('cors');
+const mongoose = require('mongoose');
 const path = require('path');
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
+const compression = require('compression');
 
-// Security middleware
-const {
-  helmetConfig,
-  apiLimiter,
-  authValidationLimiter,
-  dashboardLimiter,
-  validateEnvironmentVariables
-} = require('./middleware/security');
-
-// Error tracking middleware
-const {
-  errorTrackingMiddleware,
-  performanceTrackingMiddleware
-} = require('./middleware/errorTracking');
-
-// Performance optimization middleware
-const {
-  compressionMiddleware,
-  performanceMonitor,
-  cacheMiddleware,
-  memoryMonitor,
-  responseSizeLimiter
-} = require('./middleware/performance');
+// Import routes
 const authRoutes = require('./routes/authRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const adminAttendanceRoutes = require('./routes/adminAttendanceRoutes');
@@ -41,129 +21,133 @@ const dataExportRoutes = require('./routes/dataExportRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const adminSettingsRoutes = require('./routes/adminSettingsRoutes');
-const fcmRoutes = require('./routes/fcmRoutes');
-const eventRoutes = require('./routes/event-routes');
 const companyRoutes = require('./routes/companyRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
 const billingRoutes = require('./routes/billingRoutes');
 const trialRoutes = require('./routes/trialRoutes');
-const healthRoutes = require('./routes/healthRoutes');
+const fcmRoutes = require('./routes/fcmRoutes');
+const eventRoutes = require('./routes/eventRoutes');
 const performanceReviewRoutes = require('./routes/performanceReviewRoutes');
 const performanceReviewTemplateRoutes = require('./routes/performanceReviewTemplateRoutes');
-
-// Enterprise Features Routes
 const locationRoutes = require('./routes/locationRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
 const performanceRoutes = require('./routes/performanceRoutes');
 const trainingRoutes = require('./routes/trainingRoutes');
-
-// Performance monitoring routes
 const performanceMonitoringRoutes = require('./routes/performanceRoutes');
-
-// Mobile optimization routes
 const mobileOptimizationRoutes = require('./routes/mobileOptimizationRoutes');
-
-// Monitoring routes
 const monitoringRoutes = require('./routes/monitoringRoutes');
 const appVersionRoutes = require('./routes/appVersionRoutes');
 const appDownloadRoutes = require('./routes/appDownloadRoutes');
 const googleMapsRoutes = require('./routes/googleMapsRoutes');
+const healthRoutes = require('./routes/healthRoutes');
+
+// Import middleware
+const { authenticateToken } = require('./middleware/auth');
+const { requireSuperAdmin } = require('./middleware/superAdmin');
+const { performanceMonitor, memoryMonitor, responseSizeLimiter, performanceTrackingMiddleware } = require('./middleware/monitoring');
+const { errorTrackingMiddleware } = require('./middleware/errorTracking');
+const { cacheMiddleware } = require('./middleware/cache');
 
 const app = express();
 
-// Trust proxy for rate limiting (required for Render deployment)
-app.set('trust proxy', 1);
-
-// Validate environment variables on startup
-validateEnvironmentVariables();
-
-// Manual CORS handler for OPTIONS requests
-app.options('*', cors());
-
-// Debug middleware to log all requests
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path} - Origin: ${req.headers.origin}`);
-  next();
+// Simple, fast health check for Render deployment (no middleware, no dependencies)
+app.get('/api/monitoring/health', (req, res) => {
+  // Return immediately without any database checks or complex logic
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    version: process.env.npm_package_version || '1.0.0',
+    message: 'Server is running and ready',
+    deployment: 'successful'
+  });
 });
 
-// CORS middleware (must be before security middleware for preflight requests)
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) {
-      console.log('CORS: Allowing request with no origin');
-      return callback(null, true);
+// Additional simple health check at root level for maximum compatibility
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    message: 'Server is running'
+  });
+});
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      connectSrc: ["'self'", "https://sns-rooster.onrender.com", "https://sns-rooster-8ccz5.web.app"]
     }
-    
-    const allowedOrigins = [
-      'https://sns-rooster-8cca5.web.app',
-      'https://sns-rooster-admin.web.app',  // Admin portal
-      'https://sns-rooster.onrender.com',
-      'http://localhost:3000',  // Flutter web app
-      'http://localhost:3001',  // Admin portal
-      'http://192.168.1.119:8080'
-    ];
-    
-    // Allow any localhost port for development (Flutter web uses random ports)
-    if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:')) {
-      console.log('CORS: Allowing localhost origin:', origin);
-      return callback(null, true);
-    }
-    
-    // Allow specific origins
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      console.log('CORS: Allowing origin:', origin);
-      return callback(null, true);
-    }
-    
-    // TEMPORARY: Allow all origins for debugging (remove in production)
-    console.log('CORS: TEMPORARILY allowing origin:', origin);
-    return callback(null, true);
-    
-    // Log blocked origins for debugging
-    // console.log('CORS: Blocked origin:', origin);
-    // console.log('CORS: Allowed origins:', allowedOrigins);
-    // return callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true, // Only needed if you use cookies/auth
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'companyId', 'x-company-id'],
-  optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
+  }
 }));
 
-// Security middleware (apply after CORS)
-app.use(helmetConfig);
+// CORS configuration
+app.use(cors({
+  origin: [
+    'https://sns-rooster-8ccz5.web.app',
+    'https://sns-rooster-admin.web.app',
+    'https://sns-rooster.com',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:8080',
+    'http://localhost:8081'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 
-// Specific CORS handler for problematic routes
-app.use('/api/auth/me', (req, res, next) => {
-  if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, companyId, x-company-id');
-    res.status(200).end();
-    return;
-  }
-  next();
+// Rate limiting configuration
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: {
+    error: 'Too many requests from this IP, please try again later.',
+    retryAfter: Math.ceil(15 * 60 / 60) // minutes
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
-app.use('/api/companies/features', (req, res, next) => {
-  if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, companyId, x-company-id');
-    res.status(200).end();
-    return;
+const dashboardLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // more lenient for dashboard
+  message: {
+    error: 'Too many dashboard requests, please try again later.',
+    retryAfter: Math.ceil(15 * 60 / 60)
   }
-  next();
 });
 
-app.use('/api/admin/settings', (req, res, next) => {
-  if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, companyId, x-company-id');
-    res.status(200).end();
-    return;
+// Compression middleware
+const compressionMiddleware = compression({
+  level: 6,
+  threshold: 1024,
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+});
+
+// Environment validation middleware
+app.use((req, res, next) => {
+  const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET'];
+  const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+  
+  if (missingVars.length > 0) {
+    console.error('Missing required environment variables:', missingVars);
+    return res.status(500).json({
+      error: 'Server configuration error',
+      message: 'Missing required environment variables'
+    });
   }
   next();
 });
@@ -236,7 +220,7 @@ app.use('/api/performance-monitoring', performanceMonitoringRoutes);
 // Mobile optimization routes
 app.use('/api/mobile', mobileOptimizationRoutes);
 
-// Monitoring routes
+// Monitoring routes (this will override the simple health check above with the full version)
 app.use('/api/monitoring', monitoringRoutes);
 
 // App version routes
