@@ -187,6 +187,14 @@ class AppUpdateService {
                   color: Colors.grey.shade600,
                 ),
               ),
+              const SizedBox(height: 12),
+              if (Platform.isAndroid) ...[
+                const Text(
+                  'Choose download method:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+              ],
             ],
           ),
           actions: [
@@ -195,27 +203,71 @@ class AppUpdateService {
                 onPressed: () => Navigator.of(context).pop(),
                 child: const Text('Later'),
               ),
-            ElevatedButton(
-              onPressed: () async {
-                print('🔘 Update button clicked');
-                print('📱 Platform: ${Platform.isAndroid ? 'Android' : 'Web'}');
-                print('🔗 Download URL: ${updateInfo.downloadUrl}');
-
-                Navigator.of(context).pop();
-
-                try {
-                  await launchUpdateUrl(updateInfo.downloadUrl);
-                } catch (e) {
-                  print('❌ Error in update button: $e');
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    updateInfo.updateRequired ? Colors.red : Colors.blue,
-                foregroundColor: Colors.white,
+            if (Platform.isAndroid) ...[
+              // GitHub Download Button
+              ElevatedButton.icon(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  print('🔘 GitHub download clicked');
+                  try {
+                    await launchUpdateUrl(
+                        'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest');
+                  } catch (e) {
+                    print('❌ Error in GitHub download: $e');
+                  }
+                },
+                icon: const Icon(Icons.download),
+                label: const Text('GitHub'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
               ),
-              child: Text(updateInfo.updateRequired ? 'Update Now' : 'Update'),
-            ),
+              // Play Store Button
+              ElevatedButton.icon(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  print('🔘 Play Store clicked');
+                  try {
+                    await launchUpdateUrl(
+                        'https://play.google.com/store/apps/details?id=com.snstech.sns_rooster');
+                  } catch (e) {
+                    print('❌ Error in Play Store: $e');
+                  }
+                },
+                icon: const Icon(Icons.store),
+                label: const Text('Play Store'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ] else ...[
+              // For non-Android platforms, use the original single button
+              ElevatedButton(
+                onPressed: () async {
+                  print('🔘 Update button clicked');
+                  print(
+                      '📱 Platform: ${Platform.isAndroid ? 'Android' : 'Web'}');
+                  print('🔗 Download URL: ${updateInfo.downloadUrl}');
+
+                  Navigator.of(context).pop();
+
+                  try {
+                    await launchUpdateUrl(updateInfo.downloadUrl);
+                  } catch (e) {
+                    print('❌ Error in update button: $e');
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      updateInfo.updateRequired ? Colors.red : Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+                child:
+                    Text(updateInfo.updateRequired ? 'Update Now' : 'Update'),
+              ),
+            ],
           ],
         ),
       );
@@ -231,63 +283,73 @@ class AppUpdateService {
       print('🔗 Attempting to launch update URL: $url');
 
       if (Platform.isAndroid) {
-        // Try multiple approaches for Android
-        bool launched = false;
+        // Handle different types of URLs
+        if (url.contains('github.com')) {
+          // For GitHub URLs, open the releases page instead of direct download
+          final releasesUrl =
+              'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest';
+          final releasesUri = Uri.parse(releasesUrl);
 
-        // Method 1: Try external application (browser)
-        try {
-          print('🔍 Trying LaunchMode.externalApplication...');
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-          print('✅ Launched update URL in external app: $url');
-          launched = true;
-        } catch (e) {
-          print('⚠️ Failed to launch in external app: $e');
-        }
+          print('📱 Opening GitHub releases page: $releasesUrl');
 
-        // Method 2: Try in-app webview if external failed
-        if (!launched) {
           try {
-            print('🔍 Trying LaunchMode.inAppWebView...');
-            await launchUrl(uri, mode: LaunchMode.inAppWebView);
-            print('✅ Launched update URL in in-app webview: $url');
+            await launchUrl(releasesUri, mode: LaunchMode.externalApplication);
+            print('✅ Opened GitHub releases page');
+          } catch (e) {
+            print('❌ Failed to open GitHub releases: $e');
+            _showUrlFallbackDialog(releasesUrl);
+          }
+        } else if (url.contains('play.google.com')) {
+          // For Play Store URLs, open directly
+          try {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+            print('✅ Opened Play Store');
+          } catch (e) {
+            print('❌ Failed to open Play Store: $e');
+            _showUrlFallbackDialog(url);
+          }
+        } else {
+          // For other URLs, try multiple approaches
+          bool launched = false;
+
+          // Method 1: Try external application (browser)
+          try {
+            print('🔍 Trying LaunchMode.externalApplication...');
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+            print('✅ Launched update URL in external app: $url');
             launched = true;
           } catch (e) {
-            print('⚠️ Failed to launch in in-app webview: $e');
+            print('⚠️ Failed to launch in external app: $e');
           }
-        }
 
-        // Method 3: Try platform default
-        if (!launched) {
-          try {
-            print('🔍 Trying platform default...');
-            await launchUrl(uri);
-            print('✅ Launched update URL with platform default: $url');
-            launched = true;
-          } catch (e) {
-            print('⚠️ Failed to launch with platform default: $e');
-          }
-        }
-
-        // Method 4: Try with canLaunchUrl check
-        if (!launched) {
-          try {
-            print('🔍 Checking if URL can be launched...');
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
-              print('✅ Launched update URL after canLaunchUrl check: $url');
+          // Method 2: Try in-app webview if external failed
+          if (!launched) {
+            try {
+              print('🔍 Trying LaunchMode.inAppWebView...');
+              await launchUrl(uri, mode: LaunchMode.inAppWebView);
+              print('✅ Launched update URL in in-app webview: $url');
               launched = true;
-            } else {
-              print('❌ URL cannot be launched: $url');
+            } catch (e) {
+              print('⚠️ Failed to launch in in-app webview: $e');
             }
-          } catch (e) {
-            print('⚠️ Failed canLaunchUrl check: $e');
           }
-        }
 
-        if (!launched) {
-          print('❌ All launch methods failed for URL: $url');
-          // Show a fallback dialog with the URL
-          _showUrlFallbackDialog(url);
+          // Method 3: Try platform default
+          if (!launched) {
+            try {
+              print('🔍 Trying platform default...');
+              await launchUrl(uri);
+              print('✅ Launched update URL with platform default: $url');
+              launched = true;
+            } catch (e) {
+              print('⚠️ Failed to launch with platform default: $e');
+            }
+          }
+
+          if (!launched) {
+            print('❌ All launch methods failed for URL: $url');
+            _showUrlFallbackDialog(url);
+          }
         }
       } else {
         // For web and other platforms
