@@ -306,29 +306,8 @@ class AuthProvider with ChangeNotifier {
         }
 
         // --- Load features after login ---
-        if (_featureProvider != null) {
-          log('LOGIN_DEBUG: Loading features after login');
-          // Use the same approach as CompanyInfoWidget - load features after UI is built
-          WidgetsBinding.instance.addPostFrameCallback((_) async {
-            try {
-              await _featureProvider!.loadFeatures();
-              log('LOGIN_DEBUG: Features loaded successfully');
-            } catch (e) {
-              log('LOGIN_DEBUG: Features loading failed: $e');
-              // Try to force refresh features even if initial load fails
-              try {
-                await _featureProvider!.forceRefreshFeatures();
-                log('LOGIN_DEBUG: Force refresh features successful');
-              } catch (forceError) {
-                log('LOGIN_DEBUG: Force refresh features also failed: $forceError');
-              }
-            }
-          });
-        } else {
-          log('LOGIN_DEBUG: FeatureProvider is not set, cannot load features');
-          // Schedule feature loading for when provider becomes available
-          _scheduleFeatureLoading = true;
-        }
+        // Features will be loaded by the FeatureProvider proxy when it becomes available
+        log('LOGIN_DEBUG: Feature loading will be handled by FeatureProvider proxy');
 
         return true;
       } else {

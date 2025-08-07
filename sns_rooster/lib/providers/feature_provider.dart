@@ -9,13 +9,25 @@ class FeatureProvider extends ChangeNotifier {
 
   FeatureProvider(this.authProvider) {
     _featureService = FeatureService(authProvider);
-    // Initialize features when provider is created
-    _initializeFeatures();
+    // Remove automatic initialization - will be called when user is authenticated
+    // _initializeFeatures();
   }
 
   /// Initialize features when provider is created
   Future<void> _initializeFeatures() async {
     await loadFeatures();
+  }
+
+  /// Initialize features when user is authenticated
+  Future<void> initializeFeaturesForAuthenticatedUser() async {
+    if (authProvider.isAuthenticated) {
+      Logger.info(
+          'FeatureProvider: Initializing features for authenticated user');
+      await loadFeatures();
+    } else {
+      Logger.info(
+          'FeatureProvider: User not authenticated, skipping feature initialization');
+    }
   }
 
   // State variables
@@ -26,6 +38,7 @@ class FeatureProvider extends ChangeNotifier {
   Map<String, int> _usage = {};
   Map<String, dynamic> _subscriptionPlan = {};
   Map<String, dynamic> _companyInfo = {};
+  bool _isInitialized = false;
 
   // Getters
   bool get isLoading => _isLoading;
@@ -35,6 +48,7 @@ class FeatureProvider extends ChangeNotifier {
   Map<String, int> get usage => _usage;
   Map<String, dynamic> get subscriptionPlan => _subscriptionPlan;
   Map<String, dynamic> get companyInfo => _companyInfo;
+  bool get isInitialized => _isInitialized;
 
   // Convenience getters
   bool get isBasicPlan =>
@@ -146,10 +160,12 @@ class FeatureProvider extends ChangeNotifier {
           Map<String, dynamic>.from(data['subscriptionPlan'] ?? {});
       _companyInfo = Map<String, dynamic>.from(data['company'] ?? {});
 
+      _isInitialized = true; // Mark as initialized when features are loaded
       Logger.info('Features loaded successfully');
     } catch (e) {
       Logger.error('Error loading features: $e');
       _error = 'Error loading features: $e';
+      _isInitialized = false; // Mark as not initialized if loading fails
     } finally {
       _isLoading = false;
       notifyListeners();

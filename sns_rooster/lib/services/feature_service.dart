@@ -14,7 +14,22 @@ class FeatureService {
   /// Get company features and subscription plan
   Future<Map<String, dynamic>> getCompanyFeatures() async {
     try {
-      final response = await _apiService.get('/companies/features');
+      // Check if user is authenticated
+      final user = authProvider.user;
+      final userCompanyId = user?['companyId'];
+
+      String endpoint;
+      if (userCompanyId != null) {
+        // User is authenticated, use the authenticated endpoint
+        endpoint = '/companies/features';
+      } else {
+        // User is not authenticated, return default features
+        Logger.info(
+            'FeatureService: User not authenticated, returning default features');
+        return await _getFallbackFeatures();
+      }
+
+      final response = await _apiService.get(endpoint);
 
       if (response.success) {
         final data = response.data as Map<String, dynamic>;
@@ -60,7 +75,7 @@ class FeatureService {
         }
       }
 
-      // Return default features if everything fails
+      // Return default features if everything fails or user is not authenticated
       Logger.info('FeatureService: Returning default features');
       return {
         'features': {

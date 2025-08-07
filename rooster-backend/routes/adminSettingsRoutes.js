@@ -93,7 +93,8 @@ router.get('/company/logo/proxy', async (req, res) => {
     // Set appropriate headers
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // Remove conflicting CORS header - let main CORS middleware handle it
+    // res.setHeader('Access-Control-Allow-Origin', '*');
 
     // Send the image
     res.send(Buffer.from(imageBuffer));

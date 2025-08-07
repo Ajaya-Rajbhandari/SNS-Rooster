@@ -551,8 +551,9 @@ class _LoginScreenState extends State<LoginScreen> {
             margin: const EdgeInsets.only(top: 16),
             child: InkWell(
               onTap: () async {
+                // Use direct APK download URL with correct file name
                 const downloadUrl =
-                    'https://sns-rooster.onrender.com/api/app/download/android/file';
+                    'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest/download/sns-rooster-v1.0.14.apk';
                 final uri = Uri.parse(downloadUrl);
                 if (await canLaunchUrl(uri)) {
                   await launchUrl(uri, mode: LaunchMode.externalApplication);

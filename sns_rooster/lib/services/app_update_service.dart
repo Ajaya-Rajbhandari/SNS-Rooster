@@ -28,8 +28,8 @@ class AppUpdateService {
     bool forceCheck = false,
     bool showAlert = true,
   }) async {
-    // Skip update checks on web platform
-    if (kIsWeb) {
+    // Skip update checks on web platform (but allow force check for testing)
+    if (kIsWeb && !forceCheck) {
       print('🌐 Skipping app update check on web platform');
       return null;
     }
@@ -211,7 +211,7 @@ class AppUpdateService {
                   print('🔘 GitHub download clicked');
                   try {
                     await launchUpdateUrl(
-                        'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest');
+                        'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest/download/sns-rooster-v1.0.14.apk');
                   } catch (e) {
                     print('❌ Error in GitHub download: $e');
                   }

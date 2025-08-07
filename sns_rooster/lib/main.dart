@@ -211,35 +211,31 @@ class MyApp extends StatelessWidget {
           final profileProvider = ProfileProvider(authProvider);
           final companyProvider = CompanyProvider();
           final companySettingsProvider = CompanySettingsProvider(authProvider);
-          final featureProvider = FeatureProvider(authProvider);
+          // Remove duplicate FeatureProvider creation - let the proxy provider handle it
 
           // Set up the providers
           authProvider.setProfileProvider(profileProvider);
           authProvider.setCompanyProvider(companyProvider);
           authProvider.setCompanySettingsProvider(companySettingsProvider);
-          authProvider.setFeatureProvider(featureProvider);
-
-          // Load features immediately if user is already authenticated
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            try {
-              if (authProvider.isAuthenticated) {
-                Logger.info('Loading features for authenticated user');
-                featureProvider.loadFeatures().catchError((e) {
-                  Logger.error('Failed to load features: $e');
-                });
-              }
-            } catch (e) {
-              Logger.error('Error in post-frame feature loading: $e');
-            }
-          });
+          // Remove feature provider setup - will be handled by proxy provider
 
           return authProvider;
         }),
         // Then create FeatureProvider that depends on AuthProvider
         ChangeNotifierProxyProvider<AuthProvider, FeatureProvider>(
           create: (context) => FeatureProvider(context.read<AuthProvider>()),
-          update: (context, auth, previous) =>
-              previous ?? FeatureProvider(auth),
+          update: (context, auth, previous) {
+            final featureProvider = previous ?? FeatureProvider(auth);
+
+            // Initialize features when user becomes authenticated
+            if (auth.isAuthenticated && !featureProvider.isInitialized) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                featureProvider.initializeFeaturesForAuthenticatedUser();
+              });
+            }
+
+            return featureProvider;
+          },
         ),
         ChangeNotifierProxyProvider<AuthProvider, AttendanceProvider>(
           create: (context) => AttendanceProvider(

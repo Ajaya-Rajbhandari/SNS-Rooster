@@ -379,8 +379,9 @@ class AdminSideNavigation extends StatelessWidget {
                 route: '/download_app',
                 onTap: () async {
                   Navigator.pop(context); // Close the drawer
+                  // Use direct APK download URL with correct file name
                   const downloadUrl =
-                      'https://sns-rooster.onrender.com/api/app/download/android/file';
+                      'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest/download/sns-rooster-v1.0.14.apk';
                   final uri = Uri.parse(downloadUrl);
                   if (await canLaunchUrl(uri)) {
                     await launchUrl(uri, mode: LaunchMode.externalApplication);

@@ -384,13 +384,13 @@ class _AboutScreenState extends State<AboutScreen> {
                         child: Column(
                           children: [
                             ListTile(
-                              leading:
-                                  const Icon(Icons.android, color: Colors.green),
+                              leading: const Icon(Icons.android,
+                                  color: Colors.green),
                               title: const Text('Android App'),
                               subtitle:
                                   const Text('Download for Android devices'),
                               onTap: () => _launchUrl(
-                                  'https://sns-rooster.onrender.com/api/app/download/android/file'),
+                                  'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest/download/sns-rooster-v1.0.14.apk'),
                               trailing: const Icon(Icons.download),
                             ),
                             const SizedBox(height: 8),

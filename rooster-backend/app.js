@@ -87,7 +87,7 @@ app.use(helmet({
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
-      connectSrc: ["'self'", "https://sns-rooster.onrender.com", "https://sns-rooster-8ccz5.web.app"]
+      connectSrc: ["'self'", "https://sns-rooster.onrender.com", "https://sns-rooster-8ccz5.web.app", "https://sns-rooster-8cca5.web.app"]
     }
   }
 }));
@@ -96,6 +96,7 @@ app.use(helmet({
 app.use(cors({
   origin: [
     'https://sns-rooster-8ccz5.web.app',
+    'https://sns-rooster-8cca5.web.app', // Added the correct domain
     'https://sns-rooster-admin.web.app',
     'https://sns-rooster.com',
     'http://localhost:3000',

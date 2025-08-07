@@ -112,14 +112,14 @@ class DirectDownloadService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        
+
         // Prioritize GitHub URL if available
         final downloadUrl = data['download_url'];
         if (downloadUrl != null && downloadUrl.contains('github.com')) {
           print('📱 Using GitHub download URL: $downloadUrl');
           return downloadUrl;
         }
-        
+
         // Fallback to alternative downloads
         final alternativeDownloads = data['alternative_downloads'] as List?;
         if (alternativeDownloads != null && alternativeDownloads.isNotEmpty) {
@@ -130,7 +130,7 @@ class DirectDownloadService {
               return url;
             }
           }
-          
+
           // If no GitHub, try Play Store
           for (final url in alternativeDownloads) {
             if (url.contains('play.google.com')) {
@@ -138,12 +138,13 @@ class DirectDownloadService {
               return url;
             }
           }
-          
+
           // Use first available alternative
-          print('📱 Using alternative download URL: ${alternativeDownloads.first}');
+          print(
+              '📱 Using alternative download URL: ${alternativeDownloads.first}');
           return alternativeDownloads.first;
         }
-        
+
         return downloadUrl;
       }
 

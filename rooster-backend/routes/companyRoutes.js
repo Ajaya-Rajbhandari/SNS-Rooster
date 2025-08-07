@@ -120,18 +120,16 @@ router.get('/features/public/:companyId', async (req, res) => {
         analytics: planFeatures.analytics !== undefined ? planFeatures.analytics : defaultFeatures.analytics,
         documentManagement: planFeatures.documentManagement !== undefined ? planFeatures.documentManagement : defaultFeatures.documentManagement,
         notifications: planFeatures.notifications !== undefined ? planFeatures.notifications : defaultFeatures.notifications,
-        customBranding: planFeatures.customBranding !== undefined ? planFeatures.customBranding : defaultFeatures.customBranding,
-        apiAccess: planFeatures.apiAccess !== undefined ? planFeatures.apiAccess : defaultFeatures.apiAccess,
-        multiLocation: planFeatures.multiLocationSupport !== undefined ? planFeatures.multiLocationSupport : defaultFeatures.multiLocation,
-        advancedReporting: planFeatures.advancedReporting !== undefined ? planFeatures.advancedReporting : defaultFeatures.advancedReporting,
+        customBranding: planFeatures.customBranding || defaultFeatures.customBranding,
+        apiAccess: planFeatures.apiAccess || defaultFeatures.apiAccess,
+        multiLocation: planFeatures.multiLocation || defaultFeatures.multiLocation,
+        advancedReporting: planFeatures.advancedReporting || defaultFeatures.advancedReporting,
         timeTracking: planFeatures.timeTracking !== undefined ? planFeatures.timeTracking : defaultFeatures.timeTracking,
         expenseManagement: planFeatures.expenseManagement !== undefined ? planFeatures.expenseManagement : defaultFeatures.expenseManagement,
         performanceReviews: planFeatures.performanceReviews !== undefined ? planFeatures.performanceReviews : defaultFeatures.performanceReviews,
         trainingManagement: planFeatures.trainingManagement !== undefined ? planFeatures.trainingManagement : defaultFeatures.trainingManagement,
         locationBasedAttendance: planFeatures.locationBasedAttendance !== undefined ? planFeatures.locationBasedAttendance : defaultFeatures.locationBasedAttendance,
-        // Employee Features
         events: planFeatures.events !== undefined ? planFeatures.events : defaultFeatures.events,
-        // Admin Features
         employeeManagement: planFeatures.employeeManagement !== undefined ? planFeatures.employeeManagement : defaultFeatures.employeeManagement,
         timesheetApprovals: planFeatures.timesheetApprovals !== undefined ? planFeatures.timesheetApprovals : defaultFeatures.timesheetApprovals,
         attendanceManagement: planFeatures.attendanceManagement !== undefined ? planFeatures.attendanceManagement : defaultFeatures.attendanceManagement,
@@ -142,28 +140,26 @@ router.get('/features/public/:companyId', async (req, res) => {
         companySettings: planFeatures.companySettings !== undefined ? planFeatures.companySettings : defaultFeatures.companySettings,
         featureManagement: planFeatures.featureManagement !== undefined ? planFeatures.featureManagement : defaultFeatures.featureManagement,
         helpSupport: planFeatures.helpSupport !== undefined ? planFeatures.helpSupport : defaultFeatures.helpSupport,
-        // Location management features
         locationManagement: planFeatures.locationManagement !== undefined ? planFeatures.locationManagement : defaultFeatures.locationManagement,
         locationSettings: planFeatures.locationSettings !== undefined ? planFeatures.locationSettings : defaultFeatures.locationSettings,
         locationNotifications: planFeatures.locationNotifications !== undefined ? planFeatures.locationNotifications : defaultFeatures.locationNotifications,
         locationGeofencing: planFeatures.locationGeofencing !== undefined ? planFeatures.locationGeofencing : defaultFeatures.locationGeofencing,
         locationCapacity: planFeatures.locationCapacity !== undefined ? planFeatures.locationCapacity : defaultFeatures.locationCapacity,
-        // New features
         dataExport: planFeatures.dataExport !== undefined ? planFeatures.dataExport : defaultFeatures.dataExport,
         profile: planFeatures.profile !== undefined ? planFeatures.profile : defaultFeatures.profile,
         companyInfo: planFeatures.companyInfo !== undefined ? planFeatures.companyInfo : defaultFeatures.companyInfo,
       },
       limits: {
-        maxEmployees: planFeatures.maxEmployees || defaultLimits.maxEmployees,
-        maxStorageGB: planFeatures.maxStorageGB || defaultLimits.maxStorageGB,
-        maxApiCallsPerDay: planFeatures.maxApiCallsPerDay || defaultLimits.maxApiCallsPerDay,
-        maxDepartments: planFeatures.maxDepartments || defaultLimits.maxDepartments,
-        dataRetention: planFeatures.dataRetention || defaultLimits.dataRetention,
+        maxEmployees: subscriptionPlan?.limits?.maxEmployees || defaultLimits.maxEmployees,
+        maxStorageGB: subscriptionPlan?.limits?.maxStorageGB || defaultLimits.maxStorageGB,
+        maxApiCallsPerDay: subscriptionPlan?.limits?.maxApiCallsPerDay || defaultLimits.maxApiCallsPerDay,
+        maxDepartments: subscriptionPlan?.limits?.maxDepartments || defaultLimits.maxDepartments,
+        dataRetention: subscriptionPlan?.limits?.dataRetention || defaultLimits.dataRetention,
       },
       subscription: {
-        planName: subscriptionPlan?.name || 'Basic',
-        planType: subscriptionPlan?.type || 'basic',
-        status: company.status
+        plan: subscriptionPlan?.name || 'Basic',
+        status: company.subscriptionStatus || 'active',
+        currentPeriodEnd: subscriptionPlan?.currentPeriodEnd || null,
       }
     };
 
@@ -174,7 +170,7 @@ router.get('/features/public/:companyId', async (req, res) => {
   }
 });
 
-// Get company features (for frontend feature checking) - MUST BE BEFORE /:companyId
+// Get company features (for authenticated users) - MUST BE BEFORE /:companyId
 router.get('/features', authenticateToken, validateCompanyContext, async (req, res) => {
   try {
     const company = await Company.findById(req.companyId).populate('subscriptionPlan');
