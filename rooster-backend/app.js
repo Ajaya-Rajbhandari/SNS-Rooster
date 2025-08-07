@@ -90,9 +90,15 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      connectSrc: ["'self'", "https://sns-rooster.onrender.com", "https://sns-rooster-8ccz5.web.app", "https://sns-rooster-8cca5.web.app"]
+      imgSrc: ["'self'", "data:", "https:", "https://maps.googleapis.com", "https://maps.gstatic.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://maps.googleapis.com", "https://maps.gstatic.com"],
+      connectSrc: ["'self'", "https://sns-rooster.onrender.com", "https://sns-rooster-8ccz5.web.app", "https://sns-rooster-8cca5.web.app", "https://maps.googleapis.com"],
+      frameSrc: ["'self'", "https://maps.googleapis.com"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'self'"],
+      upgradeInsecureRequests: []
     }
   }
 }));
