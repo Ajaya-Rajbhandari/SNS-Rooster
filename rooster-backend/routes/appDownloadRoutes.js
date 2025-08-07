@@ -64,7 +64,7 @@ router.get('/android', async (req, res) => {
  */
 router.get('/android/file', async (req, res) => {
   try {
-    // Redirect to GitHub Releases (primary download source) - Updated with correct filename
+    // Redirect to GitHub Releases (primary download source) - Updated with correct filename v1.0.14
     const githubUrl = 'https://github.com/Ajaya-Rajbhandari/SNS-Rooster/releases/latest/download/sns-rooster-v1.0.14.apk';
     
     console.log(`📱 Redirecting APK download to GitHub: ${githubUrl}`);
